@@ -1,0 +1,10 @@
+es:
+  host: http://localhost:59200
+  index: ods_material_chongqing_price
+  sync_log_index: ods_chongqing_price_sync_log
+  progress_index: ods_chongqing_price_progress
+  timeout: 30
+site:
+  url: http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx
+sync:
+  last_period: '2026'

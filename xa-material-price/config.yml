@@ -1,0 +1,19 @@
+es:
+  batch_size: 500
+  host: http://localhost:59200
+  index: ods_material_xian_price
+  progress_index: ods_material_xian_price_sync_progress
+  sync_log_index: ods_material_xian_price_sync_log
+  timeout: 30
+site:
+  base_url: https://zjj.xa.gov.cn/zxcx/gczj/index.aspx
+  counties:
+  - 阎良区
+  - 临潼区
+  - 高陵区
+  - 鄠邑区
+  - 蓝田县
+  - 周至县
+  page_param: page
+sync:
+  last_update_date: '2026-05-22'

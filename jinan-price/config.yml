@@ -1,0 +1,14 @@
+es:
+  catalogue_index: material_jinan_price_catalogue
+  host: http://localhost:59200
+  index: ods_material_jinan_price
+  progress_index: ods_material_jinan_price_sync_progress
+  sync_log_index: ods_material_jinan_price_sync_log
+site:
+  api_base: /cj/api/build
+  base_url: http://jnxxj.jngczjxh.com:5020
+  data_type: '2'
+sync:
+  last_period: 2026年03月材料价格信息
+  last_period_id: '790343006966981'
+  size_per_page: 100

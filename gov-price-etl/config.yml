@@ -1,0 +1,9 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_xian_price
+  dwd_index: dwd_xian_price
+  dws_index: dws_gov_price_data
+  batch_size: 500
+
+sync:
+  last_update_date: ""

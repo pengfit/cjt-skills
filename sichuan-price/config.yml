@@ -1,0 +1,10 @@
+es:
+  host: http://localhost:59200
+  index: ods_material_sichuan_price
+  progress_index: ods_material_sichuan_price_sync_progress
+  sync_log_index: ods_material_sichuan_price_sync_log
+  timeout: 30
+site:
+  url: http://202.61.90.35:8032/pubpages/pricelist.aspx
+sync:
+  last_period: 2026年04月
