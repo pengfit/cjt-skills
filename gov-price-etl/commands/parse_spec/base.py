@@ -9,6 +9,18 @@ class BaseParseSpec:
     """规格解析基类，包含所有通用解析规则"""
 
     def parse(self, spec: str) -> dict:
+        # ── 自动生成: 三值乘积的第二个值 ──
+        m = re.search(r'\d+\*(\d+)\*\d+mm', s)
+        if m:
+            result['length'] = m.group(1)
+        # ── 自动生成: 芝麻白 颜色或花纹 ──
+        m = re.search(r'(芝麻白)', s)
+        if m:
+            result['color'] = m.group(1)
+        # ── 自动生成: 亚光面 表面光洁度形式 ──
+        m = re.search(r'(亚光面)', s)
+        if m:
+            result['form'] = m.group(1)
         """解析规格字符串，返回 attr 字段字典"""
         if not spec or spec == "/" or spec == "":
             return {}
@@ -48,6 +60,18 @@ class BaseParseSpec:
                             result["cross_section"] = m.group(1) + "mm²"
 
         # 3. 3D 尺寸 AxBxCmm（仅匹配 mm 后无数字/字母的）
+        # ── 自动生成: 三值乘积的第三个值 ──
+        m = re.search(r'\d+\*\d+\*(\d+)mm', s)
+        if m:
+            result['height'] = m.group(1)
+        # ── 自动生成: 三值乘积的第一个值 ──
+        m = re.search(r'(\d+)\*\d+\*\d+mm', s)
+        if m:
+            result['width'] = m.group(1)
+        # ── 自动生成: mm~mm 范围值，提取为长度范围 ──
+        m = re.search(r'(\d+)mm~(\d+)mm', s)
+        if m:
+            result['length_range'] = m.group(1) + '~' + m.group(2) + 'mm'
         # ── 自动生成: 数值范围，表示从多少到多少毫米 ──
         m = re.search(r'(\d+)mm~(\d+)mm', s)
         if m:

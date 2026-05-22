@@ -257,6 +257,16 @@
             <div class="fix-result-ok" v-if="fixResult.ok">✅ {{ fixResult.message }}</div>
             <div class="fix-result-fail" v-else>❌ {{ fixResult.message }}</div>
           </div>
+
+          <!-- 成功弹窗 -->
+          <div class="fix-success-modal" v-if="showFixSuccess">
+            <div class="fix-success-content">
+              <div class="fix-success-icon">✅</div>
+              <div class="fix-success-title">规则已写入成功</div>
+              <div class="fix-success-msg">{{ fixSuccessMsg }}</div>
+              <button class="btn-ok" @click="showFixSuccess = false">确定</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -324,6 +334,8 @@ const fixCase = ref(null)
 const fixSuggestions = ref([])
 const fixResult = ref(null)
 const fixLoading = ref(false)
+const showFixSuccess = ref(false)
+const fixSuccessMsg = ref('')
 
 function openFixCase(s) {
   fixCase.value = s
@@ -374,6 +386,9 @@ async function confirmFix(sg) {
     })
     fixResult.value = res.data
     if (res.data.ok) {
+      // 成功弹窗
+      fixSuccessMsg.value = res.data.message
+      showFixSuccess.value = true
       // 刷新 spec-quality 数据
       specQuality.value = {}
       await nextTick()
@@ -891,4 +906,36 @@ onUnmounted(() => {
 .pipeline-status { font-size: 12px; font-weight: 600; }
 .pipeline-status.ok { color: #34d399; }
 .pipeline-status.warn { color: #fbbf24; }
+
+.fix-success-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.fix-success-content {
+  background: #1e293b;
+  border: 1px solid #34d399;
+  border-radius: 16px;
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 420px;
+}
+.fix-success-icon { font-size: 64px; margin-bottom: 16px; }
+.fix-success-title { font-size: 22px; font-weight: 700; color: #34d399; margin-bottom: 12px; }
+.fix-success-msg { font-size: 14px; color: #94a3b8; margin-bottom: 28px; line-height: 1.6; }
+.btn-ok {
+  background: #34d399;
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 40px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-ok:hover { background: #6ee7b7; }
 </style>
