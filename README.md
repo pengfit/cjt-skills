@@ -29,7 +29,7 @@ cjt-skills/
 ├── gov-price-etl/          # ETL 清洗逻辑
 │   ├── commands/
 │   │   ├── etl.py         # ODS → DWD
-│   │   └── parse_spec.py  # 规格解析规则
+│   │   └── parse_spec/   # 规格解析规则（rules/ 目录驱动）
 │   └── utils/
 │       └── sync_dws.py    # DWD → DWS
 │

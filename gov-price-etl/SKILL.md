@@ -21,7 +21,7 @@ gov-price-etl/
 ├── commands/
 │   ├── __init__.py
 │   ├── etl.py              # ODS → DWD 主程序
-│   ├── parse_spec.py       # 规格解析规则库
+│   ├── parse_spec/          # 规格解析规则库（rules/ 目录驱动）
 │   ├── classify.py         # 品种分类引擎
 │   ├── rules.py            # 分类规则库
 │   └── clean.py            # 字段清洗
@@ -114,13 +114,12 @@ m.sync_dwd_to_dws()
 
 ```bash
 python3 -c "
-import importlib.util
-spec = importlib.util.spec_from_file_location('ps', 'commands/parse_spec.py')
-m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-print(m.parse_spec('H100~H250 Q235B'))
-print(m.parse_spec('400*(800+250)'))
-print(m.parse_spec('δ=4.5'))
-print(m.parse_spec('混凝土预制井筒 Φ700 H=0.36m'))
+from commands.parse_spec import get_parser
+p = get_parser('xian')
+print(p.parse_spec('H100~H250 Q235B'))
+print(p.parse_spec('400*(800+250)'))
+print(p.parse_spec('δ=4.5'))
+print(p.parse_spec('D720*8'))
 "
 ```
 
