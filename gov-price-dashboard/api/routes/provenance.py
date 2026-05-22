@@ -966,13 +966,11 @@ def stats_spec_quality(
     sample_size: int = Query(50, description="抽样数量"),
     category: str = Query("", description="分类筛选"),
 ):
-    """Spec 解析质量报告：测试集通过率 + DWD 抽样 + 分类覆盖率"""
-    validation = _run_spec_validation(city)
+    """Spec 解析质量报告：DWD 抽样 + 分类覆盖率"""
     samples = _sample_dwd_specs(city, sample_size, category)
     coverage = _category_coverage(city)
     return {
         "city": city,
-        "validation": validation,
         "samples": samples,
         "coverage": coverage,
     }
@@ -992,134 +990,44 @@ class FixCaseRequest(BaseModel):
 
 def _infer_rule_suggestion(spec: str, expected: dict) -> list:
     """
-    根据 spec 字符串结构生成本地规则建议，完全基于字符串特征匹配。
-    expected 只作参考（告诉前端用户想修哪个属性），不作为匹配条件。
+    根据 rules/ 目录下已有规则生成建议，完全基于已加载规则进行匹配。
+    expected 只作参考，不作为匹配条件。
+    规则文件变更后自动反映，无需硬编码。
     """
-    import re
+    import re, glob
     rules = []
     s = spec.strip()
 
     def add(attr, note, pattern, code_block):
         rules.append({"attr": attr, "note": note, "pattern": pattern, "code_block": code_block})
 
-    # ── 1. 钢管 D*N*N（纯数字*N*N，无DN前缀）
-    if re.match(r"^D\d+\*\d+$", s) and not s.startswith("DN"):
-        add("diameter",
-            f"钢管 D*N*N: {spec}",
-            r"^D(\d+)\*(\d+)$",
-            ["m = re.search(r'^D(\d+)\*(\d+)$', s)",
-             "if m:",
-             "    result['diameter'] = 'D' + m.group(1)",
-             "    result['thickness'] = m.group(2) + 'mm'"])
-
-    # ── 2. JDGΦ管
-    if "JDG" in s and re.search(r"JDGΦ\d+", s):
-        add("diameter",
-            f"JDG管: {spec}",
-            r"JDGΦ(\d+)\*(\d+(?:\.\d+)?)\s*mm",
-            ["m = re.search(r'JDGΦ(\d+)\*(\d+(?:\.\d+)?)\s*mm', s)",
-             "if m:",
-             "    result['diameter'] = 'Φ' + m.group(1)",
-             "    result['thickness'] = m.group(2) + 'mm'"])
-
-    # ── 3. Φ管径*壁厚（无JDG前缀）
-    if re.search(r"Φ\d+\*\d+(?:\.\d+)?\s*mm", s) and "JDG" not in s:
-        add("diameter",
-            f"Φ管径+壁厚: {spec}",
-            r"Φ(\d+)\*(\d+(?:\.\d+)?)\s*mm",
-            ["m = re.search(r'Φ(\d+)\*(\d+(?:\.\d+)?)\s*mm', s)",
-             "if m:",
-             "    result['diameter'] = 'Φ' + m.group(1)",
-             "    result['thickness'] = m.group(2) + 'mm'"])
-
-    # ── 4. 袋装水泥 P.S.A
-    if "袋装" in s and re.search(r"P\.S\.A", s):
-        add("grade",
-            f"水泥等级: {spec}",
-            r"袋装\s*P\.S\.A\s*(\d+\.?\d*)",
-            ["m = re.search(r'袋装\s*P\.S\.A\s*(\d+\.?\d*)', s)",
-             "if m:",
-             "    result['grade'] = 'P.S.A' + m.group(1)"])
-
-    # ── 5. 瓷砖 W*H*T（三数*mm结尾）
-    if re.match(r"(?:普通\s*)?\d+\s*\*\s*\d+\s*\*\s*\d+\s*mm$", s):
-        add("width",
-            f"瓷砖W*H*T: {spec}",
-            r"(?:普通\s*)?(\d+)\s*\*\s*(\d+)\s*\*\s*(\d+)\s*mm$",
-            ["m = re.search(r'(?:普通\s*)?(\d+)\s*\*\s*(\d+)\s*\*\s*(\d+)\s*mm$', s)",
-             "if m:",
-             "    result['width'] = m.group(1) + 'mm'",
-             "    result['height'] = m.group(2) + 'mm'",
-             "    result['thickness'] = m.group(3) + 'mm'"])
-
-    # ── 6. 瓷砖 W*H（两数*mm结尾，排除三数）
-    if re.match(r"(?:普通\s*)?\d+\s*\*\s*\d+\s*mm$", s) and not re.search(r"\d+\s*\*\s*\d+\s*\*\s*\d+", s):
-        add("width",
-            f"瓷砖W*H: {spec}",
-            r"(?:普通\s*)?(\d+)\s*\*\s*(\d+)\s*mm$",
-            ["m = re.search(r'(?:普通\s*)?(\d+)\s*\*\s*(\d+)\s*mm$', s)",
-             "if m:",
-             "    result['width'] = m.group(1) + 'mm'",
-             "    result['height'] = m.group(2) + 'mm'"])
-
-    # ── 7. 金属 W*H重型
-    if re.search(r"\d+\s*\*\s*\d+\s*重型", s):
-        add("width",
-            f"金属材料: {spec}",
-            r"(\d+)\s*\*\s*(\d+)\s*重型",
-            ["m = re.search(r'(\d+)\s*\*\s*(\d+)\s*重型', s)",
-             "if m:",
-             "    result['width'] = m.group(1) + 'mm'",
-             "    result['height'] = m.group(2) + 'mm'"])
-
-    # ── 8. 尺寸 A*B*C(L) 格式
-    if re.match(r"\d+\s*\*\s*\d+\s*\*\s*\d+\s*\([Lℓ]\)", s):
-        add("width",
-            f"尺寸A*B*C(L): {spec}",
-            r"(\d+)\s*\*\s*(\d+)\s*\*\s*(\d+)\s*\([Lℓ]\)",
-            ["m = re.search(r'(\d+)\s*\*\s*(\d+)\s*\*\s*(\d+)\s*\([Lℓ]\)', s)",
-             "if m:",
-             "    result['width'] = m.group(1) + 'mm'",
-             "    result['height'] = m.group(2) + 'mm'",
-             "    result['thickness'] = m.group(3) + 'mm'"])
-
-    # ── 9. 保温 B*级 + 干密度
-    if re.search(r"B\d级", s) and re.search(r"干密度\d+kg/m3", s):
-        add("grade",
-            f"保温等级+干密度: {spec}",
-            r"(B\d)级.*?干密度(\d+)\s*kg/m3",
-            ["m = re.search(r'(B\d)级.*?干密度(\d+)\s*kg/m3', s)",
-             "if m:",
-             "    result['grade'] = m.group(1) + '级'",
-             "    result['material'] = '干密度' + m.group(2) + 'kg/m3'"])
-
-    # ── 10. 板厚/叠厚/厚 X.Xmm
-    if re.search(r"板[叠厚]?\d+(?:\.\d+)?\s*mm", s):
-        add("thickness",
-            f"板厚: {spec}",
-            r"板[叠厚]?(\d+(?:\.\d+)?)\s*mm",
-            ["m = re.search(r'板[叠厚]?(\d+(?:\.\d+)?)\s*mm', s)",
-             "if m:",
-             "    result['thickness'] = m.group(1) + 'mm'"])
-
-    # ── 11. 光纤 N芯
-    if re.match(r"\d+芯", s):
-        add("cores",
-            f"光纤芯数: {spec}",
-            r"(\d+)芯",
-            ["m = re.search(r'(\d+)芯', s)",
-             "if m:",
-             "    result['cores'] = m.group(1) + '芯'"])
-
-    # ── 12. 钢材 SF 型号
-    if re.match(r"^SF\d+", s):
-        add("material",
-            f"钢材SF型号: {spec}",
-            r"^(SF\d+)",
-            ["m = re.search(r'^(SF\d+)', s)",
-             "if m:",
-             "    result['material'] = m.group(1)"])
-
+    rules_dir = os.path.join(ETL_CMD_DIR, "parse_spec", "rules")
+    pattern_re = re.compile(
+        r'# ── 自动生成: (.+?) ──\s*\n'
+        r'(.*?)(?=\n# ── 自动生成:|\Z)',
+        re.DOTALL
+    )
+    for py_file in sorted(glob.glob(os.path.join(rules_dir, "*.py"))):
+        if py_file.endswith("__init__.py"):
+            continue
+        with open(py_file) as f:
+            file_content = f.read()
+        for m in pattern_re.finditer(file_content):
+            note = m.group(1).strip()
+            code = m.group(2).strip()
+            pat_m = re.search(r"re\.search\(r['\"]([^'\"]+)['\"]", code)
+            if not pat_m:
+                continue
+            pattern = pat_m.group(1)
+            try:
+                compiled = re.compile(pattern)
+            except re.error:
+                continue
+            if compiled.match(s):
+                attr_m = re.search(r"result\['([^']+)'\]\s*=", code)
+                attr = attr_m.group(1) if attr_m else "_unknown"
+                code_block = code.split("\n")
+                add(attr, note, pattern, code_block)
     return rules
 
 
@@ -1145,34 +1053,58 @@ def _get_rule_insert_line(content: str, attr: str) -> int:
         for mk in markers:
             if mk in line:
                 positions.append(i)
-    return max(positions) if positions else 10
+    return max(positions) if positions else 112  # 112 = 插入到 BaseParseSpec class 定义之前
+
+
+def _get_rule_file_path(attr: str) -> str:
+    """根据 attr 确定规则文件路径"""
+    rules_dir = os.path.join(ETL_CMD_DIR, "parse_spec", "rules")
+    os.makedirs(rules_dir, exist_ok=True)
+    attr_file_map = {
+        "diameter": "diameter.py",
+        "thickness": "thickness.py",
+        "width": "width.py",
+        "height": "height.py",
+        "grade": "grade.py",
+        "material": "material.py",
+        "cores": "cores.py",
+        "cross_section": "cross_section.py",
+        "ring_stiffness": "ring_stiffness.py",
+        "pressure": "pressure.py",
+        "length_range": "length_range.py",
+    }
+    filename = attr_file_map.get(attr, f"{attr}.py")
+    return os.path.join(rules_dir, filename)
+
 
 
 def _apply_rule_to_base(code_lines: list, attr: str, note: str) -> bool:
+    """追加规则到 rules/<attr>.py，文件级代码无缩进"""
     import shutil
-    base_py = os.path.join(ETL_CMD_DIR, "parse_spec", "base.py")
-    bak = base_py + ".bak"
-    shutil.copy(base_py, bak)
+    rule_file = _get_rule_file_path(attr)
+    bak = rule_file + ".bak"
+    if os.path.exists(rule_file):
+        shutil.copy(rule_file, bak)
     try:
-        with open(base_py) as f:
-            content = f.read()
-        indent = "        "
-        block_lines = [f"{indent}# ── 自动生成: {note} ──"]
+        block_lines = [f"# ── 自动生成: {note} ──"]
         for ln in code_lines:
-            block_lines.append(f"{indent}{ln}")
+            stripped = ln.lstrip()
+            if stripped.startswith("if ") or stripped.startswith("elif ") or stripped.startswith("else:") or stripped.startswith("for ") or stripped.startswith("while "):
+                # 控制语句自身不加缩进
+                block_lines.append(stripped)
+            elif any(stripped.startswith(k) for k in ["result", "return", "pass", "break", "continue"]):
+                block_lines.append("    " + stripped)  # 4 spaces for body
+            else:
+                block_lines.append(stripped)
         block = "\n".join(block_lines)
-        insert_after = _get_rule_insert_line(content, attr)
-        lines = content.splitlines()
-        lines.insert(insert_after + 1, block)
-        new_content = "\n".join(lines)
-        compile(new_content, base_py, "exec")
-        with open(base_py, "w") as f:
-            f.write(new_content)
-        os.remove(bak)
+        with open(rule_file, "a") as f:
+            f.write("\n" + block + "\n")
+        if os.path.exists(bak):
+            os.remove(bak)
         return True
     except Exception:
         if os.path.exists(bak):
-            shutil.move(bak, base_py)
+            shutil.move(bak, rule_file)
         return False
 
 
@@ -1224,8 +1156,9 @@ base.py 代码风格示例：
 1. spec 中出现的任何可识别特征都应该尝试提取，不要直接返回"无法生成规则"
 2. ~ 表示范围，如 "25mm~70mm" 表示从 25mm 到 70mm，应提取为 range_min=25, range_max=70
 3. * 表示乘积/尺寸，如 "2600*700*1500" 提取为 width/height/thickness
-4. code_block 每行是一条代码语句（带8空格缩进）
+4. code_block 每行是独立的 Python 语句，**不带任何缩进前缀**，直接是文件级代码
 5. pattern 用原始字符串 r'...' 格式，note 简短描述规则用途
+6. pattern 必须使用捕获组提取实际值，禁止硬编码。例如 `Q235B` 应写成 `r'(Q\d+(?:B)?)'` 提取为 `m.group(1)`，而非 `r'Q235B'` 硬匹配全文
 
 返回格式（直接返回纯 JSON，不带 markdown）：
 {{"ok":true,"suggestions":[{{"attr":"属性名","note":"描述","pattern":"正则","code_block":"代码行"}}]}}
@@ -1251,10 +1184,18 @@ base.py 代码风格示例：
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
+        import http.client
+        c = http.client.HTTPConnection("localhost", 18789, timeout=10)
+        c.request("POST", "/v1/chat/completions", body=body, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+        })
+        resp = c.getresponse()
+        data = json.loads(resp.read())
         content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        # 去掉可能的 markdown 包装
+        if not content:
+            return {"ok": False, "message": "AI 返回空内容"}
         if content.startswith("```"):
             parts = content.split("```")
             content = parts[1] if len(parts) > 1 else parts[0]
@@ -1302,12 +1243,27 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             }
 
     if not req.confirm:
+        # 预览模式下：模拟解析结果
+        import re as re_mod
+        parse_result = {}
+        for s in all_suggestions:
+            pattern = s.get("pattern", "")
+            if not pattern:
+                continue
+            try:
+                code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
+                exec_globals = {"result": {}, "re": re_mod, "s": spec}
+                exec("\n".join(code_block), exec_globals)
+                parse_result.update(exec_globals.get("result", {}))
+            except Exception:
+                pass
         return {
             "ok": True,
             "mode": "preview",
             "spec": spec,
             "expected": expected,
             "source": "ai" if not suggestions else "local",
+            "parse_result": parse_result,
             "suggestions": [
                 {
                     "note": s["note"],
@@ -1319,21 +1275,15 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             ],
         }
 
-    # confirm 模式：写入（支持本地 + AI 两类 suggestions）
-    base_py = os.path.join(ETL_CMD_DIR, "parse_spec", "base.py")
-    # 在循环前备份，失败时统一 rollback
-    bak = base_py + ".bak"
-    shutil.copy(base_py, bak)
+    # confirm 模式：写入 rules/ 目录
     applied_note = None
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
         ok = _apply_rule_to_base(code_block, s["attr"], s["note"])
         if not ok:
-            return {"ok": False, "message": "规则写入失败（语法错误），已 rollback"}
+            return {"ok": False, "message": "规则写入失败，已 rollback"}
         passed, total = _run_spec_validation_quiet(spec)
         if not (passed == total and total > 0):
-            if os.path.exists(bak):
-                shutil.move(bak, base_py)
             return {
                 "ok": False,
                 "mode": "confirm",
@@ -1341,9 +1291,6 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
                 "spec": spec,
             }
         applied_note = s["note"]
-
-    if os.path.exists(bak):
-        os.remove(bak)
 
     # 触发 city ETL
     city_dwd_map = {

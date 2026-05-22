@@ -160,14 +160,11 @@
           <button class="dwd-drilldown-close" @click="closeDwdDrilldown">✕</button>
         </div>
         <div class="dwd-drilldown-body">
-          <div class="spec-quality-panel" v-if="specQuality.validation">
+          <div class="spec-quality-panel" v-if="specQuality.coverage?.length || specQuality.samples?.length">
             <div class="sq-header">
               <span class="panel-dot panel-dot-green"></span>
               <span class="panel-title">🔬 Spec 解析质量</span>
-              <span class="sq-badge" :class="(specQuality.validation.pass_rate || 0) >= 90 ? 'sq-ok' : 'sq-warn'">
-                {{ specQuality.validation.pass_rate }}%
-              </span>
-              <span class="sq-sub">{{ specQuality.validation.passed }}/{{ specQuality.validation.total }} 条测试集</span>
+              <span class="sq-sub">DWD 抽样 + 分类覆盖率</span>
             </div>
             <!-- 分类覆盖率 -->
             <div class="sq-coverage" v-if="specQuality.coverage?.length">
@@ -181,16 +178,6 @@
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
                   <span class="sq-cov-count">({{ c.with_attr }}/{{ c.total }})</span>
                 </div>
-              </div>
-            </div>
-            <!-- 失败用例 -->
-            <div class="sq-failed" v-if="specQuality.validation.failed_count > 0">
-              <div class="sq-fail-title">❌ 失败用例</div>
-              <div v-for="fc in specQuality.validation.failed_cases" :key="fc.spec" class="sq-fail-row">
-                <span class="sq-fail-spec">{{ fc.spec }}</span>
-                <span class="sq-fail-cat">{{ fc.category }}</span>
-                <span class="sq-fail-exp">期望: {{ JSON.stringify(fc.expected) }}</span>
-                <span class="sq-fail-got">实际: {{ JSON.stringify(fc.got) }}</span>
               </div>
             </div>
             <!-- DWD 随机抽样 -->
@@ -302,7 +289,7 @@ const specQuality = ref({})
 const dwdDrilldownCity = ref(null)
 let chartIns = null
 let pollTimer = null
-let pollingActive = ref(true)
+let pollingActive = ref(false)
 const POLL_INTERVAL_MS = 15000
 
 async function openDwdDrilldown(city, pipe) {
@@ -485,7 +472,9 @@ function renderChart() {
 window.addEventListener('resize', () => chartIns?.resize())
 onMounted(() => {
   loadData()
-  pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
+  if (pollingActive.value) {
+    pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
+  }
 })
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
