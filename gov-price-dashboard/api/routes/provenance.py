@@ -986,6 +986,7 @@ class FixCaseRequest(BaseModel):
     spec: str
     expected: dict
     confirm: bool = False
+    suggestions: list = []
 
 
 def _infer_rule_suggestion(spec: str, expected: dict) -> list:
@@ -1115,6 +1116,8 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
     try:
         sys.path.insert(0, ETL_CMD_DIR)
         from parse_spec import get_parser
+        from parse_spec.base import _build_cache
+        _build_cache()  # 新增规则后刷新缓存
         city_key = "xian"  # 默认用 xian parser
         parser = get_parser(city_key)
         result = parser.parse(spec)
@@ -1185,7 +1188,7 @@ base.py 代码风格示例：
     )
     try:
         import http.client
-        c = http.client.HTTPConnection("localhost", 18789, timeout=10)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=30)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -1216,6 +1219,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     """
     confirm=False（默认）：分析返回规则建议（预览）
     confirm=True：用户确认后写入 base.py + 触发 city ETL
+    suggestions 由前端直接传入，跳过 AI 生成
     """
     import shutil, re as re_mod
 
@@ -1275,7 +1279,21 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             ],
         }
 
-    # confirm 模式：写入 rules/ 目录
+    # confirm 模式：使用前端直接传入的 suggestions，不调 AI
+    if req.suggestions:
+        all_suggestions = [
+            {
+                "note": s["note"],
+                "attr": s["attr"],
+                "pattern": s["pattern"],
+                "code_block": s["code_block"],
+            }
+            for s in req.suggestions
+        ]
+    if not all_suggestions:
+        return {"ok": False, "message": "无规则建议，confirm 失败", "spec": spec}
+
+    # 写入 rules/ 目录
     applied_note = None
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")

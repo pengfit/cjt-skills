@@ -86,6 +86,11 @@ if m:
     result['grade'] = 'Q235B'
     result['height_range'] = m.group(1) + '~' + m.group(2)
 
+# ── 自动生成: 防火门等级 甲级/乙级/丙级 ──
+m = re.search(r'^(甲|乙|丙)级$', s)
+if m:
+    result['grade'] = m.group(0)
+
 # ── 自动生成: 水泥 P.O42.5R ──
 m = re.search(r'P\.O\d+\.?\d*R?', s)
 if m:

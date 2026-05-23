@@ -213,30 +213,82 @@
           <button class="fix-close" @click="closeFixCase">✕</button>
         </div>
         <div class="fix-body">
-          <div class="fix-spec-label">原始规格</div>
-          <div class="fix-spec-value">{{ fixCase.spec }}</div>
 
-          <div class="fix-section-title">当前解析结果</div>
-          <div class="fix-current" v-if="fixCase.parsed && Object.keys(fixCase.parsed).length">
-            <span v-for="(v,k) in fixCase.parsed" :key="k" class="fix-attr-chip">{{ k }}: {{ v }}</span>
+          <!-- 规格信息卡 -->
+          <div class="fix-spec-card">
+            <div class="fix-spec-row">
+              <span class="fix-spec-label">规格</span>
+              <span class="fix-spec-value">{{ fixCase.spec }}</span>
+            </div>
+            <div class="fix-spec-row">
+              <span class="fix-spec-label">当前解析</span>
+              <div class="fix-current" v-if="fixCase.parsed && Object.keys(fixCase.parsed).length">
+                <span v-for="(v,k) in fixCase.parsed" :key="k" class="fix-attr-chip">{{ k }}: {{ v }}</span>
+              </div>
+              <span class="fix-current-empty" v-else>无属性</span>
+            </div>
+            <!-- 规则合并解析结果 -->
+            <div class="fix-spec-row" v-if="fixCombinedResult && Object.keys(fixCombinedResult).length">
+              <span class="fix-spec-label">AI 解析</span>
+              <div class="fix-current">
+                <span v-for="(v,k) in fixCombinedResult" :key="k" class="fix-ai-result-chip">{{ k }}: {{ v }}</span>
+              </div>
+            </div>
+            <div class="fix-spec-row" v-if="fixCase.attr_keys?.length">
+              <span class="fix-spec-label">已有属性</span>
+              <div class="fix-current">
+                <span v-for="k in fixCase.attr_keys" :key="k" class="fix-attr-chip">{{ k }}</span>
+              </div>
+            </div>
           </div>
-          <div class="fix-current-empty" v-else>（无任何属性）</div>
 
+          <!-- 分析按钮 -->
           <div class="fix-actions">
             <button class="btn-analyze" @click="previewFix" :disabled="fixLoading">
-              {{ fixLoading ? '分析中...' : '🔍 分析建议' }}
+              <span class="btn-analyze-icon">{{ fixLoading ? '⏳' : '🔍' }}</span>
+              {{ fixLoading ? '分析中...' : '分析规则建议' }}
             </button>
           </div>
 
-          <!-- 建议预览 -->
+          <!-- 分析结果 -->
           <div class="fix-suggestions" v-if="fixSuggestions.length">
-            <div class="fix-section-title">💡 AI 规则建议</div>
-            <div v-for="(sg, i) in fixSuggestions" :key="i" class="fix-suggestion-item">
-              <div class="fix-sg-note">📌 {{ sg.note }}</div>
-              <div class="fix-sg-attr">属性: {{ sg.attr }} | pattern: <code>{{ sg.pattern }}</code></div>
-              <pre class="fix-sg-code">{{ sg.code_block }}</pre>
-              <button class="btn-confirm-fix" @click="confirmFix(sg)">✅ 确认写入规则 + ETL</button>
+            <div class="fix-suggestions-header">
+              <span class="fix-suggestions-count">{{ fixSuggestions.length }} 条规则建议</span>
             </div>
+            <div v-for="(sg, i) in fixSuggestions" :key="i" class="fix-suggestion-card">
+              <div class="fix-sg-card-header">
+                <div class="fix-sg-rule-badge">
+                  <span class="fix-sg-attr-tag">{{ sg.attr }}</span>
+                  <span class="fix-sg-note-tag">{{ sg.note }}</span>
+                </div>
+              </div>
+              <div class="fix-sg-card-body">
+                <div class="fix-sg-pattern-row">
+                  <span class="fix-sg-key">pattern</span>
+                  <code class="fix-sg-pattern">{{ sg.pattern }}</code>
+                </div>
+                <div class="fix-sg-code-block">
+                  <pre class="fix-sg-code">{{ sg.code_block }}</pre>
+                </div>
+                <div class="fix-sg-result-row" v-if="sg.parse_result && Object.keys(sg.parse_result).length">
+                  <span class="fix-sg-key">解析结果</span>
+                  <div class="fix-sg-result-tags">
+                    <span v-for="(v,k) in sg.parse_result" :key="k" class="fix-sg-result-chip">{{ k }}: {{ v }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fix-sg-card-footer">
+                <button class="btn-confirm-fix" @click="confirmFix(sg)">
+                  ✅ 确认写入规则 + ETL
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 加载中 -->
+          <div class="fix-loading-placeholder" v-else-if="fixLoading">
+            <div class="fix-loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <span>AI 分析中...</span>
           </div>
 
           <!-- 结果反馈 -->
@@ -254,6 +306,7 @@
               <button class="btn-ok" @click="showFixSuccess = false">确定</button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -321,6 +374,7 @@ const fixCase = ref(null)
 const fixSuggestions = ref([])
 const fixResult = ref(null)
 const fixLoading = ref(false)
+const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
 
@@ -334,6 +388,7 @@ function closeFixCase() {
   fixCase.value = null
   fixSuggestions.value = []
   fixResult.value = null
+  fixCombinedResult.value = {}
 }
 
 async function previewFix() {
@@ -350,6 +405,7 @@ async function previewFix() {
     })
     if (res.data.ok) {
       fixSuggestions.value = res.data.suggestions || []
+      fixCombinedResult.value = res.data.parse_result || {}
     } else {
       fixResult.value = { ok: false, message: res.data.message }
     }
@@ -370,6 +426,7 @@ async function confirmFix(sg) {
       spec: fixCase.value.spec,
       expected: {},
       confirm: true,
+      suggestions: [sg],
     })
     fixResult.value = res.data
     if (res.data.ok) {
