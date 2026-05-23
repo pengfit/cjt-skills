@@ -164,19 +164,14 @@
             <div class="sq-header">
               <span class="panel-dot panel-dot-green"></span>
               <span class="panel-title">🔬 Spec 解析质量</span>
-              <span class="sq-sub">DWD 抽样 + 分类覆盖率</span>
+              <span class="sq-coverage-summary">
+                <span class="sq-green-dot"></span>
+                {{ specQuality.coverage?.filter(c => c.rate >= 80).length }} ≥80%
+                <span class="sq-red-dot"></span>
+                {{ specQuality.coverage?.filter(c => c.rate < 30).length }} &lt;30%
+              </span>
             </div>
-            <!-- 分类覆盖率 -->
             <div class="sq-coverage" v-if="specQuality.coverage?.length">
-              <div class="sq-coverage-header">
-                <span class="sq-section-title">📊 分类覆盖率</span>
-                <span class="sq-coverage-summary">
-                  <span class="sq-green-dot"></span>
-                  {{ specQuality.coverage.filter(c => c.rate >= 80).length }} 个 ≥80%
-                  <span class="sq-red-dot"></span>
-                  {{ specQuality.coverage.filter(c => c.rate < 30).length }} 个 &lt;30%
-                </span>
-              </div>
               <div class="sq-cov-list">
                 <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item" :class="sqActiveCat === c.category ? 'cat-active' : ''">
                   <span class="sq-cov-cat">{{ c.category }}</span>
@@ -194,10 +189,9 @@
             <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
               <div class="sq-samples-title">
-                <span class="sq-section-title">📋 {{ sqActiveCat ? sqActiveCat + ' 抽样' : 'DWD 随机抽样' }}（{{ specQuality.samples.length }} 条）</span>
+                <span class="sq-count-hint">📋 {{ sqActiveCat ? sqActiveCat + ' 抽样' : 'DWD 随机抽样' }}（{{ specQuality.samples.length }} 条）</span>
                 <div class="sq-sample-actions">
                   <span v-if="sqActiveCat" class="sq-clear-btn" @click="sqActiveCat=''; sqCatFilter=''; refreshSpecQuality()">清除分类</span>
-                  <button class="sq-refresh-btn" @click="refreshSpecQuality">🔄</button>
                 </div>
               </div>
               <div class="sq-sample-grid">
