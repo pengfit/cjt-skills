@@ -1301,19 +1301,47 @@ def classify_breed_ai(req: ClassifyBreedRequest = Body(...)):
     if not category:
         return {"ok": False, "message": "AI 未返回分类"}
 
-    # 写入 keyword.py
+    # 写入 keyword.py（带文件锁防止多进程并发写入重复规则）
+    import fcntl
+    lock_file = keyword_file + ".lock"
     new_rule = f'# {note}\n"{breed}" → "{category}"\n'
     try:
-        with open(keyword_file, "a") as f:
-            f.write(new_rule)
+        with open(lock_file, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                # 检查是否已有该规则
+                with open(keyword_file) as f:
+                    existing = f.read()
+                # 去重：如果 breed 或其包含关系已存在则跳过
+                skip = False
+                for m in _rule_re.finditer(existing):
+                    kw, cat = m.group(1), m.group(2)
+                    if kw in breed or breed in kw:
+                        skip = True
+                        break
+                if not skip:
+                    with open(keyword_file, "a") as f:
+                        f.write(new_rule)
+                    written = True
+                else:
+                    written = False
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
     except Exception as e:
         return {"ok": False, "message": f"写入规则失败: {e}"}
 
-    return {
-        "ok": True, "mode": "written", "breed": breed,
-        "category": category, "confidence": confidence, "note": note,
-        "source": "ai", "message": f"已写入 {keyword_file}",
-    }
+    if written:
+        return {
+            "ok": True, "mode": "written", "breed": breed,
+            "category": category, "confidence": confidence, "note": note,
+            "source": "ai", "message": f"已写入 {keyword_file}",
+        }
+    else:
+        return {
+            "ok": True, "mode": "skipped", "breed": breed,
+            "category": category, "confidence": confidence, "note": note,
+            "source": "ai", "message": "规则已存在，跳过写入",
+        }
 
 
 def _call_classify_llm(breed: str) -> dict:

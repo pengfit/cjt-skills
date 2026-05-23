@@ -32,6 +32,28 @@ from classify import classify_breed, get_all_categories
 from parse_spec import parse_spec, clean_spec as spec_parse_func, get_parser
 from clean import clean_breed, clean_spec, clean_unit, clean_price, get_cat_id
 
+# ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
+_AI_CATEGORY_CACHE: dict = {}  # breed_clean → category
+
+
+def _fetch_ai_category(breed_clean: str, city: str) -> str:
+    """查询 AI 补充分类（带缓存，同一 breed 只查一次）"""
+    if breed_clean in _AI_CATEGORY_CACHE:
+        return _AI_CATEGORY_CACHE[breed_clean]
+    import http.client, json as _json
+    try:
+        body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
+        c = http.client.HTTPConnection("localhost", 5200, timeout=15)
+        c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
+                  headers={"Content-Type": "application/json"})
+        resp = c.getresponse()
+        data = _json.loads(resp.read())
+        cat = data.get("category", "其他") if data.get("ok") else "其他"
+    except Exception:
+        cat = "其他"
+    _AI_CATEGORY_CACHE[breed_clean] = cat
+    return cat
+
 
 # ─── 配置 ───────────────────────────────────────────────────────────────────────
 def load_config():
@@ -173,20 +195,9 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
 
-    # 规则命中「其他」时，调用 AI 接口补充分类规则
+    # 规则命中「其他」时，调用 AI 接口补充分类（同一 breed 只查一次）
     if category == "其他":
-        import http.client, json as _json
-        try:
-            body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
-            c = http.client.HTTPConnection("localhost", 5200, timeout=15)
-            c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
-                      headers={"Content-Type": "application/json"})
-            resp = c.getresponse()
-            data = _json.loads(resp.read())
-            if data.get("ok") and data.get("category"):
-                category = data["category"]
-        except Exception:
-            pass  # AI 不可用时继续用「其他」
+        category = _fetch_ai_category(breed_clean, city)
 
     category_id = get_cat_id(category)
     price = clean_price(raw.get("price"))
