@@ -175,15 +175,9 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
 
     # 规则命中「其他」时，调用 AI 接口补充分类规则
     if category == "其他":
-        import urllib.request, urllib.error, http.client, json as _json
+        import http.client, json as _json
         try:
             body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
-            req = urllib.request.Request(
-                f"http://localhost:5200/api/stats/spec-quality/classify-breed",
-                data=body,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
             c = http.client.HTTPConnection("localhost", 5200, timeout=15)
             c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
                       headers={"Content-Type": "application/json"})

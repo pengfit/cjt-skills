@@ -741,46 +741,25 @@ try:
     CLASSIFICATIONS_STR = "\n".join(f'{i+1}. {c}' for i, c in enumerate(_ALL_CATS))
 except Exception:
     _ALL_CATS = []
-    CLASSIFICATIONS_STR = "钢材, 水泥, 石材, 砂石骨料, 保温材料, 防水材料, 管材管件, 市政设施, 装饰装修材料, 涂料/油漆, 陶瓷/卫生洁具, 五金配件, 密封材料, 铜材, 铝材/铝合金, 金属材料, 绿化苗木, 铁艺/铸铁件, 消防器材, 网格布/土工材料, 化工材料, 龙骨/吊顶, 瓦, 公用事业费, 机械设备, 电气材料, 劳务/工种, 其他"
+    CLASSIFICATIONS_STR = ""
 
+# 从 parse_spec/rules/_attrs.py 动态加载属性描述
+try:
+    import re as _re
+    _attrs_file = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "_attrs.py")
+    _ATTR_RE = _re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', _re.MULTILINE)
+    _ATTR_MAP = {}
+    with open(_attrs_file) as _f:
+        for _m in _ATTR_RE.finditer(_f.read()):
+            _ATTR_MAP[_m.group(1)] = _m.group(2)
+    ATTR_FIELDS_MAP = _ATTR_MAP
+except Exception:
+    ATTR_FIELDS_MAP = {
+        "diameter": "管径/口径", "thickness": "壁厚/厚度",
+        "length": "长度", "width": "宽度", "height": "高度",
+        "material": "材质", "grade": "等级/标号", "pressure": "公称压力",
+    }
 
-# Spec 解析支持的属性（单一数据源）
-ATTR_FIELDS_MAP = {
-    "diameter": "管径/口径",
-    "thickness": "壁厚/厚度",
-    "length": "长度",
-    "width": "宽度",
-    "height": "高度",
-    "material": "材质",
-    "grade": "等级/标号",
-    "pressure": "公称压力",
-    "ring_stiffness": "环刚度",
-    "cores": "芯数",
-    "cross_section": "电缆截面",
-    "voltage": "电压",
-    "current": "电流",
-    "drain_type": "排水形式",
-    "inlet_type": "进水形式",
-    "installation_type": "安装形式",
-    "form": "形态/柱型",
-    "ip_rating": "防护等级",
-    "color": "颜色",
-    "series": "系列",
-    "temperature": "温度",
-    "temp_range": "温度范围",
-    "humidity_range": "湿度范围",
-    "length_range": "长度范围",
-    "height_range": "高度范围",
-    "inner_diameter": "内径",
-    "wall_thickness": "壁厚(管壁)",
-    "fiber_core": "光纤芯径",
-    "cable_length": "电缆长度",
-    "channels": "通道数",
-    "doors": "门数",
-    "media": "介质",
-    "range": "量程",
-    "output": "输出规格",
-}
 ATTR_FIELDS = list(ATTR_FIELDS_MAP.keys())
 ATTR_FIELDS_STR = ", ".join(ATTR_FIELDS)  # for AI prompt
 ATTR_FIELDS_DESC = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())  # field(中文)
@@ -1224,6 +1203,7 @@ base.py 代码风格示例：
 4. code_block 每行是独立的 Python 语句，**不带任何缩进前缀**，直接是文件级代码
 5. pattern 用原始字符串 r'...' 格式，note 简短描述规则用途
 6. pattern 必须使用捕获组提取实际值，禁止硬编码。例如 `Q235B` 应写成 `r'(Q\d+(?:B)?)'` 提取为 `m.group(1)`，而非 `r'Q235B'` 硬匹配全文
+7. 如果没有发现合适属性可新增
 
 返回格式（直接返回纯 JSON，不带 markdown）：
 {{"ok":true,"suggestions":[{{"attr":"属性名","note":"描述","pattern":"正则","code_block":"代码行"}}]}}
@@ -1354,6 +1334,9 @@ def _call_classify_llm(breed: str) -> dict:
 {CLASSIFICATIONS_STR}
 
 品种名称：{breed}
+
+重要规则：
+1.如果发现没有合适分类也可新增分类
 
 请直接返回 JSON（不带 markdown）：
 {{"ok":true,"category":"分类名","confidence":0.9,"note":"简短说明"}}"""
