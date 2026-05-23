@@ -57,7 +57,7 @@ def _load_local_rules():
                 attr = attr_m.group(1)
                 try:
                     compiled = re.compile(pattern)
-                    rules.append({"note": note, "pattern": pattern, "attr": attr, "re": compiled})
+                    rules.append({"note": note, "pattern": pattern, "attr": attr, "re": compiled, "code": code})
                 except re.error:
                     continue
     return rules
@@ -129,19 +129,38 @@ class BaseParseSpec:
         if not spec:
             return {}
 
-        result = {}
-
         # ── 1. 试本地已确认规则 ────────────────────────
         for r in _get_local_rules():
             try:
                 m = r["re"].search(spec)
                 if m:
                     groups = m.groups()
+                    result = {}
+
+                    # 1a. 多组/单组预设（兼容旧规则）
                     if len(groups) == 1:
                         result[r["attr"]] = groups[0]
-                    else:
+                    elif len(groups) > 1:
                         for idx, g in enumerate(groups):
                             result[f"{r['attr']}_{idx}"] = g
+                    else:
+                        result[r["attr"]] = m.group(0)
+
+                    # 1b. 执行规则代码（可覆盖预设，设为语义字段）
+                    # exec() 在独立 dict 中执行，避免污染；合并时语义字段优先
+                    if r.get("code"):
+                        exec_result = {}  # 隔离
+                        exec_globals = {"re": re, "result": exec_result, "s": spec}
+                        try:
+                            exec(r["code"], exec_globals)
+                        except Exception:
+                            pass
+                        # 语义字段覆盖 indexed
+                        for k in list(result.keys()):
+                            if k.startswith(r["attr"] + "_"):
+                                del result[k]
+                        result.update(exec_result)
+
                     return result
             except re.error:
                 continue
@@ -160,11 +179,24 @@ class BaseParseSpec:
                 m = re.search(pattern, spec)
                 if m:
                     groups = m.groups()
+                    result = {}
                     if len(groups) == 1:
                         result[attr] = groups[0]
-                    else:
+                    elif len(groups) > 1:
                         for idx, g in enumerate(groups):
                             result[f"{attr}_{idx}"] = g
+                    else:
+                        result[attr] = m.group(0)
+
+                    code_block = s.get("code_block", "")
+                    if code_block:
+                        exec_globals = {"re": re, "result": {}, "s": spec}
+                        try:
+                            exec(code_block, exec_globals)
+                            result.update(exec_globals["result"])
+                        except Exception:
+                            pass
+
                     return result
             except re.error:
                 continue
