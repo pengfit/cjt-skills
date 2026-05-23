@@ -281,9 +281,9 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
 # ─── 单城市 ETL ─────────────────────────────────────────────────────────────────
 def etl_city(es_host: str, city: str, cfg: dict,
              batch_size: int = 500, incremental: bool = False,
-             since_date: str = "", dry_run: bool = False) -> tuple:
-    """ETL 单个城市，返回 (etled, failed)"""
+             since_date: str = "", dry_run: bool = False,
 
+             category: str = "") -> tuple:
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
 
@@ -309,8 +309,14 @@ def etl_city(es_host: str, city: str, cfg: dict,
         "sort": [{"update_date": "asc"}]
     }
 
+    if category and not (incremental and since_date):
+        body["query"] = {"term": {"category": category}}
+
     if incremental and since_date:
-        body["query"] = {"range": {"update_date": {"gte": since_date}}}
+        if category:
+            body["query"] = {"bool": {"must": [{"term": {"category": category}}]}}
+        else:
+            body["query"] = {"range": {"update_date": {"gte": since_date}}}
 
     resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
     if resp.status_code != 200:
@@ -370,7 +376,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
 # ─── 主 ETL ─────────────────────────────────────────────────────────────────────
 def run_etl(es_host: str, cities: list, batch_size: int = 500,
             incremental: bool = False, since_date: str = "",
-            dry_run: bool = False):
+            dry_run: bool = False, category: str = ""):
     """ETL 多个城市"""
 
     total_etled = 0
@@ -390,6 +396,7 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
             incremental=incremental,
             since_date=since_date,
             dry_run=dry_run,
+            category=category,
         )
         total_etled += ok
         total_failed += fail
@@ -405,6 +412,7 @@ def main():
     parser.add_argument("--incremental", action="store_true", help="增量模式")
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
+    parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
     args = parser.parse_args()
 

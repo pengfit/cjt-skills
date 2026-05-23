@@ -67,3 +67,13 @@ if m:
 m = re.search(r'^(\d+(?:\.\d+)?)\s*mm$', s)
 if m:
     result['thickness'] = m.group(1) + 'mm'
+# ── 自动生成: 2D尺寸无后缀(3-4位) 500×150 ──
+m = re.search(r'^(\d{3,4})\s*[×xX*]\s*(\d{3,4})$', s)
+if m:
+    result['length'] = m.group(1) + 'mm'
+    result['width'] = m.group(2) + 'mm'
+
+# ── 自动生成: 提取长度mm ──
+m = re.search(r'尺寸(\d+)mm', s)
+if m:
+    result['length'] = m.group(1)

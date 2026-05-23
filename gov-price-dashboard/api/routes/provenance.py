@@ -976,6 +976,45 @@ def stats_spec_quality(
     }
 
 
+@router.post("/api/stats/spec-quality/refresh-category")
+def refresh_category(
+    city: str = Body("xian", description="城市 key"),
+    category: str = Body("", description="分类名（为空则刷新全部）"),
+):
+    """
+    按分类触发 DWD 清洗（重新 ETL 指定分类下的所有数据）。
+    前端：同一分类下的规格规则全部确认后，点击清洗。
+    """
+    import subprocess, sys
+    if not category:
+        return {"ok": False, "message": "category 不能为空"}
+
+    city_idx_map = {
+        "xian": "dwd_xian_price",
+        "sichuan": "dwd_sichuan_price",
+        "chongqing": "dwd_chongqing_price",
+        "jinan": "dwd_jinan_price",
+        "rizhao": "dwd_rizhao_price",
+    }
+    etl_ok = False
+    try:
+        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
+        r = subprocess.run(
+            [sys.executable, etl_script, "--city", city, "--category", category],
+            capture_output=True, text=True, timeout=1800,
+        )
+        etl_ok = (r.returncode == 0)
+    except Exception:
+        etl_ok = False
+
+    return {
+        "ok": etl_ok,
+        "message": f"分类「{category}」DWD 清洗{'成功' if etl_ok else '失败'}",
+        "city": city,
+        "category": category,
+    }
+
+
 # ═══════════════════════════════════════════════════════
 # Spec 修复接口：预览 + 确认写入
 # ═══════════════════════════════════════════════════════
@@ -986,6 +1025,8 @@ class FixCaseRequest(BaseModel):
     spec: str
     expected: dict
     confirm: bool = False
+    suggestions: list = []
+    breed: str = ""
 
 
 def _infer_rule_suggestion(spec: str, expected: dict) -> list:
@@ -1078,10 +1119,18 @@ def _get_rule_file_path(attr: str) -> str:
 
 
 
-def _apply_rule_to_base(code_lines: list, attr: str, note: str) -> bool:
-    """追加规则到 rules/<attr>.py，文件级代码无缩进"""
+def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "") -> bool:
+    """追加规则到 rules/<attr>.py，文件级代码无缩进。attr+pattern 相同则跳过写入"""
     import shutil
     rule_file = _get_rule_file_path(attr)
+    # ── 去重检查：attr + pattern 已存在则跳过 ──
+    if pattern and os.path.exists(rule_file):
+        with open(rule_file) as rf:
+            existing = rf.read()
+        check1 = 're.search(r"' + pattern + '"'
+        check2 = "re.search(r'" + pattern + "'"
+        if check1 in existing or check2 in existing:
+            return "skip"  # 已存在，跳过写入
     bak = rule_file + ".bak"
     if os.path.exists(rule_file):
         shutil.copy(rule_file, bak)
@@ -1090,10 +1139,9 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str) -> bool:
         for ln in code_lines:
             stripped = ln.lstrip()
             if stripped.startswith("if ") or stripped.startswith("elif ") or stripped.startswith("else:") or stripped.startswith("for ") or stripped.startswith("while "):
-                # 控制语句自身不加缩进
                 block_lines.append(stripped)
             elif any(stripped.startswith(k) for k in ["result", "return", "pass", "break", "continue"]):
-                block_lines.append("    " + stripped)  # 4 spaces for body
+                block_lines.append("    " + stripped)
             else:
                 block_lines.append(stripped)
         block = "\n".join(block_lines)
@@ -1101,7 +1149,7 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str) -> bool:
             f.write("\n" + block + "\n")
         if os.path.exists(bak):
             os.remove(bak)
-        return True
+        return "new"  # 新写入成功
     except Exception:
         if os.path.exists(bak):
             shutil.move(bak, rule_file)
@@ -1115,6 +1163,8 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
     try:
         sys.path.insert(0, ETL_CMD_DIR)
         from parse_spec import get_parser
+        from parse_spec.base import _build_cache
+        _build_cache()  # 新增规则后刷新缓存
         city_key = "xian"  # 默认用 xian parser
         parser = get_parser(city_key)
         result = parser.parse(spec)
@@ -1126,7 +1176,7 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
         return (0, 1)
 
 
-def _call_openclaw_llm(spec: str, expected: dict) -> dict:
+def _call_openclaw_llm(spec: str, expected: dict, breed: str = "") -> dict:
     """本地规则库为空时，调用 OpenClaw /v1/chat/completions 获取 AI 规则建议"""
     import urllib.request, urllib.error
     token = ""
@@ -1138,10 +1188,11 @@ def _call_openclaw_llm(spec: str, expected: dict) -> dict:
     except Exception:
         return {"ok": False, "message": "无法读取 OpenClaw token"}
 
+    breed_hint = f"\n参考商品名称/品类：{breed}" if breed else ""
     prompt = f"""你是一个建材规格解析规则生成专家。
 当前需要为以下规格字符串生成 base.py re 解析规则：
 
-原始规格文本："{spec}"
+原始规格文本："{spec}"{breed_hint}
 期望解析结果：{json.dumps(expected, ensure_ascii=False)}
 
 base.py 代码风格示例：
@@ -1185,7 +1236,7 @@ base.py 代码风格示例：
     )
     try:
         import http.client
-        c = http.client.HTTPConnection("localhost", 18789, timeout=10)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=30)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -1216,6 +1267,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     """
     confirm=False（默认）：分析返回规则建议（预览）
     confirm=True：用户确认后写入 base.py + 触发 city ETL
+    suggestions 由前端直接传入，跳过 AI 生成
     """
     import shutil, re as re_mod
 
@@ -1228,7 +1280,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     all_suggestions = suggestions[:]
     if not suggestions:
         # 本地规则库为空，调用 OpenClaw AI 分析
-        ai_result = _call_openclaw_llm(spec, expected)
+        ai_result = _call_openclaw_llm(spec, expected, req.breed if hasattr(req, "breed") else "")
         if ai_result.get("ok"):
             ai_suggestions = ai_result.get("suggestions", [])
             if ai_suggestions:
@@ -1275,13 +1327,30 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             ],
         }
 
-    # confirm 模式：写入 rules/ 目录
+    # confirm 模式：使用前端直接传入的 suggestions，不调 AI
+    if req.suggestions:
+        all_suggestions = [
+            {
+                "note": s["note"],
+                "attr": s["attr"],
+                "pattern": s["pattern"],
+                "code_block": s["code_block"],
+            }
+            for s in req.suggestions
+        ]
+    if not all_suggestions:
+        return {"ok": False, "message": "无规则建议，confirm 失败", "spec": spec}
+
+    # 写入 rules/ 目录
     applied_note = None
+    wrote_new = False
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
-        ok = _apply_rule_to_base(code_block, s["attr"], s["note"])
-        if not ok:
+        result = _apply_rule_to_base(code_block, s["attr"], s["note"], s.get("pattern", ""))
+        if result is False:
             return {"ok": False, "message": "规则写入失败，已 rollback"}
+        if result == "new":
+            wrote_new = True
         passed, total = _run_spec_validation_quiet(spec)
         if not (passed == total and total > 0):
             return {
@@ -1292,31 +1361,21 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             }
         applied_note = s["note"]
 
-    # 触发 city ETL
-    city_dwd_map = {
-        "xian": "dwd_xian_price",
-        "sichuan": "dwd_sichuan_price",
-        "chongqing": "dwd_chongqing_price",
-        "jinan": "dwd_jinan_price",
-        "rizhao": "dwd_rizhao_price",
-    }
-    dwd_idx = city_dwd_map.get(city, "dwd_xian_price")
-    etl_ok = False
-    try:
-        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
-        r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--dwd-index", dwd_idx],
-            capture_output=True, text=True, timeout=600,
-        )
-        etl_ok = (r.returncode == 0)
-    except Exception:
-        etl_ok = False
+    if not wrote_new:
+        return {
+            "ok": True,
+            "mode": "confirm",
+            "spec": spec,
+            "expected": expected,
+            "message": "规则已存在，无需写入。ETL 未触发",
+            "etl_ok": True,
+        }
 
     return {
         "ok": True,
         "mode": "confirm",
         "spec": spec,
         "expected": expected,
-        "message": f"规则已写入，测试集通过。ETL {'已触发' if etl_ok else '触发失败'}",
-        "etl_ok": etl_ok,
+        "message": "规则已写入。ETL 请通过分类清洗按钮触发",
+        "etl_ok": False,
     }

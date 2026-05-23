@@ -43,3 +43,27 @@ if m:
 m = re.search(r'^宽[度]?\s*(\d+)\s*cm', s, re.IGNORECASE)
 if m:
     result['width'] = m.group(1) + 'cm'
+# ── 自动生成: 提取宽度mm ──
+m = re.search(r'\*(\d+)mm\*', s)
+if m:
+    result['width'] = m.group(1)
+
+# ── 自动生成: 提取宽度mm ──
+m = re.search(r'^(\d+)\*', s)
+if m:
+    result['width'] = m.group(1)
+
+# ── 自动生成: 提取网孔宽度mm ──
+m = re.search(r'规格(\d+)\*\d+mm', s)
+if m:
+    result['width'] = m.group(1)
+
+# ── 自动生成: 提取网孔宽度mm ──
+m = re.search(r'规格(\d+)\*\d+mm', s)
+if m:
+    result['width'] = m.group(1)
+
+# ── 自动生成: 提取网孔宽度mm ──
+m = re.search(r'规格(\d+)\*\d+mm', s)
+if m:
+    result['width'] = m.group(1)

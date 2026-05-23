@@ -164,37 +164,46 @@
             <div class="sq-header">
               <span class="panel-dot panel-dot-green"></span>
               <span class="panel-title">🔬 Spec 解析质量</span>
-              <span class="sq-sub">DWD 抽样 + 分类覆盖率</span>
+              <span class="sq-coverage-summary">
+                <span class="sq-green-dot"></span>
+                {{ specQuality.coverage?.filter(c => c.rate >= 80).length }} ≥80%
+                <span class="sq-red-dot"></span>
+                {{ specQuality.coverage?.filter(c => c.rate < 30).length }} &lt;30%
+              </span>
             </div>
-            <!-- 分类覆盖率 -->
             <div class="sq-coverage" v-if="specQuality.coverage?.length">
-              <div class="sq-cov-title">📊 分类解析覆盖率</div>
               <div class="sq-cov-list">
-                <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item">
+                <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item" :class="sqActiveCat === c.category ? 'cat-active' : ''">
                   <span class="sq-cov-cat">{{ c.category }}</span>
                   <div class="sq-cov-bar-wrap">
                     <div class="sq-cov-bar" :style="{width: c.rate + '%'}" :class="c.rate < 10 ? 'bar-red' : c.rate < 50 ? 'bar-amber' : 'bar-green'"></div>
                   </div>
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
-                  <span class="sq-cov-count">({{ c.with_attr }}/{{ c.total }})</span>
+                  <span class="sq-cov-count">{{ c.with_attr }}/{{ c.total }}</span>
+                  <button class="sq-sample-btn" :class="sqActiveCat === c.category ? 'btn-active' : ''" @click="selectCatForSample(c.category)">抽样</button>
+                  <button class="sq-clean-btn" :disabled="refreshLoading" @click.stop="refreshCategory(c.category)">清洗</button>
                 </div>
               </div>
             </div>
-            <!-- DWD 随机抽样 -->
+
+            <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
-              <div class="sq-samples-title">📋 DWD 随机抽样（{{ specQuality.samples.length }} 条）
-              <button class="sq-refresh-btn" @click="refreshSpecQuality" title="刷新">🔄</button>
-            </div>
+
               <div class="sq-sample-grid">
                 <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
-                  <div class="sq-sample-spec">{{ s.spec }}</div>
+                  <div class="sq-sample-top">
+                    <span class="sq-sample-spec">{{ s.spec }}</span>
+                    <span class="sq-sample-status" :class="s.has_attr ? 'status-ok' : 'status-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
+                  </div>
                   <div class="sq-sample-meta">
                     <span class="sq-sample-cat">{{ s.category }}</span>
-                    <span :class="s.has_attr ? 'tag-ok' : 'tag-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
-                    <button class="fix-btn" @click.stop="openFixCase(s)" title="AI分析修复">修</button>
+                    <span class="sq-sample-breed" v-if="s.breed">{{ s.breed }}</span>
                   </div>
                   <div v-if="s.attr_keys?.length" class="sq-sample-attrs">
                     <span v-for="k in s.attr_keys" :key="k" class="attr-chip">{{ k }}</span>
+                  </div>
+                  <div class="sq-sample-footer">
+                    <button class="fix-btn" @click.stop="openFixCase(s)">修</button>
                   </div>
                 </div>
               </div>
@@ -213,30 +222,82 @@
           <button class="fix-close" @click="closeFixCase">✕</button>
         </div>
         <div class="fix-body">
-          <div class="fix-spec-label">原始规格</div>
-          <div class="fix-spec-value">{{ fixCase.spec }}</div>
 
-          <div class="fix-section-title">当前解析结果</div>
-          <div class="fix-current" v-if="fixCase.parsed && Object.keys(fixCase.parsed).length">
-            <span v-for="(v,k) in fixCase.parsed" :key="k" class="fix-attr-chip">{{ k }}: {{ v }}</span>
+          <!-- 规格信息卡 -->
+          <div class="fix-spec-card">
+            <div class="fix-spec-row">
+              <span class="fix-spec-label">规格</span>
+              <span class="fix-spec-value">{{ fixCase.spec }}</span>
+            </div>
+            <div class="fix-spec-row">
+              <span class="fix-spec-label">当前解析</span>
+              <div class="fix-current" v-if="fixCase.parsed && Object.keys(fixCase.parsed).length">
+                <span v-for="(v,k) in fixCase.parsed" :key="k" class="fix-attr-chip">{{ k }}: {{ v }}</span>
+              </div>
+              <span class="fix-current-empty" v-else>无属性</span>
+            </div>
+            <!-- 规则合并解析结果 -->
+            <div class="fix-spec-row" v-if="fixCombinedResult && Object.keys(fixCombinedResult).length">
+              <span class="fix-spec-label">AI 解析</span>
+              <div class="fix-current">
+                <span v-for="(v,k) in fixCombinedResult" :key="k" class="fix-ai-result-chip">{{ k }}: {{ v }}</span>
+              </div>
+            </div>
+            <div class="fix-spec-row" v-if="fixCase.attr_keys?.length">
+              <span class="fix-spec-label">已有属性</span>
+              <div class="fix-current">
+                <span v-for="k in fixCase.attr_keys" :key="k" class="fix-attr-chip">{{ k }}</span>
+              </div>
+            </div>
           </div>
-          <div class="fix-current-empty" v-else>（无任何属性）</div>
 
+          <!-- 分析按钮 -->
           <div class="fix-actions">
             <button class="btn-analyze" @click="previewFix" :disabled="fixLoading">
-              {{ fixLoading ? '分析中...' : '🔍 分析建议' }}
+              <span class="btn-analyze-icon">{{ fixLoading ? '⏳' : '🔍' }}</span>
+              {{ fixLoading ? '分析中...' : '分析规则建议' }}
             </button>
           </div>
 
-          <!-- 建议预览 -->
+          <!-- 分析结果 -->
           <div class="fix-suggestions" v-if="fixSuggestions.length">
-            <div class="fix-section-title">💡 AI 规则建议</div>
-            <div v-for="(sg, i) in fixSuggestions" :key="i" class="fix-suggestion-item">
-              <div class="fix-sg-note">📌 {{ sg.note }}</div>
-              <div class="fix-sg-attr">属性: {{ sg.attr }} | pattern: <code>{{ sg.pattern }}</code></div>
-              <pre class="fix-sg-code">{{ sg.code_block }}</pre>
-              <button class="btn-confirm-fix" @click="confirmFix(sg)">✅ 确认写入规则 + ETL</button>
+            <div class="fix-suggestions-header">
+              <span class="fix-suggestions-count">{{ fixSuggestions.length }} 条规则建议</span>
             </div>
+            <div v-for="(sg, i) in fixSuggestions" :key="i" class="fix-suggestion-card">
+              <div class="fix-sg-card-header">
+                <div class="fix-sg-rule-badge">
+                  <span class="fix-sg-attr-tag">{{ sg.attr }}</span>
+                  <span class="fix-sg-note-tag">{{ sg.note }}</span>
+                </div>
+              </div>
+              <div class="fix-sg-card-body">
+                <div class="fix-sg-pattern-row">
+                  <span class="fix-sg-key">pattern</span>
+                  <code class="fix-sg-pattern">{{ sg.pattern }}</code>
+                </div>
+                <div class="fix-sg-code-block">
+                  <pre class="fix-sg-code">{{ sg.code_block }}</pre>
+                </div>
+                <div class="fix-sg-result-row" v-if="sg.parse_result && Object.keys(sg.parse_result).length">
+                  <span class="fix-sg-key">解析结果</span>
+                  <div class="fix-sg-result-tags">
+                    <span v-for="(v,k) in sg.parse_result" :key="k" class="fix-sg-result-chip">{{ k }}: {{ v }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fix-sg-card-footer">
+                <button class="btn-confirm-fix" :disabled="sg.applied" @click="confirmFix(sg)">
+                  {{ sg.applied ? '✓ 已写入' : '✅ 确认写入规则 + ETL' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 加载中 -->
+          <div class="fix-loading-placeholder" v-else-if="fixLoading">
+            <div class="fix-loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <span>AI 分析中...</span>
           </div>
 
           <!-- 结果反馈 -->
@@ -254,6 +315,7 @@
               <button class="btn-ok" @click="showFixSuccess = false">确定</button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -299,6 +361,9 @@ async function openDwdDrilldown(city, pipe) {
   try {
     const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city } })
     specQuality.value = sq.data || {}
+    if (specQuality.value.coverage) {
+      sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
+    }
   } catch(e) { console.warn("spec-quality failed", e) }
 }
 
@@ -306,9 +371,38 @@ async function refreshSpecQuality() {
   if (!dwdDrilldownCity.value) return
   specQuality.value = {}
   try {
-    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city: dwdDrilldownCity.value } })
+    const sq = await axios.get(`${API}/stats/spec-quality`, {
+      params: {
+        city: dwdDrilldownCity.value,
+        category: sqCatFilter.value || '',
+      }
+    })
     specQuality.value = sq.data || {}
+    if (specQuality.value.coverage) {
+      sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
+    }
   } catch(e) { console.warn("spec-quality refresh failed", e) }
+}
+
+async function refreshCategory(cat) {
+  if (!confirm(`确认清洗分类「${cat}」？\n同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`)) return
+  refreshLoading.value = true
+  try {
+    await axios.post(`${API}/stats/spec-quality/refresh-category`, {
+      city: dwdDrilldownCity.value || 'xian',
+      category: cat,
+    })
+    sqActiveCat.value = cat
+    sqCatFilter.value = cat
+    await refreshSpecQuality()
+  } catch(e) { console.warn("refresh-category failed", e) }
+  finally { refreshLoading.value = false }
+}
+
+function selectCatForSample(cat) {
+  sqActiveCat.value = cat
+  sqCatFilter.value = cat
+  refreshSpecQuality()
 }
 
 function closeDwdDrilldown() {
@@ -321,6 +415,12 @@ const fixCase = ref(null)
 const fixSuggestions = ref([])
 const fixResult = ref(null)
 const fixLoading = ref(false)
+const refreshLoading = ref(false)
+const sqCatFilter = ref('')
+const sqCatOptions = ref([])
+const sqActiveCat = ref('')
+const sqSampleSize = ref(50)
+const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
 
@@ -334,6 +434,7 @@ function closeFixCase() {
   fixCase.value = null
   fixSuggestions.value = []
   fixResult.value = null
+  fixCombinedResult.value = {}
 }
 
 async function previewFix() {
@@ -345,11 +446,13 @@ async function previewFix() {
     const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
+      breed: fixCase.value.breed || '',
       expected: {},
       confirm: false,
     })
     if (res.data.ok) {
       fixSuggestions.value = res.data.suggestions || []
+      fixCombinedResult.value = res.data.parse_result || {}
     } else {
       fixResult.value = { ok: false, message: res.data.message }
     }
@@ -368,21 +471,17 @@ async function confirmFix(sg) {
     const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
+      breed: fixCase.value.breed || '',
       expected: {},
       confirm: true,
+      suggestions: [sg],
     })
     fixResult.value = res.data
     if (res.data.ok) {
+      sg.applied = true
       // 成功弹窗
       fixSuccessMsg.value = res.data.message
       showFixSuccess.value = true
-      // 刷新 spec-quality 数据
-      specQuality.value = {}
-      await nextTick()
-      const sq = await axios.get(`${API}/stats/spec-quality`, {
-        params: { city: dwdDrilldownCity.value || 'xian' },
-      })
-      specQuality.value = sq.data || {}
     }
   } catch(e) {
     fixResult.value = { ok: false, message: e.message }

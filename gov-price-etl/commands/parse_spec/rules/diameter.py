@@ -92,3 +92,8 @@ if m:
 m = re.search(r'^(?:Z\d+|J\d+|Q\d+|HH\d+|H4[45])\s*[-\w]*\s*(?:DN)?(\d+)', s)
 if m:
     result['diameter'] = 'DN' + m.group(1)
+
+# ── 自动生成: 提取公称口径100 ──
+m = re.search(r'-(\d+)$', s)
+if m:
+    result['diameter'] = m.group(1)

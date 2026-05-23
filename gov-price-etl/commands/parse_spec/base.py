@@ -51,7 +51,7 @@ def _load_local_rules():
             note = m.group(1).strip()
             code = m.group(2).strip()
             pat_m = re.search(r"re\.search\(r['\"]([^'\"]+)['\"]", code)
-            attr_m = re.search(r"result\['([^']+)'\]\s*=", code)
+            attr_m = re.search(r'result\[\s*["\']\s*([^"\'\s]+)\s*["\']\s*\]', code)
             if pat_m and attr_m:
                 pattern = pat_m.group(1)
                 attr = attr_m.group(1)
@@ -118,10 +118,8 @@ class BaseParseSpec:
     """
     规格解析基类
 
-    解析流程：
-      1. 先试 rules/ 目录下所有规则（零 AI 调用）
-      2. 本地全部未命中 → 调用 fix-case AI
-      3. AI 结果只用于本次解析，不自动写文件
+    解析流程：仅试 rules/ 目录下已确认规则，零 AI 调用。
+    spec 查分属性不允许实时调用 AI，未知 pattern 统一返回空 dict。
     """
 
     def parse(self, spec: str) -> dict:
@@ -129,7 +127,7 @@ class BaseParseSpec:
         if not spec:
             return {}
 
-        # ── 1. 试本地已确认规则 ────────────────────────
+        # ── 仅试本地已确认规则（零 AI 调用）───────────
         for r in _get_local_rules():
             try:
                 m = r["re"].search(spec)
@@ -165,42 +163,8 @@ class BaseParseSpec:
             except re.error:
                 continue
 
-        # ── 2. 本地无匹配，调 AI ────────────────────────
-        ai_result = _call_fix_case(spec)
-        if not ai_result.get("ok"):
-            return {}
-
-        for s in ai_result.get("suggestions", []):
-            pattern = s.get("pattern", "")
-            attr = s.get("attr", "")
-            if not pattern or not attr:
-                continue
-            try:
-                m = re.search(pattern, spec)
-                if m:
-                    groups = m.groups()
-                    result = {}
-                    if len(groups) == 1:
-                        result[attr] = groups[0]
-                    elif len(groups) > 1:
-                        for idx, g in enumerate(groups):
-                            result[f"{attr}_{idx}"] = g
-                    else:
-                        result[attr] = m.group(0)
-
-                    code_block = s.get("code_block", "")
-                    if code_block:
-                        exec_globals = {"re": re, "result": {}, "s": spec}
-                        try:
-                            exec(code_block, exec_globals)
-                            result.update(exec_globals["result"])
-                        except Exception:
-                            pass
-
-                    return result
-            except re.error:
-                continue
-
+        # ── 本地无匹配时直接返回空，不调 AI ──────────
+        # spec 查分属性不允许实时调用 AI，未知 pattern 统一记为待处理
         return {}
 
 
