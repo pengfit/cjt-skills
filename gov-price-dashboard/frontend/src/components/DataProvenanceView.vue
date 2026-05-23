@@ -168,40 +168,53 @@
             </div>
             <!-- 分类覆盖率 -->
             <div class="sq-coverage" v-if="specQuality.coverage?.length">
-              <div class="sq-cov-title">📊 分类解析覆盖率</div>
+              <div class="sq-coverage-header">
+                <span class="sq-section-title">📊 分类覆盖率</span>
+                <span class="sq-coverage-summary">
+                  <span class="sq-green-dot"></span>
+                  {{ specQuality.coverage.filter(c => c.rate >= 80).length }} 个 ≥80%
+                  <span class="sq-red-dot"></span>
+                  {{ specQuality.coverage.filter(c => c.rate < 30).length }} 个 &lt;30%
+                </span>
+              </div>
               <div class="sq-cov-list">
-                <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item">
+                <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item" :class="sqActiveCat === c.category ? 'cat-active' : ''">
                   <span class="sq-cov-cat">{{ c.category }}</span>
                   <div class="sq-cov-bar-wrap">
                     <div class="sq-cov-bar" :style="{width: c.rate + '%'}" :class="c.rate < 10 ? 'bar-red' : c.rate < 50 ? 'bar-amber' : 'bar-green'"></div>
                   </div>
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
-                  <span class="sq-cov-count">({{ c.with_attr }}/{{ c.total }})</span>
-                  <button class="sq-refresh-cat-btn" :disabled="refreshLoading" @click="refreshCategory(c.category)" title="清洗此分类">🔄</button>
+                  <span class="sq-cov-count">{{ c.with_attr }}/{{ c.total }}</span>
+                  <button class="sq-sample-btn" :class="sqActiveCat === c.category ? 'btn-active' : ''" @click="selectCatForSample(c.category)">抽样</button>
+                  <button class="sq-clean-btn" :disabled="refreshLoading" @click.stop="refreshCategory(c.category)">清洗</button>
                 </div>
               </div>
             </div>
-            <!-- DWD 随机抽样 -->
+
+            <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
               <div class="sq-samples-title">
-                📋 DWD 随机抽样（{{ specQuality.samples.length }} 条）
-                <select class="sq-cat-select" v-model="sqCatFilter" @change="refreshSpecQuality">
-                  <option value="">全部分类</option>
-                  <option v-for="cat in sqCatOptions" :key="cat" :value="cat">{{ cat }}</option>
-                </select>
-                <button class="sq-refresh-btn" @click="refreshSpecQuality" title="刷新">🔄</button>
+                <span class="sq-section-title">📋 {{ sqActiveCat ? sqActiveCat + ' 抽样' : 'DWD 随机抽样' }}（{{ specQuality.samples.length }} 条）</span>
+                <div class="sq-sample-actions">
+                  <span v-if="sqActiveCat" class="sq-clear-btn" @click="sqActiveCat=''; sqCatFilter=''; refreshSpecQuality()">清除分类</span>
+                  <button class="sq-refresh-btn" @click="refreshSpecQuality">🔄</button>
+                </div>
               </div>
               <div class="sq-sample-grid">
                 <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
-                  <div class="sq-sample-spec">{{ s.spec }}</div>
+                  <div class="sq-sample-top">
+                    <span class="sq-sample-spec">{{ s.spec }}</span>
+                    <span class="sq-sample-status" :class="s.has_attr ? 'status-ok' : 'status-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
+                  </div>
                   <div class="sq-sample-meta">
                     <span class="sq-sample-cat">{{ s.category }}</span>
                     <span class="sq-sample-breed" v-if="s.breed">{{ s.breed }}</span>
-                    <span :class="s.has_attr ? 'tag-ok' : 'tag-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
-                    <button class="fix-btn" @click.stop="openFixCase(s)" title="AI分析修复">修</button>
                   </div>
                   <div v-if="s.attr_keys?.length" class="sq-sample-attrs">
                     <span v-for="k in s.attr_keys" :key="k" class="attr-chip">{{ k }}</span>
+                  </div>
+                  <div class="sq-sample-footer">
+                    <button class="fix-btn" @click.stop="openFixCase(s)">修</button>
                   </div>
                 </div>
               </div>
@@ -390,9 +403,17 @@ async function refreshCategory(cat) {
       city: dwdDrilldownCity.value || 'xian',
       category: cat,
     })
+    sqActiveCat.value = cat
+    sqCatFilter.value = cat
     await refreshSpecQuality()
   } catch(e) { console.warn("refresh-category failed", e) }
   finally { refreshLoading.value = false }
+}
+
+function selectCatForSample(cat) {
+  sqActiveCat.value = cat
+  sqCatFilter.value = cat
+  refreshSpecQuality()
 }
 
 function closeDwdDrilldown() {
@@ -408,6 +429,8 @@ const fixLoading = ref(false)
 const refreshLoading = ref(false)
 const sqCatFilter = ref('')
 const sqCatOptions = ref([])
+const sqActiveCat = ref('')
+const sqSampleSize = ref(50)
 const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')

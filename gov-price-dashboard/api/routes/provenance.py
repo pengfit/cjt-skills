@@ -1371,30 +1371,11 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             "etl_ok": True,
         }
 
-    city_dwd_map = {
-        "xian": "dwd_xian_price",
-        "sichuan": "dwd_sichuan_price",
-        "chongqing": "dwd_chongqing_price",
-        "jinan": "dwd_jinan_price",
-        "rizhao": "dwd_rizhao_price",
-    }
-    dwd_idx = city_dwd_map.get(city, "dwd_xian_price")
-    etl_ok = False
-    try:
-        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
-        r = subprocess.run(
-            [sys.executable, etl_script, "--city", city],
-            capture_output=True, text=True, timeout=600,
-        )
-        etl_ok = (r.returncode == 0)
-    except Exception:
-        etl_ok = False
-
     return {
         "ok": True,
         "mode": "confirm",
         "spec": spec,
         "expected": expected,
-        "message": f"规则已写入，测试集通过。ETL {'已触发' if etl_ok else '触发失败'}",
-        "etl_ok": etl_ok,
+        "message": "规则已写入。ETL 请通过分类清洗按钮触发",
+        "etl_ok": False,
     }
