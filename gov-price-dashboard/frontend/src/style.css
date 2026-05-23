@@ -2092,3 +2092,9 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #5eead4
 .fix-btn { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; font-size: 0.75rem; cursor: pointer; padding: 2px 7px; border-radius: 6px; transition: all 0.2s; opacity: 0; }
 .sq-sample-card:hover .fix-btn, .sq-sample-card.no-attr .fix-btn { opacity: 1; }
 .fix-btn:hover { background: rgba(59,130,246,0.25); border-color: rgba(59,130,246,0.5); }
+
+.sq-refresh-cat-btn { background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.4); font-size: 0.7rem; cursor: pointer; padding: 1px 6px; border-radius: 4px; margin-left: 4px; transition: all 0.2s; }
+.sq-refresh-cat-btn:hover { color: #38bdf8; border-color: rgba(56,189,248,0.5); }
+.sq-refresh-cat-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sq-cat-select { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; margin-left: 8px; cursor: pointer; }
+.sq-cat-select:focus { outline: none; border-color: rgba(56,189,248,0.5); }

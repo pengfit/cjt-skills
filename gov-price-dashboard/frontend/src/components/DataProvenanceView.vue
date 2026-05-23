@@ -177,14 +177,20 @@
                   </div>
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
                   <span class="sq-cov-count">({{ c.with_attr }}/{{ c.total }})</span>
+                  <button class="sq-refresh-cat-btn" :disabled="refreshLoading" @click="refreshCategory(c.category)" title="清洗此分类">🔄</button>
                 </div>
               </div>
             </div>
             <!-- DWD 随机抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
-              <div class="sq-samples-title">📋 DWD 随机抽样（{{ specQuality.samples.length }} 条）
-              <button class="sq-refresh-btn" @click="refreshSpecQuality" title="刷新">🔄</button>
-            </div>
+              <div class="sq-samples-title">
+                📋 DWD 随机抽样（{{ specQuality.samples.length }} 条）
+                <select class="sq-cat-select" v-model="sqCatFilter" @change="refreshSpecQuality">
+                  <option value="">全部分类</option>
+                  <option v-for="cat in sqCatOptions" :key="cat" :value="cat">{{ cat }}</option>
+                </select>
+                <button class="sq-refresh-btn" @click="refreshSpecQuality" title="刷新">🔄</button>
+              </div>
               <div class="sq-sample-grid">
                 <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
                   <div class="sq-sample-spec">{{ s.spec }}</div>
@@ -352,6 +358,9 @@ async function openDwdDrilldown(city, pipe) {
   try {
     const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city } })
     specQuality.value = sq.data || {}
+    if (specQuality.value.coverage) {
+      sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
+    }
   } catch(e) { console.warn("spec-quality failed", e) }
 }
 
@@ -359,9 +368,30 @@ async function refreshSpecQuality() {
   if (!dwdDrilldownCity.value) return
   specQuality.value = {}
   try {
-    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city: dwdDrilldownCity.value } })
+    const sq = await axios.get(`${API}/stats/spec-quality`, {
+      params: {
+        city: dwdDrilldownCity.value,
+        category: sqCatFilter.value || '',
+      }
+    })
     specQuality.value = sq.data || {}
+    if (specQuality.value.coverage) {
+      sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
+    }
   } catch(e) { console.warn("spec-quality refresh failed", e) }
+}
+
+async function refreshCategory(cat) {
+  if (!confirm(`确认清洗分类「${cat}」？\n同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`)) return
+  refreshLoading.value = true
+  try {
+    await axios.post(`${API}/stats/spec-quality/refresh-category`, {
+      city: dwdDrilldownCity.value || 'xian',
+      category: cat,
+    })
+    await refreshSpecQuality()
+  } catch(e) { console.warn("refresh-category failed", e) }
+  finally { refreshLoading.value = false }
 }
 
 function closeDwdDrilldown() {
@@ -374,6 +404,9 @@ const fixCase = ref(null)
 const fixSuggestions = ref([])
 const fixResult = ref(null)
 const fixLoading = ref(false)
+const refreshLoading = ref(false)
+const sqCatFilter = ref('')
+const sqCatOptions = ref([])
 const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
