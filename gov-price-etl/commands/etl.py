@@ -172,6 +172,28 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     spec_clean = clean_spec(spec_raw)
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
+
+    # 规则命中「其他」时，调用 AI 接口补充分类规则
+    if category == "其他":
+        import urllib.request, urllib.error, http.client, json as _json
+        try:
+            body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://localhost:5200/api/stats/spec-quality/classify-breed",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            c = http.client.HTTPConnection("localhost", 5200, timeout=15)
+            c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
+                      headers={"Content-Type": "application/json"})
+            resp = c.getresponse()
+            data = _json.loads(resp.read())
+            if data.get("ok") and data.get("category"):
+                category = data["category"]
+        except Exception:
+            pass  # AI 不可用时继续用「其他」
+
     category_id = get_cat_id(category)
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))

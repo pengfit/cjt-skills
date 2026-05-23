@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from elasticsearch import Elasticsearch
 import datetime, concurrent.futures, subprocess, json, os, sys, re
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 router = APIRouter()
 
 ES_HOST = "http://localhost:59200"
@@ -730,6 +732,18 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 # ── Spec 解析质量 ─────────────────────────────────────────────
 ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
 
+# 从 classify/rules/ 动态获取分类列表（供 AI prompt 使用）
+try:
+    import sys as _sys
+    _sys.path.insert(0, ETL_CMD_DIR)
+    from classify.rules import get_rules
+    _ALL_CATS = sorted(set(r["category"] for r in get_rules()))
+    CLASSIFICATIONS_STR = "\n".join(f'{i+1}. {c}' for i, c in enumerate(_ALL_CATS))
+except Exception:
+    _ALL_CATS = []
+    CLASSIFICATIONS_STR = "钢材, 水泥, 石材, 砂石骨料, 保温材料, 防水材料, 管材管件, 市政设施, 装饰装修材料, 涂料/油漆, 陶瓷/卫生洁具, 五金配件, 密封材料, 铜材, 铝材/铝合金, 金属材料, 绿化苗木, 铁艺/铸铁件, 消防器材, 网格布/土工材料, 化工材料, 龙骨/吊顶, 瓦, 公用事业费, 机械设备, 电气材料, 劳务/工种, 其他"
+
+
 # Spec 解析支持的属性（单一数据源）
 ATTR_FIELDS_MAP = {
     "diameter": "管径/口径",
@@ -1260,6 +1274,128 @@ base.py 代码风格示例：
         return {"ok": False, "message": f"AI 返回格式错误: {e}"}
     except Exception as e:
         return {"ok": False, "message": f"AI 分析异常: {e}"}
+
+
+@router.post("/api/stats/spec-quality/classify-breed")
+def classify_breed_ai(req: ClassifyBreedRequest = Body(...)):
+    """
+    输入品种名（breed），AI 推断分类并自动写入 classify/rules/keyword.py。
+    用于 ETL 清洗时规则未命中的品种，自动补充分类规则。
+    """
+    import os, sys
+    breed = req.breed.strip()
+    if not breed:
+        return {"ok": False, "message": "breed 不能为空"}
+
+    # 先尝试从本地 rules/ 读取规则（无需 import classify）
+    rules_dir = os.path.join(ETL_CMD_DIR, "classify", "rules")
+    keyword_file = os.path.join(rules_dir, "keyword.py")
+    _rule_re = __import__("re").compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', __import__("re").MULTILINE)
+    try:
+        with open(keyword_file) as f:
+            content = f.read()
+        for m in _rule_re.finditer(content):
+            kw, cat = m.group(1), m.group(2)
+            if kw in breed or breed in kw:
+                return {"ok": True, "mode": "cached", "breed": breed,
+                        "category": cat, "source": "local", "message": "本地已有规则"}
+        breed_file = os.path.join(rules_dir, "breed.py")
+        with open(breed_file) as f:
+            content = f.read()
+        for m in _rule_re.finditer(content):
+            kw, cat = m.group(1), m.group(2)
+            if kw in breed or breed in kw:
+                return {"ok": True, "mode": "cached", "breed": breed,
+                        "category": cat, "source": "local", "message": "本地已有规则"}
+    except FileNotFoundError:
+        pass
+
+    # 本地无规则，调用 AI
+    ai_result = _call_classify_llm(breed)
+    if not ai_result.get("ok"):
+        return ai_result
+
+    category = ai_result.get("category", "")
+    confidence = ai_result.get("confidence", 0)
+    note = ai_result.get("note", "")
+    if not category:
+        return {"ok": False, "message": "AI 未返回分类"}
+
+    # 写入 keyword.py
+    new_rule = f'# {note}\n"{breed}" → "{category}"\n'
+    try:
+        with open(keyword_file, "a") as f:
+            f.write(new_rule)
+    except Exception as e:
+        return {"ok": False, "message": f"写入规则失败: {e}"}
+
+    return {
+        "ok": True, "mode": "written", "breed": breed,
+        "category": category, "confidence": confidence, "note": note,
+        "source": "ai", "message": f"已写入 {keyword_file}",
+    }
+
+
+def _call_classify_llm(breed: str) -> dict:
+    """调用 OpenClaw LLM 推断品种分类"""
+    import urllib.request, urllib.error, http.client
+    token = ""
+    try:
+        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
+            d = json.load(f)
+            token = d.get("gateway", {}).get("auth", {}).get("token", "")
+    except Exception:
+        return {"ok": False, "message": "无法读取 OpenClaw token"}
+
+    prompt = f"""你是一个建材品种分类专家。
+根据以下建材品种名称，判断它属于哪个分类。
+
+分类列表：
+{CLASSIFICATIONS_STR}
+
+品种名称：{breed}
+
+请直接返回 JSON（不带 markdown）：
+{{"ok":true,"category":"分类名","confidence":0.9,"note":"简短说明"}}"""
+
+    body = json.dumps({
+        "model": "openclaw",
+        "messages": [{"role": "user", "content": prompt}],
+        "user": "classify-agent",
+        "max_tokens": 256,
+        "temperature": 0.1,
+    }).encode("utf-8")
+
+    try:
+        c = http.client.HTTPConnection("localhost", 18789, timeout=30)
+        c.request("POST", "/v1/chat/completions", body=body, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+        })
+        resp = c.getresponse()
+        data = json.loads(resp.read())
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        if not content:
+            return {"ok": False, "message": "AI 返回空内容"}
+        if content.startswith("```"):
+            parts = content.split("```")
+            content = parts[1] if len(parts) > 1 else parts[0]
+            if content.startswith("json"):
+                content = content[4:]
+        result = json.loads(content)
+        return result
+    except urllib.error.URLError as e:
+        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
+    except json.JSONDecodeError as e:
+        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
+    except Exception as e:
+        return {"ok": False, "message": f"AI 分析异常: {e}"}
+
+
+class ClassifyBreedRequest(BaseModel):
+    breed: str
+    city: str = "xian"
 
 
 @router.post("/api/stats/spec-quality/fix-case")
