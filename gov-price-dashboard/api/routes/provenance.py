@@ -1323,7 +1323,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     try:
         etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
         r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--dwd-index", dwd_idx],
+            [sys.executable, etl_script, "--city", city],
             capture_output=True, text=True, timeout=600,
         )
         etl_ok = (r.returncode == 0)

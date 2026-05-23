@@ -72,3 +72,8 @@ m = re.search(r'^(\d{3,4})\s*[×xX*]\s*(\d{3,4})$', s)
 if m:
     result['length'] = m.group(1) + 'mm'
     result['width'] = m.group(2) + 'mm'
+
+# ── 自动生成: 提取长度mm ──
+m = re.search(r'尺寸(\d+)mm', s)
+if m:
+    result['length'] = m.group(1)

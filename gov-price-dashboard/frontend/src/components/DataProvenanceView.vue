@@ -278,8 +278,8 @@
                 </div>
               </div>
               <div class="fix-sg-card-footer">
-                <button class="btn-confirm-fix" @click="confirmFix(sg)">
-                  ✅ 确认写入规则 + ETL
+                <button class="btn-confirm-fix" :disabled="sg.applied" @click="confirmFix(sg)">
+                  {{ sg.applied ? '✓ 已写入' : '✅ 确认写入规则 + ETL' }}
                 </button>
               </div>
             </div>
@@ -430,16 +430,10 @@ async function confirmFix(sg) {
     })
     fixResult.value = res.data
     if (res.data.ok) {
+      sg.applied = true
       // 成功弹窗
       fixSuccessMsg.value = res.data.message
       showFixSuccess.value = true
-      // 刷新 spec-quality 数据
-      specQuality.value = {}
-      await nextTick()
-      const sq = await axios.get(`${API}/stats/spec-quality`, {
-        params: { city: dwdDrilldownCity.value || 'xian' },
-      })
-      specQuality.value = sq.data || {}
     }
   } catch(e) {
     fixResult.value = { ok: false, message: e.message }
