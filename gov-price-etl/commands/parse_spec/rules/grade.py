@@ -131,3 +131,18 @@ if m:
 m = re.search(r'Q23[45][A-Z]', s)
 if m:
     result['grade'] = m.group(0)
+
+# ── 自动生成: 提取砂浆强度等级DMM ──
+m = re.search(r'^(DMM\d+)', s)
+if m:
+    result['grade'] = m.group(1)
+
+# ── 自动生成: 提取砂浆强度等级DSM ──
+m = re.search(r'^(DSM\d+)', s)
+if m:
+    result['grade'] = m.group(1)
+
+# ── 自动生成: 提取砂浆强度等级DPM ──
+m = re.search(r'^(DPM\d+)', s)
+if m:
+    result['grade'] = m.group(1)

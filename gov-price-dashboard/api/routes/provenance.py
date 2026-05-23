@@ -1026,6 +1026,7 @@ class FixCaseRequest(BaseModel):
     expected: dict
     confirm: bool = False
     suggestions: list = []
+    breed: str = ""
 
 
 def _infer_rule_suggestion(spec: str, expected: dict) -> list:
@@ -1175,7 +1176,7 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
         return (0, 1)
 
 
-def _call_openclaw_llm(spec: str, expected: dict) -> dict:
+def _call_openclaw_llm(spec: str, expected: dict, breed: str = "") -> dict:
     """本地规则库为空时，调用 OpenClaw /v1/chat/completions 获取 AI 规则建议"""
     import urllib.request, urllib.error
     token = ""
@@ -1187,10 +1188,11 @@ def _call_openclaw_llm(spec: str, expected: dict) -> dict:
     except Exception:
         return {"ok": False, "message": "无法读取 OpenClaw token"}
 
+    breed_hint = f"\n参考商品名称/品类：{breed}" if breed else ""
     prompt = f"""你是一个建材规格解析规则生成专家。
 当前需要为以下规格字符串生成 base.py re 解析规则：
 
-原始规格文本："{spec}"
+原始规格文本："{spec}"{breed_hint}
 期望解析结果：{json.dumps(expected, ensure_ascii=False)}
 
 base.py 代码风格示例：
@@ -1278,7 +1280,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     all_suggestions = suggestions[:]
     if not suggestions:
         # 本地规则库为空，调用 OpenClaw AI 分析
-        ai_result = _call_openclaw_llm(spec, expected)
+        ai_result = _call_openclaw_llm(spec, expected, req.breed if hasattr(req, "breed") else "")
         if ai_result.get("ok"):
             ai_suggestions = ai_result.get("suggestions", [])
             if ai_suggestions:

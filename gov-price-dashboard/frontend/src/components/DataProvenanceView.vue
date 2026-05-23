@@ -196,6 +196,7 @@
                   <div class="sq-sample-spec">{{ s.spec }}</div>
                   <div class="sq-sample-meta">
                     <span class="sq-sample-cat">{{ s.category }}</span>
+                    <span class="sq-sample-breed" v-if="s.breed">{{ s.breed }}</span>
                     <span :class="s.has_attr ? 'tag-ok' : 'tag-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
                     <button class="fix-btn" @click.stop="openFixCase(s)" title="AI分析修复">修</button>
                   </div>
@@ -433,6 +434,7 @@ async function previewFix() {
     const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
+      breed: fixCase.value.breed || '',
       expected: {},
       confirm: false,
     })
@@ -457,6 +459,7 @@ async function confirmFix(sg) {
     const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
+      breed: fixCase.value.breed || '',
       expected: {},
       confirm: true,
       suggestions: [sg],
