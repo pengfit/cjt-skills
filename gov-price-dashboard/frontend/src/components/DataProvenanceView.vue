@@ -188,12 +188,7 @@
 
             <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
-              <div class="sq-samples-title">
-                <span class="sq-count-hint">📋 {{ sqActiveCat ? sqActiveCat + ' 抽样' : 'DWD 随机抽样' }}（{{ specQuality.samples.length }} 条）</span>
-                <div class="sq-sample-actions">
-                  <span v-if="sqActiveCat" class="sq-clear-btn" @click="sqActiveCat=''; sqCatFilter=''; refreshSpecQuality()">清除分类</span>
-                </div>
-              </div>
+
               <div class="sq-sample-grid">
                 <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
                   <div class="sq-sample-top">
