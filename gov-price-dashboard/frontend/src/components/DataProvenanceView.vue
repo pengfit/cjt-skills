@@ -181,10 +181,15 @@
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
                   <span class="sq-cov-count">{{ c.with_attr }}/{{ c.total }}</span>
                   <button class="sq-sample-btn" :class="sqActiveCat === c.category ? 'btn-active' : ''" @click="selectCatForSample(c.category)">抽样</button>
-                  <button class="sq-clean-btn" :disabled="refreshLoading" @click.stop="refreshCategory(c.category)">清洗</button>
+                  <button class="sq-clean-btn" :disabled="refreshLoading || cleaningCats[c.category]" @click.stop="refreshCategory(c.category)">
+                    <span v-if="cleaningCats[c.category]" class="cleaning-spinner"></span>
+                    <span v-else-if="cleanDoneCat === c.category">{{ cleanDoneOk ? '✓' : '✕' }}</span>
+                    <span v-else>清洗</span>
+                  </button>
                 </div>
               </div>
             </div>
+            <div v-else class="sq-empty-hint">暂无数据</div>
 
             <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
@@ -357,9 +362,9 @@ const POLL_INTERVAL_MS = 15000
 async function openDwdDrilldown(city, pipe) {
   if (!pipe.dwd?.count) return
   dwdDrilldownCity.value = city
-  specQuality.value = {}
+  specQuality.value = {}   // 先清空，API 返回 coverage（_sample=false 不含抽样）
   try {
-    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city } })
+    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city, _sample: false } })
     specQuality.value = sq.data || {}
     if (specQuality.value.coverage) {
       sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
@@ -375,6 +380,7 @@ async function refreshSpecQuality() {
       params: {
         city: dwdDrilldownCity.value,
         category: sqCatFilter.value || '',
+        _sample: !!sqCatFilter.value,   // 有分类筛选时才算真正要抽样
       }
     })
     specQuality.value = sq.data || {}
@@ -386,7 +392,8 @@ async function refreshSpecQuality() {
 
 async function refreshCategory(cat) {
   if (!confirm(`确认清洗分类「${cat}」？\n同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`)) return
-  refreshLoading.value = true
+  cleaningCats.value[cat] = true
+  if (cleanDoneCat.value === cat) cleanDoneCat.value = ''
   try {
     await axios.post(`${API}/stats/spec-quality/refresh-category`, {
       city: dwdDrilldownCity.value || 'xian',
@@ -394,9 +401,18 @@ async function refreshCategory(cat) {
     })
     sqActiveCat.value = cat
     sqCatFilter.value = cat
+    cleanDoneOk.value = true
+    cleanDoneCat.value = cat
     await refreshSpecQuality()
-  } catch(e) { console.warn("refresh-category failed", e) }
-  finally { refreshLoading.value = false }
+  } catch(e) {
+    cleanDoneOk.value = false
+    cleanDoneCat.value = cat
+    console.warn("refresh-category failed", e)
+  } finally {
+    delete cleaningCats.value[cat]
+    // 3s 后清除完成标记
+    setTimeout(() => { if (cleanDoneCat.value === cat) cleanDoneCat.value = '' }, 3000)
+  }
 }
 
 function selectCatForSample(cat) {
@@ -420,6 +436,9 @@ const sqCatFilter = ref('')
 const sqCatOptions = ref([])
 const sqActiveCat = ref('')
 const sqSampleSize = ref(50)
+const cleaningCats = ref({})      // { category: true } 清洗中状态
+const cleanDoneCat = ref('')      // 当前显示完成标记的分类
+const cleanDoneOk = ref(true)
 const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
@@ -1028,4 +1047,23 @@ onUnmounted(() => {
   cursor: pointer;
 }
 .btn-ok:hover { background: #6ee7b7; }
-</style>
+
+/* 清洗按钮动态效果 */
+.cleaning-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.sq-empty-hint {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}</style>

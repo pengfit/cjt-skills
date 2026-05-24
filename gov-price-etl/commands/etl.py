@@ -156,11 +156,12 @@ DWD_MAPPING = {
             "fire_rating": {"type": "keyword"},
             "temperature": {"type": "keyword"},
             "installation_type": {"type": "keyword"},
+            "installation_type": {"type": "keyword"},
             "drain_type": {"type": "keyword"},
             "inlet_type": {"type": "keyword"},
             "form": {"type": "keyword"},
             "ip_rating": {"type": "keyword"},
-    "needs_review": {"type": "boolean"},
+            "needs_review": {"type": "boolean"},
             "inner_diameter": {"type": "keyword"},
             "wall_thickness": {"type": "keyword"},
             "price": {"type": "float"},
@@ -291,10 +292,13 @@ def ensure_dwd(es_host: str, dwd_index: str):
 
 
 # ─── 批量写入 ───────────────────────────────────────────────────────────────────
-def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
+def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
     """Bulk 写入 ES，返回 (成功数, 失败数)"""
     if not docs:
         return 0, 0
+    if mark_done:
+        for doc in docs:
+            doc["needs_review"] = False
     session = get_es_client(es_host)
     body = ""
     for i, doc in enumerate(docs):
@@ -316,8 +320,7 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
 def etl_city(es_host: str, city: str, cfg: dict,
              batch_size: int = 500, incremental: bool = False,
              since_date: str = "", dry_run: bool = False,
-
-             category: str = "") -> tuple:
+             category: str = "", mark_done: bool = False) -> tuple:
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
 
@@ -384,7 +387,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
                     print(f"    转换失败: {e}")
 
         if docs and not dry_run:
-            ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
+            ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids, mark_done=mark_done)
             etled += ok
             failed += fail
 
@@ -410,7 +413,8 @@ def etl_city(es_host: str, city: str, cfg: dict,
 # ─── 主 ETL ─────────────────────────────────────────────────────────────────────
 def run_etl(es_host: str, cities: list, batch_size: int = 500,
             incremental: bool = False, since_date: str = "",
-            dry_run: bool = False, category: str = ""):
+            dry_run: bool = False, category: str = "",
+            mark_done: bool = False):
     """ETL 多个城市"""
 
     total_etled = 0
@@ -431,6 +435,7 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
             since_date=since_date,
             dry_run=dry_run,
             category=category,
+            mark_done=mark_done,
         )
         total_etled += ok
         total_failed += fail
@@ -447,6 +452,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
     parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
+    parser.add_argument("--mark-done", action="store_true", help="清洗指定分类时：规则已全部确认，直接标记 needs_review=False")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
     args = parser.parse_args()
 
@@ -474,6 +480,7 @@ def main():
         incremental=args.incremental,
         since_date=args.since,
         dry_run=args.dry_run,
+        mark_done=args.mark_done,
     )
     print(f"[ETL] 耗时 {time.time()-start:.1f}s | ok={ok}, fail={fail}")
 

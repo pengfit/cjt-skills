@@ -969,9 +969,10 @@ def stats_spec_quality(
     city: str = Query("xian", description="城市 key"),
     sample_size: int = Query(50, description="抽样数量"),
     category: str = Query("", description="分类筛选"),
+    _sample: bool = Query(True, description="是否返回抽样明细（打开页面时传 false 避免无用查询）"),
 ):
     """Spec 解析质量报告：DWD 抽样 + 分类覆盖率"""
-    samples = _sample_dwd_specs(city, sample_size, category)
+    samples = _sample_dwd_specs(city, sample_size, category) if _sample else []
     coverage = _category_coverage(city)
     return {
         "city": city,
@@ -1004,12 +1005,14 @@ def refresh_category(
     try:
         etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
         r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--category", category],
+            [sys.executable, etl_script, "--city", city, "--category", category, "--mark-done"],
             capture_output=True, text=True, timeout=1800,
         )
         etl_ok = (r.returncode == 0)
     except Exception:
         etl_ok = False
+
+    # 分类清洗（refresh-category）时：规则已全部确认，全部标记 needs_review=False
 
     return {
         "ok": etl_ok,
@@ -1181,6 +1184,57 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
         return (0, 1)
 
 
+
+def _parse_ai_json(content):
+    """解析 AI 返回的可能格式错误的 JSON，容忍未转义的新行符和单引号"""
+    import re as _re
+    if content.startswith("```"):
+        parts = content.split("```")
+        content = parts[1] if len(parts) > 1 else parts[0]
+        if content.startswith("json"):
+            content = content[4:]
+    content = content.strip()
+    first = content.find('{')
+    last = content.rfind('}')
+    if first < 0 or last <= first:
+        raise ValueError("不是有效的 JSON")
+    content = content[first:last+1]
+    # 去除引号内原始换行
+    result = []
+    i = 0
+    in_str = False
+    while i < len(content):
+        c = content[i]
+        if c == '"' and (i == 0 or content[i-1] != '\\'):
+            in_str = not in_str
+            result.append(c)
+            i += 1
+        elif c == '\\' and in_str:
+            result.append(c)
+            i += 1
+            if i < len(content):
+                result.append(content[i])
+                i += 1
+        elif c in '\n\r' and in_str:
+            i += 1
+        else:
+            result.append(c)
+            i += 1
+    fixed = ''.join(result)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+    suggestions = []
+    for m in _re.finditer(r'"attr"\s*:\s*"([^"]*)"\s*,\s*"note"\s*:\s*"([^"]*)"\s*,\s*"pattern"\s*:\s*"([^"]*)"\s*,\s*"code_block"\s*:\s*"([^"]*)"', fixed):
+        attr, note, pattern, code_block = m.groups()
+        suggestions.append({"attr": attr, "note": note, "pattern": pattern,
+                          "code_block": code_block.replace('\\n', ' ').replace('\n', ' ').replace('\r', ' ')})
+    if suggestions:
+        return {"ok": True, "suggestions": suggestions}
+    raise ValueError("无法解析 AI 返回内容")
+
+
 def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str = "") -> dict:
     """本地规则库为空时，调用 OpenClaw /v1/chat/completions 获取 AI 规则建议"""
     import urllib.request, urllib.error
@@ -1259,7 +1313,7 @@ base.py 代码风格示例：
             content = parts[1] if len(parts) > 1 else parts[0]
             if content.startswith("json"):
                 content = content[4:]
-        result = json.loads(content)
+        result = _parse_ai_json(content)
         return result
     except urllib.error.URLError as e:
         return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
@@ -1435,8 +1489,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     spec = req.spec.strip()
     expected = req.expected
 
-    suggestions = _infer_rule_suggestion(spec, expected)
-    # 收集所有建议来源（本地 + AI）
+    suggestions = []   # 跳过本地规则匹配，直接用 AI
     all_suggestions = suggestions[:]
     if not suggestions:
         # 本地规则库为空，调用 OpenClaw AI 分析
@@ -1456,7 +1509,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
 
     if not req.confirm:
         # 预览模式下：模拟解析结果
-        import re as re_mod
+        re_mod = re
         parse_result = {}
         for s in all_suggestions:
             pattern = s.get("pattern", "")
