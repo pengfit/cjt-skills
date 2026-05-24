@@ -33,3 +33,8 @@ if m:
 m = re.search(r'^\d+×(\d+)\+', s)
 if m:
     result['cross_section'] = m.group(1) + 'mm²'
+
+# ── 自动生成: 主截面 35mm² ──
+m = re.search(r'^\d+×(\d+)\+', s)
+if m:
+    result['cross_section'] = m.group(1) + 'mm²'"

@@ -29,3 +29,6 @@ if m:
 m = re.search(r'^(YJV|YJLV|YJY|YJLY)', s)
 if m:
     result['series'] = m.group(1)"
+
+# ── 自动生成: test ──
+m = re.search(r'(WDZN|WDZAN|ZN)', s)\nif m:\n    result['series'] = m.group(1)

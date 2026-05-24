@@ -28,3 +28,8 @@ if m:
 m = re.search(r'^(\d+)×\d+\+', s)
 if m:
     result['cores'] = m.group(1)
+
+# ── 自动生成: 主芯数 3 ──
+m = re.search(r'^(\d+)×\d+\+', s)
+if m:
+    result['cores'] = m.group(1)"

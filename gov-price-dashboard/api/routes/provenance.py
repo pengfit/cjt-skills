@@ -1661,7 +1661,7 @@ class ClassifyBreedRequest(BaseModel):
 def fix_spec_case(req: FixCaseRequest = Body(...)):
     """
     confirm=False（默认）：分析返回规则建议（预览）
-    confirm=True：用户确认后写入 base.py + 触发 city ETL
+    confirm=True：用户确认后写入 rules/ 目录，触发 ETL
     suggestions 由前端直接传入，跳过 AI 生成
     """
     import shutil, re as re_mod
@@ -1670,27 +1670,35 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     spec = req.spec.strip()
     expected = req.expected
 
-    suggestions = []   # 跳过本地规则匹配，直接用 AI
-    all_suggestions = suggestions[:]
-    if not suggestions:
-        # 本地规则库为空，调用 OpenClaw AI 分析
-        ai_result = _call_openclaw_llm(spec, expected, req.breed if hasattr(req, "breed") and req.breed else "", req.category if hasattr(req, "category") and req.category else "")
-        if ai_result.get("ok"):
-            ai_suggestions = ai_result.get("suggestions", [])
-            if ai_suggestions:
-                all_suggestions = ai_suggestions
-        # AI 也无法生成时返回错误
+    if req.confirm:
+        # confirm=True: 使用前端传入的 suggestions 直接写入，不调 AI
+        if req.suggestions:
+            all_suggestions = list(req.suggestions)
+        else:
+            return {"ok": False, "message": "confirm=True 但无 suggestions，请先预览", "spec": spec}
+    else:
+        # 预览模式：先尝试本地规则库，再用 AI 生成建议
+        all_suggestions = list(req.suggestions) if req.suggestions else _infer_rule_suggestion(spec, expected)
         if not all_suggestions:
-            return {
-                "ok": False,
-                "message": ai_result.get("message", "无法为此 spec 生成规则建议"),
-                "spec": spec,
-                "expected": expected,
-            }
+            ai_result = _call_openclaw_llm(
+                spec, expected,
+                req.breed if hasattr(req, "breed") and req.breed else "",
+                req.category if hasattr(req, "category") and req.category else "",
+            )
+            if ai_result.get("ok"):
+                ai_suggestions = ai_result.get("suggestions", [])
+                if ai_suggestions:
+                    all_suggestions = ai_suggestions
+            if not all_suggestions:
+                return {
+                    "ok": False,
+                    "message": ai_result.get("message", "无法为此 spec 生成规则建议"),
+                    "spec": spec,
+                    "expected": expected,
+                }
 
     if not req.confirm:
-        # 预览模式下：模拟解析结果
-        re_mod = re
+        # 预览模式：模拟解析结果
         parse_result = {}
         for s in all_suggestions:
             pattern = s.get("pattern", "")
@@ -1708,7 +1716,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             "mode": "preview",
             "spec": spec,
             "expected": expected,
-            "source": "ai" if not suggestions else "local",
+            "source": "ai" if not req.suggestions else "local",
             "parse_result": parse_result,
             "suggestions": [
                 {
@@ -1721,28 +1729,14 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             ],
         }
 
-    # confirm 模式：使用前端直接传入的 suggestions，不调 AI
-    if req.suggestions:
-        all_suggestions = [
-            {
-                "note": s["note"],
-                "attr": s["attr"],
-                "pattern": s["pattern"],
-                "code_block": s["code_block"],
-            }
-            for s in req.suggestions
-        ]
-    if not all_suggestions:
-        return {"ok": False, "message": "无规则建议，confirm 失败", "spec": spec}
-
-    # 写入 rules/ 目录
+    # confirm 模式：写入 rules/ 目录
     applied_note = None
     wrote_new = False
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
         result = _apply_rule_to_base(code_block, s["attr"], s["note"], s.get("pattern", ""))
         if result is False:
-            return {"ok": False, "message": "规则写入失败，已 rollback"}
+            return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}
         if result == "new":
             wrote_new = True
         passed, total = _run_spec_validation_quiet(spec)
@@ -1765,11 +1759,24 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             "etl_ok": True,
         }
 
+    # 触发 ETL
+    etl_ok = False
+    try:
+        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
+        r = subprocess.run(
+            [sys.executable, etl_script, "--city", city, "--category", req.category or ""],
+            capture_output=True, text=True, timeout=1800,
+        )
+        etl_ok = (r.returncode == 0)
+    except Exception:
+        etl_ok = False
+
     return {
         "ok": True,
         "mode": "confirm",
         "spec": spec,
         "expected": expected,
-        "message": "规则已写入。ETL 请通过分类清洗按钮触发",
-        "etl_ok": False,
+        "message": f"规则已写入并触发 ETL（{'成功' if etl_ok else '失败'}）",
+        "etl_ok": etl_ok,
     }
+
