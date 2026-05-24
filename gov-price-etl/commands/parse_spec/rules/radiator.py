@@ -1,7 +1,7 @@
 # parse_spec/rules/radiator.py - 散热器/暖气片/浴缸规格规则
 # ── 自动生成: 光排管三尺寸 ──
 
-m = re.search(r'(\d+)\*(\d+)\*(\d+)', s)
+m = re.search(r'(\d+)×(\d+)×(\d+)', s)
 if m:
     result['diameter'] = m.group(1)
     result['length'] = m.group(2)

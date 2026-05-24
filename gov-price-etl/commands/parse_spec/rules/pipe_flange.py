@@ -21,7 +21,7 @@ if m:
 
 # ── 自动生成: GS宽长 ──
 
-m = re.search(r'GS\s+(\d+)\*(\d+)', s)
+m = re.search(r'GS\s+(\d+)×(\d+)', s)
 if m:
     result['width'] = m.group(1)
     result['length'] = m.group(2)

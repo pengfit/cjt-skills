@@ -28,9 +28,9 @@ except ImportError:
     print("请安装依赖: pip3 install requests pyyaml")
     sys.exit(1)
 
-from classify import classify_breed, get_all_categories
+from classify import classify_breed, get_all_categories, CAT_ID_MAP
 from parse_spec import parse_spec, get_parser
-from clean import clean_breed, clean_unit, clean_price, get_cat_id
+from clean import clean_breed, clean_unit, clean_price
 
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
 _AI_CATEGORY_CACHE: dict = {}  # breed_clean → category
@@ -165,7 +165,6 @@ DWD_MAPPING = {
             "price": {"type": "float"},
             "tax_price": {"type": "float"},
             "category": {"type": "keyword"},
-            "category_id": {"type": "integer"},
             "province": {"type": "keyword"},
             "city": {"type": "keyword"},
             "county": {"type": "keyword"},
@@ -199,7 +198,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     if category == "其他":
         category = _fetch_ai_category(breed_clean, city)
 
-    category_id = get_cat_id(category)
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))
 
@@ -258,7 +256,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "price": price,
         "tax_price": tax_price,
         "category": category,
-        "category_id": category_id,
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),

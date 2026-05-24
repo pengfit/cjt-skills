@@ -1182,7 +1182,7 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
     except Exception:
         return {"ok": False, "message": "无法读取 OpenClaw token"}
 
-    breed_hint = f"\n参考商品名称/品类：{breed}" if breed else ""
+    breed_hint = f"\n参考商品名称：{breed}" if breed else ""
     cat_hint = f"\n所属分类：{category}" if category else ""
     prompt = f"""你是一个建材规格解析规则生成专家。
 当前需要为以下规格字符串生成 base.py re 解析规则：

@@ -83,10 +83,6 @@ CAT_ID_MAP = {
 }
 
 
-def get_cat_id(cat_name: str) -> int:
-    return CAT_ID_MAP.get(cat_name, 28)
-
-
 if __name__ == "__main__":
     import sys
     print(f"UNIT_STD_MAP: {len(UNIT_STD_MAP)} entries")

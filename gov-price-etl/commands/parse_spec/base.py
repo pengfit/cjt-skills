@@ -127,8 +127,6 @@ class BaseParseSpec:
     def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
         if not spec or spec == "/":
             return {}
-        # 乘号归一化（兼容 × * x）
-        spec = spec.replace('\u00d7', '*').replace('\u00D7', '*')
 
         # ── 先试本地已确认规则 ───────────────────────
         for r in _get_local_rules():
@@ -162,10 +160,7 @@ class BaseParseSpec:
             except re.error:
                 continue
 
-        # ── 本地无匹配，调 AI ───────────────────────
-        ai_result = _call_fix_case(spec, breed, category)
-        if ai_result.get("ok"):
-            return ai_result.get("parse_result", {})
+        # ── 本地无匹配，返回空（不调 AI）──
         return {}
 
 # 启动时构建缓存
