@@ -7,7 +7,7 @@
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
-import datetime, concurrent.futures, subprocess, json, os, sys, re, functools
+import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -764,6 +764,55 @@ ATTR_FIELDS = list(ATTR_FIELDS_MAP.keys())
 ATTR_FIELDS_STR = ", ".join(ATTR_FIELDS)  # for AI prompt
 ATTR_FIELDS_DESC = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())  # field(中文)
 
+# ── AI Prompts 配置（从 prompts.yml 加载）────────────────────
+PROMPTS_FILE = os.path.join(SCRIPT_DIR, "prompts.yml")
+
+def _load_prompts():
+    try:
+        with open(PROMPTS_FILE) as f:
+            return yaml.safe_load(f)
+    except Exception:
+        return {}
+
+PROMPTS = _load_prompts()
+
+def fix_case_prompt_fn(spec, breed="", category="", expected=None):
+    """生成 fix-case API 的 user content（fix-case 端点专用）"""
+    prompts_cfg = PROMPTS.get("fix_case", {})
+    tmpl = prompts_cfg.get("template", "")
+    breed_hint = f"\n参考商品名称：{breed}" if breed else ""
+    cat_hint = f"\n所属分类：{category}" if category else ""
+    attr_desc = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())
+    expected_json = json.dumps(expected or {}, ensure_ascii=False)
+    try:
+        return tmpl.format(
+            spec=spec,
+            breed_hint=breed_hint,
+            cat_hint=cat_hint,
+            expected=expected_json,
+            attr_desc=attr_desc,
+        )
+    except (KeyError, ValueError):
+        # YAML {{}} quoting escaped braces → build manually
+        lines = [
+            f"原始规格文本：{spec}",
+            (f"参考商品名称：{breed}" if breed else ""),
+            (f"所属分类：{category}" if category else ""),
+            f"支持属性：{attr_desc}",
+            f"期望解析：{expected_json}",
+        ]
+        return "\n".join(l for l in lines if l)
+
+
+def classify_breed_prompt_fn(breed):
+    """生成 classify-breed API 的 user content"""
+    prompts_cfg = PROMPTS.get("classify_breed", {})
+    tmpl = prompts_cfg.get("template", "")
+    try:
+        return tmpl.format(breed=breed, classifications=CLASSIFICATIONS_STR)
+    except (KeyError, ValueError):
+        return f"品种名称：{breed}\n分类列表：{CLASSIFICATIONS_STR}"
+
 
 def _run_spec_validation(city="xian"):
     import sys, os, json
@@ -859,7 +908,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
         offset = random.randint(0, max_allowed_offset)
     body = {
         "size": sample_size,
-        "_source": ["spec", "category", "breed"],
+        "_source": ["spec", "category", "breed", "needs_review"],
         "query": query,
         "from": offset,
         "sort": [{"_doc": "asc"}],
@@ -874,11 +923,10 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
-        # Use needs_review field from DWD (populated during ETL)
-        # has_attr = True means spec was successfully parsed (needs_review=False)
-        # Missing needs_review field = old doc, treat as needs_review=True (unparsed)
-        needs_review = src.get("needs_review", True)
-        has_attr = not needs_review
+        # NEW ETL logic: needs_review=True → 规则命中（待人工审核）
+        # Missing needs_review field = old doc, treat as False
+        needs_review = src.get("needs_review", False)
+        has_attr = needs_review
         samples.append({
             "spec": spec,
             "category": src.get("category", ""),
@@ -935,8 +983,12 @@ def _category_coverage(city="xian"):
                     "total_spec": {
                         "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     },
+                    # NEW ETL logic (since 2026-05-24):
+                    # - needs_review=True  → 规则命中（待人工审核/确认规则是否正确）
+                    # - needs_review=False → 规则未命中 或 spec="/"（无需细分）
+                    # 覆盖率的 "解析成功" = 规则命中 → needs_review=True
                     "parsed_ok": {
-                        "filter": {"bool": {"must": [{"term": {"needs_review": False}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+                        "filter": {"bool": {"must": [{"term": {"needs_review": True}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     }
                 }
             },
@@ -1005,7 +1057,7 @@ def refresh_category(
     try:
         etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
         r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--category", category, "--mark-done"],
+            [sys.executable, etl_script, "--city", city, "--category", category],
             capture_output=True, text=True, timeout=1800,
         )
         etl_ok = (r.returncode == 0)
@@ -1186,8 +1238,16 @@ def _run_spec_validation_quiet(spec: str = "") -> tuple:
 
 
 def _parse_ai_json(content):
-    """解析 AI 返回的可能格式错误的 JSON，容忍未转义的新行符和单引号"""
+    r"""解析 AI 返回的可能格式错误的 JSON，容忍未转义的新行符和单引号。
+
+    AI 在 pattern/code_block 字段中使用 python r'...' 语法，导致 JSON 被破坏。
+    例如："pattern":"r'-(YJ\\w+)-','code_block":"..."
+    其中 r'...' 是 python raw string，内部的 \' 是转义的单引号。
+    JSON 标准只允许 \" \\ \/ \b \f \n \r \t \uXXXX 作为转义序列。
+    本函数先用标准 json.loads 尝试，失败后逐个 suggestion 对象解析。
+    """
     import re as _re
+
     if content.startswith("```"):
         parts = content.split("```")
         content = parts[1] if len(parts) > 1 else parts[0]
@@ -1198,22 +1258,23 @@ def _parse_ai_json(content):
     last = content.rfind('}')
     if first < 0 or last <= first:
         raise ValueError("不是有效的 JSON")
-    content = content[first:last+1]
-    # 去除引号内原始换行
+    json_str = content[first:last+1]
+
+    # Step 1: unescape newlines inside JSON string values
     result = []
     i = 0
     in_str = False
-    while i < len(content):
-        c = content[i]
-        if c == '"' and (i == 0 or content[i-1] != '\\'):
+    while i < len(json_str):
+        c = json_str[i]
+        if c == '"' and (i == 0 or json_str[i-1] != '\\'):
             in_str = not in_str
             result.append(c)
             i += 1
         elif c == '\\' and in_str:
             result.append(c)
             i += 1
-            if i < len(content):
-                result.append(content[i])
+            if i < len(json_str):
+                result.append(json_str[i])
                 i += 1
         elif c in '\n\r' and in_str:
             i += 1
@@ -1221,18 +1282,171 @@ def _parse_ai_json(content):
             result.append(c)
             i += 1
     fixed = ''.join(result)
+
+    # Step 2: try standard json.loads first
     try:
         return json.loads(fixed)
     except json.JSONDecodeError:
         pass
+
+    # Step 3: AI broke JSON by embedding python raw string syntax in field values.
+    # Parse suggestion objects one by one by tracking {depth}.
     suggestions = []
-    for m in _re.finditer(r'"attr"\s*:\s*"([^"]*)"\s*,\s*"note"\s*:\s*"([^"]*)"\s*,\s*"pattern"\s*:\s*"([^"]*)"\s*,\s*"code_block"\s*:\s*"([^"]*)"', fixed):
-        attr, note, pattern, code_block = m.groups()
-        suggestions.append({"attr": attr, "note": note, "pattern": pattern,
-                          "code_block": code_block.replace('\\n', ' ').replace('\n', ' ').replace('\r', ' ')})
+    arr_match = _re.search(r'"suggestions":\s*\[(.*)\]\s*\}', fixed, _re.DOTALL)
+    if not arr_match:
+        raise ValueError("无法解析 AI 返回内容 - 缺少 suggestions 数组")
+
+    arr_content = arr_match.group(1)
+
+    # Find each suggestion object
+    obj_positions = []
+    depth = 0
+    start_pos = -1
+    for i, c in enumerate(arr_content):
+        if c == '{':
+            if depth == 0:
+                start_pos = i
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0 and start_pos >= 0:
+                obj_positions.append((start_pos, i+1))
+                start_pos = -1
+
+    for start, obj_end in obj_positions:
+        obj_text = arr_content[start:obj_end]
+
+        attr_m = _re.search(r'"attr":\s*"([^"]*)"', obj_text)
+        note_m = _re.search(r'"note":\s*"([^"]*)"', obj_text)
+        if not attr_m or not note_m:
+            continue
+
+        attr = attr_m.group(1)
+        note = note_m.group(1)
+        pattern_val, code_val = _extract_suggestion_fields(obj_text)
+
+        suggestions.append({
+            "attr": attr,
+            "note": note,
+            "pattern": pattern_val,
+            "code_block": code_val,
+        })
+
     if suggestions:
         return {"ok": True, "suggestions": suggestions}
+
     raise ValueError("无法解析 AI 返回内容")
+
+
+def _extract_suggestion_fields(obj_text):
+    """从单个 suggestion 对象的 JSON 文本中提取 pattern 和 code_block 字段。
+
+    AI 将 python raw string 语法 r'...' 嵌入 JSON 字段值，导致字段合并。
+    """
+    import re as _re
+
+    def find_field_start(obj, field_name):
+        for marker in ['"' + field_name + '":', "\\'" + field_name + '":']:
+            m = _re.search(marker, obj)
+            if m:
+                return m.end(), marker
+        return None, None
+
+    def extract_pattern_value(obj):
+        value_start, marker = find_field_start(obj, "pattern")
+        if value_start is None:
+            return ""
+        raw = obj[value_start:]
+
+        # Skip the opening " of the JSON string value
+        if raw.startswith('"'):
+            raw = raw[1:]
+
+        # Find the next JSON field separator
+        next_markers_raw = [
+            ',"attr":', ',"note":', ',"pattern":', ',"code_block":',
+            ",'attr:", ",'note:", ",'pattern:", ",'code_block:"
+        ]
+        next_pos = len(raw)
+        for marker2 in next_markers_raw:
+            m2 = _re.search(marker2, raw)
+            if m2:
+                next_pos = min(next_pos, m2.start())
+
+        raw = raw[:next_pos]
+
+        # If raw starts with r' (python raw string), find closing '
+        if raw.startswith("r'"):
+            i = 2
+            while i < len(raw):
+                if raw[i] == "'":
+                    if i > 0 and raw[i-1] == '\\':
+                        i += 1
+                    elif i + 1 < len(raw) and raw[i+1] == "'":
+                        i += 2
+                    else:
+                        raw = raw[:i]
+                        break
+                else:
+                    i += 1
+
+        return _fix_json_escapes(raw)
+
+    def extract_code_block_value(obj):
+        value_start, marker = find_field_start(obj, "code_block")
+        if value_start is None:
+            return ""
+        raw = obj[value_start:]
+
+        # Skip the opening " of the JSON string value
+        if raw.startswith('"'):
+            raw = raw[1:]
+
+        # Value goes to end of object (before final })
+        endbrace = raw.rfind('}')
+        if endbrace > 0:
+            raw = raw[:endbrace]
+
+        return _fix_json_escapes(raw)
+
+    pattern_val = extract_pattern_value(obj_text)
+    code_val = extract_code_block_value(obj_text)
+    return pattern_val, code_val
+
+
+
+def _fix_json_escapes(s):
+    result = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == '\\' and i + 1 < len(s):
+            nc = s[i+1]
+            if nc == '\\':
+                result.append('\\')
+                i += 2
+            elif nc == 'n':
+                result.append('\n')
+                i += 2
+            elif nc == 'r':
+                result.append('\r')
+                i += 2
+            elif nc == 't':
+                result.append('\t')
+                i += 2
+            elif nc == "'":
+                result.append("'")
+                i += 2
+            elif nc == '"':
+                result.append('"')
+                i += 2
+            else:
+                result.append(c)
+                i += 1
+        else:
+            result.append(c)
+            i += 1
+    return ''.join(result)
 
 
 def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str = "") -> dict:
@@ -1247,42 +1461,17 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
     except Exception:
         return {"ok": False, "message": "无法读取 OpenClaw token"}
 
-    breed_hint = f"\n参考商品名称：{breed}" if breed else ""
-    cat_hint = f"\n所属分类：{category}" if category else ""
-    prompt = f"""你是一个建材规格解析规则生成专家。
-当前需要为以下规格字符串生成 base.py re 解析规则：
-
-原始规格文本："{spec}"{breed_hint}{cat_hint}
-期望解析结果：{json.dumps(expected, ensure_ascii=False)}
-
-base.py 代码风格示例：
-    m = re.search(r'Φ(\\d+)\\*(\\d+(?:\\.\\d+)?)\\s*mm', s)
-    if m:
-        result['diameter'] = 'Φ' + m.group(1)
-        result['thickness'] = m.group(2) + 'mm'
-
-支持的属性：{ATTR_FIELDS_DESC}
-
-重要规则：
-1. spec 中出现的任何可识别特征都应该尝试提取，不要直接返回"无法生成规则"
-2. ~ 表示范围，如 "25mm~70mm" 表示从 25mm 到 70mm，应提取为 range_min=25, range_max=70
-3. * 表示乘积/尺寸，如 "2600*700*1500" 提取为 width/height/thickness
-4. code_block 每行是独立的 Python 语句，**不带任何缩进前缀**，直接是文件级代码
-5. pattern 用原始字符串 r'...' 格式，note 简短描述规则用途
-6. pattern 必须使用捕获组提取实际值，禁止硬编码。例如 `Q235B` 应写成 `r'(Q\d+(?:B)?)'` 提取为 `m.group(1)`，而非 `r'Q235B'` 硬匹配全文
-7. 如果没有发现合适属性可新增
-
-返回格式（直接返回纯 JSON，不带 markdown）：
-{{"ok":true,"suggestions":[{{"attr":"属性名","note":"描述","pattern":"正则","code_block":"代码行"}}]}}
-
-即使 spec 只有一个数值，也要生成规则，例如 "25mm" 应生成提取 thickness 或 diameter 的规则。
-"""
+    prompt = fix_case_prompt_fn(spec, breed=breed, category=category, expected=expected)
+    system_msg = PROMPTS.get("fix_case", {}).get("system", "")
 
     body = json.dumps({
         "model": "openclaw",
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": prompt},
+        ],
         "user": "spec-fix-agent",
-        "max_tokens": 1024,
+        "max_tokens": 4096,
         "temperature": 0.1,
     }).encode("utf-8")
 
@@ -1422,23 +1611,15 @@ def _call_classify_llm(breed: str) -> dict:
     except Exception:
         return {"ok": False, "message": "无法读取 OpenClaw token"}
 
-    prompt = f"""你是一个建材品种分类专家。
-根据以下建材品种名称，判断它属于哪个分类。
-
-分类列表：
-{CLASSIFICATIONS_STR}
-
-品种名称：{breed}
-
-重要规则：
-1.如果发现没有合适分类也可新增分类
-
-请直接返回 JSON（不带 markdown）：
-{{"ok":true,"category":"分类名","confidence":0.9,"note":"简短说明"}}"""
+    prompt = classify_breed_prompt_fn(breed)
+    system_msg = PROMPTS.get("classify_breed", {}).get("system", "")
 
     body = json.dumps({
         "model": "openclaw",
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": prompt},
+        ],
         "user": "classify-agent",
         "max_tokens": 256,
         "temperature": 0.1,

@@ -207,13 +207,15 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     parser = get_parser(city)
     spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
-    # 判断是否需要人工审核：spec 为 "/" 或空 时不需要细分，直接标记 needs_review=False
-    # 只有 spec 有实际内容但解析不到任何细分字段时才需要人工审核
+    # 判断是否需要人工审核
+    # - spec 为 "/" 或空 → 不需要细分，False
+    # - 规则命中（parse 有任意 attr）→ 需要人工确认解析结果是否正确，True
+    # - 规则未命中（parse 返回空）→ 已知没有 pattern，False
     if not spec_clean or spec_clean == "/":
         needs_review = False
     else:
         attr_keys = [k for k, v in spec_parsed.items() if v]
-        needs_review = len(attr_keys) == 0
+        needs_review = len(attr_keys) > 0  # 规则命中 → 待人工审核
 
     # 提取所有细分字段
     def gp(key, default=""):
