@@ -447,6 +447,7 @@ async function previewFix() {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
       breed: fixCase.value.breed || '',
+      category: fixCase.value.category || '',
       expected: {},
       confirm: false,
     })
@@ -472,6 +473,7 @@ async function confirmFix(sg) {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
       breed: fixCase.value.breed || '',
+      category: fixCase.value.category || '',
       expected: {},
       confirm: true,
       suggestions: [sg],
