@@ -30,6 +30,7 @@ except ImportError:
 
 from classify import classify_breed, get_all_categories, CAT_ID_MAP
 from parse_spec import parse_spec, get_parser
+from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price
 
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────

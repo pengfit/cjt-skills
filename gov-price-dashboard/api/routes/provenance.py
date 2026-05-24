@@ -1124,7 +1124,7 @@ def _infer_rule_suggestion(spec: str, expected: dict) -> list:
                 compiled = re.compile(pattern)
             except re.error:
                 continue
-            if compiled.match(s):
+            if compiled.search(s):
                 attr_m = re.search(r"result\['([^']+)'\]\s*=", code)
                 attr = attr_m.group(1) if attr_m else "_unknown"
                 code_block = code.split("\n")

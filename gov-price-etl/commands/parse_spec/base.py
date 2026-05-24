@@ -165,6 +165,8 @@ class BaseParseSpec:
         if not spec or spec == "/":
             return {}
 
+        spec = spec  # Preserve original × so patterns with × can match
+
         rules = _get_local_rules()
         if not rules:
             return {}

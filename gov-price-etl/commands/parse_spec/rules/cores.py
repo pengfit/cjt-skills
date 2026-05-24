@@ -32,4 +32,9 @@ if m:
 # ── 自动生成: 主芯数 3 ──
 m = re.search(r'^(\d+)×\d+\+', s)
 if m:
-    result['cores'] = m.group(1)"
+    result['cores'] = m.group(1)
+
+# ── 自动生成: 副芯数 1（+1×16部分） ──
+m = re.search(r'\+(\d+)×\d+', s)
+if m:
+    result['cores'] = m.group(1)
