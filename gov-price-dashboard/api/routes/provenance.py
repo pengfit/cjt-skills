@@ -1197,7 +1197,7 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     try:
         block_lines = [f"# ── 自动生成: {note} ──"]
         for ln in code_lines:
-            stripped = ln.lstrip()
+            stripped = ln.rstrip('"').rstrip()  # Remove trailing " from AI-generated code
             if stripped.startswith("if ") or stripped.startswith("elif ") or stripped.startswith("else:") or stripped.startswith("for ") or stripped.startswith("while "):
                 block_lines.append(stripped)
             elif any(stripped.startswith(k) for k in ["result", "return", "pass", "break", "continue"]):
