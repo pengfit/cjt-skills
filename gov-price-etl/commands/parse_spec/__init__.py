@@ -18,7 +18,7 @@
   from parse_spec import parse_spec
   result = parse_spec("δ=4.5", city="base")
 """
-from .base import BaseParseSpec, clean_spec
+from .base import BaseParseSpec
 
 CITY_PARSERS = {
     "xian":     ("xian",     "XianParseSpec"),
@@ -41,9 +41,9 @@ def get_parser(city: str = "xian"):
         return BaseParseSpec()
 
 
-def parse_spec(spec: str, city: str = "xian") -> dict:
+def parse_spec(spec: str, city: str = "xian", breed: str = "", category: str = "") -> dict:
     """通用入口，按城市分发到对应解析器"""
-    return get_parser(city).parse(spec)
+    return get_parser(city).parse(spec, breed, category)
 
 
-__all__ = ["BaseParseSpec", "get_parser", "parse_spec", "clean_spec"]
+__all__ = ["BaseParseSpec", "get_parser", "parse_spec"]

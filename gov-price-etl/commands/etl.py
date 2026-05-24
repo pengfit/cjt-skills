@@ -205,7 +205,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
 
     # 获取对应城市的规格解析器
     parser = get_parser(city)
-    spec_parsed = parser.parse(spec_clean)
+    spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
     # 提取所有细分字段
     def gp(key, default=""):

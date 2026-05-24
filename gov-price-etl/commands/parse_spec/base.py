@@ -90,11 +90,13 @@ def clean_spec(spec: str) -> str:
     return s
 
 
-def _call_fix_case(spec: str) -> dict:
+def _call_fix_case(spec: str, breed: str = "", category: str = "") -> dict:
     """调用 fix-case API 获取规则建议（不写入）"""
     body = json.dumps({
         "city": "xian",
         "spec": spec,
+        "breed": breed,
+        "category": category,
         "expected": {},
         "confirm": False,
     }).encode("utf-8")
@@ -122,12 +124,13 @@ class BaseParseSpec:
     spec 查分属性不允许实时调用 AI，未知 pattern 统一返回空 dict。
     """
 
-    def parse(self, spec: str) -> dict:
-        spec = clean_spec(spec)
-        if not spec:
+    def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
+        if not spec or spec == "/":
             return {}
+        # 乘号归一化（兼容 × * x）
+        spec = spec.replace('\u00d7', '*').replace('\u00D7', '*')
 
-        # ── 仅试本地已确认规则（零 AI 调用）───────────
+        # ── 先试本地已确认规则 ───────────────────────
         for r in _get_local_rules():
             try:
                 m = r["re"].search(spec)
@@ -135,7 +138,6 @@ class BaseParseSpec:
                     groups = m.groups()
                     result = {}
 
-                    # 1a. 多组/单组预设（兼容旧规则）
                     if len(groups) == 1:
                         result[r["attr"]] = groups[0]
                     elif len(groups) > 1:
@@ -144,16 +146,13 @@ class BaseParseSpec:
                     else:
                         result[r["attr"]] = m.group(0)
 
-                    # 1b. 执行规则代码（可覆盖预设，设为语义字段）
-                    # exec() 在独立 dict 中执行，避免污染；合并时语义字段优先
                     if r.get("code"):
-                        exec_result = {}  # 隔离
+                        exec_result = {}
                         exec_globals = {"re": re, "result": exec_result, "s": spec}
                         try:
                             exec(r["code"], exec_globals)
                         except Exception:
                             pass
-                        # 语义字段覆盖 indexed
                         for k in list(result.keys()):
                             if k.startswith(r["attr"] + "_"):
                                 del result[k]
@@ -163,8 +162,10 @@ class BaseParseSpec:
             except re.error:
                 continue
 
-        # ── 本地无匹配时直接返回空，不调 AI ──────────
-        # spec 查分属性不允许实时调用 AI，未知 pattern 统一记为待处理
+        # ── 本地无匹配，调 AI ───────────────────────
+        ai_result = _call_fix_case(spec, breed, category)
+        if ai_result.get("ok"):
+            return ai_result.get("parse_result", {})
         return {}
 
 
