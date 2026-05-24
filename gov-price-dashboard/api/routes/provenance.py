@@ -1759,24 +1759,12 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             "etl_ok": True,
         }
 
-    # 触发 ETL
-    etl_ok = False
-    try:
-        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
-        r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--category", req.category or ""],
-            capture_output=True, text=True, timeout=1800,
-        )
-        etl_ok = (r.returncode == 0)
-    except Exception:
-        etl_ok = False
-
     return {
         "ok": True,
         "mode": "confirm",
         "spec": spec,
         "expected": expected,
-        "message": f"规则已写入并触发 ETL（{'成功' if etl_ok else '失败'}）",
-        "etl_ok": etl_ok,
+        "message": "规则已写入。ETL 请通过分类清洗按钮触发",
+        "etl_ok": False,
     }
 
