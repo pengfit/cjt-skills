@@ -29,8 +29,8 @@ except ImportError:
     sys.exit(1)
 
 from classify import classify_breed, get_all_categories
-from parse_spec import parse_spec, clean_spec as spec_parse_func, get_parser
-from clean import clean_breed, clean_spec, clean_unit, clean_price, get_cat_id
+from parse_spec import parse_spec, get_parser
+from clean import clean_breed, clean_unit, clean_price, get_cat_id
 
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
 _AI_CATEGORY_CACHE: dict = {}  # breed_clean → category
@@ -191,7 +191,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_raw = raw.get("unit", "")
 
     breed_clean = clean_breed(breed_raw)
-    spec_clean = clean_spec(spec_raw)
+    spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
 
