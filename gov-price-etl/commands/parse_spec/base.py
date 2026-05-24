@@ -90,15 +90,15 @@ def clean_spec(spec: str) -> str:
     return s
 
 
-def _call_fix_case(spec: str, breed: str = "", category: str = "") -> dict:
-    """调用 fix-case API 获取规则建议（不写入）"""
+def _call_fix_case(spec: str, breed: str = "", category: str = "", confirm: bool = True) -> dict:
+    """调用 fix-case API 生成并写入规则（confirm=True 写入本地 rules/）"""
     body = json.dumps({
         "city": "xian",
         "spec": spec,
         "breed": breed,
         "category": category,
         "expected": {},
-        "confirm": False,
+        "confirm": confirm,
     }).encode("utf-8")
     req = urllib.request.Request(
         FIX_CASE_API,
@@ -110,7 +110,7 @@ def _call_fix_case(spec: str, breed: str = "", category: str = "") -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read())
     except Exception:
         return {"ok": False}
@@ -167,34 +167,6 @@ class BaseParseSpec:
         if ai_result.get("ok"):
             return ai_result.get("parse_result", {})
         return {}
-
-
-def parse_with_fix_case(spec: str, confirm: bool = False) -> dict:
-    """
-    便捷入口：直接调 fix-case
-    confirm=True 时写入 rules/ 目录（由 dashboard UI 调用）
-    """
-    body = json.dumps({
-        "city": "xian",
-        "spec": spec,
-        "expected": {},
-        "confirm": confirm,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        FIX_CASE_API,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {FIX_CASE_TOKEN}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return {"ok": False, "message": "API 调用失败"}
-
 
 # 启动时构建缓存
 _build_cache()
