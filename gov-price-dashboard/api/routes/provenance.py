@@ -7,7 +7,7 @@
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
-import datetime, concurrent.futures, subprocess, json, os, sys, re
+import datetime, concurrent.futures, subprocess, json, os, sys, re, functools
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -805,8 +805,22 @@ def _run_spec_validation(city="xian"):
     }
 
 
+# Parser 实例缓存（避免每次请求都重新 import + 加载规则）
+_PARSER_CACHE = {}
+
+def _get_cached_parser(city: str):
+    """返回 city 对应的 parse_spec 实例，带缓存"""
+    if city not in _PARSER_CACHE:
+        try:
+            from parse_spec import get_parser
+            _PARSER_CACHE[city] = get_parser(city)
+        except Exception:
+            _PARSER_CACHE[city] = None
+    return _PARSER_CACHE[city]
+
+
 def _sample_dwd_specs(city="xian", sample_size=50, category=""):
-    import sys, os
+    import sys, os, random
     sys.path.insert(0, ETL_CMD_DIR)
     city_idx_map = {
         "xian": "dwd_xian_price",
@@ -816,45 +830,61 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
         "rizhao": "dwd_rizhao_price",
     }
     idx = city_idx_map.get(city, "dwd_xian_price")
-    try:
-        from parse_spec import get_parser
-        parser = get_parser(city)
-    except Exception:
+    parser = _get_cached_parser(city)
+    if parser is None:
         return []
-    must = []
+
+    # Use random offset sampling for all cases.
+    # This avoids function_score/random_score which fails on this ES cluster
+    # with "failed to create query" error.
+    # Filter: exclude spec="/" and empty spec at query level (no need to sample them)
     if category:
-        must.append({"term": {"category": category}})
+        query = {"bool": {"must": [{"term": {"category": category}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+    else:
+        query = {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+
+    try:
+        total = es.count(index=idx, body={"query": query}).get("count", 0)
+    except Exception:
+        total = 0
+    if total == 0:
+        return []
+
+    max_offset = max(0, total - sample_size)
+    # ES index.max_result_window default is 10000; clamp offset to avoid overflow
+    offset = random.randint(0, max(max_offset, 0)) if max_offset > 0 else 0
+    # Cap at 9999 to stay within ES result window (from + size <= 10000)
+    max_allowed_offset = 10000 - sample_size
+    if offset > max_allowed_offset:
+        offset = random.randint(0, max_allowed_offset)
     body = {
         "size": sample_size,
         "_source": ["spec", "category", "breed"],
-        "query": {
-            "function_score": {
-                "query": {"bool": {"must": must if must else [{"match_all": {}}]}},
-                "functions": [{"random_score": {}}],
-                "score_mode": "sum",
-                "boost_mode": "replace",
-            }
-        },
+        "query": query,
+        "from": offset,
+        "sort": [{"_doc": "asc"}],
     }
+
     try:
         result = es.search(index=idx, body=body)
     except Exception:
         return []
+
     samples = []
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
-        if not spec or spec == "/":
-            continue
-        parsed = parser.parse(spec)
-        attr_keys = [k for k, v in parsed.items() if v]
+        # Use needs_review field from DWD (populated during ETL)
+        # has_attr = True means spec was successfully parsed (needs_review=False)
+        # Missing needs_review field = old doc, treat as needs_review=True (unparsed)
+        needs_review = src.get("needs_review", True)
+        has_attr = not needs_review
         samples.append({
             "spec": spec,
             "category": src.get("category", ""),
             "breed": src.get("breed", ""),
-            "parsed": parsed,
-            "attr_keys": attr_keys,
-            "has_attr": len(attr_keys) > 0,
+            "has_attr": has_attr,
+            "needs_review": needs_review,
         })
     return samples
 
@@ -893,7 +923,9 @@ def _category_coverage(city="xian"):
             }
         }
     }
-    # Use top-level fields instead of attr. prefix (DWD has flat structure)
+    # Use needs_review field from DWD: needs_review=True means needs manual review.
+    # ES boolean fields can behave unpredictably with term queries;
+    # use a script filter for reliable count.
     real_aggs_body = {
         "size": 0,
         "aggs": {
@@ -903,24 +935,13 @@ def _category_coverage(city="xian"):
                     "total_spec": {
                         "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     },
-                    "with_any_attr": {
-                        "filter": {
-                            "bool": {
-                                "must": [
-                                    {"script": {"script": "for (String f : ['diameter','pressure','thickness','length','width','height','material','grade','color','voltage','current','drain_type','inlet_type','installation_type','form','cross_section','cores']) { try { def v = doc[f].value; if (v != null && v.toString().length() > 0) return true; } catch (Exception e) { } } return false;"}}
-                                ]
-                            }
-                        }
+                    "parsed_ok": {
+                        "filter": {"bool": {"must": [{"term": {"needs_review": False}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     }
                 }
             },
             "missing_category": {
-                "missing": {"field": "category"},
-                "aggs": {
-                    "total_spec": {
-                        "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
-                    }
-                }
+                "missing": {"field": "category"}
             }
         }
     }
@@ -929,25 +950,15 @@ def _category_coverage(city="xian"):
     except Exception:
         return []
     buckets = result.get("aggregations", {}).get("by_category", {}).get("buckets", [])
-    missing_bucket = result.get("aggregations", {}).get("missing_category", {})
     coverage = []
     for b in buckets:
         total = b.get("total_spec", {}).get("doc_count", 0)
-        with_attr = b.get("with_any_attr", {}).get("doc_count", 0)
-        rate = round(with_attr / total * 100, 1) if total > 0 else 0
+        parsed_ok = b.get("parsed_ok", {}).get("doc_count", 0)
         coverage.append({
             "category": b["key"],
             "total": total,
-            "with_attr": with_attr,
-            "rate": rate,
-        })
-    missing_total = missing_bucket.get("total_spec", {}).get("doc_count", 0)
-    if missing_total > 0:
-        coverage.append({
-            "category": "(无分类)",
-            "total": missing_total,
-            "with_attr": 0,
-            "rate": 0.0,
+            "with_attr": parsed_ok,
+            "rate": round(parsed_ok / max(1, total) * 100, 1),
         })
     coverage.sort(key=lambda x: x["rate"])
     return coverage

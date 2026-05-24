@@ -160,6 +160,7 @@ DWD_MAPPING = {
             "inlet_type": {"type": "keyword"},
             "form": {"type": "keyword"},
             "ip_rating": {"type": "keyword"},
+    "needs_review": {"type": "boolean"},
             "inner_diameter": {"type": "keyword"},
             "wall_thickness": {"type": "keyword"},
             "price": {"type": "float"},
@@ -204,6 +205,14 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     # 获取对应城市的规格解析器
     parser = get_parser(city)
     spec_parsed = parser.parse(spec_clean, breed_clean, category)
+
+    # 判断是否需要人工审核：spec 为 "/" 或空 时不需要细分，直接标记 needs_review=False
+    # 只有 spec 有实际内容但解析不到任何细分字段时才需要人工审核
+    if not spec_clean or spec_clean == "/":
+        needs_review = False
+    else:
+        attr_keys = [k for k, v in spec_parsed.items() if v]
+        needs_review = len(attr_keys) == 0
 
     # 提取所有细分字段
     def gp(key, default=""):
@@ -252,6 +261,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "ip_rating": gp("ip_rating"),
         "inner_diameter": gp("inner_diameter"),
         "wall_thickness": gp("wall_thickness"),
+        "needs_review": needs_review,
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
