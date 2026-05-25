@@ -894,10 +894,19 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     # This avoids function_score/random_score which fails on this ES cluster
     # with "failed to create query" error.
     # Filter: exclude spec="/" and empty spec at query level (no need to sample them)
+        # Always sample specs that still need parsing (needs_spec_parse=True)
+    must_clauses = [{"term": {"needs_spec_parse": True}}]
     if category:
-        query = {"bool": {"must": [{"term": {"category": category}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
-    else:
-        query = {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+        must_clauses.append({"term": {"category": category}})
+    query = {
+        "bool": {
+            "must": must_clauses,
+            "must_not": [
+                {"term": {"spec.keyword": "/"}},
+                {"term": {"spec.keyword": ""}},
+            ]
+        }
+    }
 
     try:
         total = es.count(index=idx, body={"query": query}).get("count", 0)
@@ -915,7 +924,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
         offset = random.randint(0, max_allowed_offset)
     body = {
         "size": sample_size,
-        "_source": ["spec", "category", "breed", "needs_review"],
+        "_source": ["spec", "category", "breed", "needs_spec_parse"],
         "query": query,
         "from": offset,
         "sort": [{"_doc": "asc"}],
@@ -930,16 +939,15 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
-        # NEW ETL logic: needs_review=True → 规则命中（待人工审核）
-        # Missing needs_review field = old doc, treat as False
-        needs_review = src.get("needs_review", False)
-        has_attr = needs_review
+        # needs_spec_parse: True=仍需解析（vector无匹配）, False=已解析出字段
+        needs_spec_parse = src.get("needs_spec_parse", True)  # 默认True（待解析）
+        has_attr = not needs_spec_parse  # 已解析出字段=有attr
         samples.append({
             "spec": spec,
             "category": src.get("category", ""),
             "breed": src.get("breed", ""),
             "has_attr": has_attr,
-            "needs_review": needs_review,
+            "needs_spec_parse": needs_spec_parse,
         })
     return samples
 
@@ -978,9 +986,8 @@ def _category_coverage(city="xian"):
             }
         }
     }
-    # Use needs_review field from DWD: needs_review=True means needs manual review.
-    # ES boolean fields can behave unpredictably with term queries;
-    # use a script filter for reliable count.
+    # needs_spec_parse: True=仍需解析, False=已解析出字段
+    # ES boolean term query on missing field behaves unpredictably
     real_aggs_body = {
         "size": 0,
         "aggs": {
@@ -990,12 +997,13 @@ def _category_coverage(city="xian"):
                     "total_spec": {
                         "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     },
-                    # NEW ETL logic (since 2026-05-24):
-                    # - needs_review=True  → 规则命中（待人工审核/确认规则是否正确）
-                    # - needs_review=False → 规则未命中 或 spec="/"（无需细分）
-                    # 覆盖率的 "解析成功" = 规则命中 → needs_review=True
+                    # needs_spec_parse: True=仍需解析（vector无匹配/失败）, False=已解析出字段
+                    # 解析成功率 = 已解析出字段的 docs / 总 spec docs
                     "parsed_ok": {
-                        "filter": {"bool": {"must": [{"term": {"needs_review": True}}], "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+                        "filter": {"bool": {
+                            "must": [{"term": {"needs_spec_parse": False}}],
+                            "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]
+                        }}
                     }
                 }
             },
@@ -1033,10 +1041,20 @@ def stats_spec_quality(
     """Spec 解析质量报告：DWD 抽样 + 分类覆盖率"""
     samples = _sample_dwd_specs(city, sample_size, category) if _sample else []
     coverage = _category_coverage(city)
+
+    # 当抽样为空时给出提示
+    msg = None
+    if _sample and not samples:
+        if category:
+            msg = f"分类「{category}」全部 spec 已解析完成，无需抽样。确认新规则后点击「分类清洗」刷新存量数据属性"
+        else:
+            msg = "所有分类的 spec 已解析完成，无需抽样。确认新规则后点击「分类清洗」刷新存量数据属性"
+
     return {
         "city": city,
         "samples": samples,
         "coverage": coverage,
+        "message": msg,
     }
 
 
@@ -1106,7 +1124,7 @@ def refresh_category(
 
             try:
                 dwd_doc = transform_doc(raw, dwd_idx, city)
-                dwd_doc["needs_review"] = False  # 确认后全部标记为已审核
+                dwd_doc["needs_spec_parse"] = False  # 确认后全部标记为已解析
                 es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
                 ok_count += 1
             except Exception:
@@ -1116,7 +1134,7 @@ def refresh_category(
             "ok": True,
             "message": f"分类「{category}」清洗完成",
             "total": total,
-            "ok": ok_count,
+            "refreshed": ok_count,
             "failed": fail_count,
             "city": city,
         }
@@ -1253,19 +1271,20 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     return False
 
 
-def _run_spec_validation_quiet(spec: str = "") -> tuple:
-    """用当前 spec 做简单验证：能解析出属性即算通过（向量库检索）"""
-    if not spec:
+def _run_spec_validation_quiet(spec: str = "", attr: str = "", code: str = "") -> tuple:
+    """
+    验证新规则能否解析指定 spec。
+    执行 code block，检查 attr 是否被解析出来。
+    返回 (passed, total)。
+    """
+    if not spec or not attr or not code:
         return (0, 0)
     try:
-        sys.path.insert(0, ETL_CMD_DIR)
-        from parse_spec import get_parser
-        city_key = "xian"
-        parser = get_parser(city_key)
-        result = parser.parse(spec)
-        if result and len(result) > 0:
-            return (1, 1)
-        return (0, 1)
+        import re as _re_mod
+        exec_globals = {"result": {}, "re": _re_mod, "s": spec}
+        exec(code, exec_globals)
+        val = exec_globals.get("result", {}).get(attr)
+        return (1, 1) if val else (0, 1)
     except Exception:
         return (0, 1)
 
@@ -1441,7 +1460,10 @@ def _extract_suggestion_fields(obj_text):
         if endbrace > 0:
             raw = raw[:endbrace]
 
-        return _fix_json_escapes(raw)
+        code = _fix_json_escapes(raw)
+        # Strip stray trailing quote from AI malformed JSON
+        code = code.rstrip("'\"}")
+        return code
 
     pattern_val = extract_pattern_value(obj_text)
     code_val = extract_code_block_value(obj_text)
@@ -1773,7 +1795,8 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}
         if result == "new":
             wrote_new = True
-        passed, total = _run_spec_validation_quiet(spec)
+        code_str = "\n".join(code_block)
+        passed, total = _run_spec_validation_quiet(spec, s["attr"], code_str)
         if not (passed == total and total > 0):
             return {
                 "ok": False,

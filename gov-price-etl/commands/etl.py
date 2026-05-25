@@ -162,7 +162,7 @@ DWD_MAPPING = {
             "inlet_type": {"type": "keyword"},
             "form": {"type": "keyword"},
             "ip_rating": {"type": "keyword"},
-            "needs_review": {"type": "boolean"},
+            "needs_spec_parse": {"type": "boolean"},
             "inner_diameter": {"type": "keyword"},
             "wall_thickness": {"type": "keyword"},
             "price": {"type": "float"},
@@ -208,15 +208,16 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     parser = get_parser(city)
     spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
-    # 判断是否需要人工审核
-    # - spec 为 "/" 或空 → 不需要细分，False
-    # - 规则命中（parse 有任意 attr）→ 需要人工确认解析结果是否正确，True
-    # - 规则未命中（parse 返回空）→ 已知没有 pattern，False
+    # 判断是否需要规格解析
+    # - spec 为 "/" 或空 → 无需细分，False
+    # - vector 向量库匹配成功且解析出字段 → 解析成功，False
+    # - vector 向量库无匹配 / 解析失败 → 仍需解析，True
     if not spec_clean or spec_clean == "/":
-        needs_review = False
+        needs_spec_parse = False
     else:
         attr_keys = [k for k, v in spec_parsed.items() if v]
-        needs_review = len(attr_keys) > 0  # 规则命中 → 待人工审核
+        needs_spec_parse = len(attr_keys) == 0  # 无解析结果 → 仍需解析
+
 
     # 提取所有细分字段
     def gp(key, default=""):
@@ -265,7 +266,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "ip_rating": gp("ip_rating"),
         "inner_diameter": gp("inner_diameter"),
         "wall_thickness": gp("wall_thickness"),
-        "needs_review": needs_review,
+        "needs_spec_parse": needs_spec_parse,
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
@@ -301,7 +302,7 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
         return 0, 0
     if mark_done:
         for doc in docs:
-            doc["needs_review"] = False
+            doc["needs_spec_parse"] = False
     session = get_es_client(es_host)
     body = ""
     for i, doc in enumerate(docs):
@@ -455,7 +456,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
     parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
-    parser.add_argument("--mark-done", action="store_true", help="清洗指定分类时：规则已全部确认，直接标记 needs_review=False")
+    parser.add_argument("--mark-done", action="store_true", help="清洗指定分类时：规则已全部确认，直接标记 needs_spec_parse=False")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
     args = parser.parse_args()
 

@@ -147,8 +147,22 @@ class RuleVectorStore:
             conn.commit()
             conn.close()
 
+    def _strip_r(self, s):
+        """Strip python r'...' or r\"...\" raw string wrapper."""
+        if not s:
+            return s or ""
+        s = s.strip()
+        if s.startswith('r"') and s.endswith('"') and len(s) > 2:
+            return s[2:-1]
+        if s.startswith("r'") and s.endswith("'") and len(s) > 2:
+            return s[2:-1]
+        return s
+
     def _row_to_rule(self, row: tuple) -> dict:
         _, pattern, attr, note, code, breed, category, tokens_json, embedding_bytes, created_at = row
+        # Normalize: strip r'...' wrapper so pattern/code are usable regex literals
+        pattern = self._strip_r(pattern)
+        code = self._strip_r(code)
         rule = {
             "pattern":  pattern,
             "attr":     attr,
@@ -167,14 +181,18 @@ class RuleVectorStore:
                skip_duplicate: bool = True) -> bool:
         """
         Insert rule with token set + embedding. Returns True if inserted.
-        skip_duplicate: check attr+pattern existence.
+        Pattern and code stored normalized (strip r'...' wrapper).
+        skip_duplicate: check normalized (attr, pattern) existence.
         """
-        if skip_duplicate and self.search_by_attr_pattern(attr, pattern):
+        # Normalize before storage and dedup check
+        norm_pat = self._strip_r(pattern)
+        norm_code = self._strip_r(code)
+        if skip_duplicate and self.search_by_attr_pattern(attr, norm_pat):
             return False
 
-        # Build text for embedding
+        # Build text for embedding (use normalized pattern)
         text_parts = [spec for spec in [attr, note, breed, category] if spec]
-        text = " ".join(text_parts) + " " + pattern
+        text = " ".join(text_parts) + " " + norm_pat
         tokens = _tokenize(text)
         embedding = _embed_text(text)
         embedding_bytes = embedding.tobytes()
@@ -186,7 +204,7 @@ class RuleVectorStore:
             conn.execute("""
                 INSERT INTO rule_vectors (pattern, attr, note, code, breed, category, tokens, embedding)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (pattern, attr, note, code, breed, category, tokens_json, embedding_bytes))
+            """, (norm_pat, attr, note, norm_code, breed, category, tokens_json, embedding_bytes))
             conn.commit()
             conn.close()
 
@@ -230,11 +248,20 @@ class RuleVectorStore:
 
             scored.append((combined, rule))
 
-        scored.sort(key=lambda x: -x[0])
-        return scored[:top_k]
+        # Deduplicate: keep top-scored entry per (attr, pattern)
+        seen = {}
+        for sim, rule in scored:
+            key = (rule["attr"], rule["pattern"])
+            if key not in seen:
+                seen[key] = (sim, rule)
+
+        deduped = list(seen.values())
+        deduped.sort(key=lambda x: -x[0])
+        return deduped[:top_k]
 
     def search_by_attr_pattern(self, attr: str, pattern: str) -> dict | None:
-        """Exact dedup lookup by attr + pattern."""
+        """Exact dedup lookup by attr + pattern (pattern must be normalized)."""
+        norm_pat = self._strip_r(pattern)  # normalize so r'...' wrapper doesn't cause false non-match
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -242,7 +269,7 @@ class RuleVectorStore:
                 SELECT * FROM rule_vectors
                 WHERE attr = ? AND pattern = ?
                 LIMIT 1
-            """, (attr, pattern)).fetchone()
+            """, (attr, norm_pat)).fetchone()
             conn.close()
 
         if row:
