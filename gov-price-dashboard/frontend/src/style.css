@@ -2116,6 +2116,12 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #5eead4
 .sq-refresh-btn { background: none; border: none; color: rgba(255,255,255,0.35); font-size: 0.8rem; cursor: pointer; padding: 0 4px; }
 .sq-refresh-btn:hover { color: #38bdf8; }
 
+.sq-sample-header { display: flex; align-items: center; gap: 6px; padding: 6px 0 8px; }
+.sq-sample-label { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+.sq-sample-count { font-size: 1rem; font-weight: 700; color: #38bdf8; }
+.sq-sample-unit { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+.sq-sample-tip { font-size: 0.7rem; color: #d97706; margin-left: 6px; }
+
 .sq-sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .sq-sample-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; transition: all 0.2s; }
 .sq-sample-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }

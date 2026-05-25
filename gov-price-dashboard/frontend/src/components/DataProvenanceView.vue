@@ -207,9 +207,11 @@
 
             <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
-              <div style="font-size:11px;color:#666;padding:4px 8px;background:#fafafa;border-radius:4px;margin-bottom:8px">
-                抽样结果: {{ specQuality.samples.length }} 条
-                <span v-if="specQuality.message" style="color:#d97706;margin-left:8px">{{ specQuality.message }}</span>
+              <div class="sq-sample-header">
+                <span class="sq-sample-label">抽样结果</span>
+                <span class="sq-sample-count">{{ specQuality.samples.length }}</span>
+                <span class="sq-sample-unit">条</span>
+                <span v-if="specQuality.message" class="sq-sample-tip">{{ specQuality.message }}</span>
               </div>
 
               <div class="sq-sample-grid">
