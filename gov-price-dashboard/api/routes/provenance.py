@@ -1131,8 +1131,8 @@ def refresh_category(
             }
 
             try:
+                # transform_doc 内部会根据向量库解析结果自动计算 needs_spec_parse
                 dwd_doc = transform_doc(raw, dwd_idx, city)
-                dwd_doc["needs_spec_parse"] = False  # 确认后全部标记为已解析
                 es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
                 ok_count += 1
             except Exception:
