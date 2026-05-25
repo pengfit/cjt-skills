@@ -36,13 +36,15 @@ try:
     _lines = [l for l in _content.split('\n') if _arrow in l and not l.strip().startswith('#')]
     _keys = [k for line in _lines for k in _re.findall(r'"(\w+)"', line.split(_arrow)[0])]
     ATTR_SLOTS = _keys if _keys else [
-        "material", "form", "diameter", "pressure", "ring_stiffness",
-        "length", "grade", "cores", "cross_section", "voltage",
+        "diameter", "thickness", "length", "width", "height",
+        "material", "grade", "pressure", "cores", "voltage","current",
+        "form","color","series","temperature"
     ]
 except Exception:
     ATTR_SLOTS = [
-        "material", "form", "diameter", "pressure", "ring_stiffness",
-        "length", "grade", "cores", "cross_section", "voltage",
+        "diameter", "thickness", "length", "width", "height",
+        "material", "grade", "pressure", "cores", "voltage","current",
+        "form","color","series","temperature"
     ]
 
 # ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
