@@ -1461,6 +1461,9 @@ def _extract_suggestion_fields(obj_text):
             raw = raw[:endbrace]
 
         code = _fix_json_escapes(raw)
+        # Strip python r'...' wrapper (handles AI raw-string syntax in JSON)
+        if code.startswith("r'") or code.startswith('r\"'):
+            code = _strip_r(code)
         # Strip stray trailing quote from AI malformed JSON
         code = code.rstrip("'\"}")
         return code
@@ -1470,6 +1473,31 @@ def _extract_suggestion_fields(obj_text):
     return pattern_val, code_val
 
 
+
+def _strip_r(s):
+    """Strip python r'...' or r\"...\" raw string wrapper.
+    Handles malformed cases: r'...\" (closing \" from JSON) or missing closing quote.
+    """
+    if not s:
+        return s or ""
+    s = s.strip()
+    if len(s) < 4:
+        return s
+    if s.startswith('r"') and s.endswith('"') and len(s) > 2:
+        return s[2:-1]
+    if s.startswith("r'"):
+        for i in range(2, len(s)):
+            if s[i] == "'" and (i == 0 or s[i-1] != '\\\\'):
+                return s[2:i]
+        last_single = -1
+        for i in range(len(s) - 1, 1, -1):
+            if s[i] == "'" and (i == 0 or s[i-1] != '\\\\'):
+                last_single = i
+                break
+        if last_single > 2:
+            return s[2:last_single]
+        return s[2:]
+    return s
 
 def _fix_json_escapes(s):
     result = []
