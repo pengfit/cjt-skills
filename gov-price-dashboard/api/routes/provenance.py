@@ -1455,17 +1455,25 @@ def _extract_suggestion_fields(obj_text):
         if raw.startswith('"'):
             raw = raw[1:]
 
-        # Value goes to end of object (before final })
-        endbrace = raw.rfind('}')
-        if endbrace > 0:
-            raw = raw[:endbrace]
+        # Trim to the next JSON field separator (same logic as pattern)
+        next_markers_raw = [
+            ',"attr":', ',"note":', ',"pattern":', ',"code_block":',
+            ",'attr:", ",'note:", ",'pattern:", ",'code_block:"
+        ]
+        next_pos = len(raw)
+        for marker2 in next_markers_raw:
+            m2 = _re.search(marker2, raw)
+            if m2:
+                next_pos = min(next_pos, m2.start())
+        raw = raw[:next_pos]
 
         code = _fix_json_escapes(raw)
         # Strip python r'...' wrapper (handles AI raw-string syntax in JSON)
         if code.startswith("r'") or code.startswith('r\"'):
             code = _strip_r(code)
-        # Strip stray trailing quote from AI malformed JSON
-        code = code.rstrip("'\"}")
+        # Strip stray JSON trailing quote/brace from AI malformed JSON
+        # Only strip " and } (from JSON \" and closing }), NOT Python single quotes
+        code = code.rstrip('"}')
         return code
 
     pattern_val = extract_pattern_value(obj_text)
