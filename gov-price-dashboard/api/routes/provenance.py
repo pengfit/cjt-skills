@@ -1188,10 +1188,8 @@ def _get_rule_file_path(attr: str) -> str:
 
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "") -> bool:
     """
-    追加规则：向量库（唯一来源）+ rules/*.py（备份）
-    先写向量库，再用原逻辑写 rules/*.py 作为备份。
+    写入规则：向量库为唯一来源，rules/*.py 不再写入。
     """
-    # ── 主写入：向量库 ──
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
@@ -1205,42 +1203,10 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
                 category="",
                 skip_duplicate=True,
             )
+            return "new"
         except Exception:
-            pass  # 向量写入失败不影响备份写入
-
-    # ── 备份写入：rules/*.py（原逻辑）──
-    import shutil
-    rule_file = _get_rule_file_path(attr)
-    if pattern and os.path.exists(rule_file):
-        with open(rule_file) as rf:
-            existing = rf.read()
-        check1 = 're.search(r"' + pattern + '"'
-        check2 = "re.search(r'" + pattern + "'"
-        if check1 in existing or check2 in existing:
-            return "skip"
-    bak = rule_file + ".bak"
-    if os.path.exists(rule_file):
-        shutil.copy(rule_file, bak)
-    try:
-        block_lines = [f"# ── 自动生成: {note} ──"]
-        for ln in code_lines:
-            stripped = ln.rstrip('"').rstrip()
-            if stripped.startswith("if ") or stripped.startswith("elif ") or stripped.startswith("else:") or stripped.startswith("for ") or stripped.startswith("while "):
-                block_lines.append(stripped)
-            elif any(stripped.startswith(k) for k in ["result", "return", "pass", "break", "continue"]):
-                block_lines.append("    " + stripped)
-            else:
-                block_lines.append(stripped)
-        block = "\n".join(block_lines)
-        with open(rule_file, "a") as f:
-            f.write("\n" + block + "\n")
-        if os.path.exists(bak):
-            os.remove(bak)
-        return "new"
-    except Exception:
-        if os.path.exists(bak):
-            shutil.move(bak, rule_file)
-        return False
+            return False
+    return False
 
 
 def _run_spec_validation_quiet(spec: str = "") -> tuple:
