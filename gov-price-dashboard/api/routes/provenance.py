@@ -1046,39 +1046,83 @@ def refresh_category(
     category: str = Body("", description="分类名（为空则刷新全部）"),
 ):
     """
-    按分类触发 DWD 清洗（重新 ETL 指定分类下的所有数据）。
-    前端：同一分类下的规格规则全部确认后，点击清洗。
+    直接查询 DWD 中指定分类的数据，重新清洗并回写。
+    清洗逻辑与 etl.py 的 transform_doc 共用。
+    规则全部确认后调用此接口。
     """
-    import subprocess, sys
     if not category:
         return {"ok": False, "message": "category 不能为空"}
 
-    city_idx_map = {
+    dwd_idx_map = {
         "xian": "dwd_xian_price",
         "sichuan": "dwd_sichuan_price",
         "chongqing": "dwd_chongqing_price",
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
     }
-    etl_ok = False
+    dwd_idx = dwd_idx_map.get(city)
+    if not dwd_idx:
+        return {"ok": False, "message": f"未知城市: {city}"}
+
     try:
-        etl_script = os.path.join(ETL_CMD_DIR, "etl.py")
-        r = subprocess.run(
-            [sys.executable, etl_script, "--city", city, "--category", category],
-            capture_output=True, text=True, timeout=1800,
-        )
-        etl_ok = (r.returncode == 0)
-    except Exception:
-        etl_ok = False
+        sys.path.insert(0, ETL_CMD_DIR)
+        from etl import transform_doc, get_parser, ensure_dwd
+        import concurrent.futures
 
-    # 分类清洗（refresh-category）时：规则已全部确认，全部标记 needs_review=False
+        es = Elasticsearch([ES_HOST])
 
-    return {
-        "ok": etl_ok,
-        "message": f"分类「{category}」DWD 清洗{'成功' if etl_ok else '失败'}",
-        "city": city,
-        "category": category,
-    }
+        # 查询 DWD 中该分类的全部 docs
+        body = {
+            "query": {"term": {"category": category}},
+            "size": 500,
+            "sort": [{"update_date": "asc"}],
+        }
+
+        resp = es.search(index=dwd_idx, body=body)
+        hits = resp["hits"]["hits"]
+        total = len(hits)
+
+        if total == 0:
+            return {"ok": True, "message": f"分类「{category}」无数据，跳过", "city": city}
+
+        ok_count = 0
+        fail_count = 0
+
+        for h in hits:
+            doc = h["_source"]
+            # 构造 ODS 格式（transform_doc 期望的字段）
+            raw = {
+                "breed": doc.get("breed", ""),
+                "spec": doc.get("spec", ""),
+                "unit": doc.get("unit", ""),
+                "price": doc.get("price", 0),
+                "tax_price": doc.get("tax_price", 0),
+                "county": doc.get("county", ""),
+                "province": doc.get("province", ""),
+                "city": doc.get("city", ""),
+                "update_date": doc.get("update_date", ""),
+                "create_time": doc.get("create_time", ""),
+            }
+
+            try:
+                dwd_doc = transform_doc(raw, dwd_idx, city)
+                dwd_doc["needs_review"] = False  # 确认后全部标记为已审核
+                es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
+                ok_count += 1
+            except Exception:
+                fail_count += 1
+
+        return {
+            "ok": True,
+            "message": f"分类「{category}」清洗完成",
+            "total": total,
+            "ok": ok_count,
+            "failed": fail_count,
+            "city": city,
+        }
+
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
 
 
 # ═══════════════════════════════════════════════════════
