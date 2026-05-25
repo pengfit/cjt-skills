@@ -269,6 +269,35 @@ def ensure_dwd(es_host: str, dwd_index: str):
         print(f"  [ETL] 索引 {dwd_index} 创建完成")
 
 
+
+DWS_MAPPING = {
+    "mappings": {
+        "properties": {
+            "breed": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+            "spec": {"type": "keyword"},
+            "unit": {"type": "keyword"},
+            "price": {"type": "float"},
+            "tax_price": {"type": "float"},
+            "category": {"type": "keyword"},
+            "province": {"type": "keyword"},
+            "city": {"type": "keyword"},
+            "county": {"type": "keyword"},
+            "update_date": {"type": "date"},
+            "period": {"type": "text"},
+            "attr": {"type": "object", "enabled": True},
+        }
+    },
+    "settings": {"number_of_shards": 1, "number_of_replicas": 0}
+}
+
+def ensure_dws(es_host: str, dws_index: str):
+    session = get_es_client(es_host)
+    resp = session.head(f"{es_host}/{dws_index}")
+    if resp.status_code == 404:
+        print(f"  [DWS] 创建索引 {dws_index} ...")
+        session.put(f"{es_host}/{dws_index}", json=DWS_MAPPING)
+        print(f"  [DWS] 索引 {dws_index} 创建完成")
+
 def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
     if not docs:
         return 0, 0
@@ -374,6 +403,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         print(f"  [DWS] {city}: 无待同步数据")
         return 0, 0
 
+    ensure_dws(es_host, dws_idx)
     print(f"  [DWS] {city}: {dwd_idx} → {dws_idx} ({total:,} 条待同步)")
 
     synced = 0
@@ -437,19 +467,19 @@ def etl_city(es_host: str, city: str, cfg: dict,
     print(f"  [ETL] {city}: {ods_idx} ({total:,} 条) → {dwd_idx}")
 
     body = {
-        "query": {"match_all": {}},
+        "query": {"bool": {"must": [{"match_all": {}}], "must_not": [{"terms": {"spec": ["/", ""]}}]}},
         "size": min(batch_size, total),
         "sort": [{"update_date": "asc"}],
     }
 
     if category and not (incremental and since_date):
-        body["query"] = {"term": {"category": category}}
+        body["query"] = {"bool": {"must": [{"term": {"category": category}}], "must_not": [{"terms": {"spec": ["/", ""]}}]}}
 
     if incremental and since_date:
         if category:
-            body["query"] = {"bool": {"must": [{"term": {"category": category}}]}}
+            body["query"] = {"bool": {"must": [{"term": {"category": category}}], "must_not": [{"terms": {"spec": ["/", ""]}}]}}
         else:
-            body["query"] = {"range": {"update_date": {"gte": since_date}}}
+            body["query"] = {"bool": {"must": [{"range": {"update_date": {"gte": since_date}}}], "must_not": [{"terms": {"spec": ["/", ""]}}]}}
 
     resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
     if resp.status_code != 200:
@@ -472,6 +502,9 @@ def etl_city(es_host: str, city: str, cfg: dict,
         for h in hits:
             try:
                 doc = transform_doc(h["_source"], ods_idx, city)
+                spec_val = doc.get("spec", "")
+                if not spec_val or spec_val == "/":
+                    continue
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
                     continue
