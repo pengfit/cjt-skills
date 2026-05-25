@@ -320,6 +320,79 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
     return ok, errors
 
 
+# ─── DWD → DWS 同步（仅 spec 已清洗） ────────────────────────────────────────
+def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> tuple:
+    """
+    查询 DWD 中 needs_spec_parse=False 的文档，同步到 DWS。
+    返回 (成功数, 失败数)。
+    """
+    dwd_idx = cfg["dwd"]
+    dws_idx = cfg["dws"]
+    session = get_es_client(es_host)
+
+
+    # 按 update_date 顺序滚动扫描 DWD
+    body = {
+        "query": {"term": {"needs_spec_parse": False}},
+        "size": batch_size,
+        "sort": [{"update_date": "asc"}],
+    }
+
+    resp = session.post(f"{es_host}/{dwd_idx}/_search?scroll=2m", json=body)
+    if resp.status_code != 200:
+        print(f"  [DWS] 查询 DWD 失败: {resp.text[:200]}")
+        return 0, 0
+
+    data = resp.json()
+    hits = data["hits"]["hits"]
+    scroll_id = data.get("_scroll_id", "")
+    total = data["hits"]["total"]
+    if isinstance(total, dict):
+        total = total.get("value", 0)
+
+    if total == 0:
+        print(f"  [DWS] {city}: 无待同步数据")
+        return 0, 0
+
+    print(f"  [DWS] {city}: {dwd_idx} → {dws_idx} ({total:,} 条待同步)")
+
+    synced = 0
+    failed = 0
+    pages = 0
+
+    while hits:
+        pages += 1
+        docs, doc_ids = [], []
+        for h in hits:
+            d = dict(h["_source"])
+            # DWD 的 _id 即 ODS 的 _id，直接复用于 DWS
+            docs.append(d)
+            doc_ids.append(h["_id"])
+
+        ok, err = bulk_index(es_host, dws_idx, docs, doc_ids)
+        synced += ok
+        failed += err
+
+        if pages % 20 == 0:
+            print(f"    pages={pages}, synced={synced}/{total}")
+
+
+        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                             json={"scroll_id": scroll_id})
+        if resp.status_code != 200:
+            break
+        result = resp.json()
+        hits = result["hits"]["hits"]
+        scroll_id = result.get("_scroll_id", "")
+
+
+    if scroll_id:
+        session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
+
+    print(f"  [DWS] {city} 完成: synced={synced}, failed={failed}")
+    return synced, failed
+
+
 # ─── 单城市 ETL ─────────────────────────────────────────────────────────────────
 def etl_city(es_host: str, city: str, cfg: dict,
              batch_size: int = 500, incremental: bool = False,
@@ -399,8 +472,8 @@ def etl_city(es_host: str, city: str, cfg: dict,
             print(f"    pages={pages}, etled={etled}/{total}")
 
         # 滚动
-        resp = session.post(f"{es_host}/_search/scroll",
-                             json={"scroll": "2m", "scroll_id": scroll_id})
+        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                             json={"scroll_id": scroll_id})
         if resp.status_code != 200:
             break
         result = resp.json()
@@ -443,6 +516,10 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
         )
         total_etled += ok
         total_failed += fail
+
+        # ODS→DWD 完成后，同步已清洗文档到 DWS
+        dws_ok, dws_fail = flush_to_dws(es_host, city, cfg, batch_size=batch_size)
+        print(f"  [DWS] {city} 同步结果: ok={dws_ok}, fail={dws_fail}")
 
     print(f"\n[ETL] 全部完成: etled={total_etled}, failed={total_failed}")
     return total_etled, total_failed
