@@ -331,18 +331,26 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：needs_spec_parse=False 且 至少一个细分字段非空
+    # 入池：needs_spec_parse=False 且 至少一个细分字段非空（排除空字符串）
+    attr_should_clauses = []
+    for f in ATTR_FIELDS:
+        attr_should_clauses.append(
+            {
+                "bool": {
+                    "must": [
+                        {"exists": {"field": f}},
+                        {"bool": {"must_not": [{"term": {f: ""}}]}},
+                    ]
+                }
+            }
+        )
+
     body = {
         "query": {
             "bool": {
                 "must": [
                     {"term": {"needs_spec_parse": False}},
-                    {
-                        "bool": {
-                            "should": [{"exists": {"field": f}} for f in ATTR_FIELDS],
-                            "minimum_should_match": 1,
-                        }
-                    },
+                    {"bool": {"should": attr_should_clauses, "minimum_should_match": 1}},
                 ]
             }
         },
