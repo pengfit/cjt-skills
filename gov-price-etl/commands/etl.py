@@ -321,9 +321,28 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
 
 
 # ─── DWD → DWS 同步（仅 spec 已清洗） ────────────────────────────────────────
+# DWS 的 attr 字段是 nested object，从 DWD 的扁平字段构建
+ATTR_FIELDS = (
+    "diameter,thickness,length,width,height,material,grade,pressure,ring_stiffness,"  
+    "cores,voltage,current,cross_section,drain_type,inlet_type,installation_type,"  
+    "form,ip_rating,color,series,temperature,temp_range,humidity_range,"  
+    "length_range,height_range,inner_diameter,wall_thickness,fiber_core,"  
+    "cable_length,channels,doors,media,range,output"
+).split(",")
+
+def _build_attr(doc: dict) -> dict:
+    """从 DWD 扁平文档中提取 attr nested 字段（仅保留非空值）"""
+    attr = {}
+    for f in ATTR_FIELDS:
+        v = doc.get(f)
+        if v and str(v).strip():
+            attr[f] = str(v).strip()
+    return attr
+
 def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> tuple:
     """
     查询 DWD 中 needs_spec_parse=False 的文档，同步到 DWS。
+    DWD 的扁平细分字段 → DWS 的 attr nested 字段。
     返回 (成功数, 失败数)。
     """
     dwd_idx = cfg["dwd"]
@@ -365,6 +384,8 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         docs, doc_ids = [], []
         for h in hits:
             d = dict(h["_source"])
+            # 构建 DWS 的 attr nested 字段（从 DWD 扁平字段提取）
+            d["attr"] = _build_attr(d)
             # DWD 的 _id 即 ODS 的 _id，直接复用于 DWS
             docs.append(d)
             doc_ids.append(h["_id"])
