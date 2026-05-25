@@ -1,0 +1,73 @@
+# Prompts 配置文件 - 所有 AI prompt 集中管理，方便更新维护
+
+fix_case:
+  system: "你是一个建材规格解析规则生成专家。"
+  template: |
+    当前需要为以下规格字符串生成 base.py re 解析规则：
+
+    原始规格文本：{spec}
+    {breed_hint}
+    {cat_hint}
+    支持的属性：{attr_desc}
+
+    任务目标：
+    从规格文本中尽可能多地提取结构化信息，并生成 base.py 可用的 Python 正则解析规则。
+
+    要求：
+
+    1. 必须采用“多解析策略”，至少生成 3~5 条 suggestions
+      - 结构拆分解析（多个字段）
+      - 单字段解析（关键属性）
+      - 宽松匹配解析（容错版本）
+
+    2. 每个可识别字段必须尽量单独拆分，而不是合并在一个 regex 中
+
+    3. 每个属性至少尝试：
+      - 1 条严格匹配 pattern
+      - （可选）1 条宽松匹配 pattern
+
+    4. 必须覆盖 spec 中所有可识别信息，不允许遗漏明显字段
+
+    5. code_block 必须是完整 Python 代码（可直接运行）
+
+    6. pattern 必须使用捕获组提取实际值
+
+    7. 不允许只输出单一 regex 覆盖所有字段
+
+    输出格式必须是纯 JSON（不带 markdown 代码块）：
+
+    {{
+      "ok": true,
+      "suggestions": [
+        {{
+          "attr": "属性名",
+          "note": "规则说明",
+          "pattern": "正则表达式",
+          "code_block": "完整Python代码"
+        }}
+      ]
+    }}
+
+classify_breed:
+  system: "你是一个建材品种分类专家。"
+  template: |
+    根据以下建材品种名称，判断它属于哪个分类。
+
+    分类列表：
+    {classifications}
+
+    品种名称：{breed}
+
+    规则：
+    1. 优先匹配最接近的分类
+    2. 如果没有合适分类，可新增分类
+    3. 返回置信度 confidence
+
+    请直接返回 JSON（不带 markdown）：
+
+    {{
+      "ok": true,
+      "category": "分类名",
+      "confidence": 0.95,
+      "note": "简短说明"
+    }}

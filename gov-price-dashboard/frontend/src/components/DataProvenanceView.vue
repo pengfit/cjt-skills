@@ -161,6 +161,7 @@
         </div>
         <div class="dwd-drilldown-body">
           <div class="spec-quality-panel" v-if="specQuality.coverage?.length || specQuality.samples?.length">
+
             <div class="sq-header">
               <span class="panel-dot panel-dot-green"></span>
               <span class="panel-title">🔬 Spec 解析质量</span>
@@ -181,13 +182,37 @@
                   <span class="sq-cov-pct">{{ c.rate }}%</span>
                   <span class="sq-cov-count">{{ c.with_attr }}/{{ c.total }}</span>
                   <button class="sq-sample-btn" :class="sqActiveCat === c.category ? 'btn-active' : ''" @click="selectCatForSample(c.category)">抽样</button>
-                  <button class="sq-clean-btn" :disabled="refreshLoading" @click.stop="refreshCategory(c.category)">清洗</button>
+                  <button class="sq-clean-btn" :disabled="refreshLoading || cleaningCats[c.category]" @click.stop="refreshCategory(c.category)">
+                    <span v-if="cleaningCats[c.category]" class="cleaning-spinner"></span>
+                    <span v-else-if="cleanDoneCat === c.category">{{ cleanDoneOk ? '✓' : '✕' }}</span>
+                    <span v-else>清洗</span>
+                  </button>
                 </div>
               </div>
             </div>
+            <div v-else-if="specQuality.message" class="sq-message-hint">{{ specQuality.message }}</div>
+            <div v-else class="sq-empty-hint">暂无数据</div>
+
+            <!-- 内联确认提示 -->
+            <div v-if="sqConfirmMsg" class="sq-confirm-hint">
+              <span>{{ sqConfirmMsg }}</span>
+              <div style="margin-top:8px;display:flex;gap:8px">
+                <button class="btn-sm btn-primary" @click="handleConfirmOk">确认</button>
+                <button class="btn-sm" @click="sqConfirmMsg = ''">取消</button>
+              </div>
+            </div>
+
+            <!-- 内联 toast 提示 -->
+            <div v-if="sqToast" class="sq-toast-hint">{{ sqToast }}</div>
 
             <!-- DWD 抽样 -->
             <div class="sq-samples" v-if="specQuality.samples?.length">
+              <div class="sq-sample-header">
+                <span class="sq-sample-label">抽样结果</span>
+                <span class="sq-sample-count">{{ specQuality.samples.length }}</span>
+                <span class="sq-sample-unit">条</span>
+                <span v-if="specQuality.message" class="sq-sample-tip">{{ specQuality.message }}</span>
+              </div>
 
               <div class="sq-sample-grid">
                 <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
@@ -357,10 +382,15 @@ const POLL_INTERVAL_MS = 15000
 async function openDwdDrilldown(city, pipe) {
   if (!pipe.dwd?.count) return
   dwdDrilldownCity.value = city
-  specQuality.value = {}
+  specQuality.value = {}   // 先清空，API 返回 coverage（_sample=false 不含抽样）
   try {
-    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city } })
+    const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city, _sample: false } })
     specQuality.value = sq.data || {}
+
+    if (specQuality.value.message && !specQuality.value.samples?.length) {
+      sqToast.value = specQuality.value.message
+      setTimeout(() => { sqToast.value = '' }, 4000)
+    }
     if (specQuality.value.coverage) {
       sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
     }
@@ -371,13 +401,18 @@ async function refreshSpecQuality() {
   if (!dwdDrilldownCity.value) return
   specQuality.value = {}
   try {
-    const sq = await axios.get(`${API}/stats/spec-quality`, {
-      params: {
-        city: dwdDrilldownCity.value,
-        category: sqCatFilter.value || '',
-      }
-    })
+    const _sample = !!sqCatFilter.value
+    const _url = `${API}/stats/spec-quality`
+    const _params = { city: dwdDrilldownCity.value, category: sqCatFilter.value || '', _sample }
+
+    const sq = await axios.get(_url, { params: _params })
+
     specQuality.value = sq.data || {}
+
+    if (specQuality.value.message && !specQuality.value.samples?.length) {
+      sqToast.value = specQuality.value.message
+      setTimeout(() => { sqToast.value = '' }, 4000)
+    }
     if (specQuality.value.coverage) {
       sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
     }
@@ -385,8 +420,11 @@ async function refreshSpecQuality() {
 }
 
 async function refreshCategory(cat) {
-  if (!confirm(`确认清洗分类「${cat}」？\n同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`)) return
-  refreshLoading.value = true
+  if (sqConfirmMsg.value) return  // already showing a confirmation
+  sqConfirmMsg.value = `确认清洗分类「${cat}」？同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`
+  window._sqConfirmCat = cat  // store cat for handlers below
+  cleaningCats.value[cat] = true
+  if (cleanDoneCat.value === cat) cleanDoneCat.value = ''
   try {
     await axios.post(`${API}/stats/spec-quality/refresh-category`, {
       city: dwdDrilldownCity.value || 'xian',
@@ -394,15 +432,49 @@ async function refreshCategory(cat) {
     })
     sqActiveCat.value = cat
     sqCatFilter.value = cat
+    cleanDoneOk.value = true
+    cleanDoneCat.value = cat
     await refreshSpecQuality()
-  } catch(e) { console.warn("refresh-category failed", e) }
-  finally { refreshLoading.value = false }
+  } catch(e) {
+    cleanDoneOk.value = false
+    cleanDoneCat.value = cat
+    console.warn("refresh-category failed", e)
+  } finally {
+    delete cleaningCats.value[cat]
+    // 3s 后清除完成标记
+    setTimeout(() => { if (cleanDoneCat.value === cat) cleanDoneCat.value = '' }, 3000)
+  }
 }
 
 function selectCatForSample(cat) {
   sqActiveCat.value = cat
   sqCatFilter.value = cat
   refreshSpecQuality()
+}
+
+function handleConfirmOk() {
+  const cat = window._sqConfirmCat || ''
+  sqConfirmMsg.value = ''
+  if (!cat) return
+  cleaningCats.value[cat] = true
+  if (cleanDoneCat.value === cat) cleanDoneCat.value = ''
+  axios.post(`${API}/stats/spec-quality/refresh-category`, {
+    city: dwdDrilldownCity.value || 'xian',
+    category: cat,
+  }).then(() => {
+    sqActiveCat.value = cat
+    sqCatFilter.value = cat
+    cleanDoneOk.value = true
+    cleanDoneCat.value = cat
+    refreshSpecQuality()
+  }).catch(e => {
+    cleanDoneOk.value = false
+    cleanDoneCat.value = cat
+    console.warn("refresh-category failed", e)
+  }).finally(() => {
+    delete cleaningCats.value[cat]
+    setTimeout(() => { if (cleanDoneCat.value === cat) cleanDoneCat.value = '' }, 3000)
+  })
 }
 
 function closeDwdDrilldown() {
@@ -420,6 +492,11 @@ const sqCatFilter = ref('')
 const sqCatOptions = ref([])
 const sqActiveCat = ref('')
 const sqSampleSize = ref(50)
+const sqToast = ref('')   // 内联 toast
+const sqConfirmMsg = ref('')  // 内联确认提示
+const cleaningCats = ref({})      // { category: true } 清洗中状态
+const cleanDoneCat = ref('')      // 当前显示完成标记的分类
+const cleanDoneOk = ref(true)
 const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
@@ -447,6 +524,7 @@ async function previewFix() {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
       breed: fixCase.value.breed || '',
+      category: fixCase.value.category || '',
       expected: {},
       confirm: false,
     })
@@ -472,6 +550,7 @@ async function confirmFix(sg) {
       city: dwdDrilldownCity.value || 'xian',
       spec: fixCase.value.spec,
       breed: fixCase.value.breed || '',
+      category: fixCase.value.category || '',
       expected: {},
       confirm: true,
       suggestions: [sg],
@@ -1026,4 +1105,59 @@ onUnmounted(() => {
   cursor: pointer;
 }
 .btn-ok:hover { background: #6ee7b7; }
+
+/* 清洗按钮动态效果 */
+.cleaning-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.sq-empty-hint {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+.sq-message-hint {
+  padding: 16px 20px;
+  margin: 8px 16px;
+  background: #fefce8;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.sq-confirm-hint {
+  padding: 12px 16px;
+  margin: 0 16px 12px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.sq-toast-hint {
+  padding: 12px 16px;
+  margin: 0 16px 12px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  animation: sq-toast-in 0.2s ease;
+}
+@keyframes sq-toast-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>

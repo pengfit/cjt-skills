@@ -28,9 +28,32 @@ except ImportError:
     print("请安装依赖: pip3 install requests pyyaml")
     sys.exit(1)
 
-from classify import classify_breed, get_all_categories
-from parse_spec import parse_spec, clean_spec as spec_parse_func, get_parser
-from clean import clean_breed, clean_spec, clean_unit, clean_price, get_cat_id
+from classify import classify_breed, get_all_categories, CAT_ID_MAP
+from parse_spec import parse_spec, get_parser
+from parse_spec.base import clean_spec
+from clean import clean_breed, clean_unit, clean_price
+
+# ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
+_AI_CATEGORY_CACHE: dict = {}  # breed_clean → category
+
+
+def _fetch_ai_category(breed_clean: str, city: str) -> str:
+    """查询 AI 补充分类（带缓存，同一 breed 只查一次）"""
+    if breed_clean in _AI_CATEGORY_CACHE:
+        return _AI_CATEGORY_CACHE[breed_clean]
+    import http.client, json as _json
+    try:
+        body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
+        c = http.client.HTTPConnection("localhost", 5200, timeout=15)
+        c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
+                  headers={"Content-Type": "application/json"})
+        resp = c.getresponse()
+        data = _json.loads(resp.read())
+        cat = data.get("category", "其他") if data.get("ok") else "其他"
+    except Exception:
+        cat = "其他"
+    _AI_CATEGORY_CACHE[breed_clean] = cat
+    return cat
 
 
 # ─── 配置 ───────────────────────────────────────────────────────────────────────
@@ -134,16 +157,17 @@ DWD_MAPPING = {
             "fire_rating": {"type": "keyword"},
             "temperature": {"type": "keyword"},
             "installation_type": {"type": "keyword"},
+            "installation_type": {"type": "keyword"},
             "drain_type": {"type": "keyword"},
             "inlet_type": {"type": "keyword"},
             "form": {"type": "keyword"},
             "ip_rating": {"type": "keyword"},
+            "needs_spec_parse": {"type": "boolean"},
             "inner_diameter": {"type": "keyword"},
             "wall_thickness": {"type": "keyword"},
             "price": {"type": "float"},
             "tax_price": {"type": "float"},
             "category": {"type": "keyword"},
-            "category_id": {"type": "integer"},
             "province": {"type": "keyword"},
             "city": {"type": "keyword"},
             "county": {"type": "keyword"},
@@ -169,16 +193,31 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_raw = raw.get("unit", "")
 
     breed_clean = clean_breed(breed_raw)
-    spec_clean = clean_spec(spec_raw)
+    spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
-    category_id = get_cat_id(category)
+
+    # 规则命中「其他」时，调用 AI 接口补充分类（同一 breed 只查一次）
+    if category == "其他":
+        category = _fetch_ai_category(breed_clean, city)
+
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))
 
     # 获取对应城市的规格解析器
     parser = get_parser(city)
-    spec_parsed = parser.parse(spec_clean)
+    spec_parsed = parser.parse(spec_clean, breed_clean, category)
+
+    # 判断是否需要规格解析
+    # - spec 为 "/" 或空 → 无需细分，False
+    # - vector 向量库匹配成功且解析出字段 → 解析成功，False
+    # - vector 向量库无匹配 / 解析失败 → 仍需解析，True
+    if not spec_clean or spec_clean == "/":
+        needs_spec_parse = False
+    else:
+        attr_keys = [k for k, v in spec_parsed.items() if v]
+        needs_spec_parse = len(attr_keys) == 0  # 无解析结果 → 仍需解析
+
 
     # 提取所有细分字段
     def gp(key, default=""):
@@ -227,11 +266,11 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "ip_rating": gp("ip_rating"),
         "inner_diameter": gp("inner_diameter"),
         "wall_thickness": gp("wall_thickness"),
+        "needs_spec_parse": needs_spec_parse,
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
         "category": category,
-        "category_id": category_id,
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),
@@ -257,10 +296,13 @@ def ensure_dwd(es_host: str, dwd_index: str):
 
 
 # ─── 批量写入 ───────────────────────────────────────────────────────────────────
-def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
+def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
     """Bulk 写入 ES，返回 (成功数, 失败数)"""
     if not docs:
         return 0, 0
+    if mark_done:
+        for doc in docs:
+            doc["needs_spec_parse"] = False
     session = get_es_client(es_host)
     body = ""
     for i, doc in enumerate(docs):
@@ -278,12 +320,84 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
     return ok, errors
 
 
+# ─── DWD → DWS 同步（仅 spec 已清洗） ────────────────────────────────────────
+def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> tuple:
+    """
+    查询 DWD 中 needs_spec_parse=False 的文档，同步到 DWS。
+    返回 (成功数, 失败数)。
+    """
+    dwd_idx = cfg["dwd"]
+    dws_idx = cfg["dws"]
+    session = get_es_client(es_host)
+
+
+    # 按 update_date 顺序滚动扫描 DWD
+    body = {
+        "query": {"term": {"needs_spec_parse": False}},
+        "size": batch_size,
+        "sort": [{"update_date": "asc"}],
+    }
+
+    resp = session.post(f"{es_host}/{dwd_idx}/_search?scroll=2m", json=body)
+    if resp.status_code != 200:
+        print(f"  [DWS] 查询 DWD 失败: {resp.text[:200]}")
+        return 0, 0
+
+    data = resp.json()
+    hits = data["hits"]["hits"]
+    scroll_id = data.get("_scroll_id", "")
+    total = data["hits"]["total"]
+    if isinstance(total, dict):
+        total = total.get("value", 0)
+
+    if total == 0:
+        print(f"  [DWS] {city}: 无待同步数据")
+        return 0, 0
+
+    print(f"  [DWS] {city}: {dwd_idx} → {dws_idx} ({total:,} 条待同步)")
+
+    synced = 0
+    failed = 0
+    pages = 0
+
+    while hits:
+        pages += 1
+        docs, doc_ids = [], []
+        for h in hits:
+            d = dict(h["_source"])
+            # DWD 的 _id 即 ODS 的 _id，直接复用于 DWS
+            docs.append(d)
+            doc_ids.append(h["_id"])
+
+        ok, err = bulk_index(es_host, dws_idx, docs, doc_ids)
+        synced += ok
+        failed += err
+
+        if pages % 20 == 0:
+            print(f"    pages={pages}, synced={synced}/{total}")
+
+
+        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                             json={"scroll_id": scroll_id})
+        if resp.status_code != 200:
+            break
+        result = resp.json()
+        hits = result["hits"]["hits"]
+        scroll_id = result.get("_scroll_id", "")
+
+
+    if scroll_id:
+        session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
+
+    print(f"  [DWS] {city} 完成: synced={synced}, failed={failed}")
+    return synced, failed
+
+
 # ─── 单城市 ETL ─────────────────────────────────────────────────────────────────
 def etl_city(es_host: str, city: str, cfg: dict,
              batch_size: int = 500, incremental: bool = False,
              since_date: str = "", dry_run: bool = False,
-
-             category: str = "") -> tuple:
+             category: str = "", mark_done: bool = False) -> tuple:
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
 
@@ -350,7 +464,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
                     print(f"    转换失败: {e}")
 
         if docs and not dry_run:
-            ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
+            ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids, mark_done=mark_done)
             etled += ok
             failed += fail
 
@@ -358,8 +472,8 @@ def etl_city(es_host: str, city: str, cfg: dict,
             print(f"    pages={pages}, etled={etled}/{total}")
 
         # 滚动
-        resp = session.post(f"{es_host}/_search/scroll",
-                             json={"scroll": "2m", "scroll_id": scroll_id})
+        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                             json={"scroll_id": scroll_id})
         if resp.status_code != 200:
             break
         result = resp.json()
@@ -376,7 +490,8 @@ def etl_city(es_host: str, city: str, cfg: dict,
 # ─── 主 ETL ─────────────────────────────────────────────────────────────────────
 def run_etl(es_host: str, cities: list, batch_size: int = 500,
             incremental: bool = False, since_date: str = "",
-            dry_run: bool = False, category: str = ""):
+            dry_run: bool = False, category: str = "",
+            mark_done: bool = False):
     """ETL 多个城市"""
 
     total_etled = 0
@@ -397,9 +512,14 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
             since_date=since_date,
             dry_run=dry_run,
             category=category,
+            mark_done=mark_done,
         )
         total_etled += ok
         total_failed += fail
+
+        # ODS→DWD 完成后，同步已清洗文档到 DWS
+        dws_ok, dws_fail = flush_to_dws(es_host, city, cfg, batch_size=batch_size)
+        print(f"  [DWS] {city} 同步结果: ok={dws_ok}, fail={dws_fail}")
 
     print(f"\n[ETL] 全部完成: etled={total_etled}, failed={total_failed}")
     return total_etled, total_failed
@@ -413,6 +533,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
     parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
+    parser.add_argument("--mark-done", action="store_true", help="清洗指定分类时：规则已全部确认，直接标记 needs_spec_parse=False")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
     args = parser.parse_args()
 
@@ -440,6 +561,7 @@ def main():
         incremental=args.incremental,
         since_date=args.since,
         dry_run=args.dry_run,
+        mark_done=args.mark_done,
     )
     print(f"[ETL] 耗时 {time.time()-start:.1f}s | ok={ok}, fail={fail}")
 

@@ -1,10 +1,8 @@
 """classify.py - gov-price 品种分类引擎（rules/ 动态加载版）"""
 
-try:
-    from .rules._core import classify_breed, get_all_categories, CAT_ID_MAP, CLASSIFICATIONS
-except ImportError:
-    from classify.rules._core import classify_breed, get_all_categories, CAT_ID_MAP, CLASSIFICATIONS
+from .rules._core import classify_breed, get_all_categories, CAT_ID_MAP, CLASSIFICATIONS
 
+__all__ = ["classify_breed", "get_all_categories", "CAT_ID_MAP", "CLASSIFICATIONS"]
 
 if __name__ == "__main__":
     import sys

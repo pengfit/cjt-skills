@@ -1,25 +1,68 @@
-"""parse_spec/base.py - 通用规格解析基类
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+parse_spec/base.py - 通用规格解析基类
 
 架构说明：
-  - parse() 先试 rules/ 目录下所有规则文件
-  - 本地全部未命中 → 调用 fix-case API（仅首次新 pattern）
-  - AI 结果只用于本次解析，不自动写文件
-  - 规则文件由 fix-case API confirm 模式写入 rules/ 目录
+  - 规则唯一来源：vector_store（SQLite + blob）
+  - parse() 按 ATTR_SLOTS 槽位制解析，每个 slot 独立竞争
+  - RAG 召回（vector_store.search）替代线性遍历
+  - fix-case API confirm 时写入向量库（同步写入 rules/*.py 作为备份）
+  - rules/*.py 不再作为解析时的数据源，仅作备份/人工审查用
 
-维护方式：
-  - 通过 dashboard UI 的"确认写入规则"按钮写入 rules/*.py
-  - 禁止在 base.py 中硬编码规则
+槽位制解析（修复 A/B/C 短路）：
+  - 每个 attr 槽位独立竞争，不 first-match-return
+  - 混合相似度：embedding cosine + keyword Jaccard
 """
 import re
 import json
 import os
-import hashlib
 import glob
 import urllib.request
 import urllib.error
 import threading
 
-# ─── AI 配置 ───────────────────────────────────────────
+# ─── 向量库（唯一来源）─────────────────────────────────────────
+try:
+    from .rules.vector_store import get_vec_store
+except Exception:
+    get_vec_store = None
+
+# ─── 属性解析槽位（动态从 _attrs.py 加载）────────────────────
+try:
+    import re as _re
+    _content = open(os.path.join(os.path.dirname(__file__), "rules", "_attrs.py")).read()
+    _arrow = chr(0x2192)
+    _lines = [l for l in _content.split('\n') if _arrow in l and not l.strip().startswith('#')]
+    _keys = [k for line in _lines for k in _re.findall(r'"(\w+)"', line.split(_arrow)[0])]
+    ATTR_SLOTS = _keys if _keys else [
+        "diameter", "thickness", "length", "width", "height",
+        "material", "grade", "pressure", "cores", "voltage","current",
+        "form","color","series","temperature"
+    ]
+except Exception:
+    ATTR_SLOTS = [
+        "diameter", "thickness", "length", "width", "height",
+        "material", "grade", "pressure", "cores", "voltage","current",
+        "form","color","series","temperature"
+    ]
+
+# ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
+
+def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> list:
+    """通过向量库召回候选规则，返回 [(pattern, attr, note, code), ...]"""
+    if get_vec_store is None:
+        return []
+    try:
+        vs = get_vec_store()
+        results = vs.search(spec=spec, category=category, breed=breed,
+                            top_k=10, attr_filter=attr_filter)
+        return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
+    except Exception:
+        return []
+
+
+# ─── AI 配置 ──────────────────────────────────────────────────
 FIX_CASE_API = "http://localhost:5200/api/stats/spec-quality/fix-case"
 FIX_CASE_TOKEN = ""
 try:
@@ -27,58 +70,6 @@ try:
         FIX_CASE_TOKEN = json.load(f).get("gateway", {}).get("auth", {}).get("token", "")
 except Exception:
     pass
-
-# ─── 本地规则缓存（内存 LRU + rules/ 目录持久化）────────
-_rules_lock = threading.Lock()
-_rules_cache = {}  # {pattern_md5: {"pattern": str, "attr": str, "re": re.Pattern}}
-
-
-def _load_local_rules():
-    """从 rules/ 目录加载所有 .py 规则文件"""
-    rules_dir = os.path.join(os.path.dirname(__file__), "rules")
-    rules = []
-    pattern_re = re.compile(
-        r'# ── 自动生成: (.+?) ──\s*\n'
-        r'(.*?)(?=\n# ── 自动生成:|\Z)',
-        re.DOTALL
-    )
-    for py_file in sorted(glob.glob(os.path.join(rules_dir, "*.py"))):
-        if py_file.endswith("__init__.py"):
-            continue
-        with open(py_file) as f:
-            content = f.read()
-        for m in pattern_re.finditer(content):
-            note = m.group(1).strip()
-            code = m.group(2).strip()
-            pat_m = re.search(r"re\.search\(r['\"]([^'\"]+)['\"]", code)
-            attr_m = re.search(r'result\[\s*["\']\s*([^"\'\s]+)\s*["\']\s*\]', code)
-            if pat_m and attr_m:
-                pattern = pat_m.group(1)
-                attr = attr_m.group(1)
-                try:
-                    compiled = re.compile(pattern)
-                    rules.append({"note": note, "pattern": pattern, "attr": attr, "re": compiled, "code": code})
-                except re.error:
-                    continue
-    return rules
-
-
-def _build_cache():
-    """重新构建内存规则缓存"""
-    with _rules_lock:
-        rules = _load_local_rules()
-        _rules_cache.clear()
-        for r in rules:
-            key = hashlib.md5(r["pattern"].encode()).hexdigest()
-            _rules_cache[key] = r
-
-
-def _get_local_rules():
-    """获取本地规则（懒加载，线程安全）"""
-    if not _rules_cache:
-        _build_cache()
-    with _rules_lock:
-        return list(_rules_cache.values())
 
 
 def clean_spec(spec: str) -> str:
@@ -90,92 +81,13 @@ def clean_spec(spec: str) -> str:
     return s
 
 
-def _call_fix_case(spec: str) -> dict:
-    """调用 fix-case API 获取规则建议（不写入）"""
+def _call_fix_case(spec: str, breed: str = "", category: str = "", confirm: bool = True) -> dict:
+    """调用 fix-case API 生成并写入规则（confirm=True 写入向量库）"""
     body = json.dumps({
         "city": "xian",
         "spec": spec,
-        "expected": {},
-        "confirm": False,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        FIX_CASE_API,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {FIX_CASE_TOKEN}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return {"ok": False}
-
-
-class BaseParseSpec:
-    """
-    规格解析基类
-
-    解析流程：仅试 rules/ 目录下已确认规则，零 AI 调用。
-    spec 查分属性不允许实时调用 AI，未知 pattern 统一返回空 dict。
-    """
-
-    def parse(self, spec: str) -> dict:
-        spec = clean_spec(spec)
-        if not spec:
-            return {}
-
-        # ── 仅试本地已确认规则（零 AI 调用）───────────
-        for r in _get_local_rules():
-            try:
-                m = r["re"].search(spec)
-                if m:
-                    groups = m.groups()
-                    result = {}
-
-                    # 1a. 多组/单组预设（兼容旧规则）
-                    if len(groups) == 1:
-                        result[r["attr"]] = groups[0]
-                    elif len(groups) > 1:
-                        for idx, g in enumerate(groups):
-                            result[f"{r['attr']}_{idx}"] = g
-                    else:
-                        result[r["attr"]] = m.group(0)
-
-                    # 1b. 执行规则代码（可覆盖预设，设为语义字段）
-                    # exec() 在独立 dict 中执行，避免污染；合并时语义字段优先
-                    if r.get("code"):
-                        exec_result = {}  # 隔离
-                        exec_globals = {"re": re, "result": exec_result, "s": spec}
-                        try:
-                            exec(r["code"], exec_globals)
-                        except Exception:
-                            pass
-                        # 语义字段覆盖 indexed
-                        for k in list(result.keys()):
-                            if k.startswith(r["attr"] + "_"):
-                                del result[k]
-                        result.update(exec_result)
-
-                    return result
-            except re.error:
-                continue
-
-        # ── 本地无匹配时直接返回空，不调 AI ──────────
-        # spec 查分属性不允许实时调用 AI，未知 pattern 统一记为待处理
-        return {}
-
-
-def parse_with_fix_case(spec: str, confirm: bool = False) -> dict:
-    """
-    便捷入口：直接调 fix-case
-    confirm=True 时写入 rules/ 目录（由 dashboard UI 调用）
-    """
-    body = json.dumps({
-        "city": "xian",
-        "spec": spec,
+        "breed": breed,
+        "category": category,
         "expected": {},
         "confirm": confirm,
     }).encode("utf-8")
@@ -189,11 +101,71 @@ def parse_with_fix_case(spec: str, confirm: bool = False) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read())
     except Exception:
-        return {"ok": False, "message": "API 调用失败"}
+        return {"ok": False}
 
 
-# 启动时构建缓存
-_build_cache()
+class BaseParseSpec:
+    """
+    规格解析基类
+
+    解析流程：
+      - 每个 attr 槽位独立竞争，RAG 召回候选规则
+      - 不再 first-match-return，填完所有 slot（或全部未命中）才返回
+      - 全部未命中 → 调用 fix-case API
+
+    规则来源：vector_store（SQLite + blob），唯一数据源。
+    """
+
+    def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
+        """
+        槽位制解析：每个 attr 独立竞争，解决 A/B/C 三种短路。
+        """
+        if not spec or spec == "/":
+            return {}
+
+        resolved_attrs = {}
+        claimed_attrs = set()
+
+        # ── 槽位填充：每个 attr 独立竞争 ──
+        for attr in ATTR_SLOTS:
+            if attr in claimed_attrs:
+                continue
+
+            candidates = _rag_candidates(spec, category, breed, attr_filter=attr)
+
+            for pattern, attr_name, note, code in candidates:
+                try:
+                    m = re.search(pattern, spec)
+                    if not m:
+                        continue
+                except re.error:
+                    continue
+
+                exec_result = {}
+                if code:
+                    safe_globals = {"re": re, "result": exec_result, "s": spec}
+                    try:
+                        exec(code, safe_globals)
+                    except Exception:
+                        pass
+
+                if exec_result:
+                    val = exec_result.get(attr) or list(exec_result.values())[0]
+                else:
+                    groups = m.groups()
+                    if len(groups) == 1:
+                        val = groups[0]
+                    elif len(groups) > 1:
+                        val = groups[0]
+                    else:
+                        val = m.group(0)
+
+                if val and attr not in claimed_attrs:
+                    resolved_attrs[attr] = val
+                    claimed_attrs.add(attr)
+                    break  # 该 slot 填上，换下一个 attr
+
+        return resolved_attrs
