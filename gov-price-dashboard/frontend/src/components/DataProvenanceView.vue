@@ -194,11 +194,15 @@
             <div v-else class="sq-empty-hint">暂无数据</div>
 
             <!-- 内联确认提示 -->
-            <div v-if="sqConfirmMsg" class="sq-confirm-hint">
-              <span>{{ sqConfirmMsg }}</span>
-              <div style="margin-top:8px;display:flex;gap:8px">
-                <button class="btn-sm btn-primary" @click="handleConfirmOk">确认</button>
-                <button class="btn-sm" @click="sqConfirmMsg = ''">取消</button>
+            <div v-if="sqConfirmMsg" class="sq-confirm-modal">
+              <div class="sq-confirm-icon">⚠️</div>
+              <div class="sq-confirm-body">
+                <div class="sq-confirm-title">确认执行清洗</div>
+                <div class="sq-confirm-msg">{{ sqConfirmMsg }}</div>
+              </div>
+              <div class="sq-confirm-actions">
+                <button class="sq-confirm-cancel" @click="sqConfirmMsg = ''">取消</button>
+                <button class="sq-confirm-ok" @click="handleConfirmOk">确认</button>
               </div>
             </div>
 
@@ -1126,34 +1130,89 @@ onUnmounted(() => {
   font-size: 13px;
 }
 .sq-message-hint {
-  padding: 16px 20px;
+  padding: 14px 16px;
   margin: 8px 16px;
-  background: #fefce8;
-  border: 1px solid #fbbf24;
-  border-radius: 6px;
-  color: #92400e;
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.25);
+  border-radius: 8px;
+  color: #38bdf8;
   font-size: 13px;
   line-height: 1.6;
 }
-.sq-confirm-hint {
-  padding: 12px 16px;
-  margin: 0 16px 12px;
-  background: #fffbeb;
-  border: 1px solid #f59e0b;
-  border-radius: 8px;
-  color: #92400e;
-  font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+.sq-confirm-modal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 8px 16px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
+.sq-confirm-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sq-confirm-body {
+  flex: 1;
+  min-width: 0;
+}
+.sq-confirm-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+.sq-confirm-msg {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.sq-confirm-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.sq-confirm-cancel {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sq-confirm-cancel:hover {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #475569;
+}
+.sq-confirm-ok {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(56,189,248,0.35);
+  transition: opacity 0.15s, transform 0.1s;
+}
+.sq-confirm-ok:hover { opacity: 0.88; }
+.sq-confirm-ok:active { transform: scale(0.97); }
+
 .sq-toast-hint {
   padding: 12px 16px;
-  margin: 0 16px 12px;
-  background: #fffbeb;
-  border: 1px solid #f59e0b;
+  margin: 8px 16px;
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.25);
   border-radius: 8px;
-  color: #92400e;
+  color: #38bdf8;
   font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   animation: sq-toast-in 0.2s ease;
 }
 @keyframes sq-toast-in {
