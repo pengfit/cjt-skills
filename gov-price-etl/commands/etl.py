@@ -68,7 +68,6 @@ def get_es_client(host: str):
 
 
 # ─── 城市配置 ────────────────────────────────────────────────────────────────
-# ODS 源索引 → DWD 目标索引 → DWS 目标索引
 CITY_CONFIGS = {
     "xian": {
         "ods": "ods_material_xian_price",
@@ -102,22 +101,6 @@ CITY_CONFIGS = {
     },
 }
 
-# ODS 字段统一映射（各城市字段名一致：breed/spec/unit/price/tax_price/province/city/county/update_date/period）
-ODS_FIELD_MAP = {
-    "breed": "breed",
-    "spec": "spec",
-    "unit": "unit",
-    "price": "price",
-    "tax_price": "tax_price",
-    "province": "province",
-    "city": "city",
-    "county": "county",
-    "update_date": "update_date",
-    "period": "period",
-}
-
-
-# ─── DWD mapping ──────────────────────────────────────────────────────────────
 DWD_MAPPING = {
     "mappings": {
         "properties": {
@@ -185,7 +168,7 @@ DWD_MAPPING = {
 }
 
 
-# ─── 单条转换 ───────────────────────────────────────────────────────────────────
+# ─── 单条转换 ────────────────────────────────────────────────────────────────
 def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     """将一条 ODS 原始文档清洗为 DWD 格式"""
     breed_raw = raw.get("breed", "")
@@ -197,29 +180,21 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
 
-    # 规则命中「其他」时，调用 AI 接口补充分类（同一 breed 只查一次）
     if category == "其他":
         category = _fetch_ai_category(breed_clean, city)
 
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))
 
-    # 获取对应城市的规格解析器
     parser = get_parser(city)
     spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
-    # 判断是否需要规格解析
-    # - spec 为 "/" 或空 → 无需细分，False
-    # - vector 向量库匹配成功且解析出字段 → 解析成功，False
-    # - vector 向量库无匹配 / 解析失败 → 仍需解析，True
     if not spec_clean or spec_clean == "/":
         needs_spec_parse = False
     else:
         attr_keys = [k for k, v in spec_parsed.items() if v]
-        needs_spec_parse = len(attr_keys) == 0  # 无解析结果 → 仍需解析
+        needs_spec_parse = len(attr_keys) == 0
 
-
-    # 提取所有细分字段
     def gp(key, default=""):
         v = spec_parsed.get(key)
         return v if v else default
@@ -286,7 +261,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
 
 
 def ensure_dwd(es_host: str, dwd_index: str):
-    """确保 DWD 索引存在"""
     session = get_es_client(es_host)
     resp = session.head(f"{es_host}/{dwd_index}")
     if resp.status_code == 404:
@@ -295,9 +269,7 @@ def ensure_dwd(es_host: str, dwd_index: str):
         print(f"  [ETL] 索引 {dwd_index} 创建完成")
 
 
-# ─── 批量写入 ───────────────────────────────────────────────────────────────────
 def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
-    """Bulk 写入 ES，返回 (成功数, 失败数)"""
     if not docs:
         return 0, 0
     if mark_done:
@@ -320,15 +292,16 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
     return ok, errors
 
 
-# ─── DWD → DWS 同步（仅 spec 已清洗） ────────────────────────────────────────
+# ─── DWD → DWS 同步 ──────────────────────────────────────────────────────────
 # DWS 的 attr 字段是 nested object，从 DWD 的扁平字段构建
 ATTR_FIELDS = (
-    "diameter,thickness,length,width,height,material,grade,pressure,ring_stiffness,"  
-    "cores,voltage,current,cross_section,drain_type,inlet_type,installation_type,"  
-    "form,ip_rating,color,series,temperature,temp_range,humidity_range,"  
-    "length_range,height_range,inner_diameter,wall_thickness,fiber_core,"  
+    "diameter,thickness,length,width,height,material,grade,pressure,ring_stiffness,"
+    "cores,voltage,current,cross_section,drain_type,inlet_type,installation_type,"
+    "form,ip_rating,color,series,temperature,temp_range,humidity_range,"
+    "length_range,height_range,inner_diameter,wall_thickness,fiber_core,"
     "cable_length,channels,doors,media,range,output"
 ).split(",")
+
 
 def _build_attr(doc: dict) -> dict:
     """从 DWD 扁平文档中提取 attr nested 字段（仅保留非空值）"""
@@ -339,20 +312,40 @@ def _build_attr(doc: dict) -> dict:
             attr[f] = str(v).strip()
     return attr
 
+
 def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> tuple:
     """
-    查询 DWD 中 needs_spec_parse=False 的文档，同步到 DWS。
-    DWD 的扁平细分字段 → DWS 的 attr nested 字段。
+    同步 DWD → DWS。
+
+    入池条件（需同时满足）：
+      1. needs_spec_parse = False
+      2. 至少有一个细分字段（ATTR_FIELDS）非空
+
+    同步到 DWS 时：
+      - DWD 的扁平细分字段 → DWS 的 attr nested 字段
+      - 重新计算 etl_time（DWS 层时间戳）
+
     返回 (成功数, 失败数)。
     """
     dwd_idx = cfg["dwd"]
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-
-    # 按 update_date 顺序滚动扫描 DWD
+    # 入池：needs_spec_parse=False 且 至少一个细分字段非空
     body = {
-        "query": {"term": {"needs_spec_parse": False}},
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"needs_spec_parse": False}},
+                    {
+                        "bool": {
+                            "should": [{"exists": {"field": f}} for f in ATTR_FIELDS],
+                            "minimum_should_match": 1,
+                        }
+                    },
+                ]
+            }
+        },
         "size": batch_size,
         "sort": [{"update_date": "asc"}],
     }
@@ -384,9 +377,9 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         docs, doc_ids = [], []
         for h in hits:
             d = dict(h["_source"])
-            # 构建 DWS 的 attr nested 字段（从 DWD 扁平字段提取）
+            # 构建 DWS 的 attr nested（从 DWD 扁平字段提取）
             d["attr"] = _build_attr(d)
-            # DWD 的 _id 即 ODS 的 _id，直接复用于 DWS
+            # DWD _id 即 ODS _id，复用于 DWS
             docs.append(d)
             doc_ids.append(h["_id"])
 
@@ -397,7 +390,6 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         if pages % 20 == 0:
             print(f"    pages={pages}, synced={synced}/{total}")
 
-
         resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
                              json={"scroll_id": scroll_id})
         if resp.status_code != 200:
@@ -406,7 +398,6 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         hits = result["hits"]["hits"]
         scroll_id = result.get("_scroll_id", "")
 
-
     if scroll_id:
         session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
 
@@ -414,7 +405,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
     return synced, failed
 
 
-# ─── 单城市 ETL ─────────────────────────────────────────────────────────────────
+# ─── 单城市 ETL ────────────────────────────────────────────────────────────────
 def etl_city(es_host: str, city: str, cfg: dict,
              batch_size: int = 500, incremental: bool = False,
              since_date: str = "", dry_run: bool = False,
@@ -437,11 +428,10 @@ def etl_city(es_host: str, city: str, cfg: dict,
 
     print(f"  [ETL] {city}: {ods_idx} ({total:,} 条) → {dwd_idx}")
 
-    # 构建查询
     body = {
         "query": {"match_all": {}},
         "size": min(batch_size, total),
-        "sort": [{"update_date": "asc"}]
+        "sort": [{"update_date": "asc"}],
     }
 
     if category and not (incremental and since_date):
@@ -492,7 +482,6 @@ def etl_city(es_host: str, city: str, cfg: dict,
         if pages % 20 == 0:
             print(f"    pages={pages}, etled={etled}/{total}")
 
-        # 滚动
         resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
                              json={"scroll_id": scroll_id})
         if resp.status_code != 200:
@@ -508,13 +497,11 @@ def etl_city(es_host: str, city: str, cfg: dict,
     return etled, failed
 
 
-# ─── 主 ETL ─────────────────────────────────────────────────────────────────────
+# ─── 主 ETL ───────────────────────────────────────────────────────────────────
 def run_etl(es_host: str, cities: list, batch_size: int = 500,
             incremental: bool = False, since_date: str = "",
             dry_run: bool = False, category: str = "",
             mark_done: bool = False):
-    """ETL 多个城市"""
-
     total_etled = 0
     total_failed = 0
 
@@ -538,7 +525,6 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
         total_etled += ok
         total_failed += fail
 
-        # ODS→DWD 完成后，同步已清洗文档到 DWS
         dws_ok, dws_fail = flush_to_dws(es_host, city, cfg, batch_size=batch_size)
         print(f"  [DWS] {city} 同步结果: ok={dws_ok}, fail={dws_fail}")
 
@@ -561,7 +547,6 @@ def main():
     cfg = load_config()
     es_host = cfg["es"]["host"]
 
-    # 确定要处理的城市
     if args.city:
         cities = [args.city] if args.city in CITY_CONFIGS else []
         if not cities:
