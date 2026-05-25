@@ -426,28 +426,7 @@ async function refreshSpecQuality() {
 async function refreshCategory(cat) {
   if (sqConfirmMsg.value) return  // already showing a confirmation
   sqConfirmMsg.value = `确认清洗分类「${cat}」？同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`
-  window._sqConfirmCat = cat  // store cat for handlers below
-  cleaningCats.value[cat] = true
-  if (cleanDoneCat.value === cat) cleanDoneCat.value = ''
-  try {
-    await axios.post(`${API}/stats/spec-quality/refresh-category`, {
-      city: dwdDrilldownCity.value || 'xian',
-      category: cat,
-    })
-    sqActiveCat.value = cat
-    sqCatFilter.value = cat
-    cleanDoneOk.value = true
-    cleanDoneCat.value = cat
-    await refreshSpecQuality()
-  } catch(e) {
-    cleanDoneOk.value = false
-    cleanDoneCat.value = cat
-    console.warn("refresh-category failed", e)
-  } finally {
-    delete cleaningCats.value[cat]
-    // 3s 后清除完成标记
-    setTimeout(() => { if (cleanDoneCat.value === cat) cleanDoneCat.value = '' }, 3000)
-  }
+  window._sqConfirmCat = cat  // store cat for handleConfirmOk
 }
 
 function selectCatForSample(cat) {
