@@ -1,29 +1,66 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 parse_spec/base.py - 通用规格解析基类
 
 架构说明：
-  - parse() 先试 rules/ 目录下所有规则文件
-  - 本地全部未命中 → 调用 fix-case API（仅首次新 pattern）
-  - AI 结果只用于本次解析，不自动写文件
-  - 规则文件由 fix-case API confirm 模式写入 rules/ 目录
+  - 规则唯一来源：vector_store（SQLite + blob）
+  - parse() 按 ATTR_SLOTS 槽位制解析，每个 slot 独立竞争
+  - RAG 召回（vector_store.search）替代线性遍历
+  - fix-case API confirm 时写入向量库（同步写入 rules/*.py 作为备份）
+  - rules/*.py 不再作为解析时的数据源，仅作备份/人工审查用
 
-属性分组 + 互斥退出规则：
-  - 每条规则声明自己管辖的 attr 列表（rule["attrs"]）
-  - 规则按 priority 从高到低排序，同 attr 规则排在一起
-  - parse() 按顺序遍历所有规则，同一 attr 只取第一个匹配成功的结果
-  - 匹配成功后立即退出（互斥退出），不继续匹配其他规则
-  - 禁止在 exec 代码块里修改他人 attr
+槽位制解析（修复 A/B/C 短路）：
+  - 每个 attr 槽位独立竞争，不 first-match-return
+  - 混合相似度：embedding cosine + keyword Jaccard
 """
 import re
 import json
 import os
-import hashlib
 import glob
 import urllib.request
 import urllib.error
 import threading
 
-# ─── AI 配置 ───────────────────────────────────────────
+# ─── 向量库（唯一来源）─────────────────────────────────────────
+try:
+    from .rules.vector_store import get_vec_store
+except Exception:
+    get_vec_store = None
+
+# ─── 属性解析槽位（动态从 _attrs.py 加载）────────────────────
+try:
+    import re as _re
+    _content = open(os.path.join(os.path.dirname(__file__), "rules", "_attrs.py")).read()
+    _arrow = chr(0x2192)
+    _lines = [l for l in _content.split('\n') if _arrow in l and not l.strip().startswith('#')]
+    _keys = [k for line in _lines for k in _re.findall(r'"(\w+)"', line.split(_arrow)[0])]
+    ATTR_SLOTS = _keys if _keys else [
+        "material", "form", "diameter", "pressure", "ring_stiffness",
+        "length", "grade", "cores", "cross_section", "voltage",
+    ]
+except Exception:
+    ATTR_SLOTS = [
+        "material", "form", "diameter", "pressure", "ring_stiffness",
+        "length", "grade", "cores", "cross_section", "voltage",
+    ]
+
+# ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
+
+def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> list:
+    """通过向量库召回候选规则，返回 [(pattern, attr, note, code), ...]"""
+    if get_vec_store is None:
+        return []
+    try:
+        vs = get_vec_store()
+        results = vs.search(spec=spec, category=category, breed=breed,
+                            top_k=10, attr_filter=attr_filter)
+        return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
+    except Exception:
+        return []
+
+
+# ─── AI 配置 ──────────────────────────────────────────────────
 FIX_CASE_API = "http://localhost:5200/api/stats/spec-quality/fix-case"
 FIX_CASE_TOKEN = ""
 try:
@@ -31,86 +68,6 @@ try:
         FIX_CASE_TOKEN = json.load(f).get("gateway", {}).get("auth", {}).get("token", "")
 except Exception:
     pass
-
-# ─── 本地规则缓存（内存 LRU + rules/ 目录持久化）────────
-_rules_lock = threading.Lock()
-_rules_cache = {}  # {pattern_md5: rule_dict}
-
-
-def _load_local_rules():
-    """从 rules/ 目录加载所有 .py 规则文件"""
-    rules_dir = os.path.join(os.path.dirname(__file__), "rules")
-    rules = []
-    # 解析规则块：提取 pattern、attrs、priority、exec_code
-    pattern_re = re.compile(
-        r'# ── 自动生成: (.+?) ──\s*\n'
-        r'(.*?)(?=\n# ── 自动生成:|\Z)',
-        re.DOTALL
-    )
-    for py_file in sorted(glob.glob(os.path.join(rules_dir, "*.py"))):
-        if py_file.endswith("__init__.py"):
-            continue
-        with open(py_file) as f:
-            content = f.read()
-        for m in pattern_re.finditer(content):
-            note = m.group(1).strip()
-            code = m.group(2).strip()
-
-            # 提取正则 pattern
-            pat_m = re.search(r"re\.search\(r['\"]([^'\"]+)['\"]", code)
-            if not pat_m:
-                continue
-            pattern = pat_m.group(1)
-
-            # 提取主 attr（第一个写入 result 的 key）
-            attr_m = re.search(r'result\[\s*["\']\s*([^"\'\s]+)\s*["\']\s*\]', code)
-            if not attr_m:
-                continue
-            primary_attr = attr_m.group(1)
-
-            # 提取 priority（可选，默认 0）
-            pri_m = re.search(r"#\s*priority\s*[:=]\s*(\d+)", code)
-
-            # 提取该规则涉及的所有 attrs（去重，含主 attr）
-            all_attrs = set()
-            for am in re.finditer(r'result\[\s*["\']\s*([^"\'\s]+)\s*["\']\s*\]', code):
-                all_attrs.add(am.group(1))
-
-            try:
-                compiled = re.compile(pattern)
-                rules.append({
-                    "note": note,
-                    "pattern": pattern,
-                    "primary_attr": primary_attr,
-                    "attrs": frozenset(all_attrs),   # 该规则涉及的所有 attr（集合）
-                    "priority": int(pri_m.group(1)) if pri_m else 0,
-                    "re": compiled,
-                    "code": code,
-                })
-            except re.error:
-                continue
-
-    # 按 priority 降序（高优先级先匹配），同 priority 按文件内顺序
-    rules.sort(key=lambda r: -r["priority"])
-    return rules
-
-
-def _build_cache():
-    """重新构建内存规则缓存"""
-    with _rules_lock:
-        rules = _load_local_rules()
-        _rules_cache.clear()
-        for r in rules:
-            key = hashlib.md5(r["pattern"].encode()).hexdigest()
-            _rules_cache[key] = r
-
-
-def _get_local_rules():
-    """获取本地规则（懒加载，线程安全）"""
-    if not _rules_cache:
-        _build_cache()
-    with _rules_lock:
-        return list(_rules_cache.values())
 
 
 def clean_spec(spec: str) -> str:
@@ -123,7 +80,7 @@ def clean_spec(spec: str) -> str:
 
 
 def _call_fix_case(spec: str, breed: str = "", category: str = "", confirm: bool = True) -> dict:
-    """调用 fix-case API 生成并写入规则（confirm=True 写入本地 rules/）"""
+    """调用 fix-case API 生成并写入规则（confirm=True 写入向量库）"""
     body = json.dumps({
         "city": "xian",
         "spec": spec,
@@ -152,83 +109,61 @@ class BaseParseSpec:
     """
     规格解析基类
 
-    解析流程：仅试 rules/ 目录下已确认规则，零 AI 调用。
-    spec 查分属性不允许实时调用 AI，未知 pattern 统一返回空 dict。
+    解析流程：
+      - 每个 attr 槽位独立竞争，RAG 召回候选规则
+      - 不再 first-match-return，填完所有 slot（或全部未命中）才返回
+      - 全部未命中 → 调用 fix-case API
 
-    属性分组 + 互斥退出：
-      - 已设置的 attr 不允许被后续规则覆盖
-      - 每条规则只管自己声明的 attrs
-      - 同 attr 只取第一个匹配成功的结果（高 priority 优先）
+    规则来源：vector_store（SQLite + blob），唯一数据源。
     """
 
     def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
+        """
+        槽位制解析：每个 attr 独立竞争，解决 A/B/C 三种短路。
+        """
         if not spec or spec == "/":
             return {}
 
-        spec = spec  # Preserve original × so patterns with × can match
-
-        rules = _get_local_rules()
-        if not rules:
-            return {}
-
-        # 已成功提取的 attr 集合（互斥退出核心）
         resolved_attrs = {}
-        # 已访问过的 attr（防止同 attr 多规则竞争）
         claimed_attrs = set()
 
-        for r in rules:
-            # 跳过该规则已声明但已被占用的 attr
-            if r["attrs"] & claimed_attrs:
+        # ── 槽位填充：每个 attr 独立竞争 ──
+        for attr in ATTR_SLOTS:
+            if attr in claimed_attrs:
                 continue
 
-            try:
-                m = r["re"].search(spec)
-                if not m:
-                    continue
-            except re.error:
-                continue
+            candidates = _rag_candidates(spec, category, breed, attr_filter=attr)
 
-            groups = m.groups()
-            exec_result = {}
-
-            # ── 执行规则代码块（只写自己的 attrs）────────
-            if r.get("code"):
-                safe_globals = {"re": re, "result": exec_result, "s": spec}
+            for pattern, attr_name, note, code in candidates:
                 try:
-                    exec(r["code"], safe_globals)
-                except Exception:
-                    pass
+                    m = re.search(pattern, spec)
+                    if not m:
+                        continue
+                except re.error:
+                    continue
 
-            # ── 合并结果（只写入未被他者占领的 attr）──
-            for attr, value in exec_result.items():
-                if value and attr not in claimed_attrs:
-                    resolved_attrs[attr] = value
-                    claimed_attrs.add(attr)
+                exec_result = {}
+                if code:
+                    safe_globals = {"re": re, "result": exec_result, "s": spec}
+                    try:
+                        exec(code, safe_globals)
+                    except Exception:
+                        pass
 
-            # ── 框架默认提取（捕获纯 groups 情况）────
-            if not exec_result:
-                if len(groups) == 1:
-                    attr = r["primary_attr"]
-                    if attr not in claimed_attrs:
-                        resolved_attrs[attr] = groups[0]
-                        claimed_attrs.add(attr)
-                elif len(groups) > 1:
-                    for idx, g in enumerate(groups):
-                        attr = f"{r['primary_attr']}_{idx}"
-                        if g and attr not in claimed_attrs:
-                            resolved_attrs[attr] = g
-                            claimed_attrs.add(attr)
+                if exec_result:
+                    val = exec_result.get(attr) or list(exec_result.values())[0]
                 else:
-                    attr = r["primary_attr"]
-                    if attr not in claimed_attrs:
-                        resolved_attrs[attr] = m.group(0)
-                        claimed_attrs.add(attr)
+                    groups = m.groups()
+                    if len(groups) == 1:
+                        val = groups[0]
+                    elif len(groups) > 1:
+                        val = groups[0]
+                    else:
+                        val = m.group(0)
 
-            # ── 互斥退出：该规则的所有 attrs 均已处理完，直接返回
-            # 只要任一 attr 被写入，即认为该规则成功，直接返回（不匹配后续规则）
-            return resolved_attrs
+                if val and attr not in claimed_attrs:
+                    resolved_attrs[attr] = val
+                    claimed_attrs.add(attr)
+                    break  # 该 slot 填上，换下一个 attr
 
-        return {k: v for k, v in resolved_attrs.items() if v}
-
-# 启动时构建缓存
-_build_cache()
+        return resolved_attrs

@@ -10,6 +10,13 @@ from elasticsearch import Elasticsearch
 import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
+sys.path.insert(0, ETL_CMD_DIR)
+
+try:
+    from parse_spec.rules.vector_store import get_vec_store
+except Exception:
+    get_vec_store = None
 
 router = APIRouter()
 
@@ -1180,24 +1187,44 @@ def _get_rule_file_path(attr: str) -> str:
 
 
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "") -> bool:
-    """追加规则到 rules/<attr>.py，文件级代码无缩进。attr+pattern 相同则跳过写入"""
+    """
+    追加规则：向量库（唯一来源）+ rules/*.py（备份）
+    先写向量库，再用原逻辑写 rules/*.py 作为备份。
+    """
+    # ── 主写入：向量库 ──
+    code = "\n".join(code_lines)
+    if get_vec_store is not None:
+        try:
+            vs = get_vec_store()
+            vs.insert(
+                pattern=pattern,
+                attr=attr,
+                note=note,
+                code=code,
+                breed="",
+                category="",
+                skip_duplicate=True,
+            )
+        except Exception:
+            pass  # 向量写入失败不影响备份写入
+
+    # ── 备份写入：rules/*.py（原逻辑）──
     import shutil
     rule_file = _get_rule_file_path(attr)
-    # ── 去重检查：attr + pattern 已存在则跳过 ──
     if pattern and os.path.exists(rule_file):
         with open(rule_file) as rf:
             existing = rf.read()
         check1 = 're.search(r"' + pattern + '"'
         check2 = "re.search(r'" + pattern + "'"
         if check1 in existing or check2 in existing:
-            return "skip"  # 已存在，跳过写入
+            return "skip"
     bak = rule_file + ".bak"
     if os.path.exists(rule_file):
         shutil.copy(rule_file, bak)
     try:
         block_lines = [f"# ── 自动生成: {note} ──"]
         for ln in code_lines:
-            stripped = ln.rstrip('"').rstrip()  # Remove trailing " from AI-generated code
+            stripped = ln.rstrip('"').rstrip()
             if stripped.startswith("if ") or stripped.startswith("elif ") or stripped.startswith("else:") or stripped.startswith("for ") or stripped.startswith("while "):
                 block_lines.append(stripped)
             elif any(stripped.startswith(k) for k in ["result", "return", "pass", "break", "continue"]):
@@ -1209,7 +1236,7 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
             f.write("\n" + block + "\n")
         if os.path.exists(bak):
             os.remove(bak)
-        return "new"  # 新写入成功
+        return "new"
     except Exception:
         if os.path.exists(bak):
             shutil.move(bak, rule_file)
@@ -1217,18 +1244,15 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
 
 
 def _run_spec_validation_quiet(spec: str = "") -> tuple:
-    """用当前 spec 做简单验证：能解析出属性即算通过"""
+    """用当前 spec 做简单验证：能解析出属性即算通过（向量库检索）"""
     if not spec:
         return (0, 0)
     try:
         sys.path.insert(0, ETL_CMD_DIR)
         from parse_spec import get_parser
-        from parse_spec.base import _build_cache
-        _build_cache()  # 新增规则后刷新缓存
-        city_key = "xian"  # 默认用 xian parser
+        city_key = "xian"
         parser = get_parser(city_key)
         result = parser.parse(spec)
-        # 只要有任何属性被解析出来就算通过
         if result and len(result) > 0:
             return (1, 1)
         return (0, 1)
@@ -1486,7 +1510,7 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
     )
     try:
         import http.client
-        c = http.client.HTTPConnection("localhost", 18789, timeout=30)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=60)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -1626,7 +1650,7 @@ def _call_classify_llm(breed: str) -> dict:
     }).encode("utf-8")
 
     try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=30)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=60)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
