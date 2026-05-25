@@ -1078,9 +1078,17 @@ def refresh_category(
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
     }
+    dws_idx_map = {
+        "xian": "dws_xian_price",
+        "sichuan": "dws_sichuan_price",
+        "chongqing": "dws_chongqing_price",
+        "jinan": "dws_jinan_price",
+        "rizhao": "dws_rizhao_price",
+    }
     dwd_idx = dwd_idx_map.get(city)
     if not dwd_idx:
         return {"ok": False, "message": f"未知城市: {city}"}
+    dws_idx = dws_idx_map.get(city)
 
     try:
         sys.path.insert(0, ETL_CMD_DIR)
@@ -1130,13 +1138,20 @@ def refresh_category(
             except Exception:
                 fail_count += 1
 
+        # 清洗完成后自动同步 DWD→DWS
+        sys.path.insert(0, ETL_CMD_DIR)
+        from etl import flush_to_dws as _flush_to_dws
+        flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx})
+
+
         return {
             "ok": True,
-            "message": f"分类「{category}」清洗完成",
+            "message": f"分类「{category}」清洗完成，DWS 同步 {flush_ok} 条（失败 {flush_fail} 条）",
             "total": total,
             "refreshed": ok_count,
             "failed": fail_count,
             "city": city,
+            "dws_sync": {"ok": flush_ok, "failed": flush_fail},
         }
 
     except Exception as e:
