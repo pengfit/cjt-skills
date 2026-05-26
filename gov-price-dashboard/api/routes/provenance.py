@@ -1031,6 +1031,82 @@ def _category_coverage(city="xian"):
     return coverage
 
 
+
+
+@router.get("/api/stats/rules-vector")
+def stats_rules_vector(
+    attr: str = Query("", description="按属性过滤（空=全部）"),
+    category: str = Query("", description="按分类过滤（空=全部）"),
+    search: str = Query("", description="搜索 pattern/note/代码片段"),
+    page: int = Query(1, description="页码"),
+    page_size: int = Query(50, description="每页条数"),
+):
+    """
+    查询 rules_vec.db 中的规则数据（分页 + 过滤 + 搜索）。
+    """
+    db_path = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    if not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="rules_vec.db 不存在")
+
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    where_clauses = []
+    params = []
+    if attr:
+        where_clauses.append("attr = ?")
+        params.append(attr)
+    if category:
+        where_clauses.append("category = ?")
+        params.append(category)
+    if search:
+        where_clauses.append("(pattern LIKE ? OR note LIKE ? OR code LIKE ?)")
+        s = f"%{search}%"
+        params.extend([s, s, s])
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+    c.execute(f"SELECT COUNT(*) FROM rule_vectors WHERE {where_sql}", params)
+    total = c.fetchone()[0]
+
+    offset = (page - 1) * page_size
+    c.execute(
+        f"SELECT id, pattern, attr, note, code, breed, category, tokens, created_at "
+        f"FROM rule_vectors WHERE {where_sql} ORDER BY id LIMIT ? OFFSET ?",
+        params + [page_size, offset]
+    )
+    rows = c.fetchall()
+    conn.close()
+
+    items = []
+    for r in rows:
+        items.append({
+            "id": r[0],
+            "pattern": r[1],
+            "attr": r[2],
+            "note": r[3],
+            "code": r[4],
+            "breed": r[5] or "",
+            "category": r[6] or "",
+            "tokens": r[7] or "",
+            "created_at": r[8],
+        })
+
+    conn2 = sqlite3.connect(db_path)
+    c2 = conn2.cursor()
+    c2.execute("SELECT attr, COUNT(*) FROM rule_vectors GROUP BY attr ORDER BY attr")
+    attr_options = [{"key": row[0], "count": row[1]} for row in c2.fetchall()]
+    conn2.close()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total + page_size - 1) // page_size if total else 1,
+        "items": items,
+        "attr_options": attr_options,
+    }
+
 @router.get("/api/stats/spec-quality")
 def stats_spec_quality(
     city: str = Query("xian", description="城市 key"),

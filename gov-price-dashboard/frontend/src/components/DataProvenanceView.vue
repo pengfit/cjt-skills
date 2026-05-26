@@ -39,6 +39,54 @@
       </div>
     </div>
 
+
+    <!-- Rules Vec DB -->
+    <div class="vec-panel">
+      <div class="panel-header" style="margin-bottom:12px">
+        <span class="panel-dot panel-dot-green"></span>
+        <span class="panel-title">📦 规格规则库</span>
+        <span class="vec-total-badge">{{ vecRules.total }} 条规则</span>
+        <input class="vec-search" v-model="vecSearch" placeholder="搜索 pattern / note / 代码" @input="loadVecRules(1)" />
+        <select class="vec-attr-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
+          <option value="">全部属性</option>
+          <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">{{ opt.key }} ({{ opt.count }})</option>
+        </select>
+      </div>
+      <div class="vec-table-wrap">
+        <table class="vec-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>attr</th>
+              <th>分类</th>
+              <th>pattern</th>
+              <th>note</th>
+              <th>code</th>
+              <th>创建时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in vecRules.items" :key="r.id">
+              <td class="vec-id">{{ r.id }}</td>
+              <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
+              <td class="vec-cat">{{ r.category || '—' }}</td>
+              <td><code class="vec-pattern">{{ r.pattern }}</code></td>
+              <td class="vec-note">{{ r.note || '—' }}</td>
+              <td><pre class="vec-code">{{ r.code }}</pre></td>
+              <td class="vec-date">{{ r.created_at?.slice(0, 19) }}</td>
+            </tr>
+            <tr v-if="!vecRules.items?.length">
+              <td colspan="7" class="vec-empty">暂无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="vec-pagination">
+        <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
+        <span class="vec-page-info">{{ vecRules.page }}/{{ vecRules.pages }}</span>
+        <button class="page-btn nav" :disabled="vecRules.page >= vecRules.pages" @click="loadVecRules(vecRules.page + 1)">›</button>
+      </div>
+    </div>
     <!-- All Cities Full Pipeline -->
     <div class="prov-all-pipelines" v-if="data.all_cities">
       <div class="panel-header" style="margin-bottom:12px">
@@ -464,8 +512,6 @@ function closeDwdDrilldown() {
   dwdDrilldownCity.value = null
   specQuality.value = {}
 }
-
-const attrFields = ["diameter","thickness","length","width","height","material","grade","pressure","drain_type","inlet_type","voltage","current","cross_section","cores"]
 const fixCase = ref(null)
 const fixSuggestions = ref([])
 const fixResult = ref(null)
@@ -633,6 +679,7 @@ function renderChart() {
 window.addEventListener('resize', () => chartIns?.resize())
 onMounted(() => {
   loadData()
+  loadVecRules()
   if (pollingActive.value) {
     pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
   }
@@ -1198,4 +1245,104 @@ onUnmounted(() => {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Vec Rules Panel */
+.vec-panel {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.vec-total-badge {
+  font-size: 11px;
+  background: rgba(56,189,248,0.12);
+  color: #38bdf8;
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-left: 8px;
+}
+.vec-search {
+  margin-left: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 4px 10px;
+  width: 160px;
+  outline: none;
+}
+.vec-search:focus { border-color: #38bdf8; }
+.vec-attr-select {
+  margin-left: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+}
+.vec-table-wrap { overflow-x: auto; margin-top: 10px; }
+.vec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.vec-table th {
+  background: rgba(255,255,255,0.04);
+  color: #64748b;
+  font-weight: 600;
+  padding: 7px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.vec-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: top;
+}
+.vec-table tr:hover td { background: rgba(255,255,255,0.02); }
+.vec-id { color: #475569; font-family: monospace; width: 40px; }
+.vec-attr-tag {
+  display: inline-block;
+  background: rgba(56,189,248,0.1);
+  color: #38bdf8;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.vec-cat { color: #94a3b8; font-size: 11px; }
+.vec-pattern {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #a5f3fc;
+  background: rgba(56,189,248,0.06);
+  border-radius: 3px;
+  padding: 2px 5px;
+  word-break: break-all;
+  max-width: 200px;
+  display: inline-block;
+}
+.vec-note { color: #94a3b8; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vec-code {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  color: #86efac;
+  background: rgba(16,185,129,0.06);
+  border-radius: 3px;
+  padding: 3px 6px;
+  white-space: pre;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 40px;
+  display: block;
+}
+.vec-date { color: #475569; white-space: nowrap; font-size: 11px; }
+.vec-empty { text-align: center; color: #334155; padding: 20px; }
+.vec-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+.vec-page-info { font-size: 12px; color: #64748b; }
+
+
 </style>
