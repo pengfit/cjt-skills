@@ -1339,7 +1339,7 @@ def _get_rule_file_path(attr: str) -> str:
 
 
 
-def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "") -> bool:
+def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
     """
@@ -1352,8 +1352,8 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
                 attr=attr,
                 note=note,
                 code=code,
-                breed="",
-                category="",
+                breed=breed or "",
+                category=category or "",
                 skip_duplicate=True,
             )
             return "new"
@@ -1917,7 +1917,10 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     wrote_new = False
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
-        result = _apply_rule_to_base(code_block, s["attr"], s["note"], s.get("pattern", ""))
+        result = _apply_rule_to_base(
+            code_block, s["attr"], s["note"], s.get("pattern", ""),
+            req.breed or s.get("breed", ""), req.category or s.get("category", ""),
+        )
         if result is False:
             return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}
         if result == "new":
