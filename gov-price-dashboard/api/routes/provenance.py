@@ -1057,7 +1057,9 @@ def stats_rules_vector(
     if attr:
         where_clauses.append("attr = ?")
         params.append(attr)
-    if category:
+    if category == '（空）':
+        where_clauses.append("(category = '' OR category IS NULL)")
+    elif category:
         where_clauses.append("category = ?")
         params.append(category)
     if search:
@@ -1098,6 +1100,13 @@ def stats_rules_vector(
     attr_options = [{"key": row[0], "count": row[1]} for row in c2.fetchall()]
     conn2.close()
 
+    # Category 列表（用于下拉）
+    conn3 = sqlite3.connect(db_path)
+    c3 = conn3.cursor()
+    c3.execute("SELECT category, COUNT(*) FROM rule_vectors GROUP BY category ORDER BY category")
+    category_options = [{"key": row[0] or "（空）", "label": row[0] or "（空）", "count": row[1]} for row in c3.fetchall()]
+    conn3.close()
+
     return {
         "total": total,
         "page": page,
@@ -1105,6 +1114,7 @@ def stats_rules_vector(
         "pages": (total + page_size - 1) // page_size if total else 1,
         "items": items,
         "attr_options": attr_options,
+        "category_options": category_options,
     }
 
 @router.get("/api/stats/spec-quality")

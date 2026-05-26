@@ -13,15 +13,21 @@
     <div class="vec-toolbar">
       <div class="vec-toolbar-left">
         <input
-          class="vec-search"
+          class="vec-input"
           v-model="vecSearch"
           placeholder="搜索 pattern / note / code..."
           @input="loadVecRules(1)"
         />
-        <select class="vec-attr-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
+        <select class="vec-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
           <option value="">全部属性</option>
           <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">
             {{ opt.key }} ({{ opt.count }})
+          </option>
+        </select>
+        <select class="vec-select" v-model="vecCatFilter" @change="loadVecRules(1)">
+          <option value="">全部分类</option>
+          <option v-for="opt in vecCatOptions" :key="opt.key" :value="opt.key">
+            {{ opt.key === '（空）' ? '（空）' : opt.key }} ({{ opt.count }})
           </option>
         </select>
       </div>
@@ -125,10 +131,12 @@ import axios from 'axios'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
-const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [] })
+const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [] })
 const vecSearch = ref('')
 const vecAttrFilter = ref('')
+const vecCatFilter = ref('')
 const vecAttrOptions = ref([])
+const vecCatOptions = ref([])
 const vecLoading = ref(false)
 const showHelp = ref(false)
 
@@ -138,9 +146,11 @@ async function loadVecRules(page = 1) {
     const params = { page, page_size: 50 }
     if (vecSearch.value) params.search = vecSearch.value
     if (vecAttrFilter.value) params.attr = vecAttrFilter.value
+    if (vecCatFilter.value) params.category = vecCatFilter.value
     const res = await axios.get(`${API}/stats/rules-vector`, { params })
     vecRules.value = res.data || {}
     vecAttrOptions.value = res.data.attr_options || []
+    vecCatOptions.value = res.data.category_options || []
   } catch(e) {
     console.warn('rules-vector failed', e)
   } finally {
@@ -204,20 +214,20 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
-.vec-search {
+.vec-search,.vec-input {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   color: #e2e8f0;
   font-size: 12px;
   padding: 7px 12px;
-  width: 220px;
   outline: none;
   transition: border-color 0.15s;
+  width: 200px;
 }
-.vec-search:focus { border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.04); }
-.vec-search::placeholder { color: #334155; }
-.vec-attr-select {
+.vec-search:focus,.vec-input:focus { border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.04); }
+.vec-search::placeholder,.vec-input::placeholder { color: #334155; }
+.vec-attr-select,.vec-select {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
@@ -228,8 +238,8 @@ onMounted(() => {
   cursor: pointer;
   transition: border-color 0.15s;
 }
-.vec-attr-select:focus { border-color: rgba(56,189,248,0.5); }
-.vec-attr-select option { background: #1e293b; }
+.vec-attr-select:focus,.vec-select:focus { border-color: rgba(56,189,248,0.5); }
+.vec-attr-select option,.vec-select option { background: #1e293b; }
 .vec-help-btn {
   display: inline-flex;
   align-items: center;
