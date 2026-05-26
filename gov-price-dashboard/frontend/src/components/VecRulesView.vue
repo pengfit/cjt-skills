@@ -215,29 +215,29 @@ onMounted(() => {
   gap: 8px;
 }
 .vec-input {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
   padding: 5px 12px;
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
   width: 180px;
   box-sizing: border-box;
 }
-.vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
-.vec-input::placeholder { color: var(--text-3); }
+.vec-input:focus { border-color: #38bdf8; }
+.vec-input::placeholder { color: #475569; }
 .vec-select {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
   padding: 5px 12px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
@@ -247,8 +247,8 @@ onMounted(() => {
   background-size: 10px;
   padding-right: 30px;
 }
-.vec-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
-.vec-select option { background: var(--surface-2); color: var(--text); }
+.vec-select:focus { border-color: #38bdf8; }
+.vec-select option { background: #1e293b; color: #e2e8f0; }
 .vec-help-btn {
   display: inline-flex;
   align-items: center;
