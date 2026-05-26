@@ -219,12 +219,13 @@ onMounted(() => {
   color: #e2e8f0;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: var(--radius-sm);
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   width: 180px;
   box-sizing: border-box;
+  font-family: inherit;
 }
 .vec-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
 .vec-input::placeholder { color: #475569; }
