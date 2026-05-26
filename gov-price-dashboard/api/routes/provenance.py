@@ -1277,7 +1277,10 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
                 skip_duplicate=True,
             )
             return "new"
-        except Exception:
+        except Exception as e:
+            import logging
+            _log = logging.getLogger()
+            _log.error("VecStore.insert failed: %s: %s", type(e).__name__, e)
             return False
     return False
 

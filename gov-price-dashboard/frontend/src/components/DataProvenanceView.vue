@@ -317,7 +317,7 @@
 
           <!-- 加载中 -->
           <div class="fix-loading-placeholder" v-else-if="fixLoading">
-            <div class="fix-loading-funnel"><div class="funnel-icon">�漏</div></div>
+            <div class="fix-loading-funnel"><div class="funnel-icon">⏳</div></div>
             <span>AI 分析中...</span>
           </div>
 

@@ -10,3 +10,8 @@ build/
 .venv/
 venv/
 .env
+.idea/modules.xml
+.idea/skills.iml
+.idea/vcs.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/.gitignore

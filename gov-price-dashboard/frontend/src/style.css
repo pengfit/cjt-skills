@@ -2106,13 +2106,8 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #5eead4
 }
 .fix-loading-funnel { display: flex; align-items: center; justify-content: center; }
 .funnel-icon {
-  font-size: 2.2rem; line-height: 1;
-  animation: funnelSpin 1.4s linear infinite;
-  filter: drop-shadow(0 0 6px rgba(56,189,248,0.5));
-}
-@keyframes funnelSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  font-size: 2rem; line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(56,189,248,0.6));
 }
 .dot {
   width: 8px; height: 8px; border-radius: 50%;
