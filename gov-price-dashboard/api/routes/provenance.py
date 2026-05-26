@@ -1074,7 +1074,7 @@ def stats_rules_vector(
     offset = (page - 1) * page_size
     c.execute(
         f"SELECT id, pattern, attr, note, code, breed, category, tokens, created_at "
-        f"FROM rule_vectors WHERE {where_sql} ORDER BY id LIMIT ? OFFSET ?",
+        f"FROM rule_vectors WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
     rows = c.fetchall()
@@ -1880,7 +1880,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             "mode": "confirm",
             "spec": spec,
             "expected": expected,
-            "message": "规则已存在，无需写入。ETL 未触发",
+            "message": "规则已存在，无需录入。",
             "etl_ok": True,
         }
 
@@ -1889,7 +1889,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
         "mode": "confirm",
         "spec": spec,
         "expected": expected,
-        "message": "规则已写入。ETL 请通过分类清洗按钮触发",
+        "message": "规则已录入规则库。清洗请通过「分类清洗」按钮触发",
         "etl_ok": False,
     }
 

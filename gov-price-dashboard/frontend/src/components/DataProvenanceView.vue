@@ -258,14 +258,6 @@
               <span class="fix-spec-label">规格</span>
               <span class="fix-spec-value">{{ fixCase.spec }}</span>
             </div>
-            <div class="fix-spec-row">
-              <span class="fix-spec-label">当前解析</span>
-              <div class="fix-current" v-if="fixCase.parsed && Object.keys(fixCase.parsed).length">
-                <span v-for="(v,k) in fixCase.parsed" :key="k" class="fix-attr-chip">{{ k }}: {{ v }}</span>
-              </div>
-              <span class="fix-current-empty" v-else>无属性</span>
-            </div>
-            <!-- 规则合并解析结果 -->
             <div class="fix-spec-row" v-if="fixCombinedResult && Object.keys(fixCombinedResult).length">
               <span class="fix-spec-label">AI 解析</span>
               <div class="fix-current">
@@ -283,8 +275,8 @@
           <!-- 分析按钮 -->
           <div class="fix-actions">
             <button class="btn-analyze" @click="previewFix" :disabled="fixLoading">
-              <span class="btn-analyze-icon">{{ fixLoading ? '⏳' : '🔍' }}</span>
-              {{ fixLoading ? '分析中...' : '分析规则建议' }}
+              <span class="btn-analyze-icon">{{ fixLoading ? '⏳' : '✨' }}</span>
+              {{ fixLoading ? 'AI 分析中...' : 'AI 建议（规则）' }}
             </button>
           </div>
 
@@ -317,7 +309,7 @@
               </div>
               <div class="fix-sg-card-footer">
                 <button class="btn-confirm-fix" :disabled="sg.applied" @click="confirmFix(sg)">
-                  {{ sg.applied ? '✓ 已写入' : '✅ 确认写入规则 + ETL' }}
+                  {{ sg.applied ? '✓ 已录入' : '✅ 确认录入规则库' }}
                 </button>
               </div>
             </div>
@@ -325,7 +317,7 @@
 
           <!-- 加载中 -->
           <div class="fix-loading-placeholder" v-else-if="fixLoading">
-            <div class="fix-loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="fix-loading-funnel"><div class="funnel-icon">�漏</div></div>
             <span>AI 分析中...</span>
           </div>
 
@@ -339,7 +331,7 @@
           <div class="fix-success-modal" v-if="showFixSuccess">
             <div class="fix-success-content">
               <div class="fix-success-icon">✅</div>
-              <div class="fix-success-title">规则已写入成功</div>
+              <div class="fix-success-title">规则已录入规则库</div>
               <div class="fix-success-msg">{{ fixSuccessMsg }}</div>
               <button class="btn-ok" @click="showFixSuccess = false">确定</button>
             </div>

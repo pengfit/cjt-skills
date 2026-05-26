@@ -98,7 +98,7 @@
             <td class="vec-cat">{{ r.category || '—' }}</td>
             <td><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
             <td class="vec-note" :title="r.note || ''">{{ r.note || '—' }}</td>
-            <td><pre class="vec-code" :title="r.code">{{ r.code }}</pre></td>
+            <td><div class="vec-code-md" v-html="renderCode(r.code)"></div></td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
           <tr v-if="!vecRules.items?.length">
@@ -127,6 +127,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { marked } from 'marked'
 import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -161,6 +162,12 @@ async function loadVecRules(page = 1) {
 onMounted(() => {
   loadVecRules()
 })
+
+function renderCode(code) {
+  if (!code) return ''
+  const src = '```\n' + code + '\n```'
+  return marked.parse(src)
+}
 </script>
 
 <style scoped>
@@ -368,7 +375,8 @@ onMounted(() => {
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
 }
 .vec-code {
   font-family: 'Courier New', monospace;
@@ -382,6 +390,28 @@ onMounted(() => {
   text-overflow: ellipsis;
   max-height: 38px;
   display: block;
+}
+.vec-code-md {
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 72px;
+  overflow-y: auto;
+}
+.vec-code-md :deep(pre) {
+  background: rgba(16,185,129,0.06);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+}
+.vec-code-md :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: #a7f3d0;
+  font-size: 10.5px;
+  font-family: 'Courier New', monospace;
 }
 .vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
 .vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }

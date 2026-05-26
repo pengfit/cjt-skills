@@ -12,6 +12,7 @@
     "axios": "^1.15.2",
     "echarts": "^5.6.0",
     "echarts-for-vue": "^1.4.1",
+    "marked": "^18.0.4",
     "vue": "^3.5.32"
   },
   "devDependencies": {
