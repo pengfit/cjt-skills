@@ -53,14 +53,6 @@
             存储在 <code>rules_vec.db</code>，由 <code>etl/parse_spec</code> 模块管理。<code>transform_doc</code> 调用这些规则将 raw spec 解析为结构化 attr（thickness / width / material 等）。
           </span>
         </div>
-        <div class="vec-help-item">
-          <span class="vec-help-key">代码入口</span>
-          <span class="vec-help-val">
-            <code>etl.py</code> → <code>transform_doc()</code> → <code>parse_spec(spec)</code><br/>
-            <code>parse_spec/base.py</code> → <code>_rag_candidates()</code> → <code>vector_store.search()</code><br/>
-            <code>vector_store.py</code> → SQLite FTS5 模糊检索 + 混合相似度排序
-          </span>
-        </div>
       </div>
     </div>
 
