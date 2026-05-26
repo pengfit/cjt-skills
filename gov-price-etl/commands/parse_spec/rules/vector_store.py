@@ -196,11 +196,31 @@ class RuleVectorStore:
                 rows = conn.execute("SELECT * FROM rule_vectors").fetchall()
             conn.close()
 
+        # Fallback: if no results from keyword scoring, try all rules for this attr
+        # (handles cases where spec tokens have zero overlap with rule tokens)
+        if not results and attr_filter:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                rows = conn.execute(
+                    "SELECT * FROM rule_vectors WHERE attr=?",
+                    (attr_filter,)
+                ).fetchall()
+                conn.close()
+            for row in rows:
+                rule = self._row_to_rule(row)
+                # Use pattern match as proxy score
+                try:
+                    if re.search(rule["pattern"], spec or ""):
+                        results.append((0.5, rule))
+                except re.error:
+                    pass
+            results.sort(key=lambda x: x[0], reverse=True)
+
         for row in rows:
             rule = self._row_to_rule(row)
             if spec_tokens:
                 score = _keyword_score(spec_tokens, rule["tokens"])
-                if score <= 0:
+                if score < 0.001:
                     continue
             else:
                 score = 1.0

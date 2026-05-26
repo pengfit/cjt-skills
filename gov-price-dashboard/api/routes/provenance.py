@@ -1259,96 +1259,6 @@ class FixCaseRequest(BaseModel):
     category: str = ""
 
 
-def _infer_rule_suggestion(spec: str, expected: dict) -> list:
-    """
-    根据 rules/ 目录下已有规则生成建议，完全基于已加载规则进行匹配。
-    expected 只作参考，不作为匹配条件。
-    规则文件变更后自动反映，无需硬编码。
-    """
-    import re, glob
-    rules = []
-    s = spec.strip()
-
-    def add(attr, note, pattern, code_block):
-        rules.append({"attr": attr, "note": note, "pattern": pattern, "code_block": code_block})
-
-    rules_dir = os.path.join(ETL_CMD_DIR, "parse_spec", "rules")
-    pattern_re = re.compile(
-        r'# ── 自动生成: (.+?) ──\s*\n'
-        r'(.*?)(?=\n# ── 自动生成:|\Z)',
-        re.DOTALL
-    )
-    for py_file in sorted(glob.glob(os.path.join(rules_dir, "*.py"))):
-        if py_file.endswith("__init__.py"):
-            continue
-        with open(py_file) as f:
-            file_content = f.read()
-        for m in pattern_re.finditer(file_content):
-            note = m.group(1).strip()
-            code = m.group(2).strip()
-            pat_m = re.search(r"re\.search\(r['\"]([^'\"]+)['\"]", code)
-            if not pat_m:
-                continue
-            pattern = pat_m.group(1)
-            try:
-                compiled = re.compile(pattern)
-            except re.error:
-                continue
-            if compiled.search(s):
-                attr_m = re.search(r"result\['([^']+)'\]\s*=", code)
-                attr = attr_m.group(1) if attr_m else "_unknown"
-                code_block = code.split("\n")
-                add(attr, note, pattern, code_block)
-    return rules
-
-
-
-
-
-def _get_rule_insert_line(content: str, attr: str) -> int:
-    markers = {
-        "diameter": ["# 4. 管径:", "# 4e. Φ", "# 4f. 纯 Φ"],
-        "thickness": ["# 1. 厚度"],
-        "width": ["# 3. 3D"],
-        "height": ["# 3. 3D"],
-        "grade": ["# 7. 材质"],
-        "material": ["# 7. 材质"],
-        "cores": ["# 2. 电缆"],
-        "cross_section": ["# 2. 电缆"],
-        "ring_stiffness": ["# 5. 环刚度"],
-        "pressure": ["# 6. 压力"],
-        "length_range": ["# 3. 3D"],
-    }.get(attr, [f"# {attr}"])
-    positions = []
-    for i, line in enumerate(content.splitlines()):
-        for mk in markers:
-            if mk in line:
-                positions.append(i)
-    return max(positions) if positions else 112  # 112 = 插入到 BaseParseSpec class 定义之前
-
-
-def _get_rule_file_path(attr: str) -> str:
-    """根据 attr 确定规则文件路径"""
-    rules_dir = os.path.join(ETL_CMD_DIR, "parse_spec", "rules")
-    os.makedirs(rules_dir, exist_ok=True)
-    attr_file_map = {
-        "diameter": "diameter.py",
-        "thickness": "thickness.py",
-        "width": "width.py",
-        "height": "height.py",
-        "grade": "grade.py",
-        "material": "material.py",
-        "cores": "cores.py",
-        "cross_section": "cross_section.py",
-        "ring_stiffness": "ring_stiffness.py",
-        "pressure": "pressure.py",
-        "length_range": "length_range.py",
-    }
-    filename = attr_file_map.get(attr, f"{attr}.py")
-    return os.path.join(rules_dir, filename)
-
-
-
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
@@ -1375,19 +1285,46 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
 def _run_spec_validation_quiet(spec: str = "", attr: str = "", code: str = "") -> tuple:
     """
     验证新规则能否解析指定 spec。
-    执行 code block，检查 attr 是否被解析出来。
+    对 re.search/re.sub 调用直接提取 pattern 测试；对复杂代码走 exec。
     返回 (passed, total)。
     """
     if not spec or not attr or not code:
         return (0, 0)
     try:
-        import re as _re_mod
-        exec_globals = {"result": {}, "re": _re_mod, "s": spec}
-        exec(code, exec_globals)
-        val = exec_globals.get("result", {}).get(attr)
-        return (1, 1) if val else (0, 1)
+        import re as _re_mod, re as _re
+
+        # 尝试直接正则测试：匹配 re.search(r'...', s) 或 re.sub(r'...', r'...', s)
+        search_match = _re.search(r're\.search\((r["\'][^"\']+["\'])\s*,\s*s\)', code)
+        if search_match:
+            raw_pat = search_match.group(1)
+            inner = raw_pat[2:-1]  # 不需要翻倍，inner 已是正确字符序列
+            try:
+                val = _re_mod.search(inner, spec)
+                return (1, 1) if val else (0, 1)
+            except Exception:
+                return (0, 1)
+
+        sub_match = _re.search(r're\.sub\((r["\'][^"\']+["\'])\s*,\s*(r["\'][^"\']+["\'])\s*,\s*s\)', code)
+        if sub_match:
+            raw_pat = sub_match.group(1)
+            inner = raw_pat[2:-1]  # 不需要翻倍，inner 已是正确字符序列
+            try:
+                val = _re_mod.search(inner, spec)
+                return (1, 1) if val else (0, 1)
+            except Exception:
+                return (0, 1)
+
+        # 兜底：直接 exec（复杂代码场景）
+        try:
+            exec_globals = {"result": {}, "re": _re_mod, "s": spec}
+            exec(code, exec_globals)
+            val = exec_globals.get("result", {}).get(attr)
+            return (1, 1) if val else (0, 1)
+        except Exception:
+            return (0, 1)
     except Exception:
         return (0, 1)
+
 
 
 
@@ -1529,20 +1466,9 @@ def _extract_suggestion_fields(obj_text):
 
         raw = raw[:next_pos]
 
-        # If raw starts with r' (python raw string), find closing '
-        if raw.startswith("r'"):
-            i = 2
-            while i < len(raw):
-                if raw[i] == "'":
-                    if i > 0 and raw[i-1] == '\\':
-                        i += 1
-                    elif i + 1 < len(raw) and raw[i+1] == "'":
-                        i += 2
-                    else:
-                        raw = raw[:i]
-                        break
-                else:
-                    i += 1
+        # Strip python r'...' wrapper first, then fix JSON escapes on the result
+        if raw.startswith("r'") or raw.startswith('r"'):
+            raw = _strip_r(raw)
 
         return _fix_json_escapes(raw)
 
@@ -1556,7 +1482,7 @@ def _extract_suggestion_fields(obj_text):
         if raw.startswith('"'):
             raw = raw[1:]
 
-        # Trim to the next JSON field separator (same logic as pattern)
+        # Find the next JSON field separator
         next_markers_raw = [
             ',"attr":', ',"note":', ',"pattern":', ',"code_block":',
             ",'attr:", ",'note:", ",'pattern:", ",'code_block:"
@@ -1566,14 +1492,14 @@ def _extract_suggestion_fields(obj_text):
             m2 = _re.search(marker2, raw)
             if m2:
                 next_pos = min(next_pos, m2.start())
+
         raw = raw[:next_pos]
 
+        # Strip python r'...' wrapper first, then fix JSON escapes on the result
+        if raw.startswith("r'") or raw.startswith('r"'):
+            raw = _strip_r(raw)
         code = _fix_json_escapes(raw)
-        # Strip python r'...' wrapper (handles AI raw-string syntax in JSON)
-        if code.startswith("r'") or code.startswith('r\"'):
-            code = _strip_r(code)
         # Strip stray JSON trailing quote/brace from AI malformed JSON
-        # Only strip " and } (from JSON \" and closing }), NOT Python single quotes
         code = code.rstrip('"}')
         return code
 
@@ -1596,11 +1522,11 @@ def _strip_r(s):
         return s[2:-1]
     if s.startswith("r'"):
         for i in range(2, len(s)):
-            if s[i] == "'" and (i == 0 or s[i-1] != '\\\\'):
+            if s[i] == "'" and (i == 0 or s[i-1] != '\\'):
                 return s[2:i]
         last_single = -1
         for i in range(len(s) - 1, 1, -1):
-            if s[i] == "'" and (i == 0 or s[i-1] != '\\\\'):
+            if s[i] == "'" and (i == 0 or s[i-1] != '\\'):
                 last_single = i
                 break
         if last_single > 2:
@@ -1630,9 +1556,11 @@ def _fix_json_escapes(s):
             elif nc == "'":
                 result.append("'")
                 i += 2
-            elif nc == '"':
-                result.append('"')
-                i += 2
+            # 不处理 \" → " 转换：" 是 JSON raw string 内容的合法部分
+            # 由 _strip_r 处理（内嵌转义引号算作内容，不是字符串结束）
+            #elif nc == '"':
+            #    result.append('"')
+            #    i += 2
             else:
                 result.append(c)
                 i += 1
@@ -1664,7 +1592,7 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
             {"role": "user", "content": prompt},
         ],
         "user": "spec-fix-agent",
-        "max_tokens": 4096,
+        "max_tokens": 1024,
         "temperature": 0.1,
     }).encode("utf-8")
 
@@ -1871,7 +1799,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             return {"ok": False, "message": "confirm=True 但无 suggestions，请先预览", "spec": spec}
     else:
         # 预览模式：先尝试本地规则库，再用 AI 生成建议
-        all_suggestions = list(req.suggestions) if req.suggestions else _infer_rule_suggestion(spec, expected)
+        all_suggestions = list(req.suggestions) if req.suggestions else []
         if not all_suggestions:
             ai_result = _call_openclaw_llm(
                 spec, expected,
