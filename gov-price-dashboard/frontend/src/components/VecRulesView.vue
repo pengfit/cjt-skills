@@ -12,24 +12,23 @@
     <!-- Toolbar -->
     <div class="vec-toolbar">
       <div class="vec-toolbar-left">
-        <input
-          class="vec-input"
-          v-model="vecSearch"
-          placeholder="搜索 pattern / note / code..."
-          @input="loadVecRules(1)"
+        <input class="vec-input" v-model="vecSearch" placeholder="搜索 pattern / note / code..." @input="loadVecRules(1)" />
+        <CustomSelect
+          v-model="vecAttrFilter"
+          :options="vecAttrOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
+          placeholder="全部属性"
+          :searchable="false"
+          :count-suffix="true"
+          @change="loadVecRules(1)"
         />
-        <select class="vec-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
-          <option value="">全部属性</option>
-          <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">
-            {{ opt.key }} ({{ opt.count }})
-          </option>
-        </select>
-        <select class="vec-select" v-model="vecCatFilter" @change="loadVecRules(1)">
-          <option value="">全部分类</option>
-          <option v-for="opt in vecCatOptions" :key="opt.key" :value="opt.key">
-            {{ opt.key === '（空）' ? '（空）' : opt.key }} ({{ opt.count }})
-          </option>
-        </select>
+        <CustomSelect
+          v-model="vecCatFilter"
+          :options="vecCatOptions.map(o => ({ key: o.key, label: o.key === '（空）' ? '（空）' : o.key, count: o.count }))"
+          placeholder="全部分类"
+          :searchable="false"
+          :count-suffix="true"
+          @change="loadVecRules(1)"
+        />
       </div>
       <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
         {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
@@ -128,6 +127,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -215,40 +215,19 @@ onMounted(() => {
   gap: 8px;
 }
 .vec-input {
-  background: #1e293b;
+  background: rgba(30,41,59,0.8);
   color: #e2e8f0;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
   padding: 5px 12px;
   font-size: 12px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   width: 180px;
   box-sizing: border-box;
 }
-.vec-input:focus { border-color: #38bdf8; }
+.vec-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
 .vec-input::placeholder { color: #475569; }
-.vec-select {
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 10px;
-  padding-right: 30px;
-}
-.vec-select:focus { border-color: #38bdf8; }
-.vec-select option { background: #1e293b; color: #e2e8f0; }
 .vec-help-btn {
   display: inline-flex;
   align-items: center;
