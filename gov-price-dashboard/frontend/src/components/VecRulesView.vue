@@ -25,8 +25,8 @@
           </option>
         </select>
       </div>
-      <button class="vec-help-btn" @click="showHelp = !showHelp">
-        {{ showHelp ? '🔼 收起说明' : '🔽 使用说明' }}
+      <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
+        {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
       </button>
     </div>
 
@@ -231,17 +231,29 @@ onMounted(() => {
 .vec-attr-select:focus { border-color: rgba(56,189,248,0.5); }
 .vec-attr-select option { background: #1e293b; }
 .vec-help-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  color: #64748b;
-  font-size: 11px;
-  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(56,189,248,0.06);
+  border: 1px solid rgba(56,189,248,0.15);
+  border-radius: 20px;
+  color: #38bdf8;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.18s;
   white-space: nowrap;
 }
-.vec-help-btn:hover { background: rgba(255,255,255,0.08); color: #94a3b8; border-color: rgba(255,255,255,0.2); }
+.vec-help-btn:hover {
+  background: rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.3);
+}
+.vec-help-btn.active {
+  background: rgba(56,189,248,0.15);
+  border-color: rgba(56,189,248,0.35);
+  box-shadow: 0 0 10px rgba(56,189,248,0.1);
+}
 
 /* Help */
 .vec-help {
