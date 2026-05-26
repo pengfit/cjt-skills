@@ -38,15 +38,6 @@
             <code>breed</code> — 适用的商品品种/系列
           </span>
         </div>
-      <div class="vec-help-item">
-          <span class="vec-help-key">ETL 应用</span>
-          <span class="vec-help-val">
-            <code>transform_doc</code> 调用 <code>parser.parse(spec, breed, category)</code><br/>
-            → <code>BaseParseSpec.parse()</code> 调用 RAG 召回 <code>_rag_candidates(spec)</code><br/>
-            → <code>vector_store.search()</code> 在 <code>rules_vec.db</code> 中检索 Top-K 候选规则<br/>
-            → 逐条执行 <code>re.search(pattern, spec)</code> 提取属性值
-          </span>
-        </div>
         <div class="vec-help-item">
           <span class="vec-help-key">关键思路</span>
           <span class="vec-help-val">
