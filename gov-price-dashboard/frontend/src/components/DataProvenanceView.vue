@@ -40,53 +40,7 @@
     </div>
 
 
-    <!-- Rules Vec DB -->
-    <div class="vec-panel">
-      <div class="panel-header" style="margin-bottom:12px">
-        <span class="panel-dot panel-dot-green"></span>
-        <span class="panel-title">📦 规格规则库</span>
-        <span class="vec-total-badge">{{ vecRules.total }} 条规则</span>
-        <input class="vec-search" v-model="vecSearch" placeholder="搜索 pattern / note / 代码" @input="loadVecRules(1)" />
-        <select class="vec-attr-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
-          <option value="">全部属性</option>
-          <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">{{ opt.key }} ({{ opt.count }})</option>
-        </select>
-      </div>
-      <div class="vec-table-wrap">
-        <table class="vec-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>attr</th>
-              <th>分类</th>
-              <th>pattern</th>
-              <th>note</th>
-              <th>code</th>
-              <th>创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in vecRules.items" :key="r.id">
-              <td class="vec-id">{{ r.id }}</td>
-              <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
-              <td class="vec-cat">{{ r.category || '—' }}</td>
-              <td><code class="vec-pattern">{{ r.pattern }}</code></td>
-              <td class="vec-note">{{ r.note || '—' }}</td>
-              <td><pre class="vec-code">{{ r.code }}</pre></td>
-              <td class="vec-date">{{ r.created_at?.slice(0, 19) }}</td>
-            </tr>
-            <tr v-if="!vecRules.items?.length">
-              <td colspan="7" class="vec-empty">暂无数据</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="vec-pagination">
-        <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
-        <span class="vec-page-info">{{ vecRules.page }}/{{ vecRules.pages }}</span>
-        <button class="page-btn nav" :disabled="vecRules.page >= vecRules.pages" @click="loadVecRules(vecRules.page + 1)">›</button>
-      </div>
-    </div>
+
     <!-- All Cities Full Pipeline -->
     <div class="prov-all-pipelines" v-if="data.all_cities">
       <div class="panel-header" style="margin-bottom:12px">
@@ -679,7 +633,6 @@ function renderChart() {
 window.addEventListener('resize', () => chartIns?.resize())
 onMounted(() => {
   loadData()
-  loadVecRules()
   if (pollingActive.value) {
     pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
   }
