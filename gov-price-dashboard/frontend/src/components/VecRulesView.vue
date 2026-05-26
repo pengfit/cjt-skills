@@ -49,9 +49,37 @@
             · <strong>属性下拉</strong>：按 attr 字段精确筛选（如只看 thickness 规则）
           </span>
         </div>
+      <div class="vec-help-item">
+          <span class="vec-help-key">ETL 应用</span>
+          <span class="vec-help-val">
+            <code>transform_doc</code> 调用 <code>parser.parse(spec, breed, category)</code><br/>
+            → <code>BaseParseSpec.parse()</code> 调用 RAG 召回 <code>_rag_candidates(spec)</code><br/>
+            → <code>vector_store.search()</code> 在 <code>rules_vec.db</code> 中检索 Top-K 候选规则<br/>
+            → 逐条执行 <code>re.search(pattern, spec)</code> 提取属性值
+          </span>
+        </div>
+        <div class="vec-help-item">
+          <span class="vec-help-key">关键思路</span>
+          <span class="vec-help-val">
+            <strong>① RAG 召回</strong>：按 spec 字符串语义检索相关规则，避免线性遍历全部 42 条规则<br/>
+            <strong>② 混合相似度</strong>：keyword-set Jaccard + embedding cosine，零外部依赖<br/>
+            <strong>③ 先召回再执行</strong>：先找候选规则，再逐条正则匹配，兼顾速度与覆盖<br/>
+            <strong>④ AI 兜底</strong>：无规则匹配时调用 LLM 补全 category，再用规则解析 attr
+          </span>
+        </div>
         <div class="vec-help-item">
           <span class="vec-help-key">规则来源</span>
-          <span class="vec-help-val">存储在 <code>rules_vec.db</code> 中，由 etl/parse_spec 模块管理。ETL 流水线（transform_doc）调用这些规则将 raw spec 解析为结构化 attr。</span>
+          <span class="vec-help-val">
+            存储在 <code>rules_vec.db</code>，由 <code>etl/parse_spec</code> 模块管理。<code>transform_doc</code> 调用这些规则将 raw spec 解析为结构化 attr（thickness / width / material 等）。
+          </span>
+        </div>
+        <div class="vec-help-item">
+          <span class="vec-help-key">代码入口</span>
+          <span class="vec-help-val">
+            <code>etl.py</code> → <code>transform_doc()</code> → <code>parse_spec(spec)</code><br/>
+            <code>parse_spec/base.py</code> → <code>_rag_candidates()</code> → <code>vector_store.search()</code><br/>
+            <code>vector_store.py</code> → SQLite FTS5 模糊检索 + 混合相似度排序
+          </span>
         </div>
       </div>
     </div>
@@ -208,7 +236,7 @@ onMounted(() => {
 }
 .vec-help-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px 20px;
 }
 .vec-help-item { display: flex; gap: 10px; font-size: 11px; line-height: 1.6; }
