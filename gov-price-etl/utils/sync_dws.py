@@ -181,7 +181,7 @@ def sync_city(es_host: str, city: str, dwd_index: str, dws_index: str,
 
     print(f"  [DWS] {city}: {dwd_index} ({total:,} 条) → {dws_index}")
 
-    body = {"size": batch_size, "query": {"match_all": {}}}
+    body = {"size": batch_size, "query": {"bool": {"must": [{"term": {"needs_spec_parse": False}}]}}}
     resp = session.get(f"{es_host}/{dwd_index}/_search?scroll=1m", json=body)
     if resp.status_code != 200:
         print(f"  [DWS] {city}: 查询失败")

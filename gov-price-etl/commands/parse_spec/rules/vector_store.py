@@ -3,8 +3,7 @@
 """
 parse_spec/rules/vector_store.py
 Rule vector store with SQLite + blob persistence.
-Primary: keyword-set similarity (no external dependency).
-Fallback: Ollama local embedding when available.
+Keyword-set similarity search with category/breed filtering.
 """
 import json, os, re, glob, threading, math
 import numpy as np
@@ -13,11 +12,8 @@ import sqlite3
 RULES_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(RULES_DIR, "rules_vec.db")
 
-OLLAMA_BASE = "http://localhost:11434"
-OLLAMA_MODEL = "nomic-embed-text"
 
-
-# ── Embedding: keyword-set similarity (primary, zero-dep) ────────────────────
+# ── Keyword-set similarity (zero-dep) ────────────────────────────────────────
 
 KEYWORD_STOPWORDS = frozenset([
     "a", "an", "the", "for", "of", "in", "on", "at", "to", "with",
@@ -25,197 +21,136 @@ KEYWORD_STOPWORDS = frozenset([
     "规则", "pattern", "attr", "用于", "rule",
 ])
 
-def _tokenize(text: str) -> set:
-    tokens = set()
-    for token in re.split(r'[^a-zA-Z0-9\u4e00-\u9fff]+', text.lower()):
-        if token and token not in KEYWORD_STOPWORDS and len(token) > 1:
-            tokens.add(token)
-    return tokens
 
-def _jaccard(a: set, b: set) -> float:
-    if not a or not b:
+def _tokenize(text: str) -> set:
+    """Simple Chinese-aware tokenization."""
+    if not text:
+        return set()
+    tokens = re.findall(r"[\u4e00-\u9fff]+|[A-Za-z]+|[0-9.]+", text.lower())
+    return {t for t in tokens if t not in KEYWORD_STOPWORDS and len(t) > 1}
+
+
+def _keyword_score(spec_tokens: set, rule_tokens: frozenset | set) -> float:
+    """Jaccard similarity between token sets."""
+    if not spec_tokens or not rule_tokens:
         return 0.0
-    inter = len(a & b)
-    union = len(a | b)
+    inter = len(spec_tokens & rule_tokens)
+    union = len(spec_tokens | rule_tokens)
     return inter / union if union else 0.0
 
-def _keyword_score(spec_tokens: set, rule_tokens: set) -> float:
-    return _jaccard(spec_tokens, rule_tokens)
 
-def _embed_text(text: str) -> np.ndarray:
-    """Compute fake embedding via keyword-set hash (primary, no external dep)."""
-    tokens = _tokenize(text)
-    dim = 256
-    vec = np.zeros(dim, dtype=np.float32)
-    for i, tok in enumerate(tokens):
-        h = hash(tok) % dim
-        vec[h] += 1.0
-    norm = np.linalg.norm(vec)
-    if norm > 0:
-        vec /= norm
-    return vec
+# ── SQLite schema ─────────────────────────────────────────────────────────────
+
+CREATE_TABLE = """
+CREATE TABLE IF NOT EXISTS rule_vectors (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern     TEXT    NOT NULL UNIQUE,
+    attr        TEXT    NOT NULL,
+    note        TEXT    DEFAULT '',
+    code        TEXT    DEFAULT '',
+    breed       TEXT    DEFAULT '',
+    category    TEXT    DEFAULT '',
+    tokens      TEXT    DEFAULT '[]',
+    created_at  TEXT    DEFAULT (datetime('now'))
+)
+"""
+
+ENSURE_COLS = """
+PRAGMA table_info(rule_vectors)
+"""
 
 
-# ── Vector Store ─────────────────────────────────────────────────────────────
+def _ensure_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(CREATE_TABLE)
+    conn.commit()
+    cols = {r[1] for r in conn.execute(ENSURE_COLS).fetchall()}
+    for col, dtype in [
+        ("breed",    "TEXT DEFAULT ''"),
+        ("category", "TEXT DEFAULT ''"),
+        ("tokens",   "TEXT DEFAULT '[]'"),
+    ]:
+        if col not in cols:
+            conn.execute(f"ALTER TABLE rule_vectors ADD COLUMN {col} {dtype}")
 
-def get_vec_store(db_path: str = DB_PATH) -> RuleVectorStore:
-    return RuleVectorStore.get_vec_store(db_path)
 
+# ── VecStore ────────────────────────────────────────────────────────────────
 
-class RuleVectorStore:
-    _instance = None
-    _lock = threading.Lock()
+class VecStore:
+    __slots__ = ("db_path", "_lock")
 
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
         self._lock = threading.Lock()
-        self._ensure_db()
-
-    @classmethod
-    def get_vec_store(cls, db_path: str = DB_PATH) -> "RuleVectorStore":
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls(db_path)
-        return cls._instance
-
-    def _ensure_db(self):
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS rule_vectors (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    pattern     TEXT    NOT NULL,
-                    attr        TEXT    NOT NULL,
-                    note        TEXT,
-                    code        TEXT,
-                    breed       TEXT,
-                    category    TEXT,
-                    tokens      TEXT,   -- JSON serialized keyword set
-                    embedding   BLOB,   -- float32 vector blob
-                    created_at  TEXT    DEFAULT (datetime('now'))
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_attr ON rule_vectors(attr)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_category ON rule_vectors(category)")
-            conn.commit()
+            conn = sqlite3.connect(db_path)
+            _ensure_schema(conn)
             conn.close()
 
-    def _strip_r(self, s):
-        """Strip python r'...' or r"..." raw string wrapper.
-        Handles malformed cases: r'..." (closing " from JSON) or missing closing quote.
-        """
-        if not s:
-            return s or ""
-        s = s.strip()
-        if len(s) < 4:
-            return s
-        if s.startswith('r"') and s.endswith('"') and len(s) > 2:
-            return s[2:-1]
-        if s.startswith("r'"):
-            for i in range(2, len(s)):
-                if s[i] == "'" and (i == 0 or s[i-1] != '\\'):
-                    return s[2:i]
-            last_single = -1
-            for i in range(len(s) - 1, 1, -1):
-                if s[i] == "'" and (i == 0 or s[i-1] != '\\'):
-                    last_single = i
-                    break
-            if last_single > 2:
-                return s[2:last_single]
-            return s[2:]
-        return s
+    # ── CRUD ──────────────────────────────────────────────────────────────
+
+    def insert(self, pattern: str, attr: str, note: str = "",
+               code: str = "", breed: str = "", category: str = "",
+               tokens: list = None, skip_duplicate: bool = False) -> bool:
+        """Insert or update a rule. Returns True on success."""
+        norm_pat = self._strip_r(pattern)
+        tokens   = tokens or _tokenize(norm_pat)
+        tok_json = json.dumps(list(tokens))
+        with self._lock:
+            conn = sqlite3.connect(self.db_path)
+            _ensure_schema(conn)
+            if skip_duplicate:
+                exists = conn.execute(
+                    "SELECT 1 FROM rule_vectors WHERE pattern=? AND attr=?",
+                    (norm_pat, attr)
+                ).fetchone()
+                if exists:
+                    conn.close()
+                    return False
+            conn.execute("""
+                INSERT INTO rule_vectors (pattern, attr, note, code, breed, category, tokens)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (norm_pat, attr, note, code, breed, category, tok_json))
+            conn.commit()
+            conn.close()
+        return True
 
     def _row_to_rule(self, row: tuple) -> dict:
-        _, pattern, attr, note, code, breed, category, tokens_json, embedding_bytes, created_at = row
-        pattern = self._strip_r(pattern)
-        code = self._strip_r(code)
-        rule = {
-            "pattern":  pattern,
-            "attr":     attr,
-            "note":     note or "",
-            "code":     code or "",
-            "breed":    breed or "",
-            "category": category or "",
-            "tokens":   set(json.loads(tokens_json)) if tokens_json else set(),
-            "embedding": np.frombuffer(embedding_bytes, dtype=np.float32) if embedding_bytes else None,
-            "created_at": created_at,
-        }
-        return rule
-
-    def insert(self, pattern: str, attr: str, note: str,
-               code: str, breed: str = "", category: str = "",
-               skip_duplicate: bool = True) -> bool:
-        """
-        Insert rule with token set + embedding. Returns True if inserted.
-        Pattern and code stored normalized (strip r'...' wrapper).
-        skip_duplicate: check normalized (attr, pattern) existence.
-        """
-        norm_pat = self._strip_r(pattern)
-        norm_code = self._strip_r(code)
-        if skip_duplicate and self.search_by_attr_pattern(attr, norm_pat):
-            return False
-
-        text_parts = [spec for spec in [attr, note, breed, category] if spec]
-        text = " ".join(text_parts) + " " + norm_pat
-        tokens = _tokenize(text)
-        embedding = _embed_text(text)
-        embedding_bytes = embedding.tobytes()
-
-        tokens_json = json.dumps(list(tokens))
-
-        with self._lock:
-            conn = sqlite3.connect(self.db_path)
-            conn.execute("""
-                INSERT INTO rule_vectors (pattern, attr, note, code, breed, category, tokens, embedding)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (norm_pat, attr, note, norm_code, breed, category, tokens_json, embedding_bytes))
-            conn.commit()
-            conn.close()
-
-        return True
+        """Map a DB row to a rule dict."""
+        pat, attr, note, code, breed, cat, tok_json = row
+        tokens = frozenset(json.loads(tok_json)) if tok_json else frozenset()
+        return dict(pattern=pat, attr=attr, note=note or "", code=code or "",
+                    breed=breed or "", category=cat or "", tokens=tokens)
 
     def search(self, spec: str = "", category: str = "", breed: str = "",
                top_k: int = 8, attr_filter: str = "") -> list:
         """
-        Keyword similarity search (primary, no external dep).
-        Returns sorted list of (score, rule_dict).
-        Deduplicates by (attr, pattern) keeping highest score.
+        Keyword similarity search.
+        过滤条件（必须同时满足）：
+          - category = 指定分类（空字串 = 不限制）
+          - breed    = 指定品类（空字串 = 不限制）
+          - attr_filter = 指定属性（空字串 = 不限制）
+        keyword score = 0 → 该规则不参与，直接丢弃。
+        无命中 → 返回空列表（不降级，不复用旧规则）。
         """
-        spec_tokens = _tokenize(spec or "")
-        results = []
+        spec_tokens = _tokenize(spec or "") or set()
 
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             if attr_filter:
                 rows = conn.execute(
-                    "SELECT * FROM rule_vectors WHERE attr=?",
-                    (attr_filter,)
+                    "SELECT pattern, attr, note, code, breed, category, tokens "
+                    "FROM rule_vectors WHERE attr=? AND category=? AND breed=?",
+                    (attr_filter, category, breed)
                 ).fetchall()
             else:
-                rows = conn.execute("SELECT * FROM rule_vectors").fetchall()
+                rows = conn.execute(
+                    "SELECT pattern, attr, note, code, breed, category, tokens "
+                    "FROM rule_vectors WHERE category=? AND breed=?",
+                    (category, breed)
+                ).fetchall()
             conn.close()
 
-        # Fallback: if no results from keyword scoring, try all rules for this attr
-        # (handles cases where spec tokens have zero overlap with rule tokens)
-        if not results and attr_filter:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path)
-                rows = conn.execute(
-                    "SELECT * FROM rule_vectors WHERE attr=?",
-                    (attr_filter,)
-                ).fetchall()
-                conn.close()
-            for row in rows:
-                rule = self._row_to_rule(row)
-                # Use pattern match as proxy score
-                try:
-                    if re.search(rule["pattern"], spec or ""):
-                        results.append((0.5, rule))
-                except re.error:
-                    pass
-            results.sort(key=lambda x: x[0], reverse=True)
-
+        results = []
         for row in rows:
             rule = self._row_to_rule(row)
             if spec_tokens:
@@ -228,7 +163,7 @@ class RuleVectorStore:
 
         results.sort(key=lambda x: x[0], reverse=True)
 
-        # Deduplicate by (attr, pattern) - keep highest score
+        # 去重：同 (attr, pattern) 保留最高分
         seen = {}
         deduped = []
         for score, rule in results:
@@ -245,12 +180,12 @@ class RuleVectorStore:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             rows = conn.execute(
-                "SELECT * FROM rule_vectors WHERE attr=? AND pattern=?",
+                "SELECT pattern, attr, note, code, breed, category, tokens "
+                "FROM rule_vectors WHERE attr=? AND pattern=?",
                 (attr, norm_pat)
             ).fetchall()
             conn.close()
         if rows:
-            _, _, _, _, _, _, _, _, _, _ = rows[0]
             return self._row_to_rule(rows[0])
         return None
 
@@ -307,16 +242,70 @@ class RuleVectorStore:
 
         return count
 
-    def count(self) -> int:
+    # ── Utility ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _strip_r(s: str) -> str:
+        """Strip leading r' or r\" prefix from a pattern string."""
+        s = s.strip()
+        if len(s) >= 2 and s[0] in ('r', 'R') and s[1] in ('"', "'"):
+            return s[2:-1]
+        return s
+
+    def list_rules(self, attr: str = "", limit: int = 100) -> list:
+        """Return rule dicts, optionally filtered by attr."""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
-            n = conn.execute("SELECT COUNT(*) FROM rule_vectors").fetchone()[0]
+            if attr:
+                rows = conn.execute(
+                    "SELECT pattern, attr, note, code, breed, category, tokens "
+                    "FROM rule_vectors WHERE attr=? LIMIT ?",
+                    (attr, limit)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT pattern, attr, note, code, breed, category, tokens "
+                    "FROM rule_vectors LIMIT ?",
+                    (limit,)
+                ).fetchall()
             conn.close()
-            return n
+        return [self._row_to_rule(r) for r in rows]
 
-    def clear(self):
+    def clear(self) -> None:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.execute("DELETE FROM rule_vectors")
             conn.commit()
             conn.close()
+
+
+# ── Module-level singleton ───────────────────────────────────────────────────
+
+_store = None
+_lock  = threading.Lock()
+
+
+def get_vec_store() -> VecStore:
+    global _store
+    if _store is None:
+        with _lock:
+            if _store is None:
+                _store = VecStore()
+    return _store
+
+
+def rebuild_vec_db() -> int:
+    """Rebuild the vector DB from rules/*.py files. Returns count."""
+    vs = get_vec_store()
+    vs.clear()
+    return vs.rebuild_from_rules_dir()
+
+
+if __name__ == "__main__":
+    import sys
+    vs = VecStore()
+    if len(sys.argv) > 1 and sys.argv[1] == "rebuild":
+        count = vs.rebuild_from_rules_dir()
+        print(f"Rebuilt {count} rules")
+    else:
+        print(f"VecStore ready: {vs.db_path}")

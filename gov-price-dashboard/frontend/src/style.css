@@ -1949,6 +1949,43 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #5eead4
 .fix-close:hover { background: rgba(255,255,255,0.14); }
 .fix-body { padding: 14px 18px 20px; display: flex; flex-direction: column; gap: 12px; }
 
+/* Spec Info Card */
+.fix-spec-card {
+  background: #1a2332; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.fix-spec-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.fix-spec-row:last-child { border-bottom: none; }
+.fix-spec-label {
+  font-size: 0.7rem; color: rgba(255,255,255,0.38); min-width: 44px;
+  flex-shrink: 0; padding-top: 3px;
+}
+.fix-spec-value {
+  font-size: 0.88rem; color: #fbbf24; font-weight: 700;
+  word-break: break-all; flex: 1; font-family: 'Courier New', monospace;
+}
+.fix-spec-sub {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 8px;
+}
+.fix-spec-line { display: flex; align-items: center; gap: 8px; }
+.fix-attr-chip {
+  background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.28);
+  color: #7dd3fc; font-size: 0.7rem; padding: 2px 7px; border-radius: 20px;
+  font-weight: 600;
+}
+.fix-ai-result-chip {
+  background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35);
+  color: #fbbf24; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px;
+  font-weight: 600;
+}
+.fix-current-empty { color: rgba(255,255,255,0.22); font-size: 0.75rem; }
+.fix-current { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+
 /* Spec Info Bar */
 .fix-spec-bar {
   background: #1a2332; border: 1px solid rgba(255,255,255,0.08);
