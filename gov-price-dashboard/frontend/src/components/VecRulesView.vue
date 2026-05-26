@@ -223,7 +223,7 @@ onMounted(() => {
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
-  width: 180px;
+  width: 240px;
   box-sizing: border-box;
   font-family: inherit;
 }
