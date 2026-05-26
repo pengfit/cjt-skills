@@ -18,6 +18,42 @@
           {{ opt.key }} ({{ opt.count }})
         </option>
       </select>
+      <button class="vec-help-btn" @click="showHelp = !showHelp">
+        {{ showHelp ? '🔼 收起说明' : '🔽 使用说明' }}
+      </button>
+    </div>
+
+    <!-- 使用说明 -->
+    <div class="vec-help" v-if="showHelp">
+      <div class="vec-help-title">📖 规格规则库说明</div>
+      <div class="vec-help-grid">
+        <div class="vec-help-item">
+          <span class="vec-help-key">用途</span>
+          <span class="vec-help-val">从 ODS 原始规格字符串中提取结构化属性（如厚度、宽度、材质等）的正则规则集。</span>
+        </div>
+        <div class="vec-help-item">
+          <span class="vec-help-key">字段说明</span>
+          <span class="vec-help-val">
+            <code>attr</code> — 解析出的属性名（如 thickness、width、material）<br/>
+            <code>pattern</code> — 正则表达式，用于匹配规格字符串<br/>
+            <code>note</code> — 规则注释，说明该规则的用途<br/>
+            <code>code</code> — Python 提取代码，通过 <code>re.search</code> 从字符串中提取对应值<br/>
+            <code>category</code> — 适用的商品分类（空=通用）<br/>
+            <code>breed</code> — 适用的商品品种/系列
+          </span>
+        </div>
+        <div class="vec-help-item">
+          <span class="vec-help-key">过滤方式</span>
+          <span class="vec-help-val">
+            · <strong>搜索框</strong>：模糊匹配 pattern / note / code 内容<br/>
+            · <strong>属性下拉</strong>：按 attr 字段精确筛选（如只看 thickness 规则）
+          </span>
+        </div>
+        <div class="vec-help-item">
+          <span class="vec-help-key">规则来源</span>
+          <span class="vec-help-val">存储在 <code>rules_vec.db</code> 中，由 etl/parse_spec 模块管理。ETL 流水线（transform_doc）调用这些规则将 raw spec 解析为结构化 attr。</span>
+        </div>
+      </div>
     </div>
 
     <div class="vec-table-wrap">
@@ -69,6 +105,7 @@ const vecSearch = ref('')
 const vecAttrFilter = ref('')
 const vecAttrOptions = ref([])
 const vecLoading = ref(false)
+const showHelp = ref(false)
 
 async function loadVecRules(page = 1) {
   vecLoading.value = true
@@ -144,6 +181,47 @@ onMounted(() => {
   cursor: pointer;
 }
 .vec-attr-select option { background: #1e293b; }
+.vec-help-btn {
+  margin-left: auto;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vec-help-btn:hover { background: rgba(255,255,255,0.08); color: #94a3b8; }
+.vec-help {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.vec-help-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+.vec-help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+}
+.vec-help-item { display: flex; gap: 10px; font-size: 11px; line-height: 1.6; }
+.vec-help-key { color: #38bdf8; font-weight: 600; white-space: nowrap; min-width: 60px; }
+.vec-help-val { color: #94a3b8; }
+.vec-help-val code {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  color: #a5f3fc;
+  background: rgba(56,189,248,0.07);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
 .vec-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
 .vec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .vec-table th {
