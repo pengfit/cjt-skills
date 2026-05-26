@@ -1,94 +1,119 @@
 <template>
   <div class="vec-page">
+    <!-- Header -->
     <div class="vec-header">
-      <span class="vec-title">📦 规格规则库</span>
+      <div>
+        <div class="vec-title">📦 规格规则库</div>
+        <div class="vec-subtitle">存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索</div>
+      </div>
       <span class="vec-total-badge">{{ vecRules.total }} 条规则</span>
     </div>
 
+    <!-- Toolbar -->
     <div class="vec-toolbar">
-      <input
-        class="vec-search"
-        v-model="vecSearch"
-        placeholder="搜索 pattern / note / 代码..."
-        @input="loadVecRules(1)"
-      />
-      <select class="vec-attr-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
-        <option value="">全部属性</option>
-        <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">
-          {{ opt.key }} ({{ opt.count }})
-        </option>
-      </select>
+      <div class="vec-toolbar-left">
+        <input
+          class="vec-search"
+          v-model="vecSearch"
+          placeholder="搜索 pattern / note / code..."
+          @input="loadVecRules(1)"
+        />
+        <select class="vec-attr-select" v-model="vecAttrFilter" @change="loadVecRules(1)">
+          <option value="">全部属性</option>
+          <option v-for="opt in vecAttrOptions" :key="opt.key" :value="opt.key">
+            {{ opt.key }} ({{ opt.count }})
+          </option>
+        </select>
+      </div>
       <button class="vec-help-btn" @click="showHelp = !showHelp">
         {{ showHelp ? '🔼 收起说明' : '🔽 使用说明' }}
       </button>
     </div>
 
     <!-- 使用说明 -->
-    <div class="vec-help" v-if="showHelp">
-      <div class="vec-help-title">📖 规格规则库说明</div>
-      <div class="vec-help-grid">
-        <div class="vec-help-item">
-          <span class="vec-help-key">字段说明</span>
-          <span class="vec-help-val">
-            <code>attr</code> — 解析出的属性名（如 thickness、width、material）<br/>
-            <code>pattern</code> — 正则表达式，用于匹配规格字符串<br/>
-            <code>note</code> — 规则注释，说明该规则的用途<br/>
-            <code>code</code> — Python 提取代码，通过 <code>re.search</code> 从字符串中提取对应值<br/>
-            <code>category</code> — 适用的商品分类（空=通用）<br/>
-            <code>breed</code> — 适用的商品品种/系列
-          </span>
-        </div>
-        <div class="vec-help-item">
-          <span class="vec-help-key">关键思路</span>
-          <span class="vec-help-val">
-            <strong>① RAG 召回</strong>：按 spec 字符串语义检索相关规则，避免线性遍历全部 42 条规则<br/>
-            <strong>② 混合相似度</strong>：keyword-set Jaccard + embedding cosine，零外部依赖<br/>
-            <strong>③ 先召回再执行</strong>：先找候选规则，再逐条正则匹配，兼顾速度与覆盖<br/>
-            <strong>④ AI 兜底</strong>：无规则匹配时调用 LLM 补全 category，再用规则解析 attr
-          </span>
-        </div>
-        <div class="vec-help-item">
-          <span class="vec-help-key">规则来源</span>
-          <span class="vec-help-val">
-            存储在 <code>rules_vec.db</code>，由 <code>etl/parse_spec</code> 模块管理。<code>transform_doc</code> 调用这些规则将 raw spec 解析为结构化 attr（thickness / width / material 等）。
-          </span>
+    <Transition name="slide-down">
+      <div class="vec-help" v-if="showHelp">
+        <div class="vec-help-title">📖 规格规则库说明</div>
+        <div class="vec-help-grid">
+          <div class="vec-help-item">
+            <span class="vec-help-key">字段说明</span>
+            <span class="vec-help-val">
+              <code>attr</code> — 属性名（如 thickness、width、material）<br/>
+              <code>pattern</code> — 正则表达式，匹配规格字符串<br/>
+              <code>note</code> — 规则注释<br/>
+              <code>code</code> — Python 提取代码，执行 <code>re.search</code><br/>
+              <code>category</code> — 适用分类（空=通用）<br/>
+              <code>breed</code> — 适用品种/系列
+            </span>
+          </div>
+          <div class="vec-help-item">
+            <span class="vec-help-key">关键思路</span>
+            <span class="vec-help-val">
+              <strong>① RAG 召回</strong>：按 spec 语义检索相关规则，避免线性遍历<br/>
+              <strong>② 混合相似度</strong>：keyword-set Jaccard + embedding cosine<br/>
+              <strong>③ 先召回再执行</strong>：先找候选规则，再逐条正则匹配<br/>
+              <strong>④ AI 兜底</strong>：无规则时调用 LLM 补全 category
+            </span>
+          </div>
+          <div class="vec-help-item">
+            <span class="vec-help-key">规则来源</span>
+            <span class="vec-help-val">
+              存储在 <code>rules_vec.db</code>，由 <code>etl/parse_spec</code> 管理。<br/>
+              <code>transform_doc</code> 调用这些规则将 raw spec 解析为结构化 attr。
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
+    <!-- Table -->
     <div class="vec-table-wrap">
-      <table class="vec-table">
+      <!-- Loading -->
+      <div class="vec-loading" v-if="vecLoading">
+        <div class="vec-spinner"></div>
+        <span>加载中...</span>
+      </div>
+
+      <table class="vec-table" v-else>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>attr</th>
-            <th>分类</th>
+            <th style="width:48px">#</th>
+            <th style="width:90px">attr</th>
+            <th style="width:90px">分类</th>
             <th>pattern</th>
             <th>note</th>
             <th>code</th>
-            <th>创建时间</th>
+            <th style="width:130px">创建时间</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in vecRules.items" :key="r.id">
-            <td class="vec-id">{{ r.id }}</td>
+          <tr v-for="(r, idx) in vecRules.items" :key="r.id">
+            <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
             <td class="vec-cat">{{ r.category || '—' }}</td>
-            <td><code class="vec-pattern">{{ r.pattern }}</code></td>
-            <td class="vec-note">{{ r.note || '—' }}</td>
-            <td><pre class="vec-code">{{ r.code }}</pre></td>
+            <td><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
+            <td class="vec-note" :title="r.note || ''">{{ r.note || '—' }}</td>
+            <td><pre class="vec-code" :title="r.code">{{ r.code }}</pre></td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
           <tr v-if="!vecRules.items?.length">
-            <td colspan="7" class="vec-empty">暂无数据</td>
+            <td colspan="7" class="vec-empty">
+              <span v-if="vecSearch || vecAttrFilter">没有匹配「{{ vecSearch || vecAttrFilter }}」的规则</span>
+              <span v-else>暂无数据</span>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="vec-pagination">
+    <!-- Pagination -->
+    <div class="vec-pagination" v-if="vecRules.pages > 1">
       <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
-      <span class="vec-page-info">{{ vecRules.page }} / {{ vecRules.pages }}</span>
+      <div class="vec-page-info">
+        <span class="vec-page-current">{{ vecRules.page }}</span>
+        <span class="vec-page-sep">/</span>
+        <span class="vec-page-total">{{ vecRules.pages }}</span>
+      </div>
       <button class="page-btn nav" :disabled="vecRules.page >= vecRules.pages" @click="loadVecRules(vecRules.page + 1)">›</button>
     </div>
   </div>
@@ -135,163 +160,243 @@ onMounted(() => {
   color: #e2e8f0;
   font-size: 13px;
 }
+
+/* Header */
 .vec-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
 }
 .vec-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #f1f5f9;
+  letter-spacing: 0.3px;
+}
+.vec-subtitle {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 3px;
 }
 .vec-total-badge {
   font-size: 11px;
-  background: rgba(56,189,248,0.12);
+  background: rgba(56,189,248,0.1);
   color: #38bdf8;
+  border: 1px solid rgba(56,189,248,0.2);
   border-radius: 10px;
-  padding: 2px 8px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  margin-top: 2px;
 }
+
+/* Toolbar */
 .vec-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+.vec-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .vec-search {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
+  border-radius: 8px;
   color: #e2e8f0;
   font-size: 12px;
-  padding: 6px 12px;
-  width: 200px;
+  padding: 7px 12px;
+  width: 220px;
   outline: none;
+  transition: border-color 0.15s;
 }
-.vec-search:focus { border-color: #38bdf8; }
+.vec-search:focus { border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.04); }
+.vec-search::placeholder { color: #334155; }
 .vec-attr-select {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
+  border-radius: 8px;
   color: #e2e8f0;
   font-size: 12px;
-  padding: 6px 10px;
+  padding: 7px 10px;
   outline: none;
   cursor: pointer;
+  transition: border-color 0.15s;
 }
+.vec-attr-select:focus { border-color: rgba(56,189,248,0.5); }
 .vec-attr-select option { background: #1e293b; }
 .vec-help-btn {
-  margin-left: auto;
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
   color: #64748b;
   font-size: 11px;
-  padding: 4px 10px;
+  padding: 7px 12px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
-.vec-help-btn:hover { background: rgba(255,255,255,0.08); color: #94a3b8; }
+.vec-help-btn:hover { background: rgba(255,255,255,0.08); color: #94a3b8; border-color: rgba(255,255,255,0.2); }
+
+/* Help */
 .vec-help {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.025);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
 }
 .vec-help-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   margin-bottom: 10px;
 }
 .vec-help-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px 20px;
+  gap: 12px 24px;
 }
-.vec-help-item { display: flex; gap: 10px; font-size: 11px; line-height: 1.6; }
-.vec-help-key { color: #38bdf8; font-weight: 600; white-space: nowrap; min-width: 60px; }
+.vec-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
+.vec-help-key { color: #38bdf8; font-weight: 600; white-space: nowrap; min-width: 56px; }
 .vec-help-val { color: #94a3b8; }
 .vec-help-val code {
   font-family: 'Courier New', monospace;
   font-size: 10px;
   color: #a5f3fc;
-  background: rgba(56,189,248,0.07);
+  background: rgba(56,189,248,0.06);
   border-radius: 3px;
   padding: 1px 4px;
 }
-.vec-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+.vec-help-val strong { color: #e2e8f0; font-weight: 600; }
+
+/* Slide transition */
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; overflow: hidden; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* Table */
+.vec-table-wrap {
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;
+  background: rgba(15,23,42,0.6);
+}
 .vec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .vec-table th {
-  background: rgba(255,255,255,0.04);
-  color: #64748b;
+  background: rgba(255,255,255,0.03);
+  color: #475569;
+  font-size: 11px;
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 9px 12px;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  position: sticky;
-  top: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  letter-spacing: 0.3px;
 }
 .vec-table td {
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   vertical-align: top;
 }
-.vec-table tr:hover td { background: rgba(255,255,255,0.02); }
-.vec-id { color: #475569; font-family: monospace; width: 40px; }
+.vec-table tr:last-child td { border-bottom: none; }
+.vec-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+/* Loading */
+.vec-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #475569;
+  padding: 40px;
+  font-size: 12px;
+}
+.vec-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-top-color: rgba(56,189,248,0.6);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Cells */
+.vec-id { color: #334155; font-family: 'Courier New', monospace; font-size: 11px; }
 .vec-attr-tag {
   display: inline-block;
   background: rgba(56,189,248,0.1);
   color: #38bdf8;
-  border-radius: 4px;
+  border: 1px solid rgba(56,189,248,0.15);
+  border-radius: 5px;
   padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
 }
-.vec-cat { color: #94a3b8; font-size: 11px; }
+.vec-cat { color: #64748b; font-size: 11px; }
 .vec-pattern {
   font-family: 'Courier New', monospace;
   font-size: 11px;
   color: #a5f3fc;
-  background: rgba(56,189,248,0.06);
-  border-radius: 3px;
-  padding: 2px 5px;
+  background: rgba(56,189,248,0.05);
+  border-radius: 4px;
+  padding: 3px 6px;
   word-break: break-all;
-  max-width: 200px;
   display: inline-block;
+  max-width: 300px;
 }
-.vec-note { color: #94a3b8; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vec-note {
+  color: #6b7280;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .vec-code {
   font-family: 'Courier New', monospace;
   font-size: 10px;
   color: #86efac;
-  background: rgba(16,185,129,0.06);
-  border-radius: 3px;
+  background: rgba(16,185,129,0.04);
+  border-radius: 4px;
   padding: 3px 6px;
   white-space: pre;
-  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: 42px;
+  max-height: 38px;
   display: block;
 }
-.vec-date { color: #475569; white-space: nowrap; font-size: 11px; }
-.vec-empty { text-align: center; color: #334155; padding: 24px; }
-.vec-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
-.vec-page-info { font-size: 12px; color: #64748b; }
+.vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
+.vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }
+
+/* Pagination */
+.vec-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+}
 .page-btn {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
+  border-radius: 7px;
   color: #94a3b8;
-  padding: 4px 12px;
+  padding: 5px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   transition: all 0.15s;
 }
-.page-btn:hover:not(:disabled) { background: rgba(56,189,248,0.1); border-color: #38bdf8; color: #38bdf8; }
-.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-btn:hover:not(:disabled) { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.4); color: #38bdf8; }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.vec-page-info { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.vec-page-current { color: #e2e8f0; font-weight: 600; }
+.vec-page-sep { color: #334155; }
+.vec-page-total { color: #475569; }
 </style>
