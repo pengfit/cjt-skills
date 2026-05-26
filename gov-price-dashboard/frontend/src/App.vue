@@ -20,7 +20,7 @@
         <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'">产品列表</button>
         <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'">数据分布</button>
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'">类别分析</button>
-        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'">数据溯源</button>
+        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'">数据清洗</button>
         <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'">规格规则库</button>
       </div>
       <div class="top-bar-meta">
