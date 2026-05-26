@@ -3,8 +3,6 @@
 
     <!-- Header -->
     <div class="prov-header">
-      <div class="prov-title">🔍 数据溯源</div>
-      <div class="prov-subtitle">数据来源分布 · 新鲜度追踪</div>
     </div>
 
     <!-- Summary Cards -->
@@ -677,11 +675,7 @@ onUnmounted(() => {
   color: #f1f5f9;
   text-shadow: 0 2px 12px rgba(56,189,248,0.2);
 }
-.prov-subtitle {
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 4px;
-}
+
 
 /* Summary Cards */
 .prov-stats {
