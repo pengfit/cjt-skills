@@ -28,10 +28,6 @@
       <div class="vec-help-title">📖 规格规则库说明</div>
       <div class="vec-help-grid">
         <div class="vec-help-item">
-          <span class="vec-help-key">用途</span>
-          <span class="vec-help-val">从 ODS 原始规格字符串中提取结构化属性（如厚度、宽度、材质等）的正则规则集。</span>
-        </div>
-        <div class="vec-help-item">
           <span class="vec-help-key">字段说明</span>
           <span class="vec-help-val">
             <code>attr</code> — 解析出的属性名（如 thickness、width、material）<br/>
@@ -40,13 +36,6 @@
             <code>code</code> — Python 提取代码，通过 <code>re.search</code> 从字符串中提取对应值<br/>
             <code>category</code> — 适用的商品分类（空=通用）<br/>
             <code>breed</code> — 适用的商品品种/系列
-          </span>
-        </div>
-        <div class="vec-help-item">
-          <span class="vec-help-key">过滤方式</span>
-          <span class="vec-help-val">
-            · <strong>搜索框</strong>：模糊匹配 pattern / note / code 内容<br/>
-            · <strong>属性下拉</strong>：按 attr 字段精确筛选（如只看 thickness 规则）
           </span>
         </div>
       <div class="vec-help-item">
