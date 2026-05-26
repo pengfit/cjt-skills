@@ -214,31 +214,31 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
-.vec-search,.vec-input {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+.vec-input {
+  background: #1e293b;
   color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 5px 12px;
   font-size: 12px;
-  padding: 7px 12px;
   outline: none;
   transition: border-color 0.15s;
   width: 200px;
 }
-.vec-search:focus,.vec-input:focus { border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.04); }
-.vec-search::placeholder,.vec-input::placeholder { color: #334155; }
+.vec-input:focus { border-color: #38bdf8; }
+.vec-input::placeholder { color: #475569; }
 .vec-attr-select,.vec-select {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+  background: #1e293b;
   color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 5px 12px;
   font-size: 12px;
-  padding: 7px 10px;
-  outline: none;
   cursor: pointer;
+  outline: none;
   transition: border-color 0.15s;
 }
-.vec-attr-select:focus,.vec-select:focus { border-color: rgba(56,189,248,0.5); }
+.vec-attr-select:focus,.vec-select:focus { border-color: #38bdf8; }
 .vec-attr-select option,.vec-select option { background: #1e293b; }
 .vec-help-btn {
   display: inline-flex;
