@@ -573,11 +573,11 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         # ── 2. 近30天每日入库量 ─────────────────────────────────
         daily_body = {
             "size": 0,
-            "query": {"range": {"update_date": {"gte": "now-30d"}}},
+            "query": {"range": {"etl_time": {"gte": "now-30d"}}},
             "aggs": {
                 "daily": {
                     "date_histogram": {
-                        "field": "update_date",
+                        "field": "etl_time",
                         "calendar_interval": "day",
                     },
                     "aggs": {"cnt": {"value_count": {"field": "price"}}}
