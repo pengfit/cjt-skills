@@ -1203,7 +1203,7 @@ def refresh_category(
 
         resp = es.search(index=dwd_idx, body=body)
         hits = resp["hits"]["hits"]
-        total = len(hits)
+        total = resp["hits"]["total"]["value"]
 
         if total == 0:
             return {"ok": True, "message": f"分类「{category}」无数据，跳过", "city": city}
@@ -1211,29 +1211,46 @@ def refresh_category(
         ok_count = 0
         fail_count = 0
 
-        for h in hits:
-            doc = h["_source"]
-            # 构造 ODS 格式（transform_doc 期望的字段）
-            raw = {
-                "breed": doc.get("breed", ""),
-                "spec": doc.get("spec", ""),
-                "unit": doc.get("unit", ""),
-                "price": doc.get("price", 0),
-                "tax_price": doc.get("tax_price", 0),
-                "county": doc.get("county", ""),
-                "province": doc.get("province", ""),
-                "city": doc.get("city", ""),
-                "update_date": doc.get("update_date", ""),
-                "create_time": doc.get("create_time", ""),
-            }
+        def _process_batch(batch_hits):
+            nonlocal ok_count, fail_count
+            for h in batch_hits:
+                doc = h["_source"]
+                raw = {
+                    "breed": doc.get("breed", ""),"spec": doc.get("spec", ""),"unit": doc.get("unit", ""),
+                    "price": doc.get("price", 0),"tax_price": doc.get("tax_price", 0),
+                    "county": doc.get("county", ""),"province": doc.get("province", ""),
+                    "city": doc.get("city", ""),"update_date": doc.get("update_date", ""),"create_time": doc.get("create_time", ""),
+                }
+                try:
+                    dwd_doc = transform_doc(raw, dwd_idx, city)
+                    es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
+                    ok_count += 1
+                except Exception:
+                    fail_count += 1
 
+        _process_batch(hits)
+        processed = len(hits)
+
+        # 分页：ES max_result_window=10000，翻页直到全部处理完
+        while processed < total and processed < 10000:
+            last_hit = hits[-1]
+            search_after = last_hit.get("_sort") or [last_hit["_source"].get("update_date", "")]
+            body_page = {
+                "query": {"term": {"category": category}},
+                "size": 500,
+                "search_after": search_after,
+                "sort": [{"_doc": "asc"}],
+            }
             try:
-                # transform_doc 内部会根据向量库解析结果自动计算 needs_spec_parse
-                dwd_doc = transform_doc(raw, dwd_idx, city)
-                es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
-                ok_count += 1
+                resp_page = es.search(index=dwd_idx, body=body_page)
             except Exception:
-                fail_count += 1
+                break
+            hits_page = resp_page["hits"]["hits"]
+            if not hits_page:
+                break
+            _process_batch(hits_page)
+            processed += len(hits_page)
+            hits = hits_page
 
         # 清洗完成后自动同步 DWD→DWS
         sys.path.insert(0, ETL_CMD_DIR)
@@ -1270,6 +1287,107 @@ class FixCaseRequest(BaseModel):
     category: str = ""
 
 
+
+def _auto_expand_rule(pattern: str, attr: str, code: str, category: str, exclude_breed: str = "") -> int:
+    """
+    当新规则写入后，自动向同分类下其他使用相同 pattern 的 breed 扩展。
+    返回新增规则数。
+    """
+    import re as re_mod
+
+    city_idx_map = {
+        "xian": "dwd_xian_price",
+        "sichuan": "dwd_sichuan_price",
+        "chongqing": "dwd_chongqing_price",
+        "jinan": "dwd_jinan_price",
+        "rizhao": "dwd_rizhao_price",
+    }
+    city = "xian"
+
+    try:
+        es = Elasticsearch([ES_HOST])
+        dwd_idx = city_idx_map.get(city, "dwd_xian_price")
+    except Exception:
+        return 0
+
+    must_clauses = [
+        {"term": {"category": category}},
+        {"term": {"needs_spec_parse": True}},
+    ]
+    if exclude_breed:
+        must_clauses.append({"bool": {"must_not": [{"term": {"breed": exclude_breed}}]}})
+
+    try:
+        result = es.search(
+            index=dwd_idx,
+            body={
+                "size": 0,
+                "query": {"bool": {"must": must_clauses}},
+                "aggs": {
+                    "breeds": {
+                        "terms": {"field": "breed.keyword", "size": 200},
+                        "aggs": {
+                            "sample_specs": {
+                                "top_hits": {"size": 3, "_source": ["spec"]}
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    except Exception:
+        return 0
+
+    new_count = 0
+    norm_pat = pattern.lstrip("^")
+    try:
+        compiled = re_mod.compile(norm_pat)
+    except Exception:
+        return 0
+
+    for bucket in result.get("aggregations", {}).get("breeds", {}).get("buckets", []):
+        breed = bucket.get("key", "")
+        if not breed or breed == exclude_breed:
+            continue
+
+        sample_specs = [
+            h["_source"]["spec"]
+            for h in bucket.get("sample_specs", {}).get("hits", {}).get("hits", [])
+        ]
+
+        matched = False
+        for s in sample_specs:
+            if s and compiled.search(str(s)):
+                matched = True
+                break
+        if not matched:
+            continue
+
+        # 验证 code_block 能正确提取
+        test_globals = {"result": {}, "re": re_mod, "s": sample_specs[0]}
+        try:
+            exec(code, test_globals)
+            extracted = test_globals.get("result", {})
+            if not extracted.get(attr):
+                continue
+        except Exception:
+            continue
+
+        if get_vec_store is not None:
+            try:
+                vs = get_vec_store()
+                ok = vs.insert(
+                    pattern=norm_pat, attr=attr, note="[auto-generic]",
+                    code=code, breed=breed, category=category, skip_duplicate=True,
+                )
+                if ok:
+                    new_count += 1
+            except Exception:
+                pass
+
+    return new_count
+
+
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
@@ -1287,6 +1405,13 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
                 category=category or "",
                 skip_duplicate=True,
             )
+            # 自动扩展：向同分类下其他匹配此 pattern 的 breed 写入相同规则
+            if pattern and attr:
+                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "")
+                if added:
+                    import logging
+                    _log2 = logging.getLogger()
+                    _log2.info("auto-expand: added %d rules for pattern=%s attr=%s", added, pattern, attr)
             return "new"
         except Exception as e:
             import logging
