@@ -1,216 +1,315 @@
-INFO:     Started server process [78247]
+INFO:     Started server process [26547]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:5200 (Press CTRL+C to quit)
-INFO:     127.0.0.1:57096 - "GET /api/search?keyword=%E9%92%A2%E9%98%80&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57100 - "GET /api/search?keyword=%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57106 - "GET /api/search?keyword=%E9%93%9D%E5%BF%83%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57113 - "GET /api/search?keyword=%E9%93%9D%E5%BF%83&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58454 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58452 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58451 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58452 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/province-ranges?provinces=%E9%99%95%E8%A5%BF HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-detail?category=%E8%A3%85%E9%A5%B0%E8%A3%85%E4%BF%AE%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/category-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58468 - "GET /api/stats/category-detail?category=%E7%9F%B3%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58462 - "GET /api/stats/category-detail?category=%E5%85%B6%E4%BB%96 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58464 - "GET /api/stats/category-detail?category=%E9%92%A2%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-detail?category=%E9%93%9D%E6%9D%90%2F%E9%93%9D%E5%90%88%E9%87%91 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/category-detail?category=%E6%B0%B4%E6%B3%A5 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58462 - "GET /api/stats/category-detail?category=%E9%93%9C%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58468 - "GET /api/stats/category-detail?category=%E6%9C%BA%E6%A2%B0%E8%AE%BE%E5%A4%87 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58464 - "GET /api/stats/category-detail?category=%E4%BF%9D%E6%B8%A9%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E7%A0%82%E7%9F%B3%E9%AA%A8%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-detail?category=%E5%85%AC%E7%94%A8%E4%BA%8B%E4%B8%9A%E8%B4%B9 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58468 - "GET /api/stats/category-detail?category=%E5%B8%82%E6%94%BF%E8%AE%BE%E6%96%BD HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E6%B6%82%E6%96%99%2F%E6%B2%B9%E6%BC%86 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/category-detail?category=%E9%98%B2%E6%B0%B4%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58464 - "GET /api/stats/category-detail?category=%E9%87%91%E5%B1%9E%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58462 - "GET /api/stats/category-detail?category=%E9%93%81%E8%89%BA%2F%E9%93%B8%E9%93%81%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E4%BA%94%E9%87%91%E9%85%8D%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-detail?category=%E6%B6%88%E9%98%B2%E5%99%A8%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58462 - "GET /api/stats/category-detail?category=%E7%93%A6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58460 - "GET /api/stats/category-detail?category=%E7%BB%BF%E5%8C%96%E8%8B%97%E6%9C%A8 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58464 - "GET /api/stats/category-detail?category=%E9%99%B6%E7%93%B7%2F%E5%8D%AB%E7%94%9F%E6%B4%81%E5%85%B7 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58468 - "GET /api/stats/category-detail?category=%E7%BD%91%E6%A0%BC%E5%B8%83%2F%E5%9C%9F%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-detail?category=%E9%BE%99%E9%AA%A8%2F%E5%90%8A%E9%A1%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E5%8C%96%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58459 - "GET /api/stats/category-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/category-price-ranges?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/search?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58467 - "GET /api/stats/breed-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99&breed=%E9%97%B8%E9%98%80&page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58480 - "GET /api/search?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58524 - "GET /api/search?keyword=%E7%8E%BB%E7%92%83%E7%A0%82&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58531 - "GET /api/search?keyword=%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58538 - "GET /api/search?keyword=%E4%BA%A4%E8%88%AC%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58571 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58569 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58568 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58569 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58573 - "GET /api/search?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58579 - "GET /api/search?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99&page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58587 - "GET /api/search?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58589 - "GET /api/search?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58591 - "GET /api/search?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6&page=500&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58593 - "GET /api/search?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6&page=497&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58593 - "GET /api/search?category=%E5%85%B6%E4%BB%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58597 - "GET /api/search?category=%E9%92%A2%E6%9D%90&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58800 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58802 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58804 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58806 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58808 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58811 - "GET /api/search?page=5&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58813 - "GET /api/search?category=%E8%A3%85%E9%A5%B0%E8%A3%85%E4%BF%AE%E6%9D%90%E6%96%99&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58817 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58819 - "GET /api/search?page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58819 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58834 - "GET /api/search?page=5&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58834 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58923 - "GET /api/search?keyword=%E9%93%9D%E5%BF%83%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58927 - "GET /api/search?keyword=%E4%BA%A4%E8%88%AC%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58939 - "GET /api/search?keyword=%E4%BA%A4%E8%88%AC%E9%94%85%E8%85%BE%E7%BA%BF%E7%BC%A0%E7%94%B5%E7%BC%86%E9%93%9D%E5%BF%83&page_size=2 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58987 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58988 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58985 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58988 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59034 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59032 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59035 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59037 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59065 - "GET /api/search?page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59104 - "GET /api/search?page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59130 - "GET /api/search?page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59183 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60275 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60277 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60273 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60277 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60277 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60325 - "GET /api/search?page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63925 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63923 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63922 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63923 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63949 - "GET /api/search?page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63977 - "GET /api/search?page=4&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64045 - "GET /api/search?page=5&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64073 - "GET /api/search?page=6&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64154 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64154 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64154 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64353 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64351 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64355 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64353 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64353 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64595 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%9C%E7%A0%82&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49237 - "GET /api/search?page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49276 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49336 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49392 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49389 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49390 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49392 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49394 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49394 - "GET /api/search?keyword=bidding&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49397 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49405 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49407 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=196&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49410 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=194&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49414 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49422 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=2&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49424 - "GET /api/search?keyword=%E7%BA%AF%E7%99%BD%E5%85%A8%E7%93%B7%E7%A0%96&page=3&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50109 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50793 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/province-ranges?provinces=%E9%99%95%E8%A5%BF HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/category-detail?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50806 - "GET /api/stats/category-detail?category=%E9%92%A2%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50804 - "GET /api/stats/category-detail?category=%E5%85%B6%E4%BB%96 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/category-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50808 - "GET /api/stats/category-detail?category=%E8%A3%85%E9%A5%B0%E8%A3%85%E4%BF%AE%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50810 - "GET /api/stats/category-detail?category=%E7%9F%B3%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50806 - "GET /api/stats/category-detail?category=%E6%B0%B4%E6%B3%A5 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50804 - "GET /api/stats/category-detail?category=%E6%9C%BA%E6%A2%B0%E8%AE%BE%E5%A4%87 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50808 - "GET /api/stats/category-detail?category=%E7%A0%82%E7%9F%B3%E9%AA%A8%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/category-detail?category=%E9%93%9D%E6%9D%90%2F%E9%93%9D%E5%90%88%E9%87%91 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50810 - "GET /api/stats/category-detail?category=%E4%BF%9D%E6%B8%A9%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/category-detail?category=%E9%93%9C%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/category-detail?category=%E6%B6%82%E6%96%99%2F%E6%B2%B9%E6%BC%86 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50806 - "GET /api/stats/category-detail?category=%E5%85%AC%E7%94%A8%E4%BA%8B%E4%B8%9A%E8%B4%B9 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50804 - "GET /api/stats/category-detail?category=%E9%98%B2%E6%B0%B4%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50808 - "GET /api/stats/category-detail?category=%E9%93%81%E8%89%BA%2F%E9%93%B8%E9%93%81%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/category-detail?category=%E5%B8%82%E6%94%BF%E8%AE%BE%E6%96%BD HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50810 - "GET /api/stats/category-detail?category=%E9%87%91%E5%B1%9E%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50806 - "GET /api/stats/category-detail?category=%E7%BD%91%E6%A0%BC%E5%B8%83%2F%E5%9C%9F%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/category-detail?category=%E6%B6%88%E9%98%B2%E5%99%A8%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50795 - "GET /api/stats/category-detail?category=%E9%99%B6%E7%93%B7%2F%E5%8D%AB%E7%94%9F%E6%B4%81%E5%85%B7 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50804 - "GET /api/stats/category-detail?category=%E4%BA%94%E9%87%91%E9%85%8D%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50808 - "GET /api/stats/category-detail?category=%E7%BB%BF%E5%8C%96%E8%8B%97%E6%9C%A8 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50810 - "GET /api/stats/category-detail?category=%E7%93%A6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50806 - "GET /api/stats/category-detail?category=%E5%8C%96%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /api/stats/category-detail?category=%E9%BE%99%E9%AA%A8%2F%E5%90%8A%E9%A1%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50817 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50818 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50818 - "GET /api/stats/province-ranges?provinces=%E9%99%95%E8%A5%BF HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/category-detail?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/category-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50826 - "GET /api/stats/category-detail?category=%E9%92%A2%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50825 - "GET /api/stats/category-detail?category=%E5%85%B6%E4%BB%96 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50830 - "GET /api/stats/category-detail?category=%E7%9F%B3%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50829 - "GET /api/stats/category-detail?category=%E8%A3%85%E9%A5%B0%E8%A3%85%E4%BF%AE%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/category-detail?category=%E6%B0%B4%E6%B3%A5 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/category-detail?category=%E9%93%9D%E6%9D%90%2F%E9%93%9D%E5%90%88%E9%87%91 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50825 - "GET /api/stats/category-detail?category=%E9%93%9C%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50830 - "GET /api/stats/category-detail?category=%E7%A0%82%E7%9F%B3%E9%AA%A8%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50826 - "GET /api/stats/category-detail?category=%E6%9C%BA%E6%A2%B0%E8%AE%BE%E5%A4%87 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50829 - "GET /api/stats/category-detail?category=%E4%BF%9D%E6%B8%A9%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/category-detail?category=%E5%85%AC%E7%94%A8%E4%BA%8B%E4%B8%9A%E8%B4%B9 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/category-detail?category=%E9%98%B2%E6%B0%B4%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50830 - "GET /api/stats/category-detail?category=%E5%B8%82%E6%94%BF%E8%AE%BE%E6%96%BD HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50829 - "GET /api/stats/category-detail?category=%E6%B6%82%E6%96%99%2F%E6%B2%B9%E6%BC%86 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50826 - "GET /api/stats/category-detail?category=%E9%87%91%E5%B1%9E%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50825 - "GET /api/stats/category-detail?category=%E9%93%81%E8%89%BA%2F%E9%93%B8%E9%93%81%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/category-detail?category=%E6%B6%88%E9%98%B2%E5%99%A8%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/category-detail?category=%E7%BD%91%E6%A0%BC%E5%B8%83%2F%E5%9C%9F%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50830 - "GET /api/stats/category-detail?category=%E4%BA%94%E9%87%91%E9%85%8D%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50825 - "GET /api/stats/category-detail?category=%E7%93%A6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50829 - "GET /api/stats/category-detail?category=%E7%BB%BF%E5%8C%96%E8%8B%97%E6%9C%A8 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50822 - "GET /api/stats/category-detail?category=%E5%8C%96%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50826 - "GET /api/stats/category-detail?category=%E9%99%B6%E7%93%B7%2F%E5%8D%AB%E7%94%9F%E6%B4%81%E5%85%B7 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50821 - "GET /api/stats/category-detail?category=%E9%BE%99%E9%AA%A8%2F%E5%90%8A%E9%A1%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54559 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54558 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54561 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54559 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56400 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56398 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56396 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56398 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60570 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60594 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60860 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60858 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60857 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60857 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61067 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61066 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61064 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61064 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61987 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61986 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61984 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61984 - "GET /api/stats/spec-quality?city=xian&_sample=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62043 - "OPTIONS /api/stats/spec-quality/refresh-category HTTP/1.1" 200 OK
+  [DWS] xian: dwd_xian_price → dws_xian_price (670 条待同步)
+  [DWS] xian 完成: synced=670, failed=0
+INFO:     127.0.0.1:62043 - "POST /api/stats/spec-quality/refresh-category HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62043 - "GET /api/stats/spec-quality?city=xian&category=&_sample=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62101 - "GET /api/stats/spec-quality?city=xian&category=%E7%93%A6&_sample=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62183 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62191 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+Traceback (most recent call last):
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 570, in stats_provenance
+    prov_result = es.search(index=dws_idx, body=prov_body)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/elasticsearch/_sync/client/utils.py", line 455, in wrapped
+    return api(*args, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/elasticsearch/_sync/client/__init__.py", line 4255, in search
+    return self.perform_request(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "POST",
+        ^^^^^^^
+    ...<5 lines>...
+        path_parts=__path_parts,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/elasticsearch/_sync/client/_base.py", line 271, in perform_request
+    response = self._perform_request(
+        method,
+    ...<4 lines>...
+        otel_span=otel_span,
+    )
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/elasticsearch/_sync/client/_base.py", line 352, in _perform_request
+    raise HTTP_EXCEPTIONS.get(meta.status, ApiError)(
+        message=message, meta=meta, body=resp_body
+    )
+elasticsearch.BadRequestError: BadRequestError(400, 'search_phase_execution_exception', 'Fielddata is disabled on [province] in [dws_xian_price]. Text fields are not optimised for operations that require per-document field data like aggregations and sorting, so these operations are disabled by default. Please use a keyword field instead. Alternatively, set fielddata=true on [province] in order to load field data by uninverting the inverted index. Note that this can use significant memory.')
+INFO:     127.0.0.1:62183 - "GET /api/stats/provenance HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62190 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62242 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62244 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62240 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62242 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62274 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62276 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62273 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62276 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62526 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62528 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62524 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62526 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62706 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62708 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62705 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62708 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63341 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63343 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63339 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63343 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63343 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63411 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63409 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63408 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63408 - "GET /api/stats/spec-quality?city=xian&_sample=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63719 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63720 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63720 - "GET /api/stats/province-ranges?provinces= HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63720 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63719 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63742 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63720 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63719 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63719 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63800 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63798 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63797 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63797 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63800 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63798 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63797 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63872 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63874 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63871 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63874 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64996 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64994 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64993 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64994 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65019 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /api/stats/province-ranges?provinces=%E9%99%95%E8%A5%BF HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65038 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65019 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /api/stats/spec-quality?city=xian&_sample=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49745 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49743 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49742 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49742 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49789 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49787 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49786 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50155 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50157 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50154 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50157 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50155 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50154 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50157 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51161 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51162 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51162 - "GET /api/stats/province-ranges?provinces= HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51162 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51161 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51161 - "GET /api/stats/province-ranges?provinces= HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51161 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51162 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52741 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52742 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52739 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52742 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52742 - "GET /api/stats/price-distribution HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52739 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52739 - "GET /api/stats/province-ranges?provinces= HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52739 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52742 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52741 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52739 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52742 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52892 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52964 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53000 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54820 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54886 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54920 - "POST /api/stats/spec-quality/classify-breed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55503 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55505 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55502 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55505 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55503 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55502 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55505 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56944 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56946 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56943 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56946 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56946 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56943 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56943 - "GET /api/stats/category-detail?category=%E7%93%A6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56986 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56946 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56943 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57482 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57480 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57478 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57480 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57480 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57478 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57478 - "GET /api/stats/category-detail?category=%E7%93%A6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57482 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57480 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57478 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58890 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58888 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58892 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58890 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59415 - "GET /api/stats/data-trend-multi?days=7 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59452 - "GET /api/stats/index-counts HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59455 - "GET /api/stats/index-counts HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59487 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59515 - "GET /api/health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59517 - "GET /api/stats/index-counts HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59564 - "GET /api/index-counts HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60737 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60741 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60740 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60789 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60788 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60785 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60891 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60889 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60888 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60995 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60993 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60992 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61101 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61099 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61098 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61199 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61197 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61196 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61510 - "GET /api/stats/scrape-progress?city=sichuan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61509 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61507 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61510 - "GET /api/stats/scrape-progress?city=sichuan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61509 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61507 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61510 - "GET /api/stats/scrape-progress?city=sichuan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61509 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61507 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61510 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61509 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61507 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61507 - "GET /api/stats/spec-quality?city=xian&_sample=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61816 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61815 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61813 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61919 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61917 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61916 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62010 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62008 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62007 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62111 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62110 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62107 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62220 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62219 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62216 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62338 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62336 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62335 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62437 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62436 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62433 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62535 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62534 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62531 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62624 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62623 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62621 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62724 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62721 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62826 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62824 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62823 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62918 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62916 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62915 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63030 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63028 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63026 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63128 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63126 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63125 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63241 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63240 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63237 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63410 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63408 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63407 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63581 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63580 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63577 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63774 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63773 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63770 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64010 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64008 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64007 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64219 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64218 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64217 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65082 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65079 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65081 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65195 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65194 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65193 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65298 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65297 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65294 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65402 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65400 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65399 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65508 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65505 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49230 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49228 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49227 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49337 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49336 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49333 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49440 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49438 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49437 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49438 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49440 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49437 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49440 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49438 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49437 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49440 - "GET /api/stats/provenance HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [78247]
+INFO:     Finished server process [26547]

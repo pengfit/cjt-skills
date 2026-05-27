@@ -1292,55 +1292,35 @@ class FixCaseRequest(BaseModel):
 def _auto_expand_rule(pattern: str, attr: str, code: str,
                        category: str, exclude_breed: str = "", note: str = "") -> int:
     """
-    当新规则写入后，自动向同分类下其他使用相同 pattern 的 breed 扩展，
-    并写入一条 breed='' 的通用 fallback 规则。
-    pattern 传入原始形式（如 '^DN(\d+)$'），内部 normalize 用于查询和写入。
+    确保 pattern+attr+category 下存在 breed='' 的通用兜底规则。
+    查询用原始 pattern，写入用 normalized pattern（统一锚点格式）。
+    逻辑：
+      1. 用原始 pattern 查找是否已有 breed='' → 有则跳过
+      2. 无则写入 breed='' 通用规则（normalized pattern）
     """
-    import re as re_mod
-    norm_pat = pattern.lstrip("^").rstrip("$")
     if not get_vec_store:
         return 0
     vs = get_vec_store()
-    new_count = 0
 
-    # 1. 先写入通用 fallback（breed=''）
-    with vs._lock:
-        ok = vs.insert(
-            pattern=norm_pat, attr=attr, note="[auto-generic]",
-            code=code, breed="", category=category, skip_duplicate=True,
-        )
-        if ok:
-            new_count += 1
-
-    # 2. 查询同 pattern+attr+category 的其他 breed
-    #    同时匹配原始 pattern 和 normalized pattern（兼容 DB 中不同锚点格式）
+    # 检查 breed='' 是否已存在（用原始 pattern）
     with vs._lock:
         conn = sqlite3.connect(vs.db_path)
-        rows = conn.execute(
-            """SELECT DISTINCT breed FROM rule_vectors
-               WHERE pattern IN (?, ?) AND attr=? AND category=?
-               AND breed!=? AND breed!=''""",
-            (pattern, norm_pat, attr, category, exclude_breed)
-        ).fetchall()
+        row = conn.execute(
+            """SELECT id FROM rule_vectors
+               WHERE pattern=? AND attr=? AND category=? AND breed=''""",
+            (pattern, attr, category)
+        ).fetchone()
         conn.close()
 
-    # 3. 向每个已有 breed 写入专属扩展规则
-    for (breed,) in rows:
-        test_globals = {"result": {}, "re": re_mod, "s": ""}
-        try:
-            exec(code, test_globals)
-            if test_globals.get("result", {}).get(attr) is None:
-                continue
-        except Exception:
-            continue
+    # 不存在则写入（用原始 pattern）
+    if row is None:
         with vs._lock:
             ok = vs.insert(
-                pattern=norm_pat, attr=attr, note="[auto-generic]",
-                code=code, breed=breed, category=category, skip_duplicate=True,
+                pattern=pattern, attr=attr, note="通用",
+                code=code, breed="", category=category, skip_duplicate=True,
             )
-            if ok:
-                new_count += 1
-    return new_count
+            return 1 if ok else 0
+    return 0
 
 
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
