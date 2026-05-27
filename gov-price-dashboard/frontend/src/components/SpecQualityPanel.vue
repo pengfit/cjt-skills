@@ -28,6 +28,7 @@
           'card-bad': c.rate < 30,
           'card-active': activeCat === c.category
         }"
+        :style="{ borderLeftColor: catColor(c.category) }"
       >
         <div class="card-top">
           <span class="card-cat">{{ c.category }}</span>
@@ -118,6 +119,18 @@ const props = defineProps({
 
 defineEmits(['refresh', 'sample', 'clean', 'confirm-clean-cancel', 'confirm-clean-ok'])
 
+const PALETTE = [
+  '#6dd5ed','#4facfe','#6a85f5','#9b59b6','#a78bfa',
+  '#f59e0b','#f97316','#ef4444','#e11d48','#06b6d4',
+]
+
+function catColor(name) {
+  let h = 0
+  for (const c of String(name)) { h = (h * 31 + c.charCodeAt(0)) & 0xffffffff }
+  return PALETTE[Math.abs(h) % PALETTE.length]
+}
+
+
 const greenCount = computed(() => props.coverage.filter(c => c.rate >= 80).length)
 const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 </script>
@@ -184,9 +197,10 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 }
 .sq-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.13); }
 .sq-card.card-active { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.06); }
-.sq-card.card-good { border-left: 3px solid #34d399; }
-.sq-card.card-warn { border-left: 3px solid #fbbf24; }
-.sq-card.card-bad { border-left: 3px solid #f87171; }
+.sq-card.card-good { border-left: 3px solid currentColor; }
+.sq-card.card-warn { border-left: 3px solid currentColor; }
+.sq-card.card-bad { border-left: 3px solid currentColor; }
+.sq-card { color: var(--cat-clr, #38bdf8); }
 
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-cat { font-size: 12px; font-weight: 600; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
