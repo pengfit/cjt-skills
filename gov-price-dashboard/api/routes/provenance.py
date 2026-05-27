@@ -7,7 +7,7 @@
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
-import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml
+import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml, sqlite3
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
@@ -1288,103 +1288,44 @@ class FixCaseRequest(BaseModel):
 
 
 
-def _auto_expand_rule(pattern: str, attr: str, code: str, category: str, exclude_breed: str = "") -> int:
+def _auto_expand_rule(pattern: str, attr: str, code: str,
+                       category: str, exclude_breed: str = "") -> int:
     """
     当新规则写入后，自动向同分类下其他使用相同 pattern 的 breed 扩展。
+    从 rules_vec.db 直接查询同 pattern+attr 的其他 breed。
     返回新增规则数。
     """
-    import re as re_mod
-
-    city_idx_map = {
-        "xian": "dwd_xian_price",
-        "sichuan": "dwd_sichuan_price",
-        "chongqing": "dwd_chongqing_price",
-        "jinan": "dwd_jinan_price",
-        "rizhao": "dwd_rizhao_price",
-    }
-    city = "xian"
-
-    try:
-        es = Elasticsearch([ES_HOST])
-        dwd_idx = city_idx_map.get(city, "dwd_xian_price")
-    except Exception:
-        return 0
-
-    must_clauses = [
-        {"term": {"category": category}},
-        {"term": {"needs_spec_parse": True}},
-    ]
-    if exclude_breed:
-        must_clauses.append({"bool": {"must_not": [{"term": {"breed": exclude_breed}}]}})
-
-    try:
-        result = es.search(
-            index=dwd_idx,
-            body={
-                "size": 0,
-                "query": {"bool": {"must": must_clauses}},
-                "aggs": {
-                    "breeds": {
-                        "terms": {"field": "breed.keyword", "size": 200},
-                        "aggs": {
-                            "sample_specs": {
-                                "top_hits": {"size": 3, "_source": ["spec"]}
-                            }
-                        }
-                    }
-                }
-            }
-        )
-    except Exception:
-        return 0
-
-    new_count = 0
     norm_pat = pattern.lstrip("^")
-    try:
-        compiled = re_mod.compile(norm_pat)
-    except Exception:
+    if not get_vec_store:
         return 0
-
-    for bucket in result.get("aggregations", {}).get("breeds", {}).get("buckets", []):
-        breed = bucket.get("key", "")
-        if not breed or breed == exclude_breed:
-            continue
-
-        sample_specs = [
-            h["_source"]["spec"]
-            for h in bucket.get("sample_specs", {}).get("hits", {}).get("hits", [])
-        ]
-
-        matched = False
-        for s in sample_specs:
-            if s and compiled.search(str(s)):
-                matched = True
-                break
-        if not matched:
-            continue
-
-        # 验证 code_block 能正确提取
-        test_globals = {"result": {}, "re": re_mod, "s": sample_specs[0]}
+    vs = get_vec_store()
+    with vs._lock:
+        conn = sqlite3.connect(vs.db_path)
+        rows = conn.execute(
+            """SELECT DISTINCT breed FROM rule_vectors
+               WHERE pattern=? AND attr=? AND category=? AND breed!=?""",
+            (norm_pat, attr, category, exclude_breed)
+        ).fetchall()
+        conn.close()
+    if not rows:
+        return 0
+    import re as re_mod
+    new_count = 0
+    for (breed,) in rows:
+        # 用 code_block 验证能否正确提取该 attr
+        test_globals = {"result": {}, "re": re_mod, "s": ""}
         try:
             exec(code, test_globals)
-            extracted = test_globals.get("result", {})
-            if not extracted.get(attr):
+            if test_globals.get("result", {}).get(attr) is None:
                 continue
         except Exception:
             continue
-
-        if get_vec_store is not None:
-            try:
-                vs = get_vec_store()
-                ok = vs.insert(
-                    pattern=norm_pat, attr=attr, note="[auto-generic]",
-                    code=code, breed=breed, category=category, skip_duplicate=True,
-                )
-                if ok:
-                    new_count += 1
-            except Exception:
-                pass
-
+        ok = vs.insert(
+            pattern=norm_pat, attr=attr, note="[auto-generic]",
+            code=code, breed=breed, category=category, skip_duplicate=True,
+        )
+        if ok:
+            new_count += 1
     return new_count
 
 
