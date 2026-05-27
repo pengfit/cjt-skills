@@ -41,30 +41,53 @@
         <div class="vec-help-title">📖 规格规则库说明</div>
         <div class="vec-help-grid">
           <div class="vec-help-item">
+            <span class="vec-help-key">数据源</span>
+            <span class="vec-help-val">
+              <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite）<br/>
+              <code>rules/*.py</code> 仅作备份/人工审查用<br/>
+              不再作为解析时的数据源
+            </span>
+          </div>
+          <div class="vec-help-item">
+            <span class="vec-help-key">Tokens</span>
+            <span class="vec-help-val">
+              <strong>结构语义标签</strong>，由 pattern 结构自动生成<br/>
+              <code>三段/LWW/长宽高/尺寸/数字</code> 等<br/>
+              用于 Jaccard 召回（score ≥ 0.001）
+            </span>
+          </div>
+          <div class="vec-help-item">
+            <span class="vec-help-key">解析流程</span>
+            <span class="vec-help-val">
+              <strong>① spec 结构 → tokens</strong><br/>
+              <strong>② Jaccard 召回候选规则</strong><br/>
+              <strong>③ 槽位独立竞争填值</strong><br/>
+              <strong>④ 无命中 → fix-case API</strong>
+            </span>
+          </div>
+          <div class="vec-help-item">
             <span class="vec-help-key">字段说明</span>
             <span class="vec-help-val">
-              <code>attr</code> — 属性名（如 thickness、width、material）<br/>
-              <code>pattern</code> — 正则表达式，匹配规格字符串<br/>
-              <code>note</code> — 规则注释<br/>
-              <code>code</code> — Python 提取代码，执行 <code>re.search</code><br/>
-              <code>category</code> — 适用分类（空=通用）<br/>
-              <code>breed</code> — 适用品种/系列
+              <code>attr</code> — 属性名（length/width/height 等）<br/>
+              <code>pattern</code> — 正则（不含 r 前缀）<br/>
+              <code>code</code> — Python 执行代码<br/>
+              <code>breed/category</code> — 适用范围
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">关键思路</span>
+            <span class="vec-help-key">添加规则</span>
             <span class="vec-help-val">
-              <strong>① RAG 召回</strong>：按 spec 语义检索相关规则，避免线性遍历<br/>
-              <strong>② 混合相似度</strong>：keyword-set Jaccard + embedding cosine<br/>
-              <strong>③ 先召回再执行</strong>：先找候选规则，再逐条正则匹配<br/>
-              <strong>④ AI 兜底</strong>：无规则时调用 LLM 补全 category
+              <code>POST /api/stats/spec-quality/fix-case</code><br/>
+              confirm=true 写入 rules_vec.db<br/>
+              详见 <code>SPEC_RULES.md</code>
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">规则来源</span>
+            <span class="vec-help-key">召回机制</span>
             <span class="vec-help-val">
-              存储在 <code>rules_vec.db</code>，由 <code>etl/parse_spec</code> 管理。<br/>
-              <code>transform_doc</code> 调用这些规则将 raw spec 解析为结构化 attr。
+              Jaccard = |spec_tokens ∩ rule_tokens| / union<br/>
+              score &lt; 0.001 → 丢弃（不降级）<br/>
+              同 attr+pattern 去重保留最高分
             </span>
           </div>
         </div>
@@ -84,10 +107,10 @@
           <tr>
             <th style="width:48px">#</th>
             <th style="width:90px">attr</th>
-            <th style="width:90px">分类</th>
+            <th style="width:80px">分类</th>
+            <th style="width:120px">品种</th>
             <th>pattern</th>
             <th>note</th>
-            <th>code</th>
             <th style="width:130px">创建时间</th>
           </tr>
         </thead>
@@ -96,15 +119,15 @@
             <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
             <td class="vec-cat">{{ r.category || '—' }}</td>
+            <td class="vec-breed">{{ r.breed || '—' }}</td>
             <td><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
             <td class="vec-note" :title="r.note || ''">{{ r.note || '—' }}</td>
-            <td><div class="vec-code-md" v-html="renderCode(r.code)"></div></td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
           <tr v-if="!vecRules.items?.length">
             <td colspan="7" class="vec-empty">
               <span v-if="vecSearch || vecAttrFilter">没有匹配「{{ vecSearch || vecAttrFilter }}」的规则</span>
-              <span v-else>暂无数据</span>
+              <span v-else>暂无数据，点击右上角【使用说明】了解如何添加规则</span>
             </td>
           </tr>
         </tbody>
@@ -127,7 +150,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { marked } from 'marked'
+
 import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -163,11 +186,7 @@ onMounted(() => {
   loadVecRules()
 })
 
-function renderCode(code) {
-  if (!code) return ''
-  const src = '```\n' + code + '\n```'
-  return marked.parse(src)
-}
+
 </script>
 
 <style scoped>
@@ -378,41 +397,7 @@ function renderCode(code) {
   white-space: normal;
   word-break: break-all;
 }
-.vec-code {
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
-  color: #86efac;
-  background: rgba(16,185,129,0.04);
-  border-radius: 4px;
-  padding: 3px 6px;
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-height: 38px;
-  display: block;
-}
-.vec-code-md {
-  font-size: 11px;
-  line-height: 1.5;
-  max-height: 72px;
-  overflow-y: auto;
-}
-.vec-code-md :deep(pre) {
-  background: rgba(16,185,129,0.06);
-  border: 1px solid rgba(16,185,129,0.2);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin: 0;
-  overflow-x: auto;
-  font-family: 'Courier New', monospace;
-}
-.vec-code-md :deep(pre code) {
-  background: none;
-  padding: 0;
-  color: #a7f3d0;
-  font-size: 10.5px;
-  font-family: 'Courier New', monospace;
-}
+.vec-breed { color: #64748b; font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
 .vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }
 

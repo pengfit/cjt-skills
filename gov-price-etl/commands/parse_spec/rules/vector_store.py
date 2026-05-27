@@ -75,6 +75,66 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 # ── VecStore ────────────────────────────────────────────────────────────────
 
+
+def _build_tokens(pattern: str, attr: str, breed: str = "", category: str = "") -> list:
+    """
+    Detect structural features from the normalized pattern string (literal backslashes,
+    NOT regex escapes) and generate semantic tokens for Jaccard matching.
+    """
+    tags = []
+    if '(' in pattern and ')' in pattern:
+        tags += ["数字捕获", "数字"]
+    if re.search(r'\[dwspn]', pattern):
+        tags += ["精确匹配", "格式", "转义字符"]
+    if '[' in pattern:
+        tags += ["字符类", "非数字"]
+    dim_markers = pattern.count('×') + pattern.count('x') + pattern.count('X')
+    if dim_markers >= 2:
+        tags += ["三段", "LWW", "长宽高", "尺寸"]
+    elif dim_markers == 1:
+        tags += ["两段", "两尺寸", "尺寸"]
+    if '.' in pattern:
+        tags += ["小数", "浮点", "尺寸", "数字"]
+    if pattern.startswith('^') and pattern.endswith('$'):
+        tags += ["精确匹配", "格式"]
+    if breed:
+        tags.append(breed)
+    if category:
+        tags.append(category)
+    if attr:
+        tags.append(attr)
+    return list(set(tags))
+
+
+def _build_spec_tokens(spec: str) -> set:
+    """
+    从 spec 字符串生成结构语义 tokens，与规则的语义标签对应。
+    使 '240×115×90' → {'三段','LWW','长宽高','尺寸','数字'}，
+    与规则 tokens {'三段','LWW','长宽高','尺寸'} 产生 Jaccard 交集。
+    """
+    import re
+    tokens = set()
+    if not spec:
+        return tokens
+
+    # 维度格式检测：数字×数字×数字（或数字x数字x数字）
+    dim_pattern = re.findall(r'[\u00d7x×](\d+)', spec)
+    if len(dim_pattern) >= 2:
+        tokens |= {"三段", "LWW", "长宽高", "尺寸", "数字"}
+    elif len(dim_pattern) == 1:
+        tokens |= {"两段", "两尺寸", "尺寸", "数字"}
+
+    # 小数/浮点
+    if '.' in spec:
+        tokens |= {"小数", "浮点", "数字"}
+
+    # 纯数字格式（无中文无字母）
+    if re.match(r'^[\d\u00d7x×.\s]+$', spec):
+        tokens.add("数字")
+
+    return tokens
+
+
 class VecStore:
     __slots__ = ("db_path", "_lock")
 
@@ -93,15 +153,15 @@ class VecStore:
                tokens: list = None, skip_duplicate: bool = False) -> bool:
         """Insert or update a rule. Returns True on success."""
         norm_pat = self._strip_r(pattern)
-        tokens   = tokens or _tokenize(norm_pat)
+        tokens   = tokens or _build_tokens(norm_pat, attr, breed, category)
         tok_json = json.dumps(list(tokens))
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             _ensure_schema(conn)
             if skip_duplicate:
                 exists = conn.execute(
-                    "SELECT 1 FROM rule_vectors WHERE pattern=? AND attr=?",
-                    (norm_pat, attr)
+                    "SELECT 1 FROM rule_vectors WHERE pattern=? AND attr=? AND breed=? AND category=?",
+                    (norm_pat, attr, breed or "", category or "")
                 ).fetchone()
                 if exists:
                     conn.close()
@@ -132,7 +192,7 @@ class VecStore:
         keyword score = 0 → 该规则不参与，直接丢弃。
         无命中 → 返回空列表（不降级，不复用旧规则）。
         """
-        spec_tokens = _tokenize(spec or "") or set()
+        spec_tokens = _build_spec_tokens(spec or "") or set()
 
         with self._lock:
             conn = sqlite3.connect(self.db_path)
@@ -246,7 +306,7 @@ class VecStore:
 
     @staticmethod
     def _strip_r(s: str) -> str:
-        """Strip leading r' or r\" prefix from a pattern string."""
+        """Strip leading r' or r" prefix from a pattern string."""
         s = s.strip()
         if len(s) >= 2 and s[0] in ('r', 'R') and s[1] in ('"', "'"):
             return s[2:-1]
