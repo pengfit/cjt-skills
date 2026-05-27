@@ -396,9 +396,10 @@ function handleConfirmOk() {
   axios.post(`${API}/stats/spec-quality/refresh-category`, {
     city: dwdDrilldownCity.value || 'xian',
     category: cat,
-  }).then(() => {
+  }).then(async () => {
     cleanDoneOk.value = true
     cleanDoneCat.value = cat
+    await refreshSpecQuality()
   }).catch(e => {
     cleanDoneOk.value = false
     cleanDoneCat.value = cat
