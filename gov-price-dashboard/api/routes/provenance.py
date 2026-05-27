@@ -890,11 +890,6 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if parser is None:
         return []
 
-    # Use random offset sampling for all cases.
-    # This avoids function_score/random_score which fails on this ES cluster
-    # with "failed to create query" error.
-    # Filter: exclude spec="/" and empty spec at query level (no need to sample them)
-        # Always sample specs that still need parsing (needs_spec_parse=True)
     must_clauses = [{"term": {"needs_spec_parse": True}}]
     if category:
         must_clauses.append({"term": {"category": category}})
@@ -915,13 +910,15 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if total == 0:
         return []
 
+    # 每个 breed 取 1 条样本（优先取 needs_spec_parse=True 的）
+    seen_breeds = {}
+    # 多次随机 offset 尽力采集不同 breed
     max_offset = max(0, total - sample_size)
-    # ES index.max_result_window default is 10000; clamp offset to avoid overflow
     offset = random.randint(0, max(max_offset, 0)) if max_offset > 0 else 0
-    # Cap at 9999 to stay within ES result window (from + size <= 10000)
     max_allowed_offset = 10000 - sample_size
     if offset > max_allowed_offset:
         offset = random.randint(0, max_allowed_offset)
+
     body = {
         "size": sample_size,
         "_source": ["spec", "category", "breed", "needs_spec_parse"],
@@ -935,20 +932,34 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     except Exception:
         return []
 
-    samples = []
+    # 先放 needs_spec_parse=True 的样本（待解析）
+    pending = []
+    # 再放 needs_spec_parse=False 的样本（已解析）
+    resolved = []
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
-        # needs_spec_parse: True=仍需解析（vector无匹配）, False=已解析出字段
-        needs_spec_parse = src.get("needs_spec_parse", True)  # 默认True（待解析）
-        has_attr = not needs_spec_parse  # 已解析出字段=有attr
-        samples.append({
+        breed = src.get("breed", "") or ""
+        needs_spec_parse = src.get("needs_spec_parse", True)
+        has_attr = not needs_spec_parse
+
+        if breed in seen_breeds:
+            continue
+        seen_breeds[breed] = True
+        entry = {
             "spec": spec,
             "category": src.get("category", ""),
-            "breed": src.get("breed", ""),
+            "breed": breed,
             "has_attr": has_attr,
             "needs_spec_parse": needs_spec_parse,
-        })
+        }
+        if needs_spec_parse:
+            pending.append(entry)
+        else:
+            resolved.append(entry)
+
+    # 返回：待解析样本排前面，最多 sample_size 条
+    samples = (pending + resolved)[:sample_size]
     return samples
 
 
