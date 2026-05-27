@@ -199,13 +199,13 @@ class VecStore:
             if attr_filter:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors WHERE attr=? AND category=? AND breed=?",
+                    "FROM rule_vectors WHERE attr=? AND category=? AND (breed='' OR breed=?)",
                     (attr_filter, category, breed)
                 ).fetchall()
             else:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors WHERE category=? AND breed=?",
+                    "FROM rule_vectors WHERE category=? AND (breed='' OR breed=?)",
                     (category, breed)
                 ).fetchall()
             conn.close()

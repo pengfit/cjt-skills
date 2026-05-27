@@ -290,6 +290,33 @@ return'NOT_FOUND';
     return "OK" in _eval_js(js)
 
 
+def _select_month(month_num: str):
+    """选中目标月份，month_num 传入 04（自动拼接"月"）"""
+    month_val = f"{month_num}月"
+    js = f"""(function(){{
+var sels = document.querySelectorAll('select.month');
+var target = null;
+for(var i=0;i<sels.length;i++){{
+  if(sels[i].options.length >= 4){{ target = sels[i]; break; }}
+}}
+if(!target) {{
+  for(var i=0;i<sels.length;i++){{
+    if(sels[i].options.length > 1){{ target = sels[i]; break; }}
+  }}
+}}
+if(!target) return 'NO_MONTH_SELECT';
+var found = false;
+for(var i=0;i<target.options.length;i++){{
+  if(target.options[i].value === '{month_val}' || target.options[i].innerText === '{month_val}'){{
+    target.options[i].selected = true;
+    found = true;
+    break;
+  }}
+}}
+return found ? 'OK:{month_val}' : 'MONTH_NOT_FOUND:{month_val}';
+}})()"""
+    return 'OK' in _eval_js(js)
+
 def _click_county(name: str):
     """点击区县选择器中的目标区县（span.localitySelect 方式）"""
     js = f'''(function(){{
@@ -440,6 +467,18 @@ def cmd_sync(args):
         print("[!] 点击材料信息价标签页失败")
         return
     time.sleep(2)
+
+    # 选中目标月份
+    month_num = re.search(r'(\d{1,2})月', target_period)
+    if not month_num:
+        print(f"[!] 无法从 '{target_period}' 提取月份")
+        return
+    mn = month_num.group(1).zfill(2)
+    print(f"[*] 选中月份: {mn}...")
+    if not _select_month(mn):
+        print(f"[!] 月份选择失败: {mn}")
+        return
+    time.sleep(1)
 
     interrupted = False
 

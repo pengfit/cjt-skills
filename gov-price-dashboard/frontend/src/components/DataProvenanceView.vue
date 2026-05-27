@@ -160,86 +160,39 @@
           <button class="dwd-drilldown-close" @click="closeDwdDrilldown">✕</button>
         </div>
         <div class="dwd-drilldown-body">
-          <div class="spec-quality-panel" v-if="specQuality.coverage?.length || specQuality.samples?.length">
+          <SpecQualityPanel
+            :coverage="specQuality.coverage || []"
+            :activeCat="sqActiveCat"
+            :loading="specQualityLoading"
+            :cleaningCat="cleaningCatsKey"
+            :cleanDoneCat="cleanDoneCat"
+            :cleanDoneOk="cleanDoneOk"
+            :toastMsg="sqToast"
+            :confirmMsg="sqConfirmMsg"
+            :coverageLoaded="specQualityCoverageLoaded"
+            @refresh="refreshSpecQuality"
+            @sample="selectCatForSample"
+            @clean="handleCleanRequest"
+            @confirm-clean-cancel="sqConfirmMsg = ''"
+            @confirm-clean-ok="handleConfirmOk"
+          />
 
-            <div class="sq-header">
-              <span class="panel-dot panel-dot-green"></span>
-              <span class="panel-title">🔬 Spec 解析质量</span>
-              <span class="sq-coverage-summary">
-                <span class="sq-green-dot"></span>
-                {{ specQuality.coverage?.filter(c => c.rate >= 80).length }} ≥80%
-                <span class="sq-red-dot"></span>
-                {{ specQuality.coverage?.filter(c => c.rate < 30).length }} &lt;30%
-              </span>
-            </div>
-            <div class="sq-coverage" v-if="specQuality.coverage?.length">
-              <div class="sq-cov-list">
-                <div v-for="c in specQuality.coverage" :key="c.category" class="sq-cov-item" :class="sqActiveCat === c.category ? 'cat-active' : ''">
-                  <span class="sq-cov-cat">{{ c.category }}</span>
-                  <div class="sq-cov-bar-wrap">
-                    <div class="sq-cov-bar" :style="{width: c.rate + '%'}" :class="c.rate < 10 ? 'bar-red' : c.rate < 50 ? 'bar-amber' : 'bar-green'"></div>
-                  </div>
-                  <span class="sq-cov-pct">{{ c.rate }}%</span>
-                  <span class="sq-cov-count">{{ c.with_attr }}/{{ c.total }}</span>
-                  <button class="sq-sample-btn" :class="sqActiveCat === c.category ? 'btn-active' : ''" @click="selectCatForSample(c.category)">抽样</button>
-                  <button class="sq-clean-btn" :disabled="refreshLoading || cleaningCats[c.category]" @click.stop="refreshCategory(c.category)">
-                    <span v-if="cleaningCats[c.category]" class="cleaning-spinner"></span>
-                    <span v-else-if="cleanDoneCat === c.category">{{ cleanDoneOk ? '✓' : '✕' }}</span>
-                    <span v-else>清洗</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div v-else-if="specQuality.message" class="sq-message-hint">{{ specQuality.message }}</div>
-            <div v-else class="sq-empty-hint">暂无数据</div>
-
-            <!-- 内联确认提示 -->
-            <div v-if="sqConfirmMsg" class="sq-confirm-modal">
-              <div class="sq-confirm-icon">⚠️</div>
-              <div class="sq-confirm-body">
-                <div class="sq-confirm-title">确认执行清洗</div>
-                <div class="sq-confirm-msg">{{ sqConfirmMsg }}</div>
-              </div>
-              <div class="sq-confirm-actions">
-                <button class="sq-confirm-cancel" @click="sqConfirmMsg = ''">取消</button>
-                <button class="sq-confirm-ok" @click="handleConfirmOk">确认</button>
-              </div>
-            </div>
-
-            <!-- 内联 toast 提示 -->
-            <div v-if="sqToast" class="sq-toast-hint">{{ sqToast }}</div>
-
-            <!-- DWD 抽样 -->
-            <div class="sq-samples" v-if="specQuality.samples?.length">
-              <div class="sq-sample-header">
-                <span class="sq-sample-label">抽样结果</span>
-                <span class="sq-sample-count">{{ specQuality.samples.length }}</span>
-                <span class="sq-sample-unit">条</span>
-                <span v-if="specQuality.message" class="sq-sample-tip">{{ specQuality.message }}</span>
-              </div>
-
-              <div class="sq-sample-grid">
-                <div v-for="s in specQuality.samples" :key="s.spec" class="sq-sample-card" :class="s.has_attr ? 'has-attr' : 'no-attr'">
-                  <div class="sq-sample-top">
-                    <span class="sq-sample-spec">{{ s.spec }}</span>
-                    <span class="sq-sample-status" :class="s.has_attr ? 'status-ok' : 'status-empty'">{{ s.has_attr ? '✓' : '空' }}</span>
-                  </div>
-                  <div class="sq-sample-meta">
-                    <span class="sq-sample-cat">{{ s.category }}</span>
-                    <span class="sq-sample-breed" v-if="s.breed">{{ s.breed }}</span>
-                  </div>
-                  <div v-if="s.attr_keys?.length" class="sq-sample-attrs">
-                    <span v-for="k in s.attr_keys" :key="k" class="attr-chip">{{ k }}</span>
-                  </div>
-                  <div class="sq-sample-footer">
-                    <button class="fix-btn" @click.stop="openFixCase(s)">修</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="dwd-loading">加载中...</div>
+  <!-- SpecSamplePanel is rendered as a standalone modal by the parent (DataProvenanceView) -->
         </div>
+      </div>
+    </div>
+
+    <!-- Sample modal -->
+    <div class="sample-overlay" v-if="sqActiveCat" @click.self="closeSamples">
+      <div class="sample-modal">
+        <SpecSamplePanel
+          :samples="specQuality.samples || []"
+          :activeCat="sqActiveCat"
+          :loading="sqSamplesLoading"
+          :sampleMsg="specQuality.message || ''"
+          @close="closeSamples"
+          @fix="openFixCase"
+        />
       </div>
     </div>
 
@@ -344,9 +297,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import SpecQualityPanel from './SpecQualityPanel.vue'
+import SpecSamplePanel from './SpecSamplePanel.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -379,9 +334,11 @@ async function openDwdDrilldown(city, pipe) {
   if (!pipe.dwd?.count) return
   dwdDrilldownCity.value = city
   specQuality.value = {}   // 先清空，API 返回 coverage（_sample=false 不含抽样）
+  specQualityLoading.value = true
   try {
     const sq = await axios.get(`${API}/stats/spec-quality`, { params: { city, _sample: false } })
     specQuality.value = sq.data || {}
+    specQualityCoverageLoaded.value = !!specQuality.value.coverage?.length
 
     if (specQuality.value.message && !specQuality.value.samples?.length) {
       sqToast.value = specQuality.value.message
@@ -391,19 +348,21 @@ async function openDwdDrilldown(city, pipe) {
       sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
     }
   } catch(e) { console.warn("spec-quality failed", e) }
+  finally { specQualityLoading.value = false }
 }
 
 async function refreshSpecQuality() {
   if (!dwdDrilldownCity.value) return
-  specQuality.value = {}
+  // keep existing data while loading, set loading flag only
+  specQualityLoading.value = true
   try {
     const _sample = !!sqCatFilter.value
     const _url = `${API}/stats/spec-quality`
     const _params = { city: dwdDrilldownCity.value, category: sqCatFilter.value || '', _sample }
 
     const sq = await axios.get(_url, { params: _params })
-
     specQuality.value = sq.data || {}
+    specQualityCoverageLoaded.value = !!specQuality.value.coverage?.length
 
     if (specQuality.value.message && !specQuality.value.samples?.length) {
       sqToast.value = specQuality.value.message
@@ -413,6 +372,7 @@ async function refreshSpecQuality() {
       sqCatOptions.value = specQuality.value.coverage.map(c => c.category)
     }
   } catch(e) { console.warn("spec-quality refresh failed", e) }
+  finally { specQualityLoading.value = false }
 }
 
 async function refreshCategory(cat) {
@@ -436,12 +396,10 @@ function handleConfirmOk() {
   axios.post(`${API}/stats/spec-quality/refresh-category`, {
     city: dwdDrilldownCity.value || 'xian',
     category: cat,
-  }).then(() => {
-    sqActiveCat.value = cat
-    sqCatFilter.value = cat
+  }).then(async () => {
     cleanDoneOk.value = true
     cleanDoneCat.value = cat
-    refreshSpecQuality()
+    await refreshSpecQuality()
   }).catch(e => {
     cleanDoneOk.value = false
     cleanDoneCat.value = cat
@@ -455,6 +413,18 @@ function handleConfirmOk() {
 function closeDwdDrilldown() {
   dwdDrilldownCity.value = null
   specQuality.value = {}
+}
+const specQualityLoading = ref(false)
+const sqSamplesLoading = ref(false)
+const specQualityCoverageLoaded = ref(false)
+function handleCleanRequest(cat) {
+  sqConfirmMsg.value = `确认清洗分类「${cat}」？同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`
+  window._sqConfirmCat = cat
+}
+function closeSamples() {
+  sqActiveCat.value = ''
+  sqCatFilter.value = ''
+  specQuality.value = { ...specQuality.value, samples: [] }
 }
 const fixCase = ref(null)
 const fixSuggestions = ref([])
@@ -470,11 +440,16 @@ const sqConfirmMsg = ref('')  // 内联确认提示
 const cleaningCats = ref({})      // { category: true } 清洗中状态
 const cleanDoneCat = ref('')      // 当前显示完成标记的分类
 const cleanDoneOk = ref(true)
+const cleaningCatsKey = computed(() => {
+  const keys = Object.keys(cleaningCats.value)
+  return keys.length === 1 ? keys[0] : ''
+})
 const fixCombinedResult = ref({})
 const showFixSuccess = ref(false)
 const fixSuccessMsg = ref('')
 
 function openFixCase(s) {
+  sqActiveCat.value = ''
   fixCase.value = s
   fixSuggestions.value = []
   fixResult.value = null

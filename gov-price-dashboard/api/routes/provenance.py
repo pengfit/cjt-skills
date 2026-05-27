@@ -7,7 +7,7 @@
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
-import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml
+import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml, sqlite3
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
@@ -40,7 +40,7 @@ ALL_DWD_INDICES = "dwd_xian_price"
 CITY_COUNTY_COUNTS = {
     "xian":      6,   # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
     "sichuan":   21,   # 四川21个地级市/自治州（川A~川Z缺川G）
-    "chongqing": 41,  # 重庆市区县
+    "chongqing": 35,  # 重庆市区县（材料信息价）
     "jinan":     41,  # 济南41个分类目录
     "rizhao":    3,   # 日照3个类别
 }
@@ -49,7 +49,7 @@ CITY_COUNTY_COUNTS = {
 PROGRESS_INDEXES = {
     "xian":      "ods_material_xian_price_sync_progress",
     "sichuan":   "ods_material_sichuan_price_sync_progress",
-    "chongqing": "material_chongqing_price_sync_progress",
+    "chongqing": "ods_chongqing_price_progress",
     "jinan":     "ods_material_jinan_price_sync_progress",
     "rizhao":    "material_rizhao_price_sync_progress",
 }
@@ -123,6 +123,7 @@ def stats_scrape_progress_all():
                                             "current_page", "total_pages", "total_records",
                                             "docs_written", "percent", "duration_sec",
                                             "update_date", "last_updated", "error", "spot_check_ok",
+                                            "area", "catalogue_name", "tab_name",
                                         ]
                                     }
                                 }
@@ -573,11 +574,11 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         # ── 2. 近30天每日入库量 ─────────────────────────────────
         daily_body = {
             "size": 0,
-            "query": {"range": {"update_date": {"gte": "now-30d"}}},
+            "query": {"range": {"etl_time": {"gte": "now-30d"}}},
             "aggs": {
                 "daily": {
                     "date_histogram": {
-                        "field": "update_date",
+                        "field": "etl_time",
                         "calendar_interval": "day",
                     },
                     "aggs": {"cnt": {"value_count": {"field": "price"}}}
@@ -890,11 +891,6 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if parser is None:
         return []
 
-    # Use random offset sampling for all cases.
-    # This avoids function_score/random_score which fails on this ES cluster
-    # with "failed to create query" error.
-    # Filter: exclude spec="/" and empty spec at query level (no need to sample them)
-        # Always sample specs that still need parsing (needs_spec_parse=True)
     must_clauses = [{"term": {"needs_spec_parse": True}}]
     if category:
         must_clauses.append({"term": {"category": category}})
@@ -915,13 +911,15 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if total == 0:
         return []
 
+    # 每个 breed 取 1 条样本（优先取 needs_spec_parse=True 的）
+    seen_breeds = {}
+    # 多次随机 offset 尽力采集不同 breed
     max_offset = max(0, total - sample_size)
-    # ES index.max_result_window default is 10000; clamp offset to avoid overflow
     offset = random.randint(0, max(max_offset, 0)) if max_offset > 0 else 0
-    # Cap at 9999 to stay within ES result window (from + size <= 10000)
     max_allowed_offset = 10000 - sample_size
     if offset > max_allowed_offset:
         offset = random.randint(0, max_allowed_offset)
+
     body = {
         "size": sample_size,
         "_source": ["spec", "category", "breed", "needs_spec_parse"],
@@ -935,20 +933,34 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     except Exception:
         return []
 
-    samples = []
+    # 先放 needs_spec_parse=True 的样本（待解析）
+    pending = []
+    # 再放 needs_spec_parse=False 的样本（已解析）
+    resolved = []
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
-        # needs_spec_parse: True=仍需解析（vector无匹配）, False=已解析出字段
-        needs_spec_parse = src.get("needs_spec_parse", True)  # 默认True（待解析）
-        has_attr = not needs_spec_parse  # 已解析出字段=有attr
-        samples.append({
+        breed = src.get("breed", "") or ""
+        needs_spec_parse = src.get("needs_spec_parse", True)
+        has_attr = not needs_spec_parse
+
+        if breed in seen_breeds:
+            continue
+        seen_breeds[breed] = True
+        entry = {
             "spec": spec,
             "category": src.get("category", ""),
-            "breed": src.get("breed", ""),
+            "breed": breed,
             "has_attr": has_attr,
             "needs_spec_parse": needs_spec_parse,
-        })
+        }
+        if needs_spec_parse:
+            pending.append(entry)
+        else:
+            resolved.append(entry)
+
+    # 返回：待解析样本排前面，最多 sample_size 条
+    samples = (pending + resolved)[:sample_size]
     return samples
 
 
@@ -1192,7 +1204,7 @@ def refresh_category(
 
         resp = es.search(index=dwd_idx, body=body)
         hits = resp["hits"]["hits"]
-        total = len(hits)
+        total = resp["hits"]["total"]["value"]
 
         if total == 0:
             return {"ok": True, "message": f"分类「{category}」无数据，跳过", "city": city}
@@ -1200,29 +1212,46 @@ def refresh_category(
         ok_count = 0
         fail_count = 0
 
-        for h in hits:
-            doc = h["_source"]
-            # 构造 ODS 格式（transform_doc 期望的字段）
-            raw = {
-                "breed": doc.get("breed", ""),
-                "spec": doc.get("spec", ""),
-                "unit": doc.get("unit", ""),
-                "price": doc.get("price", 0),
-                "tax_price": doc.get("tax_price", 0),
-                "county": doc.get("county", ""),
-                "province": doc.get("province", ""),
-                "city": doc.get("city", ""),
-                "update_date": doc.get("update_date", ""),
-                "create_time": doc.get("create_time", ""),
-            }
+        def _process_batch(batch_hits):
+            nonlocal ok_count, fail_count
+            for h in batch_hits:
+                doc = h["_source"]
+                raw = {
+                    "breed": doc.get("breed", ""),"spec": doc.get("spec", ""),"unit": doc.get("unit", ""),
+                    "price": doc.get("price", 0),"tax_price": doc.get("tax_price", 0),
+                    "county": doc.get("county", ""),"province": doc.get("province", ""),
+                    "city": doc.get("city", ""),"update_date": doc.get("update_date", ""),"create_time": doc.get("create_time", ""),
+                }
+                try:
+                    dwd_doc = transform_doc(raw, dwd_idx, city)
+                    es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
+                    ok_count += 1
+                except Exception:
+                    fail_count += 1
 
+        _process_batch(hits)
+        processed = len(hits)
+
+        # 分页：ES max_result_window=10000，翻页直到全部处理完
+        while processed < total and processed < 10000:
+            last_hit = hits[-1]
+            search_after = last_hit.get("_sort") or [last_hit["_source"].get("update_date", "")]
+            body_page = {
+                "query": {"term": {"category": category}},
+                "size": 500,
+                "search_after": search_after,
+                "sort": [{"_doc": "asc"}],
+            }
             try:
-                # transform_doc 内部会根据向量库解析结果自动计算 needs_spec_parse
-                dwd_doc = transform_doc(raw, dwd_idx, city)
-                es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
-                ok_count += 1
+                resp_page = es.search(index=dwd_idx, body=body_page)
             except Exception:
-                fail_count += 1
+                break
+            hits_page = resp_page["hits"]["hits"]
+            if not hits_page:
+                break
+            _process_batch(hits_page)
+            processed += len(hits_page)
+            hits = hits_page
 
         # 清洗完成后自动同步 DWD→DWS
         sys.path.insert(0, ETL_CMD_DIR)
@@ -1259,6 +1288,41 @@ class FixCaseRequest(BaseModel):
     category: str = ""
 
 
+
+def _auto_expand_rule(pattern: str, attr: str, code: str,
+                       category: str, exclude_breed: str = "", note: str = "") -> int:
+    """
+    确保 pattern+attr+category 下存在 breed='' 的通用兜底规则。
+    查询用原始 pattern，写入用 normalized pattern（统一锚点格式）。
+    逻辑：
+      1. 用原始 pattern 查找是否已有 breed='' → 有则跳过
+      2. 无则写入 breed='' 通用规则（normalized pattern）
+    """
+    if not get_vec_store:
+        return 0
+    vs = get_vec_store()
+
+    # 检查 breed='' 是否已存在（用原始 pattern）
+    with vs._lock:
+        conn = sqlite3.connect(vs.db_path)
+        row = conn.execute(
+            """SELECT id FROM rule_vectors
+               WHERE pattern=? AND attr=? AND category=? AND breed=''""",
+            (pattern, attr, category)
+        ).fetchone()
+        conn.close()
+
+    # 不存在则写入（用原始 pattern）
+    if row is None:
+        with vs._lock:
+            ok = vs.insert(
+                pattern=pattern, attr=attr, note="通用",
+                code=code, breed="", category=category, skip_duplicate=True,
+            )
+            return 1 if ok else 0
+    return 0
+
+
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
@@ -1266,16 +1330,23 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
-            vs = get_vec_store()
-            vs.insert(
-                pattern=pattern,
-                attr=attr,
-                note=note,
-                code=code,
-                breed=breed or "",
-                category=category or "",
-                skip_duplicate=True,
-            )
+            # 自动扩展：向同分类下其他匹配此 pattern 的 breed 写入相同规则
+            if pattern and attr:
+                vs = get_vec_store()
+                vs.insert(
+                    pattern=pattern,
+                    attr=attr,
+                    note=note,
+                    code=code,
+                    breed=breed or "",
+                    category=category or "",
+                    skip_duplicate=True,
+                )
+                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "",note or "")
+                if added:
+                    import logging
+                    _log2 = logging.getLogger()
+                    _log2.info("auto-expand: added %d rules for pattern=%s attr=%s", added, pattern, attr)
             return "new"
         except Exception as e:
             import logging
