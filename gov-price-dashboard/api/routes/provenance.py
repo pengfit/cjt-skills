@@ -40,7 +40,7 @@ ALL_DWD_INDICES = "dwd_xian_price"
 CITY_COUNTY_COUNTS = {
     "xian":      6,   # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
     "sichuan":   21,   # 四川21个地级市/自治州（川A~川Z缺川G）
-    "chongqing": 41,  # 重庆市区县
+    "chongqing": 35,  # 重庆市区县（材料信息价）
     "jinan":     41,  # 济南41个分类目录
     "rizhao":    3,   # 日照3个类别
 }
@@ -49,7 +49,7 @@ CITY_COUNTY_COUNTS = {
 PROGRESS_INDEXES = {
     "xian":      "ods_material_xian_price_sync_progress",
     "sichuan":   "ods_material_sichuan_price_sync_progress",
-    "chongqing": "material_chongqing_price_sync_progress",
+    "chongqing": "ods_chongqing_price_progress",
     "jinan":     "ods_material_jinan_price_sync_progress",
     "rizhao":    "material_rizhao_price_sync_progress",
 }
@@ -123,6 +123,7 @@ def stats_scrape_progress_all():
                                             "current_page", "total_pages", "total_records",
                                             "docs_written", "percent", "duration_sec",
                                             "update_date", "last_updated", "error", "spot_check_ok",
+                                            "area", "catalogue_name", "tab_name",
                                         ]
                                     }
                                 }
@@ -1289,30 +1290,42 @@ class FixCaseRequest(BaseModel):
 
 
 def _auto_expand_rule(pattern: str, attr: str, code: str,
-                       category: str, exclude_breed: str = "") -> int:
+                       category: str, exclude_breed: str = "", note: str = "") -> int:
     """
-    当新规则写入后，自动向同分类下其他使用相同 pattern 的 breed 扩展。
-    从 rules_vec.db 直接查询同 pattern+attr 的其他 breed。
-    返回新增规则数。
+    当新规则写入后，自动向同分类下其他使用相同 pattern 的 breed 扩展，
+    并写入一条 breed='' 的通用 fallback 规则。
+    pattern 传入原始形式（如 '^DN(\d+)$'），内部 normalize 用于查询和写入。
     """
-    norm_pat = pattern.lstrip("^")
+    import re as re_mod
+    norm_pat = pattern.lstrip("^").rstrip("$")
     if not get_vec_store:
         return 0
     vs = get_vec_store()
+    new_count = 0
+
+    # 1. 先写入通用 fallback（breed=''）
+    with vs._lock:
+        ok = vs.insert(
+            pattern=norm_pat, attr=attr, note="[auto-generic]",
+            code=code, breed="", category=category, skip_duplicate=True,
+        )
+        if ok:
+            new_count += 1
+
+    # 2. 查询同 pattern+attr+category 的其他 breed
+    #    同时匹配原始 pattern 和 normalized pattern（兼容 DB 中不同锚点格式）
     with vs._lock:
         conn = sqlite3.connect(vs.db_path)
         rows = conn.execute(
             """SELECT DISTINCT breed FROM rule_vectors
-               WHERE pattern=? AND attr=? AND category=? AND breed!=?""",
-            (norm_pat, attr, category, exclude_breed)
+               WHERE pattern IN (?, ?) AND attr=? AND category=?
+               AND breed!=? AND breed!=''""",
+            (pattern, norm_pat, attr, category, exclude_breed)
         ).fetchall()
         conn.close()
-    if not rows:
-        return 0
-    import re as re_mod
-    new_count = 0
+
+    # 3. 向每个已有 breed 写入专属扩展规则
     for (breed,) in rows:
-        # 用 code_block 验证能否正确提取该 attr
         test_globals = {"result": {}, "re": re_mod, "s": ""}
         try:
             exec(code, test_globals)
@@ -1320,12 +1333,13 @@ def _auto_expand_rule(pattern: str, attr: str, code: str,
                 continue
         except Exception:
             continue
-        ok = vs.insert(
-            pattern=norm_pat, attr=attr, note="[auto-generic]",
-            code=code, breed=breed, category=category, skip_duplicate=True,
-        )
-        if ok:
-            new_count += 1
+        with vs._lock:
+            ok = vs.insert(
+                pattern=norm_pat, attr=attr, note="[auto-generic]",
+                code=code, breed=breed, category=category, skip_duplicate=True,
+            )
+            if ok:
+                new_count += 1
     return new_count
 
 
@@ -1336,19 +1350,19 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
-            vs = get_vec_store()
-            vs.insert(
-                pattern=pattern,
-                attr=attr,
-                note=note,
-                code=code,
-                breed=breed or "",
-                category=category or "",
-                skip_duplicate=True,
-            )
             # 自动扩展：向同分类下其他匹配此 pattern 的 breed 写入相同规则
             if pattern and attr:
-                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "")
+                vs = get_vec_store()
+                vs.insert(
+                    pattern=pattern,
+                    attr=attr,
+                    note=note,
+                    code=code,
+                    breed=breed or "",
+                    category=category or "",
+                    skip_duplicate=True,
+                )
+                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "",note or "")
                 if added:
                     import logging
                     _log2 = logging.getLogger()

@@ -76,7 +76,7 @@ def clean_spec(spec: str) -> str:
     """清洗原始 spec 字符串"""
     if not spec or spec in ("/", ""):
         return ""
-    s = str(spec).strip().replace("\u00d7", "*")
+    s = str(spec).strip()
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
