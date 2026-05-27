@@ -1290,19 +1290,18 @@ class FixCaseRequest(BaseModel):
 
 
 def _auto_expand_rule(pattern: str, attr: str, code: str,
-                       category: str, exclude_breed: str = "", note: str = "") -> int:
+                       category: str, breed: str = "", note: str = "") -> int:
     """
     确保 pattern+attr+category 下存在 breed='' 的通用兜底规则。
-    查询用原始 pattern，写入用 normalized pattern（统一锚点格式）。
     逻辑：
       1. 用原始 pattern 查找是否已有 breed='' → 有则跳过
-      2. 无则写入 breed='' 通用规则（normalized pattern）
+      2. 无则写入 breed='' 通用规则
     """
     if not get_vec_store:
         return 0
     vs = get_vec_store()
 
-    # 检查 breed='' 是否已存在（用原始 pattern）
+    # 检查 breed='' 是否已存在
     with vs._lock:
         conn = sqlite3.connect(vs.db_path)
         row = conn.execute(
@@ -1312,14 +1311,13 @@ def _auto_expand_rule(pattern: str, attr: str, code: str,
         ).fetchone()
         conn.close()
 
-    # 不存在则写入（用原始 pattern）
+    # 不存在则写入（insert 内部已加锁，不得在外层重复加锁）
     if row is None:
-        with vs._lock:
-            ok = vs.insert(
-                pattern=pattern, attr=attr, note="通用",
-                code=code, breed="", category=category, skip_duplicate=True,
-            )
-            return 1 if ok else 0
+        ok = vs.insert(
+            pattern=pattern, attr=attr, note=f"通用 ({note})",
+            code=code, breed="", category=category, skip_duplicate=True,
+        )
+        return 1 if ok else 0
     return 0
 
 
@@ -1330,19 +1328,8 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
-            # 自动扩展：向同分类下其他匹配此 pattern 的 breed 写入相同规则
             if pattern and attr:
-                vs = get_vec_store()
-                vs.insert(
-                    pattern=pattern,
-                    attr=attr,
-                    note=note,
-                    code=code,
-                    breed=breed or "",
-                    category=category or "",
-                    skip_duplicate=True,
-                )
-                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "",note or "")
+                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "", note or "")
                 if added:
                     import logging
                     _log2 = logging.getLogger()
