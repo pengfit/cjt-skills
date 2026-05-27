@@ -260,43 +260,120 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     }
 
 
+def ensure_indices(es_host: str, cfg: dict):
+    """统一入口：确保 dwd/dws 索引存在，新建时自动套用 index template。"""
+    _setup_index_templates(es_host)
+    dwd_idx, dws_idx = cfg["dwd"], cfg["dws"]
+    s = get_es_client(es_host)
+    for idx in (dwd_idx, dws_idx):
+        r = s.head(f"{es_host}/{idx}")
+        if r.status_code == 404:
+            print(f"  [idx] 创建索引 {idx} ...")
+            s.put(f"{es_host}/{idx}", json={})  # template 自动套用
+            print(f"  [idx] {idx} 创建完成（套用 template）")
+
+
+def _setup_index_templates(es_host: str):
+    """幂等创建/更新 gov_dwd / gov_dws 两个 index template。"""
+    for name, pattern, mapping in [
+        ("gov_dwd", "dwd_*", _build_dwd_mapping()),
+        ("gov_dws", "dws_*", _build_dws_mapping()),
+    ]:
+        r = get_es_client(es_host).put(f"{es_host}/_index_template/{name}", json={
+            "index_patterns": [pattern],
+            "template": {"settings": mapping["settings"], "mappings": mapping["mappings"]},
+            "priority": 100,
+        })
+        tag = "OK" if r.status_code in (200, 201) else f"FAIL {r.status_code}"
+        print(f"  [template] {name} → {pattern} {tag}")
+
+
+def _build_dwd_mapping():
+    base = {
+        "breed":         {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+        "breed_clean":   {"type": "keyword"},
+        "spec":          {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+        "unit":          {"type": "keyword"},
+        "price":         {"type": "float"},
+        "tax_price":     {"type": "float"},
+        "category":      {"type": "keyword"},
+        "province":      {"type": "keyword"},
+        "city":          {"type": "keyword"},
+        "county":        {"type": "keyword"},
+        "tab_type":      {"type": "keyword"},
+        "tab_name":      {"type": "keyword"},
+        "update_date":   {"type": "keyword"},
+        "publish_time":  {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        "period":        {"type": "text"},
+        "code":          {"type": "keyword"},
+        "source_index":  {"type": "keyword"},
+        "etl_time":      {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        "needs_spec_parse": {"type": "boolean"},
+    }
+    for f in [
+        "length","width","thickness","height","diameter","ring_stiffness","pressure",
+        "material","color","grade","voltage","current","cross_section",
+        "asphalt_type","cement_content","channels","doors","cores","fiber_core",
+        "length_range","height_range","media","range","output","cable_length",
+        "temp_range","humidity_range","surface","series","fire_rating",
+        "temperature","installation_type","drain_type","inlet_type",
+        "form","ip_rating","inner_diameter","wall_thickness",
+    ]:
+        base[f] = {"type": "keyword"}
+    return {"mappings": {"properties": base}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
+
+
+_ATTR_NESTED = [
+    "diameter","thickness","length","width","height",
+    "material","grade","pressure","cores","voltage","current",
+    "form","color","series","temperature",
+    "temp_range","humidity_range","length_range","height_range",
+    "inner_diameter","wall_thickness","fiber_core","cable_length",
+    "channels","doors","media","range","output",
+    "ip_rating","fire_rating","ring_stiffness",
+    "cross_section","drain_type","inlet_type","installation_type",
+    "asphalt_type","cement_content","surface",
+]
+
+
+def _build_dws_mapping():
+    base = {
+        "spec":              {"type": "text"},
+        "breed":             {"type": "keyword"},
+        "breed_clean":       {"type": "keyword"},
+        "category":          {"type": "keyword"},
+        "unit":              {"type": "keyword"},
+        "price":             {"type": "float"},
+        "tax_price":         {"type": "float"},
+        "region":            {"type": "keyword"},
+        "county":            {"type": "keyword"},
+        "city":              {"type": "keyword"},
+        "province":          {"type": "keyword"},
+        "date":              {"type": "date"},
+        "update_date":       {"type": "keyword"},
+        "etl_time":          {"type": "date"},
+        "publish_time":      {"type": "date"},
+        "needs_spec_parse":  {"type": "boolean"},
+        "code":              {"type": "keyword"},
+        "tab_type":          {"type": "keyword"},
+        "tab_name":          {"type": "keyword"},
+        "period":            {"type": "text"},
+        "source_index":      {"type": "keyword"},
+        "attr": {
+            "type": "nested",
+            "properties": {f: {"type": "keyword"} for f in _ATTR_NESTED},
+        },
+    }
+    return {"mappings": {"properties": base}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
+
+
+# ── backward compat stubs (keep signatures so existing callers don't break) ──
 def ensure_dwd(es_host: str, dwd_index: str):
-    session = get_es_client(es_host)
-    resp = session.head(f"{es_host}/{dwd_index}")
-    if resp.status_code == 404:
-        print(f"  [ETL] 创建索引 {dwd_index} ...")
-        session.put(f"{es_host}/{dwd_index}", json=DWD_MAPPING)
-        print(f"  [ETL] 索引 {dwd_index} 创建完成")
+    pass  # now handled by ensure_indices
 
-
-
-DWS_MAPPING = {
-    "mappings": {
-        "properties": {
-            "breed": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-            "spec": {"type": "keyword"},
-            "unit": {"type": "keyword"},
-            "price": {"type": "float"},
-            "tax_price": {"type": "float"},
-            "category": {"type": "keyword"},
-            "province": {"type": "keyword"},
-            "city": {"type": "keyword"},
-            "county": {"type": "keyword"},
-            "update_date": {"type": "date"},
-            "period": {"type": "text"},
-            "attr": {"type": "object", "enabled": True},
-        }
-    },
-    "settings": {"number_of_shards": 1, "number_of_replicas": 0}
-}
 
 def ensure_dws(es_host: str, dws_index: str):
-    session = get_es_client(es_host)
-    resp = session.head(f"{es_host}/{dws_index}")
-    if resp.status_code == 404:
-        print(f"  [DWS] 创建索引 {dws_index} ...")
-        session.put(f"{es_host}/{dws_index}", json=DWS_MAPPING)
-        print(f"  [DWS] 索引 {dws_index} 创建完成")
+    pass  # now handled by ensure_indices
 
 def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
     if not docs:
@@ -403,7 +480,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
         print(f"  [DWS] {city}: 无待同步数据")
         return 0, 0
 
-    ensure_dws(es_host, dws_idx)
+    ensure_indices(es_host, cfg)
     print(f"  [DWS] {city}: {dwd_idx} → {dws_idx} ({total:,} 条待同步)")
 
     synced = 0
@@ -417,6 +494,10 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
             d = dict(h["_source"])
             # 构建 DWS 的 attr nested（从 DWD 扁平字段提取）
             d["attr"] = _build_attr(d)
+            # 过滤空 date 字段（空字符串无法解析为 date 类型）
+            for f in ("date", "publish_time"):
+                if not d.get(f):
+                    d.pop(f, None)
             # DWD _id 即 ODS _id，复用于 DWS
             docs.append(d)
             doc_ids.append(h["_id"])
@@ -451,7 +532,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
 
-    ensure_dwd(es_host, dwd_idx)
+    ensure_indices(es_host, cfg)
 
     session = get_es_client(es_host)
     count_resp = session.get(f"{es_host}/{ods_idx}/_count")
