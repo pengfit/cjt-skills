@@ -40,10 +40,13 @@
           <option value="rules_migrated">规则迁移</option>
           <option value="manual">手动添加</option>
         </select>
-        <select class="bcr-select" v-model="categoryFilter" @change="loadRules(1)">
-          <option value="">全部分类</option>
-          <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
-        </select>
+        <CustomSelect
+          v-model="categoryFilter"
+          :options="categoryOptions.map(c => ({ key: c, label: c }))"
+          placeholder="全部分类"
+          :searchable="false"
+          @change="loadRules(1)"
+        />
       </div>
       <div class="bcr-toolbar-right">
         <button class="bcr-btn bcr-btn-ghost" @click="toggleAddMode">
@@ -150,6 +153,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
