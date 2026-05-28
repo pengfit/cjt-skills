@@ -812,10 +812,6 @@ def fix_case_prompt_fn(spec, breed="", category="", expected=None):
         return "\n".join(l for l in lines if l)
 
 
-def classify_breed_prompt_fn(breed):
-    """生成 classify-breed API 的 user content"""
-    prompts_cfg = PROMPTS.get("classify_breed", {})
-    tmpl = prompts_cfg.get("template", "")
     try:
         return tmpl.format(breed=breed, classifications=CLASSIFICATIONS_STR)
     except (KeyError, ValueError):
@@ -1675,87 +1671,6 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
 
 
 @router.post("/api/stats/spec-quality/classify-breed")
-def classify_breed_ai(req: ClassifyBreedRequest = Body(...)):
-    """
-    输入品种名（breed），AI 推断分类并写入 rules_vec.db 的 breed_category_rules 表。
-    用于 ETL 清洗时规则未命中的品种，自动补充分类规则。
-    """
-    import os, sys, re, sqlite3
-    breed = req.breed.strip()
-    if not breed:
-        return {"ok": False, "message": "breed 不能为空"}
-
-    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
-    _rule_re = re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', re.MULTILINE)
-
-    # 1. 从 rules_vec.db 读取
-    if os.path.exists(rules_db):
-        conn = sqlite3.connect(rules_db)
-        c = conn.cursor()
-        c.execute("SELECT category, source FROM breed_category_rules WHERE breed=?", (breed,))
-        row = c.fetchone()
-        conn.close()
-        if row:
-            return {"ok": True, "mode": "cached", "breed": breed,
-                    "category": row[0], "source": f"db({row[1]})",
-                    "message": "数据库已有规则"}
-
-    # 2. 从 classify/rules/ 读取（兼容旧文件，写入 DB 持久化）
-    rules_dir = os.path.join(ETL_CMD_DIR, "classify", "rules")
-    for fname in ["keyword.py", "breed.py"]:
-        fpath = os.path.join(rules_dir, fname)
-        if os.path.exists(fpath):
-            with open(fpath) as f:
-                content = f.read()
-            for m in _rule_re.finditer(content):
-                kw, cat = m.group(1), m.group(2)
-                if kw in breed or breed in kw:
-                    try:
-                        conn = sqlite3.connect(rules_db)
-                        c = conn.cursor()
-                        c.execute(
-                            "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
-                            (breed, cat, "rules_migrated", note)
-                        )
-                        conn.commit()
-                        conn.close()
-                    except Exception:
-                        pass
-                    return {"ok": True, "mode": "cached", "breed": breed,
-                            "category": cat, "source": "local",
-                            "message": f"本地已有规则({fname})"}
-
-    # 3. 调用 AI
-    ai_result = _call_classify_llm(breed)
-    if not ai_result.get("ok"):
-        return ai_result
-
-    category = ai_result.get("category", "")
-    confidence = ai_result.get("confidence", 0)
-    note = ai_result.get("note", "")
-    if not category:
-        return {"ok": False, "message": "AI 未返回分类"}
-
-    # 4. 写入 rules_vec.db
-    try:
-        conn = sqlite3.connect(rules_db)
-        c = conn.cursor()
-        c.execute(
-            "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
-            (breed, category, "ai", note)
-        )
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        return {"ok": False, "message": f"写入数据库失败: {e}"}
-
-    return {
-        "ok": True, "mode": "written", "breed": breed,
-        "category": category, "confidence": confidence, "note": note,
-        "source": "ai", "message": "已写入数据库",
-    }
-
-
 @router.post("/api/stats/spec-quality/classify-breed-batch")
 def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
     """
@@ -1992,61 +1907,11 @@ def test_breed_category_rule(req: dict = Body(...)):
         return {"hit": False, "score": 0, "category": "", "error": str(e)}
 
 
-def _call_classify_llm(breed: str) -> dict:
-    """调用 OpenClaw LLM 推断品种分类"""
-    import urllib.request, urllib.error, http.client
-    token = ""
-    try:
-        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-            d = json.load(f)
-            token = d.get("gateway", {}).get("auth", {}).get("token", "")
-    except Exception:
-        return {"ok": False, "message": "无法读取 OpenClaw token"}
-
-    prompt = classify_breed_prompt_fn(breed)
-    system_msg = PROMPTS.get("classify_breed", {}).get("system", "")
-
-    body = json.dumps({
-        "model": "openclaw",
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": prompt},
-        ],
-        "user": "classify-agent",
-        "max_tokens": 256,
-        "temperature": 0.1,
-    }).encode("utf-8")
-
-    try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=60)
-        c.request("POST", "/v1/chat/completions", body=body, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Content-Length": str(len(body)),
-        })
-        resp = c.getresponse()
-        data = json.loads(resp.read())
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not content:
-            return {"ok": False, "message": "AI 返回空内容"}
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
-                content = content[4:]
-        result = json.loads(content)
-        return result
-    except urllib.error.URLError as e:
-        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
-    except json.JSONDecodeError as e:
         return {"ok": False, "message": f"AI 返回格式错误: {e}"}
     except Exception as e:
         return {"ok": False, "message": f"AI 分析异常: {e}"}
 
 
-class ClassifyBreedRequest(BaseModel):
-    breed: str
-    city: str = "xian"
 
 
 class ClassifyBreedBatchRequest(BaseModel):
