@@ -28,7 +28,7 @@ except ImportError:
     print("请安装依赖: pip3 install requests pyyaml")
     sys.exit(1)
 
-from classify import classify_breed, get_all_categories, CAT_ID_MAP, _fetch_ai_category, _fetch_ai_category_batch
+from classify import classify_breed, get_all_categories, CAT_ID_MAP, _fetch_ai_category_batch
 from parse_spec import parse_spec, get_parser
 from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price

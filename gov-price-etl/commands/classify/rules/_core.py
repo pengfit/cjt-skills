@@ -10,16 +10,6 @@ except ImportError:
 _ai_cache = {}
 
 
-def _fetch_ai_category(breed_clean: str, city: str) -> str:
-    """调 AI 补充分类（带内存缓存，同一 breed 只查一次）"""
-    if breed_clean in _ai_cache:
-        return _ai_cache[breed_clean]
-    # 调批量 API（单条）
-    result = _fetch_ai_category_batch([breed_clean], city)
-    cat = result.get(breed_clean, "其他")
-    _ai_cache[breed_clean] = cat
-    return cat
-
 
 def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
     """批量查询 AI 分类，返回 {breed: category}（带内存缓存 + DB 直查）"""
@@ -80,18 +70,7 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     except Exception:
         pass
 
-    # 2. AI fallback（仅在 Jaccard 未命中时触发）
-    if city:
-        cat = _fetch_ai_category(breed_val, city)
-        # 反向写入 rules_vec.db，供下次召回
-        try:
-            from jaccard import insert_breed_rule
-            insert_breed_rule(breed_val, cat, source="ai")
-        except Exception:
-            pass
-        return cat
-
-    return "其他"
+    return "其他"  # AI fallback 改为 ETL 批量处理
 
 
 def get_all_categories() -> list:
