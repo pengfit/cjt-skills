@@ -80,16 +80,15 @@
               <th>分类</th>
               <th>来源</th>
               <th>备注</th>
-              <th>Jaccard</th>
               <th>添加时间</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="6" class="bcr-empty">加载中...</td>
+              <td colspan="5" class="bcr-empty">加载中...</td>
             </tr>
             <tr v-else-if="!rules.length">
-              <td colspan="6" class="bcr-empty">暂无规则</td>
+              <td colspan="5" class="bcr-empty">暂无规则</td>
             </tr>
             <tr v-else v-for="r in rules" :key="r.id" class="bcr-row">
               <td><span class="bcr-breed">{{ r.breed }}</span></td>
@@ -98,7 +97,6 @@
                 <span class="bcr-src" :class="`src-${r.source}`">{{ srcLabel(r.source) }}</span>
               </td>
               <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
-              <td class="bcr-jac">{{ r.jaccard_cache != null ? r.jaccard_cache.toFixed(3) : '—' }}</td>
               <td class="bcr-date">{{ formatDate(r.created_at) }}</td>
             </tr>
           </tbody>
@@ -294,7 +292,6 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 .src-rules_migrated { background: rgba(56,189,248,0.1); color: #38bdf8; }
 .src-manual { background: rgba(52,211,153,0.1); color: #34d399; }
 .bcr-note { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b; font-size: 12px; }
-.bcr-jac { color: #6366f1; font-size: 12px; font-family: 'SF Mono', monospace; }
 .bcr-date { color: #64748b; font-size: 12px; white-space: nowrap; }
 
 /* Pagination */
