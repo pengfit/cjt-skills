@@ -1080,13 +1080,13 @@ def stats_rules_vector(
         params.extend([s, s, s])
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
-    c.execute(f"SELECT COUNT(*) FROM rule_vectors WHERE {where_sql}", params)
+    c.execute(f"SELECT COUNT(*) FROM breed_spec_rules WHERE {where_sql}", params)
     total = c.fetchone()[0]
 
     offset = (page - 1) * page_size
     c.execute(
         f"SELECT id, pattern, attr, note, code, breed, category, tokens, created_at "
-        f"FROM rule_vectors WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
+        f"FROM breed_spec_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
     rows = c.fetchall()
@@ -1108,14 +1108,14 @@ def stats_rules_vector(
 
     conn2 = sqlite3.connect(db_path)
     c2 = conn2.cursor()
-    c2.execute("SELECT attr, COUNT(*) FROM rule_vectors GROUP BY attr ORDER BY attr")
+    c2.execute("SELECT attr, COUNT(*) FROM breed_spec_rules GROUP BY attr ORDER BY attr")
     attr_options = [{"key": row[0], "count": row[1]} for row in c2.fetchall()]
     conn2.close()
 
     # Category 列表（用于下拉）
     conn3 = sqlite3.connect(db_path)
     c3 = conn3.cursor()
-    c3.execute("SELECT category, COUNT(*) FROM rule_vectors GROUP BY category ORDER BY category")
+    c3.execute("SELECT category, COUNT(*) FROM breed_spec_rules GROUP BY category ORDER BY category")
     category_options = [{"key": row[0] or "（空）", "label": row[0] or "（空）", "count": row[1]} for row in c3.fetchall()]
     conn3.close()
 
@@ -1666,38 +1666,55 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
 @router.post("/api/stats/spec-quality/classify-breed")
 def classify_breed_ai(req: ClassifyBreedRequest = Body(...)):
     """
-    输入品种名（breed），AI 推断分类并自动写入 classify/rules/keyword.py。
+    输入品种名（breed），AI 推断分类并写入 rules_vec.db 的 breed_category_rules 表。
     用于 ETL 清洗时规则未命中的品种，自动补充分类规则。
     """
-    import os, sys
+    import os, sys, re, sqlite3
     breed = req.breed.strip()
     if not breed:
         return {"ok": False, "message": "breed 不能为空"}
 
-    # 先尝试从本地 rules/ 读取规则（无需 import classify）
-    rules_dir = os.path.join(ETL_CMD_DIR, "classify", "rules")
-    keyword_file = os.path.join(rules_dir, "keyword.py")
-    _rule_re = __import__("re").compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', __import__("re").MULTILINE)
-    try:
-        with open(keyword_file) as f:
-            content = f.read()
-        for m in _rule_re.finditer(content):
-            kw, cat = m.group(1), m.group(2)
-            if kw in breed or breed in kw:
-                return {"ok": True, "mode": "cached", "breed": breed,
-                        "category": cat, "source": "local", "message": "本地已有规则"}
-        breed_file = os.path.join(rules_dir, "breed.py")
-        with open(breed_file) as f:
-            content = f.read()
-        for m in _rule_re.finditer(content):
-            kw, cat = m.group(1), m.group(2)
-            if kw in breed or breed in kw:
-                return {"ok": True, "mode": "cached", "breed": breed,
-                        "category": cat, "source": "local", "message": "本地已有规则"}
-    except FileNotFoundError:
-        pass
+    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    _rule_re = re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', re.MULTILINE)
 
-    # 本地无规则，调用 AI
+    # 1. 从 rules_vec.db 读取
+    if os.path.exists(rules_db):
+        conn = sqlite3.connect(rules_db)
+        c = conn.cursor()
+        c.execute("SELECT category, source FROM breed_category_rules WHERE breed=?", (breed,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return {"ok": True, "mode": "cached", "breed": breed,
+                    "category": row[0], "source": f"db({row[1]})",
+                    "message": "数据库已有规则"}
+
+    # 2. 从 classify/rules/ 读取（兼容旧文件，写入 DB 持久化）
+    rules_dir = os.path.join(ETL_CMD_DIR, "classify", "rules")
+    for fname in ["keyword.py", "breed.py"]:
+        fpath = os.path.join(rules_dir, fname)
+        if os.path.exists(fpath):
+            with open(fpath) as f:
+                content = f.read()
+            for m in _rule_re.finditer(content):
+                kw, cat = m.group(1), m.group(2)
+                if kw in breed or breed in kw:
+                    try:
+                        conn = sqlite3.connect(rules_db)
+                        c = conn.cursor()
+                        c.execute(
+                            "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
+                            (breed, cat, "rules_migrated", note)
+                        )
+                        conn.commit()
+                        conn.close()
+                    except Exception:
+                        pass
+                    return {"ok": True, "mode": "cached", "breed": breed,
+                            "category": cat, "source": "local",
+                            "message": f"本地已有规则({fname})"}
+
+    # 3. 调用 AI
     ai_result = _call_classify_llm(breed)
     if not ai_result.get("ok"):
         return ai_result
@@ -1708,47 +1725,132 @@ def classify_breed_ai(req: ClassifyBreedRequest = Body(...)):
     if not category:
         return {"ok": False, "message": "AI 未返回分类"}
 
-    # 写入 keyword.py（带文件锁防止多进程并发写入重复规则）
-    import fcntl
-    lock_file = keyword_file + ".lock"
-    new_rule = f'# {note}\n"{breed}" → "{category}"\n'
+    # 4. 写入 rules_vec.db
     try:
-        with open(lock_file, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            try:
-                # 检查是否已有该规则
-                with open(keyword_file) as f:
-                    existing = f.read()
-                # 去重：如果 breed 或其包含关系已存在则跳过
-                skip = False
-                for m in _rule_re.finditer(existing):
-                    kw, cat = m.group(1), m.group(2)
-                    if kw in breed or breed in kw:
-                        skip = True
-                        break
-                if not skip:
-                    with open(keyword_file, "a") as f:
-                        f.write(new_rule)
-                    written = True
-                else:
-                    written = False
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        conn = sqlite3.connect(rules_db)
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
+            (breed, category, "ai", note)
+        )
+        conn.commit()
+        conn.close()
     except Exception as e:
-        return {"ok": False, "message": f"写入规则失败: {e}"}
+        return {"ok": False, "message": f"写入数据库失败: {e}"}
 
-    if written:
-        return {
-            "ok": True, "mode": "written", "breed": breed,
-            "category": category, "confidence": confidence, "note": note,
-            "source": "ai", "message": f"已写入 {keyword_file}",
+    return {
+        "ok": True, "mode": "written", "breed": breed,
+        "category": category, "confidence": confidence, "note": note,
+        "source": "ai", "message": "已写入数据库",
+    }
+
+
+@router.get("/api/stats/breed-category-rules")
+def list_breed_category_rules(
+    keyword: str = "",
+    source: str = "",
+    page: int = 1,
+    page_size: int = 50,
+):
+    """分页查看 breed_category_rules"""
+    import sqlite3
+    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    if not os.path.exists(rules_db):
+        return {"rules": [], "total": 0, "page": page, "page_size": page_size}
+
+    conn = sqlite3.connect(rules_db)
+    c = conn.cursor()
+
+    where = []
+    params = []
+    if keyword:
+        where.append("breed LIKE ?")
+        params.append(f"%{keyword}%")
+    if source:
+        where.append("source = ?")
+        params.append(source)
+
+    where_sql = " AND ".join(where) if where else "1=1"
+    c.execute(f"SELECT COUNT(*) FROM breed_category_rules WHERE {where_sql}", params)
+    total = c.fetchone()[0]
+
+    offset = (page - 1) * page_size
+    c.execute(
+        f"SELECT id, breed, category, source, note, jaccard_cache, created_at FROM breed_category_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
+        params + [page_size, offset]
+    )
+    rows = c.fetchall()
+    conn.close()
+
+    rules = [
+        {
+            "id": r[0], "breed": r[1], "category": r[2], "source": r[3],
+            "note": r[4] or "", "jaccard_cache": r[5], "created_at": r[6],
         }
-    else:
-        return {
-            "ok": True, "mode": "skipped", "breed": breed,
-            "category": category, "confidence": confidence, "note": note,
-            "source": "ai", "message": "规则已存在，跳过写入",
-        }
+        for r in rows
+    ]
+    return {"rules": rules, "total": total, "page": page, "page_size": page_size}
+
+
+@router.post("/api/stats/breed-category-rules")
+def create_breed_category_rule(req: dict = Body(...)):
+    """手动添加 breed→category 规则"""
+    import sqlite3
+    breed = (req.get("breed") or "").strip()
+    category = (req.get("category") or "").strip()
+    note = (req.get("note") or "").strip()
+    source = req.get("source", "manual") or "manual"
+
+    if not breed or not category:
+        return {"ok": False, "message": "breed 和 category 不能为空"}
+
+    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    try:
+        conn = sqlite3.connect(rules_db)
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR REPLACE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
+            (breed, category, source, note)
+        )
+        conn.commit()
+        rule_id = c.lastrowid
+        conn.close()
+        return {"ok": True, "id": rule_id, "message": "规则已保存"}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+
+@router.delete("/api/stats/breed-category-rules/{rule_id}")
+def delete_breed_category_rule(rule_id: int):
+    """删除指定规则"""
+    import sqlite3
+    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    try:
+        conn = sqlite3.connect(rules_db)
+        c = conn.cursor()
+        c.execute("DELETE FROM breed_category_rules WHERE id=?", (rule_id,))
+        conn.commit()
+        affected = c.rowcount
+        conn.close()
+        return {"ok": affected > 0, "message": "已删除" if affected else "未找到"}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+
+@router.post("/api/stats/breed-category-rules/test")
+def test_breed_category_rule(req: dict = Body(...)):
+    """测试品种名 Jaccard 召回"""
+    import sys, os as os_module
+    sys.path.insert(0, ETL_CMD_DIR)
+    try:
+        from breed_category import jaccard_breed_classify
+        breed = (req.get("breed") or "").strip()
+        if not breed:
+            return {"hit": False, "score": 0, "category": ""}
+        cat = jaccard_breed_classify(breed)
+        return {"hit": bool(cat), "score": 0, "category": cat}
+    except Exception as e:
+        return {"hit": False, "score": 0, "category": "", "error": str(e)}
 
 
 def _call_classify_llm(breed: str) -> dict:

@@ -22,6 +22,7 @@
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'">类别分析</button>
         <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'">数据清洗</button>
         <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'">规格规则库</button>
+        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'">分类规则库</button>
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
@@ -377,6 +378,10 @@
     <template v-if="curTab === 'rules'">
       <VecRulesView />
     </template>
+
+    <template v-if="curTab === 'breedcat'">
+      <BreedCategoryRulesView />
+    </template>
   </div>
 
   <!-- Toast -->
@@ -391,6 +396,7 @@ import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
 import DataProvenanceView from './components/DataProvenanceView.vue'
 import VecRulesView from './components/VecRulesView.vue'
+import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 

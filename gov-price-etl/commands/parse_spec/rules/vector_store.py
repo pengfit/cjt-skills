@@ -42,7 +42,7 @@ def _keyword_score(spec_tokens: set, rule_tokens: frozenset | set) -> float:
 # ── SQLite schema ─────────────────────────────────────────────────────────────
 
 CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS rule_vectors (
+CREATE TABLE IF NOT EXISTS breed_spec_rules (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     pattern     TEXT    NOT NULL UNIQUE,
     attr        TEXT    NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS rule_vectors (
 """
 
 ENSURE_COLS = """
-PRAGMA table_info(rule_vectors)
+PRAGMA table_info(breed_spec_rules)
 """
 
 
@@ -70,7 +70,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         ("tokens",   "TEXT DEFAULT '[]'"),
     ]:
         if col not in cols:
-            conn.execute(f"ALTER TABLE rule_vectors ADD COLUMN {col} {dtype}")
+            conn.execute(f"ALTER TABLE breed_spec_rules ADD COLUMN {col} {dtype}")
 
 
 # ── VecStore ────────────────────────────────────────────────────────────────
@@ -160,14 +160,14 @@ class VecStore:
             _ensure_schema(conn)
             if skip_duplicate:
                 exists = conn.execute(
-                    "SELECT 1 FROM rule_vectors WHERE pattern=? AND attr=? AND breed=? AND category=?",
+                    "SELECT 1 FROM breed_spec_rules WHERE pattern=? AND attr=? AND breed=? AND category=?",
                     (norm_pat, attr, breed or "", category or "")
                 ).fetchone()
                 if exists:
                     conn.close()
                     return False
             conn.execute("""
-                INSERT INTO rule_vectors (pattern, attr, note, code, breed, category, tokens)
+                INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (norm_pat, attr, note, code, breed, category, tok_json))
             conn.commit()
@@ -199,13 +199,13 @@ class VecStore:
             if attr_filter:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors WHERE attr=? AND category=? AND (breed='' OR breed=?)",
+                    "FROM breed_spec_rules WHERE attr=? AND category=? AND (breed='' OR breed=?)",
                     (attr_filter, category, breed)
                 ).fetchall()
             else:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors WHERE category=? AND (breed='' OR breed=?)",
+                    "FROM breed_spec_rules WHERE category=? AND (breed='' OR breed=?)",
                     (category, breed)
                 ).fetchall()
             conn.close()
@@ -241,7 +241,7 @@ class VecStore:
             conn = sqlite3.connect(self.db_path)
             rows = conn.execute(
                 "SELECT pattern, attr, note, code, breed, category, tokens "
-                "FROM rule_vectors WHERE attr=? AND pattern=?",
+                "FROM breed_spec_rules WHERE attr=? AND pattern=?",
                 (attr, norm_pat)
             ).fetchall()
             conn.close()
@@ -256,7 +256,7 @@ class VecStore:
         count = 0
         with self._lock:
             conn = sqlite3.connect(self.db_path)
-            conn.execute("DELETE FROM rule_vectors")
+            conn.execute("DELETE FROM breed_spec_rules")
             conn.commit()
 
         for py_file in glob.glob(os.path.join(rules_dir, "*.py")):
@@ -319,13 +319,13 @@ class VecStore:
             if attr:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors WHERE attr=? LIMIT ?",
+                    "FROM breed_spec_rules WHERE attr=? LIMIT ?",
                     (attr, limit)
                 ).fetchall()
             else:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM rule_vectors LIMIT ?",
+                    "FROM breed_spec_rules LIMIT ?",
                     (limit,)
                 ).fetchall()
             conn.close()
@@ -334,7 +334,7 @@ class VecStore:
     def clear(self) -> None:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
-            conn.execute("DELETE FROM rule_vectors")
+            conn.execute("DELETE FROM breed_spec_rules")
             conn.commit()
             conn.close()
 
