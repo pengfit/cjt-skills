@@ -34,12 +34,6 @@
             @input="debounceLoad(1)"
           />
         </div>
-        <select class="bcr-select" v-model="sourceFilter" @change="loadRules(1)">
-          <option value="">全部来源</option>
-          <option value="ai">AI 推断</option>
-          <option value="rules_migrated">规则迁移</option>
-          <option value="manual">手动添加</option>
-        </select>
         <CustomSelect
           v-model="categoryFilter"
           :options="categoryOptions.map(c => ({ key: c, label: c }))"
@@ -158,7 +152,6 @@ import CustomSelect from './CustomSelect.vue'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 const keyword = ref('')
-const sourceFilter = ref('')
 const categoryFilter = ref('')
 const categoryOptions = ref([])
 const rules = ref([])
@@ -200,7 +193,6 @@ async function loadRules(p = 1) {
   try {
     const params = { page: p, page_size: pageSize.value }
     if (keyword.value.trim()) params.keyword = keyword.value.trim()
-    if (sourceFilter.value) params.source = sourceFilter.value
     if (categoryFilter.value) params.category_filter = categoryFilter.value
     const { data } = await axios.get(`${API}/stats/breed-category-rules`, { params })
     rules.value = data.rules || []
