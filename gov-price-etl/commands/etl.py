@@ -28,7 +28,7 @@ except ImportError:
     print("请安装依赖: pip3 install requests pyyaml")
     sys.exit(1)
 
-from classify import classify_breed, get_all_categories, CAT_ID_MAP, _fetch_ai_category_batch
+from classify import classify_breed, get_all_categories, CAT_ID_MAP, _fetch_ai_category_batch, _query_breed_rules_db
 from parse_spec import parse_spec, get_parser
 from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price
@@ -569,7 +569,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
                 # category == "其他" 时先查 DB（rules_vec.db），命中则直接用，不加入 ai_pending
                 if doc["category"] == "其他":
                     # 用批量接口查 DB（不走 AI）
-                    cats = _fetch_ai_category_batch([doc["breed_clean"]], city)
+                    cats = _query_breed_rules_db([doc["breed_clean"]])
                     cat = cats.get(doc["breed_clean"], "其他")
                     if cat != "其他":
                         doc["category"] = cat
