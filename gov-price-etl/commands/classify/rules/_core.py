@@ -22,19 +22,31 @@ def _fetch_ai_category(breed_clean: str, city: str) -> str:
 
 
 def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
-    """批量查询 AI 分类，返回 {breed: category}（带内存缓存）"""
+    """批量查询 AI 分类，返回 {breed: category}（带内存缓存 + DB 直查）"""
     if not breeds:
         return {}
-    import http.client, json as _json
-    # 先从缓存补齐
+    import sqlite3, http.client, json as _json
+    rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
+    # ── Step 1: DB 直查（不走 API）──
+    db_cached = {}
+    if os.path.exists(rules_db):
+        conn = sqlite3.connect(rules_db)
+        c = conn.cursor()
+        placeholders = ",".join("?" for _ in breeds)
+        c.execute(f"SELECT breed, category FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
+        for row in c.fetchall():
+            db_cached[row[0]] = row[1]
+            _ai_cache[row[0]] = row[1]
+        conn.close()
+    # ── Step 2: 未命中品种调 API ──
     uncached = [b for b in breeds if b not in _ai_cache]
     if uncached:
         try:
             body = _json.dumps({"breeds": uncached, "city": city}).encode("utf-8")
-            c = http.client.HTTPConnection("localhost", 5200, timeout=120)
-            c.request("POST", "/api/stats/spec-quality/classify-breed-batch", body=body,
+            conn = http.client.HTTPConnection("localhost", 5200, timeout=120)
+            conn.request("POST", "/api/stats/spec-quality/classify-breed-batch", body=body,
                       headers={"Content-Type": "application/json"})
-            resp = c.getresponse()
+            resp = conn.getresponse()
             data = _json.loads(resp.read())
             if data.get("ok"):
                 for breed, r in data.get("results", {}).items():
