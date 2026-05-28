@@ -1199,7 +1199,7 @@ def refresh_category(
         body = {
             "query": {"term": {"category": category}},
             "size": 500,
-            "sort": [{"update_date": "asc"}],
+            "sort": [{"etl_time": "asc"}],
         }
 
         resp = es.search(index=dwd_idx, body=body)
@@ -1232,15 +1232,15 @@ def refresh_category(
         _process_batch(hits)
         processed = len(hits)
 
-        # 分页：ES max_result_window=10000，翻页直到全部处理完
-        while processed < total and processed < 10000:
+        # 分页：ES max_result_window=10000，用 search_after 翻页直到全部处理完
+        while processed < total:
             last_hit = hits[-1]
-            search_after = last_hit.get("_sort") or [last_hit["_source"].get("update_date", "")]
+            search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
                 "query": {"term": {"category": category}},
                 "size": 500,
                 "search_after": search_after,
-                "sort": [{"_doc": "asc"}],
+                "sort": [{"etl_time": "asc"}],
             }
             try:
                 resp_page = es.search(index=dwd_idx, body=body_page)
@@ -1256,7 +1256,7 @@ def refresh_category(
         # 清洗完成后自动同步 DWD→DWS
         sys.path.insert(0, ETL_CMD_DIR)
         from etl import flush_to_dws as _flush_to_dws
-        flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx})
+        flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx}, category=category)
 
 
         return {
@@ -1289,38 +1289,6 @@ class FixCaseRequest(BaseModel):
 
 
 
-def _auto_expand_rule(pattern: str, attr: str, code: str,
-                       category: str, breed: str = "", note: str = "") -> int:
-    """
-    确保 pattern+attr+category 下存在 breed='' 的通用兜底规则。
-    逻辑：
-      1. 用原始 pattern 查找是否已有 breed='' → 有则跳过
-      2. 无则写入 breed='' 通用规则
-    """
-    if not get_vec_store:
-        return 0
-    vs = get_vec_store()
-
-    # 检查 breed='' 是否已存在
-    with vs._lock:
-        conn = sqlite3.connect(vs.db_path)
-        row = conn.execute(
-            """SELECT id FROM rule_vectors
-               WHERE pattern=? AND attr=? AND category=? AND breed=''""",
-            (pattern, attr, category)
-        ).fetchone()
-        conn.close()
-
-    # 不存在则写入（insert 内部已加锁，不得在外层重复加锁）
-    if row is None:
-        ok = vs.insert(
-            pattern=pattern, attr=attr, note=f"通用 ({note})",
-            code=code, breed="", category=category, skip_duplicate=True,
-        )
-        return 1 if ok else 0
-    return 0
-
-
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
@@ -1328,12 +1296,13 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
+            vs = get_vec_store()
             if pattern and attr:
-                added = _auto_expand_rule(pattern, attr, code, category or "", breed or "", note or "")
-                if added:
-                    import logging
-                    _log2 = logging.getLogger()
-                    _log2.info("auto-expand: added %d rules for pattern=%s attr=%s", added, pattern, attr)
+                vs.insert(
+                    pattern=pattern, attr=attr, note=note or "",
+                    code=code, breed=breed or "", category=category or "",
+                    skip_duplicate=True,
+                )
             return "new"
         except Exception as e:
             import logging

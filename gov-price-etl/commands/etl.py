@@ -419,7 +419,7 @@ def _build_attr(doc: dict) -> dict:
     return attr
 
 
-def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> tuple:
+def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, category: str = "") -> tuple:
     """
     同步 DWD → DWS。
 
@@ -427,9 +427,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
       1. needs_spec_parse = False
       2. 至少有一个细分字段（ATTR_FIELDS）非空
 
-    同步到 DWS 时：
-      - DWD 的扁平细分字段 → DWS 的 attr nested 字段
-      - 重新计算 etl_time（DWS 层时间戳）
+    category 不为空时只同步该分类。
 
     返回 (成功数, 失败数)。
     """
@@ -457,7 +455,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500) -> t
                 "must": [
                     {"term": {"needs_spec_parse": False}},
                     {"bool": {"should": attr_should_clauses, "minimum_should_match": 1}},
-                ]
+                ] + ([{"term": {"category": category}}] if category else [])
             }
         },
         "size": batch_size,
