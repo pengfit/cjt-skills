@@ -141,7 +141,7 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
 </script>
 
 <style scoped>
-.cs-wrapper { position: relative; width: 100%; }
+.cs-wrapper { position: relative; width: 100%; min-width: 160px; }
 
 .cs-trigger {
   display: flex;
@@ -156,6 +156,7 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
   min-height: 36px;
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
 }
 
 .cs-trigger:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
@@ -171,13 +172,14 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
 .cs-dropdown {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0; right: 0;
+  left: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   z-index: 1000;
   overflow: hidden;
+  width: 100%;
   min-width: 100%;
 }
 

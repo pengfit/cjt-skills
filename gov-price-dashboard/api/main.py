@@ -6,8 +6,8 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
-ES_INDEX = os.environ.get("ES_INDEX", "dws_xian_price")
-ALL_INDICES = "dws_xian_price"
+ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
+ALL_INDICES = "dwd_xian_price"
 
 app = FastAPI(title="gov-price-dashboard API", version="1.0.0")
 
@@ -481,6 +481,56 @@ def stats_categories(size: int = Query(100, ge=1, le=500)):
                 for b in buckets
             ]
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats/breed-category-rules")
+def stats_breed_category_rules(
+    distinct_categories: int = Query(0, ge=0, le=1),
+    breed_size: int = Query(500, ge=1, le=5000),
+    category_size: int = Query(100, ge=1, le=500),
+):
+    """返回全量 breed 及其归属分类，用于分类规则库下拉列表
+    - distinct_categories=1: 只返回归属于单一分类的 breed
+    """
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "breeds": {
+                    "terms": {"field": "breed.keyword", "size": breed_size},
+                    "aggs": {
+                        "categories": {
+                            "terms": {"field": "category.keyword", "size": category_size}
+                        }
+                    }
+                }
+            }
+        }
+        result = es.search(index=ALL_INDICES, body=body)
+        buckets = result["aggregations"]["breeds"]["buckets"]
+
+        items = []
+        for b in buckets:
+            cats = b["categories"]["buckets"]
+            cat_count = len(cats)
+            # 取文档数最多的分类作为主分类
+            primary_cat = cats[0]["key"] if cats else "其他"
+            item = {
+                "breed": b["key"],
+                "category": primary_cat,
+                "category_count": cat_count,
+                "doc_count": b["doc_count"],
+                "categories": [c["key"] for c in cats],
+            }
+            if distinct_categories == 1:
+                if cat_count == 1:
+                    items.append(item)
+            else:
+                items.append(item)
+
+        return {"data": items}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

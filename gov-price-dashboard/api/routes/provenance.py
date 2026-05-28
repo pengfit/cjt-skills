@@ -740,27 +740,6 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 # ── Spec 解析质量 ─────────────────────────────────────────────
 ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
 
-# 从 classify/rules/ 动态获取分类列表（供 AI prompt 使用）
-try:
-    import sys as _sys
-    _sys.path.insert(0, ETL_CMD_DIR)
-    # 先尝试从 rules_vec.db 读取（breed_category_rules 表）
-    import sqlite3 as _sqlite3
-    import os as _os
-    _rules_db = _os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
-    if _os.path.exists(_rules_db):
-        _conn = _sqlite3.connect(_rules_db)
-        _cur = _conn.cursor()
-        _cur.execute("SELECT DISTINCT category FROM breed_category_rules WHERE category != '' ORDER BY category")
-        _ALL_CATS = [r[0] for r in _cur.fetchall()]
-        _conn.close()
-    else:
-        _ALL_CATS = []
-    CLASSIFICATIONS_STR = "\n".join(f"{i+1}. {c}" for i, c in enumerate(_ALL_CATS))
-except Exception:
-    _ALL_CATS = []
-    CLASSIFICATIONS_STR = ""
-
 # 从 parse_spec/rules/_attrs.py 动态加载属性描述
 try:
     import re as _re
@@ -822,21 +801,15 @@ def fix_case_prompt_fn(spec, breed="", category="", expected=None):
         return "\n".join(l for l in lines if l)
 
 
-    try:
-        return tmpl.format(breed=breed, classifications=CLASSIFICATIONS_STR)
-    except (KeyError, ValueError):
-        return f"品种名称：{breed}\n分类列表：{CLASSIFICATIONS_STR}"
-
-
 def classify_breed_batch_prompt_fn(breeds: list[str]) -> str:
     """生成 classify-breed-batch API 的 user content"""
     prompts_cfg = PROMPTS.get("classify_breed_batch", {})
     tmpl = prompts_cfg.get("template", "")
     breeds_str = "\n".join(f"{i+1}. {b}" for i, b in enumerate(breeds))
     try:
-        return tmpl.format(breeds=breeds_str, classifications=CLASSIFICATIONS_STR)
+        return tmpl.format(breeds=breeds_str)
     except (KeyError, ValueError):
-        return f"品种列表：\n{breeds_str}\n\n参考分类列表：\n{CLASSIFICATIONS_STR}"
+        return f"品种列表：\n{breeds_str}\n\n参考分类列表：\n"
 
 
 def _run_spec_validation(city="xian"):
@@ -1813,11 +1786,13 @@ def list_breed_category_rules(
     keyword: str = "",
     source: str = "",
     category_filter: str = "",
+    distinct_categories: int = 0,
     page: int = 1,
     page_size: int = 50,
-    request: Request = None,
 ):
-    """分页查看 breed_category_rules"""
+    """分页查看 breed_category_rules
+    - distinct_categories=1: 返回所有分类列表（用于下拉）
+    """
     import sqlite3
     rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
     if not os.path.exists(rules_db):
@@ -1839,8 +1814,7 @@ def list_breed_category_rules(
         params.append(category_filter)
 
     where_sql = " AND ".join(where) if where else "1=1"
-    distinct = request.query_params.get("distinct_categories") if request else None
-    if distinct:
+    if distinct_categories:
         c.execute("SELECT DISTINCT category FROM breed_category_rules WHERE category != '' ORDER BY category")
         rows = c.fetchall()
         conn.close()
