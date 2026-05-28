@@ -131,6 +131,8 @@ const loading = ref(false)
 const testMode = ref(false)
 const testBreed = ref('')
 
+const srcLabels = { ai: 'AI', rules_migrated: '迁移', manual: '手动' }
+function srcLabel(s) { return srcLabels[s] || s }
 
 const pages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 
