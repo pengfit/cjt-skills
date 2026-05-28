@@ -44,8 +44,7 @@
             <span class="vec-help-key">数据源</span>
             <span class="vec-help-val">
               <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite）<br/>
-              <code>rules/*.py</code> 仅作备份/人工审查用<br/>
-              不再作为解析时的数据源
+              <code>rules/*.py</code> 仅作备份/人工审查用，不再作为解析时的数据源
             </span>
           </div>
           <div class="vec-help-item">
@@ -87,7 +86,8 @@
             <span class="vec-help-val">
               Jaccard = |spec_tokens ∩ rule_tokens| / union<br/>
               score &lt; 0.001 → 丢弃（不降级）<br/>
-              同 attr+pattern 去重保留最高分
+              同 attr+pattern 去重保留最高分<br/>
+              <strong>品种分类</strong>阈值 0.35，规格解析阈值 0.001
             </span>
           </div>
         </div>
