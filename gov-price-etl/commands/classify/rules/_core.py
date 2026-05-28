@@ -1,24 +1,29 @@
 # classify/rules/_core.py - 核心分类函数（已重构为 Jaccard 召回 + AI fallback）
 import os, re, sys
 
+# ── 复用 VecStore 的持久连接（per-process 单例）──────────────────────────────
+from parse_spec.rules.vector_store import get_vec_store
+
+def _get_db_conn():
+    """Return the persistent sqlite3 connection from VecStore."""
+    return get_vec_store()._get_conn()
+
+# ── 提前初始化 import path（避免每条记录重复改 sys.path）────────────────────
 try:
     from . import CLASSIFICATIONS, RULES_DIR
 except ImportError:
     from classify.rules import CLASSIFICATIONS, RULES_DIR
 
+_JACCARD_LOADED = False
+def _ensure_jaccard():
+    global _JACCARD_LOADED
+    if not _JACCARD_LOADED:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _JACCARD_LOADED = True
+
 # 缓存
 _ai_cache = {}
 
-
-
-def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
-    """批量查询 AI 分类，返回 {breed: category}（带内存缓存 + DB 直查）"""
-    if not breeds:
-        return {}
-    import sqlite3, http.client, json as _json
-    rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
-    # ── Step 1: DB 直查（不走 API）──
-    db_cached = {}
 def _query_breed_rules_db(breeds: list[str]) -> dict:
     """仅查 rules_vec.db，不调 API，返回 {breed: category}"""
     if not breeds:
@@ -27,14 +32,13 @@ def _query_breed_rules_db(breeds: list[str]) -> dict:
     rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
     result = {}
     if os.path.exists(rules_db):
-        conn = sqlite3.connect(rules_db)
+        conn = _get_db_conn()
         c = conn.cursor()
         placeholders = ",".join("?" for _ in breeds)
         c.execute(f"SELECT breed, category FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
         for row in c.fetchall():
             result[row[0]] = row[1]
             _ai_cache[row[0]] = row[1]
-        conn.close()
     return result
 
 
@@ -66,18 +70,24 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     """
     breed → category 分类。
     流程：
-      1. Jaccard 召回（来自 jaccard.py）
-      2. 未命中 → AI 补充分类
-      3. AI 结果反向写入 rules_vec.db（下次直接命中）
+      1. 本地 DB 精确查 breed_category_rules（首查）
+      2. Jaccard 召回（来自 jaccard.py）
+      3. 未命中 → "其他"（AI 分类由 ETL 批量处理）
     """
     if not breed:
         return "其他"
 
     breed_val = breed.strip()
 
-    # 1. Jaccard 召回
+    # 1. 本地 DB 精确查
+    db_hit = _query_breed_rules_db([breed_val])
+    if db_hit.get(breed_val):
+        return db_hit[breed_val]
+
+
+    # 2. Jaccard 召回
     try:
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _ensure_jaccard()
         from jaccard import jaccard_breed_classify, insert_breed_rule
         cat = jaccard_breed_classify(breed_val)
         if cat:

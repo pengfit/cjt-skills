@@ -136,15 +136,23 @@ def _build_spec_tokens(spec: str) -> set:
 
 
 class VecStore:
-    __slots__ = ("db_path", "_lock")
+    __slots__ = ("db_path", "_lock", "_conn")
 
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
         self._lock = threading.Lock()
+        self._conn = None  # per-process persistent connection
         with self._lock:
             conn = sqlite3.connect(db_path)
             _ensure_schema(conn)
             conn.close()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Return the persistent connection, creating it if needed."""
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            _ensure_schema(self._conn)
+        return self._conn
 
     # ── CRUD ──────────────────────────────────────────────────────────────
 
@@ -156,7 +164,7 @@ class VecStore:
         tokens   = tokens or _build_tokens(norm_pat, attr, breed, category)
         tok_json = json.dumps(list(tokens))
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             _ensure_schema(conn)
             if skip_duplicate:
                 exists = conn.execute(
@@ -164,14 +172,12 @@ class VecStore:
                     (norm_pat, attr, breed or "", category or "")
                 ).fetchone()
                 if exists:
-                    conn.close()
                     return False
             conn.execute("""
                 INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (norm_pat, attr, note, code, breed, category, tok_json))
             conn.commit()
-            conn.close()
         return True
 
     def _row_to_rule(self, row: tuple) -> dict:
@@ -195,7 +201,7 @@ class VecStore:
         spec_tokens = _build_spec_tokens(spec or "") or set()
 
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             if attr_filter:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
@@ -208,7 +214,6 @@ class VecStore:
                     "FROM breed_spec_rules WHERE category=? AND (breed='' OR breed=?)",
                     (category, breed)
                 ).fetchall()
-            conn.close()
 
         results = []
         for row in rows:
@@ -238,13 +243,12 @@ class VecStore:
         """Exact dedup lookup by attr + pattern (pattern must be normalized)."""
         norm_pat = self._strip_r(pattern)
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             rows = conn.execute(
                 "SELECT pattern, attr, note, code, breed, category, tokens "
                 "FROM breed_spec_rules WHERE attr=? AND pattern=?",
                 (attr, norm_pat)
             ).fetchall()
-            conn.close()
         if rows:
             return self._row_to_rule(rows[0])
         return None
@@ -315,7 +319,7 @@ class VecStore:
     def list_rules(self, attr: str = "", limit: int = 100) -> list:
         """Return rule dicts, optionally filtered by attr."""
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             if attr:
                 rows = conn.execute(
                     "SELECT pattern, attr, note, code, breed, category, tokens "
@@ -328,7 +332,6 @@ class VecStore:
                     "FROM breed_spec_rules LIMIT ?",
                     (limit,)
                 ).fetchall()
-            conn.close()
         return [self._row_to_rule(r) for r in rows]
 
     def clear(self) -> None:

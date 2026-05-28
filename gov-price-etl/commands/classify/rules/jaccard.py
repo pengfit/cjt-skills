@@ -6,6 +6,15 @@ from functools import lru_cache
 RULES_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "parse_spec", "rules", "rules_vec.db")
 DEFAULT_THRESHOLD = 0.35
 
+# ── per-process 持久连接（复用 VecStore 的连接）──────────────────────────────
+_DB_CONN = None
+def _get_db_conn():
+    global _DB_CONN
+    if _DB_CONN is None:
+        from parse_spec.rules.vector_store import get_vec_store
+        _DB_CONN = get_vec_store()._get_conn()
+    return _DB_CONN
+
 
 def _ngrams(s: str, n: int = 2) -> frozenset:
     s = s.strip()
@@ -52,11 +61,10 @@ def _load_db_rules() -> list:
     """从 rules_vec.db 提取 breed 非空的规则"""
     if not os.path.exists(RULES_DB):
         return []
-    conn = sqlite3.connect(RULES_DB)
+    conn = _get_db_conn()
     c = conn.cursor()
     c.execute("SELECT DISTINCT breed, category FROM breed_category_rules WHERE breed != '' AND category != ''")
     rows = c.fetchall()
-    conn.close()
     return rows
 
 
@@ -99,12 +107,11 @@ def insert_breed_rule(breed: str, category: str, source: str = "ai", note: str =
         return
     if not os.path.exists(RULES_DB):
         return
-    conn = sqlite3.connect(RULES_DB)
+    conn = _get_db_conn()
     c = conn.cursor()
     c.execute(
         "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
         (breed, category, source, note)
     )
     conn.commit()
-    conn.close()
     jaccard_breed_classify.cache_clear()
