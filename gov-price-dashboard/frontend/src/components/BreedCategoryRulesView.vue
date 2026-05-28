@@ -11,14 +11,6 @@
           <span class="bcr-stat-val">{{ total.toLocaleString() }}</span>
           <span class="bcr-stat-key">规则总数</span>
         </div>
-        <div class="bcr-stat">
-          <span class="bcr-stat-val">{{ aiCount }}</span>
-          <span class="bcr-stat-key">AI 推断</span>
-        </div>
-        <div class="bcr-stat">
-          <span class="bcr-stat-val">{{ manualCount }}</span>
-          <span class="bcr-stat-key">手动</span>
-        </div>
       </div>
     </div>
 
@@ -138,11 +130,7 @@ const pageSize = ref(50)
 const loading = ref(false)
 const testMode = ref(false)
 const testBreed = ref('')
-const aiCount = ref(0)
-const manualCount = ref(0)
 
-const srcLabels = { ai: 'AI', rules_migrated: '迁移', manual: '手动' }
-function srcLabel(s) { return srcLabels[s] || s }
 
 const pages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 
@@ -172,8 +160,7 @@ async function loadRules(p = 1) {
     total.value = data.total || 0
     page.value = p
     // count ai vs manual
-    aiCount.value = rules.value.filter(r => r.source === 'ai').length
-    manualCount.value = rules.value.filter(r => r.source === 'manual').length
+
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
