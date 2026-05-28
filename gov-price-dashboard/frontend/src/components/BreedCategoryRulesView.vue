@@ -40,6 +40,10 @@
           <option value="rules_migrated">规则迁移</option>
           <option value="manual">手动添加</option>
         </select>
+        <select class="bcr-select" v-model="categoryFilter" @change="loadRules(1)">
+          <option value="">全部分类</option>
+          <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
+        </select>
       </div>
       <div class="bcr-toolbar-right">
         <button class="bcr-btn bcr-btn-ghost" @click="toggleAddMode">
@@ -151,6 +155,8 @@ const API = import.meta.env.VITE_API_URL || '/api'
 
 const keyword = ref('')
 const sourceFilter = ref('')
+const categoryFilter = ref('')
+const categoryOptions = ref([])
 const rules = ref([])
 const total = ref(0)
 const page = ref(1)
@@ -191,6 +197,7 @@ async function loadRules(p = 1) {
     const params = { page: p, page_size: pageSize.value }
     if (keyword.value.trim()) params.keyword = keyword.value.trim()
     if (sourceFilter.value) params.source = sourceFilter.value
+    if (categoryFilter.value) params.category_filter = categoryFilter.value
     const { data } = await axios.get(`${API}/stats/breed-category-rules`, { params })
     rules.value = data.rules || []
     total.value = data.total || 0
@@ -248,7 +255,14 @@ function formatDate(s) {
   return s.slice(0, 16).replace('T', ' ')
 }
 
-onMounted(() => loadRules(1))
+async function loadCategoryOptions() {
+  try {
+    const { data } = await axios.get(`${API}/stats/breed-category-rules`, { params: { distinct_categories: 1 } })
+    categoryOptions.value = data.categories || []
+  } catch (e) { console.error(e) }
+}
+
+onMounted(() => { loadRules(1); loadCategoryOptions() })
 </script>
 
 <style scoped>

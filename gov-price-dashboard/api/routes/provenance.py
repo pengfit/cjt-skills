@@ -1670,7 +1670,6 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
         return {"ok": False, "message": f"AI 分析异常: {e}"}
 
 
-@router.post("/api/stats/spec-quality/classify-breed")
 @router.post("/api/stats/spec-quality/classify-breed-batch")
 def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
     """
@@ -1803,8 +1802,10 @@ def _call_classify_batch_llm(breeds: list[str]) -> dict:
 def list_breed_category_rules(
     keyword: str = "",
     source: str = "",
+    category_filter: str = "",
     page: int = 1,
     page_size: int = 50,
+    request: Request = None,
 ):
     """分页查看 breed_category_rules"""
     import sqlite3
@@ -1823,8 +1824,19 @@ def list_breed_category_rules(
     if source:
         where.append("source = ?")
         params.append(source)
+    if category_filter:
+        where.append("category = ?")
+        params.append(category_filter)
 
     where_sql = " AND ".join(where) if where else "1=1"
+    distinct = request.query_params.get("distinct_categories")
+    if distinct:
+        c.execute("SELECT DISTINCT category FROM breed_category_rules WHERE category != '' ORDER BY category")
+        rows = c.fetchall()
+        conn.close()
+        return {"categories": [r[0] for r in rows]}
+
+
     c.execute(f"SELECT COUNT(*) FROM breed_category_rules WHERE {where_sql}", params)
     total = c.fetchone()[0]
 
