@@ -744,9 +744,19 @@ ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
 try:
     import sys as _sys
     _sys.path.insert(0, ETL_CMD_DIR)
-    from classify.rules import get_rules
-    _ALL_CATS = sorted(set(r["category"] for r in get_rules()))
-    CLASSIFICATIONS_STR = "\n".join(f'{i+1}. {c}' for i, c in enumerate(_ALL_CATS))
+    # 先尝试从 rules_vec.db 读取（breed_category_rules 表）
+    import sqlite3 as _sqlite3
+    import os as _os
+    _rules_db = _os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    if _os.path.exists(_rules_db):
+        _conn = _sqlite3.connect(_rules_db)
+        _cur = _conn.cursor()
+        _cur.execute("SELECT DISTINCT category FROM breed_category_rules WHERE category != '' ORDER BY category")
+        _ALL_CATS = [r[0] for r in _cur.fetchall()]
+        _conn.close()
+    else:
+        _ALL_CATS = []
+    CLASSIFICATIONS_STR = "\n".join(f"{i+1}. {c}" for i, c in enumerate(_ALL_CATS))
 except Exception:
     _ALL_CATS = []
     CLASSIFICATIONS_STR = ""
