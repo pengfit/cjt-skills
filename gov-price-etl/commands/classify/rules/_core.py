@@ -9,10 +9,6 @@ def _get_db_conn():
     return get_vec_store()._get_conn()
 
 # ── 提前初始化 import path（避免每条记录重复改 sys.path）────────────────────
-try:
-    from . import CLASSIFICATIONS, RULES_DIR
-except ImportError:
-    from classify.rules import CLASSIFICATIONS, RULES_DIR
 
 _JACCARD_LOADED = False
 def _ensure_jaccard():
@@ -98,11 +94,8 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     return "其他"  # AI fallback 改为 ETL 批量处理
 
 
-def get_all_categories() -> list:
-    return sorted(CLASSIFICATIONS)
 
 
-CAT_ID_MAP = {name: idx + 1 for idx, name in enumerate(sorted(CLASSIFICATIONS))}
 
 
 if __name__ == "__main__":
