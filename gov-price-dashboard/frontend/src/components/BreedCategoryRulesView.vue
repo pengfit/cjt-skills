@@ -38,8 +38,57 @@
         <button class="bcr-btn bcr-btn-cyan" @click="testMode = !testMode">
           {{ testMode ? '关闭测试' : '🔬 测试召回' }}
         </button>
+        <button class="bcr-btn bcr-btn-cyan" @click="showHelp = !showHelp">
+          {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
+        </button>
       </div>
     </div>
+
+    <!-- 使用说明 -->
+    <Transition name="bcr-slide">
+      <div class="bcr-help" v-if="showHelp">
+        <div class="bcr-help-title">📖 分类规则库说明</div>
+        <div class="bcr-help-grid">
+          <div class="bcr-help-item">
+            <span class="bcr-help-key">数据源</span>
+            <span class="bcr-help-val">
+              <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite）<br/>
+              品种分类由 AI 批量分类后写入，静态规则文件已废弃
+            </span>
+          </div>
+          <div class="bcr-help-item">
+            <span class="bcr-help-key">分类流程</span>
+            <span class="bcr-help-val">
+              <strong>① DB 精确查 breed_category_rules</strong><br/>
+              <strong>② Jaccard 相似度召回</strong>（阈值 ≥ 0.35）<br/>
+              <strong>③ 未命中 → AI 批量分类</strong> → 写入 DB 持久化
+            </span>
+          </div>
+          <div class="bcr-help-item">
+            <span class="bcr-help-key">Jaccard 召回</span>
+            <span class="bcr-help-val">
+              基于字符 bigram 相似度，从 DB 中的 breed→category 规则召回<br/>
+              score &lt; 0.35 → 未命中，回退到「其他」
+            </span>
+          </div>
+          <div class="bcr-help-item">
+            <span class="bcr-help-key">AI 批量分类</span>
+            <span class="bcr-help-val">
+              ETL 增量模式下，未分类品种自动批量调用 AI 接口<br/>
+              结果写入 <code>breed_category_rules</code> 表供下次直接命中
+            </span>
+          </div>
+          <div class="bcr-help-item">
+            <span class="bcr-help-key">来源说明</span>
+            <span class="bcr-help-val">
+              <code>ai</code> — AI 批量分类结果<br/>
+              <code>rules_migrated</code> — 规则迁移<br/>
+              <code>manual</code> — 手动添加
+            </span>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Test panel -->
     <Transition name="bcr-slide">
@@ -130,6 +179,7 @@ const pageSize = ref(50)
 const loading = ref(false)
 const testMode = ref(false)
 const testBreed = ref('')
+const showHelp = ref(false)
 
 const srcLabels = { ai: 'AI', rules_migrated: '迁移', manual: '手动' }
 function srcLabel(s) { return srcLabels[s] || s }
@@ -236,6 +286,26 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 }
 .bcr-btn-cyan { background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
 .bcr-btn-cyan:hover { background: rgba(56,189,248,0.2); }
+
+/* Help */
+.bcr-help {
+  background: rgba(15,23,42,0.6); border: 1px solid rgba(56,189,248,0.12);
+  border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
+}
+.bcr-help-title { font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 14px; }
+.bcr-help-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px 24px;
+}
+.bcr-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
+.bcr-help-key { color: #38bdf8; font-weight: 600; white-space: nowrap; min-width: 70px; }
+.bcr-help-val { color: #94a3b8; }
+.bcr-help-val code {
+  font-family: 'Courier New', monospace; font-size: 10px;
+  color: #a5f3fc; background: rgba(56,189,248,0.06);
+  border-radius: 3px; padding: 1px 4px;
+}
+.bcr-help-val strong { color: #e2e8f0; font-weight: 600; }
 
 /* Panels */
 .bcr-panel {
