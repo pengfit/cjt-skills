@@ -566,9 +566,17 @@ def etl_city(es_host: str, city: str, cfg: dict,
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
                     continue
-                # category == "其他" 时先跳过，批量 AI 处理
+                # category == "其他" 时先查 DB（rules_vec.db），命中则直接用，不加入 ai_pending
                 if doc["category"] == "其他":
-                    ai_pending.append((doc["breed_clean"], h["_id"]))
+                    # 用批量接口查 DB（不走 AI）
+                    cats = _fetch_ai_category_batch([doc["breed_clean"]], city)
+                    cat = cats.get(doc["breed_clean"], "其他")
+                    if cat != "其他":
+                        doc["category"] = cat
+                        docs.append(doc)
+                        doc_ids.append(h["_id"])
+                    else:
+                        ai_pending.append((doc["breed_clean"], h["_id"]))
                     continue
                 docs.append(doc)
                 doc_ids.append(h["_id"])
