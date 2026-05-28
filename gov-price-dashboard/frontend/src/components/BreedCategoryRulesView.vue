@@ -43,28 +43,11 @@
         />
       </div>
       <div class="bcr-toolbar-right">
-        <button class="bcr-btn bcr-btn-ghost" @click="toggleAddMode">
-          {{ addMode ? '取消' : '+ 手动添加' }}
-        </button>
         <button class="bcr-btn bcr-btn-cyan" @click="testMode = !testMode">
           {{ testMode ? '关闭测试' : '🔬 测试召回' }}
         </button>
       </div>
     </div>
-
-    <!-- Add form -->
-    <Transition name="bcr-slide">
-      <div class="bcr-panel" v-if="addMode">
-        <div class="bcr-panel-title">手动添加规则</div>
-        <div class="bcr-add-grid">
-          <input class="bcr-input" v-model="addForm.breed" placeholder="品种名" />
-          <input class="bcr-input" v-model="addForm.category" placeholder="分类" />
-          <input class="bcr-input" v-model="addForm.note" placeholder="备注（可选）" />
-          <button class="bcr-btn bcr-btn-primary" @click="submitAddRule">保存</button>
-        </div>
-        <div v-if="addMsg" class="bcr-msg" :class="addMsg.ok ? 'msg-ok' : 'msg-err'">{{ addMsg.text }}</div>
-      </div>
-    </Transition>
 
     <!-- Test panel -->
     <Transition name="bcr-slide">
@@ -99,15 +82,14 @@
               <th>备注</th>
               <th>Jaccard</th>
               <th>添加时间</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" class="bcr-empty">加载中...</td>
+              <td colspan="6" class="bcr-empty">加载中...</td>
             </tr>
             <tr v-else-if="!rules.length">
-              <td colspan="7" class="bcr-empty">暂无规则</td>
+              <td colspan="6" class="bcr-empty">暂无规则</td>
             </tr>
             <tr v-else v-for="r in rules" :key="r.id" class="bcr-row">
               <td><span class="bcr-breed">{{ r.breed }}</span></td>
@@ -118,9 +100,6 @@
               <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
               <td class="bcr-jac">{{ r.jaccard_cache != null ? r.jaccard_cache.toFixed(3) : '—' }}</td>
               <td class="bcr-date">{{ formatDate(r.created_at) }}</td>
-              <td>
-                <button class="bcr-btn-del" @click="deleteRule(r.id)" title="删除">🗑</button>
-              </td>
             </tr>
           </tbody>
         </table>
@@ -159,12 +138,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
 const loading = ref(false)
-const addMode = ref(false)
 const testMode = ref(false)
 const testBreed = ref('')
-const testResult = ref(null)
-const addForm = ref({ breed: '', category: '', note: '' })
-const addMsg = ref(null)
 const aiCount = ref(0)
 const manualCount = ref(0)
 
@@ -203,39 +178,6 @@ async function loadRules(p = 1) {
     manualCount.value = rules.value.filter(r => r.source === 'manual').length
   } catch (e) { console.error(e) }
   finally { loading.value = false }
-}
-
-async function deleteRule(id) {
-  if (!confirm('确认删除？')) return
-  try {
-    await axios.delete(`${API}/stats/breed-category-rules/${id}`)
-    loadRules(page.value)
-  } catch (e) { alert('删除失败') }
-}
-
-function toggleAddMode() {
-  addMode.value = !addMode.value
-  addForm.value = { breed: '', category: '', note: '' }
-  addMsg.value = null
-}
-
-async function submitAddRule() {
-  if (!addForm.value.breed.trim() || !addForm.value.category.trim()) {
-    addMsg.value = { ok: false, text: '品种名和分类不能为空' }; return
-  }
-  try {
-    const { data } = await axios.post(`${API}/stats/breed-category-rules`, {
-      breed: addForm.value.breed.trim(),
-      category: addForm.value.category.trim(),
-      source: 'manual',
-      note: addForm.value.note.trim(),
-    })
-    addMsg.value = { ok: data.ok, text: data.message || '保存成功' }
-    if (data.ok) {
-      addForm.value = { breed: '', category: '', note: '' }
-      setTimeout(() => { addMode.value = false; loadRules(page.value) }, 1200)
-    }
-  } catch (e) { addMsg.value = { ok: false, text: '请求失败' } }
 }
 
 async function doTest() {
@@ -305,14 +247,8 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
   height: 36px; padding: 0 16px; border-radius: 8px; font-size: 13px;
   font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
 }
-.bcr-btn-ghost { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); }
-.bcr-btn-ghost:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
 .bcr-btn-cyan { background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
 .bcr-btn-cyan:hover { background: rgba(56,189,248,0.2); }
-.bcr-btn-primary { background: #6366f1; color: #fff; }
-.bcr-btn-primary:hover { background: #5558e3; }
-.bcr-btn-del { background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.5; }
-.bcr-btn-del:hover { opacity: 1; }
 
 /* Panels */
 .bcr-panel {
@@ -320,7 +256,6 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
   border-radius: 10px; padding: 16px; margin-bottom: 12px;
 }
 .bcr-panel-title { font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
-.bcr-add-grid { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 8px; align-items: center; }
 .bcr-test-row { display: flex; gap: 8px; align-items: center; }
 .bcr-test-result { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
 .test-hit { color: #34d399; }
