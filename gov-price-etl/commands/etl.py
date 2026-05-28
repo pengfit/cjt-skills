@@ -158,7 +158,8 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     category = classify_breed(breed_clean, spec_clean)
 
     if category == "其他":
-        category = _fetch_ai_category(breed_clean, city)
+        cats = _query_breed_rules_db([breed_clean])
+        category = cats.get(breed_clean, "其他")
 
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))
