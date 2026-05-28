@@ -28,35 +28,12 @@ except ImportError:
     print("请安装依赖: pip3 install requests pyyaml")
     sys.exit(1)
 
-from classify import classify_breed, get_all_categories, CAT_ID_MAP
+from classify import classify_breed, get_all_categories, CAT_ID_MAP, _fetch_ai_category, _fetch_ai_category_batch
 from parse_spec import parse_spec, get_parser
 from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price
 
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
-_AI_CATEGORY_CACHE: dict = {}  # breed_clean → category
-
-
-def _fetch_ai_category(breed_clean: str, city: str) -> str:
-    """查询 AI 补充分类（带缓存，同一 breed 只查一次）"""
-    if breed_clean in _AI_CATEGORY_CACHE:
-        return _AI_CATEGORY_CACHE[breed_clean]
-    import http.client, json as _json
-    try:
-        body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
-        c = http.client.HTTPConnection("localhost", 5200, timeout=15)
-        c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
-                  headers={"Content-Type": "application/json"})
-        resp = c.getresponse()
-        data = _json.loads(resp.read())
-        cat = data.get("category", "其他") if data.get("ok") else "其他"
-    except Exception:
-        cat = "其他"
-    _AI_CATEGORY_CACHE[breed_clean] = cat
-    return cat
-
-
-# ─── 配置 ───────────────────────────────────────────────────────────────────────
 def load_config():
     cfg_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config.yml")
     with open(cfg_path) as f:
@@ -572,6 +549,8 @@ def etl_city(es_host: str, city: str, cfg: dict,
     etled = 0
     failed = 0
     pages = 0
+    # 收集需要 AI 分类的 (breed_clean, doc_id)
+    ai_pending: list[tuple[str, str]] = []
 
     while hits:
         pages += 1
@@ -586,6 +565,10 @@ def etl_city(es_host: str, city: str, cfg: dict,
                     continue
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
+                    continue
+                # category == "其他" 时先跳过，批量 AI 处理
+                if doc["category"] == "其他":
+                    ai_pending.append((doc["breed_clean"], h["_id"]))
                     continue
                 docs.append(doc)
                 doc_ids.append(h["_id"])
@@ -612,6 +595,34 @@ def etl_city(es_host: str, city: str, cfg: dict,
 
     if scroll_id:
         session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
+
+    # ── 批量 AI 分类 ──
+    ai_updated = 0
+    if ai_pending and not dry_run:
+        breeds = list(dict.fromkeys(b for b, _ in ai_pending))  # 去重保留顺序
+        breed_cats: dict = {}
+        # 分批调用，每批最多 20 条
+        _AI_BATCH_SIZE = 20
+        for i in range(0, len(breeds), _AI_BATCH_SIZE):
+            chunk = breeds[i:i + _AI_BATCH_SIZE]
+            cats = _fetch_ai_category_batch(chunk, city)
+            breed_cats.update(cats)
+        if breed_cats:
+            # 按 doc_id 分组批量更新
+            update_body = ""
+            for breed_clean, doc_id in ai_pending:
+                cat = breed_cats.get(breed_clean, "其他")
+                update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
+                update_body += json.dumps({"doc": {"category": cat}}, ensure_ascii=False) + "\n"
+            if update_body:
+                session = get_es_client(es_host)
+                r = session.post(f"{es_host}/{dwd_idx}/_bulk",
+                                  data=update_body.encode("utf-8"),
+                                  headers={"Content-Type": "application/x-ndjson"})
+                result = r.json()
+                errors = sum(1 for it in result.get("items", []) if "error" in it.get("update", {}))
+                ai_updated = len(ai_pending) - errors
+        print(f"  [AI] 批量分类 {len(ai_pending)} 条 → 更新 {ai_updated} 条")
 
     print(f"  [ETL] {city} 完成: → {dwd_idx} | etled={etled}, failed={failed}")
     return etled, failed

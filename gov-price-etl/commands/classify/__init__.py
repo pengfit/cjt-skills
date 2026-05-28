@@ -1,8 +1,8 @@
 """classify.py - gov-price 品种分类引擎（rules/ 动态加载版）"""
 
-from .rules._core import classify_breed, get_all_categories, CAT_ID_MAP, CLASSIFICATIONS
+from .rules._core import classify_breed, get_all_categories, CAT_ID_MAP, CLASSIFICATIONS, _fetch_ai_category, _fetch_ai_category_batch
 
-__all__ = ["classify_breed", "get_all_categories", "CAT_ID_MAP", "CLASSIFICATIONS"]
+__all__ = ["classify_breed", "get_all_categories", "CAT_ID_MAP", "CLASSIFICATIONS", "_fetch_ai_category", "_fetch_ai_category_batch"]
 
 if __name__ == "__main__":
     import sys

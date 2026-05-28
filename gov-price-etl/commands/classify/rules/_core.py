@@ -14,19 +14,35 @@ def _fetch_ai_category(breed_clean: str, city: str) -> str:
     """调 AI 补充分类（带内存缓存，同一 breed 只查一次）"""
     if breed_clean in _ai_cache:
         return _ai_cache[breed_clean]
-    import http.client, json as _json
-    try:
-        body = _json.dumps({"breed": breed_clean, "city": city}).encode("utf-8")
-        c = http.client.HTTPConnection("localhost", 5200, timeout=15)
-        c.request("POST", "/api/stats/spec-quality/classify-breed", body=body,
-                  headers={"Content-Type": "application/json"})
-        resp = c.getresponse()
-        data = _json.loads(resp.read())
-        cat = data.get("category", "其他") if data.get("ok") else "其他"
-    except Exception:
-        cat = "其他"
+    # 调批量 API（单条）
+    result = _fetch_ai_category_batch([breed_clean], city)
+    cat = result.get(breed_clean, "其他")
     _ai_cache[breed_clean] = cat
     return cat
+
+
+def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
+    """批量查询 AI 分类，返回 {breed: category}（带内存缓存）"""
+    if not breeds:
+        return {}
+    import http.client, json as _json
+    # 先从缓存补齐
+    uncached = [b for b in breeds if b not in _ai_cache]
+    if uncached:
+        try:
+            body = _json.dumps({"breeds": uncached, "city": city}).encode("utf-8")
+            c = http.client.HTTPConnection("localhost", 5200, timeout=120)
+            c.request("POST", "/api/stats/spec-quality/classify-breed-batch", body=body,
+                      headers={"Content-Type": "application/json"})
+            resp = c.getresponse()
+            data = _json.loads(resp.read())
+            if data.get("ok"):
+                for breed, r in data.get("results", {}).items():
+                    _ai_cache[breed] = r.get("category", "其他")
+        except Exception:
+            for b in uncached:
+                _ai_cache.setdefault(b, "其他")
+    return {b: _ai_cache.get(b, "其他") for b in breeds}
 
 
 def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
