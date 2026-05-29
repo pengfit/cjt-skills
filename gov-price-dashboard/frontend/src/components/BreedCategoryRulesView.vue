@@ -121,8 +121,8 @@
               <th>分类</th>
               <th>来源</th>
               <th>置信度</th>
-              <th>备注</th>
               <th>添加时间</th>
+              <th>备注</th>
             </tr>
           </thead>
           <tbody>
@@ -139,8 +139,8 @@
                 <span class="bcr-src" :class="`src-${r.source}`">{{ srcLabel(r.source) }}</span>
               </td>
               <td><span class="bcr-conf" :class="confClass(r.confidence)">{{ (r.confidence ?? 1).toFixed(2) }}</span></td>
-              <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
               <td class="bcr-date">{{ formatDate(r.created_at) }}</td>
+              <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -347,7 +347,7 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 .bcr-row:hover td { background: rgba(56,189,248,0.03); }
 .bcr-empty { text-align: center; color: #475569; padding: 36px !important; font-size: 13px; }
 
-.bcr-breed { color: #e2e8f0; font-weight: 600; font-size: 13px; }
+.bcr-breed { color: #e2e8f0; font-weight: 600; font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bcr-cat {
   display: inline-block; background: rgba(56,189,248,0.1); color: #38bdf8;
   padding: 2px 9px; border-radius: 5px; font-size: 12px; font-weight: 500;

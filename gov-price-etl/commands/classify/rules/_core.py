@@ -90,7 +90,7 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     except Exception:
         pass
 
-    return ("其他", 0.0)  # AI fallback 改为 ETL 批量处理
+    return "其他"  # AI fallback 改为 ETL 批量处理
 
 
 

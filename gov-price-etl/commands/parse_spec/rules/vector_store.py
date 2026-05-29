@@ -55,6 +55,10 @@ CREATE TABLE IF NOT EXISTS breed_spec_rules (
 )
 """
 
+ENSURE_COLS = """
+PRAGMA table_info(breed_spec_rules)
+"""
+
 CREATE_TABLE_BREED_CATEGORY = """
 CREATE TABLE IF NOT EXISTS breed_category_rules (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,10 +69,6 @@ CREATE TABLE IF NOT EXISTS breed_category_rules (
   note TEXT DEFAULT '',
   created_at TEXT DEFAULT (date('now'))
 )
-""""
-
-ENSURE_COLS = """
-PRAGMA table_info(breed_spec_rules)
 """
 
 
@@ -83,6 +83,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     ]:
         if col not in cols:
             conn.execute(f"ALTER TABLE breed_spec_rules ADD COLUMN {col} {dtype}")
+    conn.execute(CREATE_TABLE_BREED_CATEGORY)
+    conn.commit()
     conn.execute(CREATE_TABLE_BREED_CATEGORY)
     conn.commit()
 
