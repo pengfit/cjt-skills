@@ -152,9 +152,20 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
     db_rules = _load_db_rules()
     all_rules = static_rules + db_rules
 
-    # 1. 精确包含匹配（优先更长 breed，避免"沥青"→"透水混凝土"被截断）
+    # 1. 精确包含匹配（仅当 know_breed 是完整词，避免子串误匹配）
+    # 例：花岗岩石材 ≠ 花岗岩石材止车石（除非止车石是独立后缀）
+    def _is_word_match(query: str, known: str) -> bool:
+        """query 包含 know_breed，且 know_breed 左边是词边界或 query，右边是词边界或 end-of-string"""
+        if known not in query:
+            return False
+        idx = query.index(known)
+        left_ok = (idx == 0) or (query[idx - 1].isspace()) or (query[idx - 1] in '（()[]【】')
+        right_pos = idx + len(known)
+        right_ok = (right_pos >= len(query)) or (query[right_pos].isspace()) or (query[right_pos] in '）()[]、【】,.，,')
+        return left_ok and right_ok
+
     exact_matches = [(known_breed, cat) for known_breed, cat in all_rules
-                    if known_breed in breed_clean or breed_clean in known_breed]
+                    if _is_word_match(breed_clean, known_breed) or _is_word_match(known_breed, breed_clean)]
     if exact_matches:
         # 选最长的匹配词
         best = max(exact_matches, key=lambda x: len(x[0]))
