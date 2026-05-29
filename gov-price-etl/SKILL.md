@@ -14,7 +14,7 @@ ods_material_rizhao_price   ─┘       sync_dws.py ─→ dws_{city}_price ─
 
 **注意**：DWD → DWS 同步有两条独立路径：
 1. `etl.py` 内置 `flush_to_dws()` — 在 ETL 过程中实时同步，需 `needs_spec_parse=False` 且至少一个细分字段非空
-2. `utils/sync_dws.py` — 独立工具，全量同步（只看 `needs_spec_parse=False`），可单独运行
+2. `commands/sync_dws.py` — 独立工具，全量同步（只看 `needs_spec_parse=False`），可单独运行
 
 ---
 
@@ -87,16 +87,16 @@ python3 commands/etl.py --batch-size 1000
 
 ```bash
 # 全量同步所有城市
-python3 utils/sync_dws.py
+python3 commands/sync_dws.py
 
 # 只同步指定城市
-python3 utils/sync_dws.py --city xian
+python3 commands/sync_dws.py --city xian
 
 # 预览（不写入）
-python3 utils/sync_dws.py --dry-run
+python3 commands/sync_dws.py --dry-run
 
 # 指定批量大小
-python3 utils/sync_dws.py --batch-size 2000
+python3 commands/sync_dws.py --batch-size 2000
 ```
 
 ### 3. 规格解析测试
@@ -239,7 +239,7 @@ classify_breed(breed_clean)
 
 `etl.py` 中 `flush_to_dws()` 构建的 DWS：`attr` 字段为 `nested` object，扁平字段聚合为嵌套对象。
 
-`utils/sync_dws.py` 独立同步：`attr` 字段为普通 `object`（字段映射不同）。
+`commands/sync_dws.py` 独立同步：`attr` 字段为普通 `object`（字段映射不同）。
 
 入 DWS 条件（`flush_to_dws`，需同时满足）：
 - `needs_spec_parse = False`
