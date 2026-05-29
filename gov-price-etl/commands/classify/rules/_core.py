@@ -21,7 +21,7 @@ def _ensure_jaccard():
 _ai_cache = {}
 
 def _query_breed_rules_db(breeds: list[str]) -> dict:
-    """仅查 rules_vec.db，不调 API，返回 {breed: category}（精确匹配+Jaccard相似匹配）"""
+    """仅查 rules_vec.db 精确匹配，不调 API，返回 {breed: category}"""
     if not breeds:
         return {}
     rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
@@ -34,20 +34,11 @@ def _query_breed_rules_db(breeds: list[str]) -> dict:
         for row in c.fetchall():
             result[row[0]] = row[1]
             _ai_cache[row[0]] = row[1]
-
-        # 未精确匹配的品种，尝试 Jaccard 相似召回
-        unmatched = [b for b in breeds if b not in result]
-        if unmatched:
-            for breed in unmatched:
-                cat = _jaccard_similar_breed(breed)
-                if cat:
-                    result[breed] = cat
-                    _ai_cache[breed] = cat
     return result
 
 
 def _jaccard_similar_breed(breed: str, min_score: float = 0.6) -> str:
-    """在 rules_vec.db 中查找与 breed Jaccard 相似的品种，返回 category（仅当最高分>=min_score）"""
+    """在 rules_vec.db 中查找与 breed char-jaccard 相似的品种，返回 category（仅当最高分>=min_score）"""
     from .rules.jaccard import _char_jaccard
     conn = _get_db_conn()
     c = conn.cursor()
@@ -115,6 +106,11 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
             return cat
     except Exception:
         pass
+
+    # 3. 相似品种召回（同一批次入库时复用 DB 中已有分类）
+    similar_cat = _jaccard_similar_breed(breed_val)
+    if similar_cat:
+        return similar_cat
 
     return "其他"  # AI fallback 改为 ETL 批量处理
 
