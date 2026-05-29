@@ -17,12 +17,12 @@
           <circle cx="47" cy="18" r="4" fill="#38bdf8"/>
         </svg>
         <span class="top-bar-brand">采价通</span>
-        <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'">产品列表</button>
-        <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'">数据分布</button>
-        <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'">类别分析</button>
-        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'">数据清洗</button>
-        <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'">规格规则库</button>
-        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'">分类规则库</button>
+        <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; sessionStorage.setItem('gov_cur_tab', 'list')">产品列表</button>
+        <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; sessionStorage.setItem('gov_cur_tab', 'dist')">数据分布</button>
+        <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; sessionStorage.setItem('gov_cur_tab', 'category')">类别分析</button>
+        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; sessionStorage.setItem('gov_cur_tab', 'provenance')">数据清洗</button>
+        <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; sessionStorage.setItem('gov_cur_tab', 'rules')">规格规则库</button>
+        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; sessionStorage.setItem('gov_cur_tab', 'breedcat')">分类规则库</button>
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
@@ -341,7 +341,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // ============================================================
 // STATE
 // ============================================================
-const curTab = ref('list')
+const curTab = ref(sessionStorage.getItem('gov_cur_tab') || 'list')
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
 const searchKeyword = ref('')
 const searchProvince = ref('')
