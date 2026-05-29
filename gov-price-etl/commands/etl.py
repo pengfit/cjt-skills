@@ -157,10 +157,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
 
-    if category == "其他":
-        cats = _query_breed_rules_db([breed_clean])
-        category = cats.get(breed_clean, "其他")
-
     price = clean_price(raw.get("price"))
     tax_price = clean_price(raw.get("tax_price"))
 

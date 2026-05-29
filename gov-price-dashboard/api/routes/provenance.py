@@ -57,6 +57,29 @@ PROGRESS_INDEXES = {
 es = Elasticsearch([ES_HOST])
 
 
+_RULES_DB = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+
+def _ensure_rules_table():
+    """确保 breed_category_rules 表存在且结构最新（幂等）"""
+    if not os.path.exists(_RULES_DB):
+        return
+    conn = sqlite3.connect(_RULES_DB)
+    c = conn.cursor()
+    c.execute(
+        "CREATE TABLE IF NOT EXISTS breed_category_rules ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "  breed TEXT UNIQUE NOT NULL, "
+        "  category TEXT NOT NULL, "
+        "  source TEXT DEFAULT 'ai', "
+        "  confidence REAL DEFAULT 1.0, "
+        "  note TEXT DEFAULT '', "
+        "  created_at TEXT DEFAULT (date('now'))"
+        ")"
+    )
+    conn.commit()
+    conn.close()
+
+
 def _index_stats(index: str) -> dict:
     """获取单个索引的统计信息"""
     try:
@@ -1659,24 +1682,24 @@ def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
     批量品种分类接口：输入品种列表，AI 批量推断分类，批量写入 rules_vec.db。
     返回 {ok, results: {breed: {category, confidence, note}}}
     """
-    import os, re, sqlite3
+    import re, sqlite3
     breeds = [b.strip() for b in req.breeds if b.strip()]
     if not breeds:
         return {"ok": False, "message": "breeds 不能为空"}
 
-    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    _ensure_rules_table()
     _rule_re = re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', re.MULTILINE)
 
     # 1. 批量从 rules_vec.db 读取已有规则
     db_results = {}
     unmatched = []
-    if os.path.exists(rules_db):
-        conn = sqlite3.connect(rules_db)
+    if os.path.exists(_RULES_DB):
+        conn = sqlite3.connect(_RULES_DB)
         c = conn.cursor()
         placeholders = ",".join("?" for _ in breeds)
-        c.execute(f"SELECT breed, category, source FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
+        c.execute(f"SELECT breed, category, source, confidence FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
         for row in c.fetchall():
-            db_results[row[0]] = {"category": row[1], "source": f"db({row[2]})", "confidence": 1.0, "note": ""}
+            db_results[row[0]] = {"category": row[1], "source": f"db({row[2]})", "confidence": row[3] if row[3] is not None else 1.0, "note": ""}
         conn.close()
 
     # 2. 未命中品种调 AI
@@ -1689,14 +1712,14 @@ def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
 
         # 3. 批量写入 rules_vec.db
         results_map = ai_results.get("results", {})
-        to_insert = [(b, r["category"], "ai", r.get("note", ""))
+        to_insert = [(b, r["category"], "ai", r.get("confidence", 1.0), r.get("note", ""))
                      for b, r in results_map.items() if r.get("category")]
-        if to_insert and os.path.exists(rules_db):
+        if to_insert and os.path.exists(_RULES_DB):
             try:
-                conn = sqlite3.connect(rules_db)
+                conn = sqlite3.connect(_RULES_DB)
                 c = conn.cursor()
                 c.executemany(
-                    "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
+                    "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, confidence, note) VALUES (?, ?, ?, ?, ?)",
                     to_insert
                 )
                 conn.commit()
@@ -1794,11 +1817,11 @@ def list_breed_category_rules(
     - distinct_categories=1: 返回所有分类列表（用于下拉）
     """
     import sqlite3
-    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
-    if not os.path.exists(rules_db):
+    _ensure_rules_table()
+    if not os.path.exists(_RULES_DB):
         return {"rules": [], "total": 0, "page": page, "page_size": page_size}
 
-    conn = sqlite3.connect(rules_db)
+    conn = sqlite3.connect(_RULES_DB)
     c = conn.cursor()
 
     where = []
@@ -1826,7 +1849,7 @@ def list_breed_category_rules(
 
     offset = (page - 1) * page_size
     c.execute(
-        f"SELECT id, breed, category, source, note, jaccard_cache, created_at FROM breed_category_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
+        f"SELECT id, breed, category, source, confidence, note, created_at FROM breed_category_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
     rows = c.fetchall()
@@ -1835,7 +1858,7 @@ def list_breed_category_rules(
     rules = [
         {
             "id": r[0], "breed": r[1], "category": r[2], "source": r[3],
-            "note": r[4] or "", "jaccard_cache": r[5], "created_at": r[6],
+            "confidence": r[4], "note": r[5] or "", "created_at": r[6],
         }
         for r in rows
     ]
@@ -1854,9 +1877,9 @@ def create_breed_category_rule(req: dict = Body(...)):
     if not breed or not category:
         return {"ok": False, "message": "breed 和 category 不能为空"}
 
-    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    _ensure_rules_table()
     try:
-        conn = sqlite3.connect(rules_db)
+        conn = sqlite3.connect(_RULES_DB)
         c = conn.cursor()
         c.execute(
             "INSERT OR REPLACE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
@@ -1874,9 +1897,9 @@ def create_breed_category_rule(req: dict = Body(...)):
 def delete_breed_category_rule(rule_id: int):
     """删除指定规则"""
     import sqlite3
-    rules_db = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    _ensure_rules_table()
     try:
-        conn = sqlite3.connect(rules_db)
+        conn = sqlite3.connect(_RULES_DB)
         c = conn.cursor()
         c.execute("DELETE FROM breed_category_rules WHERE id=?", (rule_id,))
         conn.commit()
@@ -1893,22 +1916,15 @@ def test_breed_category_rule(req: dict = Body(...)):
     import sys, os as os_module
     sys.path.insert(0, ETL_CMD_DIR)
     try:
-        from breed_category import jaccard_breed_classify
+        sys.path.insert(0, os.path.join(ETL_CMD_DIR, 'classify', 'rules'))
+        from jaccard import jaccard_breed_classify
         breed = (req.get("breed") or "").strip()
         if not breed:
             return {"hit": False, "score": 0, "category": ""}
-        cat = jaccard_breed_classify(breed)
-        return {"hit": bool(cat), "score": 0, "category": cat}
+        cat, score = jaccard_breed_classify(breed)
+        return {"hit": bool(cat), "score": round(score, 3), "category": cat}
     except Exception as e:
         return {"hit": False, "score": 0, "category": "", "error": str(e)}
-
-
-        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
-    except Exception as e:
-        return {"ok": False, "message": f"AI 分析异常: {e}"}
-
-
-
 
 class ClassifyBreedBatchRequest(BaseModel):
     breeds: list[str]

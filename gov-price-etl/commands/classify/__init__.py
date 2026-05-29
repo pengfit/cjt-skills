@@ -8,4 +8,5 @@ if __name__ == "__main__":
     import sys
     breed = sys.argv[1] if len(sys.argv) > 1 else ""
     spec = sys.argv[2] if len(sys.argv) > 2 else ""
-    print(f"品种: {breed} | 规格: {spec} → 分类: {classify_breed(breed, spec)}")
+    cat, conf = classify_breed(breed, spec)
+    print(f"品种: {breed} | 规格: {spec} → 分类: {cat} (置信度: {conf:.2f})")

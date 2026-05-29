@@ -120,16 +120,17 @@
               <th>品种</th>
               <th>分类</th>
               <th>来源</th>
+              <th>置信度</th>
               <th>备注</th>
               <th>添加时间</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="5" class="bcr-empty">加载中...</td>
+              <td colspan="6" class="bcr-empty">加载中...</td>
             </tr>
             <tr v-else-if="!rules.length">
-              <td colspan="5" class="bcr-empty">暂无规则</td>
+              <td colspan="6" class="bcr-empty">暂无规则</td>
             </tr>
             <tr v-else v-for="r in rules" :key="r.id" class="bcr-row">
               <td><span class="bcr-breed">{{ r.breed }}</span></td>
@@ -137,6 +138,7 @@
               <td>
                 <span class="bcr-src" :class="`src-${r.source}`">{{ srcLabel(r.source) }}</span>
               </td>
+              <td><span class="bcr-conf" :class="confClass(r.confidence)">{{ (r.confidence ?? 1).toFixed(2) }}</span></td>
               <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
               <td class="bcr-date">{{ formatDate(r.created_at) }}</td>
             </tr>
@@ -179,10 +181,16 @@ const pageSize = ref(50)
 const loading = ref(false)
 const testMode = ref(false)
 const testBreed = ref('')
+const testResult = ref(null)
 const showHelp = ref(false)
 
 const srcLabels = { ai: 'AI', rules_migrated: '迁移', manual: '手动' }
 function srcLabel(s) { return srcLabels[s] || s }
+function confClass(c) {
+  if (c == null || c >= 0.8) return 'conf-high'
+  if (c >= 0.5) return 'conf-mid'
+  return 'conf-low'
+}
 
 const pages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 
@@ -352,6 +360,10 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 .src-manual { background: rgba(52,211,153,0.1); color: #34d399; }
 .bcr-note { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b; font-size: 12px; }
 .bcr-date { color: #64748b; font-size: 12px; white-space: nowrap; }
+.bcr-conf { font-weight: 700; font-size: 12px; }
+.conf-high { color: #34d399; }
+.conf-mid  { color: #fbbf24; }
+.conf-low  { color: #f87171; }
 
 /* Pagination */
 .bcr-pagination { display: flex; align-items: center; gap: 4px; padding: 14px 16px; }

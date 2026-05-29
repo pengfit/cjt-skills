@@ -13,8 +13,8 @@ RULES_DB = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "parse_spec", "rules", "rules_vec.db"
 )
-# 阈值降低：从 0.35→0.2，因为加权后分数整体偏低
-DEFAULT_THRESHOLD = 0.2
+# Jaccard 召回阈值：≥0.8 才接受分类，否则回退到 AI 批量分类
+DEFAULT_THRESHOLD = 0.8
 
 # ── per-process 持久连接 ─────────────────────────────────────────────────────
 _DB_CONN = None
@@ -137,16 +137,16 @@ def _load_db_rules() -> list:
 
 
 @lru_cache(maxsize=5000)
-def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOLD) -> str:
+def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOLD) -> tuple:
     """
     品种→分类召回，分两阶段：
     1. 精确包含匹配（优先更长 breed）
     2. 加权 Jaccard 召回（分词 + 主体词权重）
        混合 char-jaccard 增强，防止分词切碎导致遗漏
-    返回空字符串表示未命中。
+    返回 (category, score)。score < threshold 时 category 为空字符串。
     """
     if not breed_clean:
-        return ""
+        return ("", 0.0)
 
     static_rules = _load_breed_rules()
     db_rules = _load_db_rules()
@@ -154,7 +154,7 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
 
     # 0. 硬编码品种兜底（最优先，防止混淆）
     if breed_clean in _MANUAL_RULES:
-        return _MANUAL_RULES[breed_clean]
+        return (_MANUAL_RULES[breed_clean], 1.0)
 
     # 1. 精确包含匹配（优先更长 breed，避免"沥青"→"透水混凝土"被截断）
     exact_matches = [(known_breed, cat) for known_breed, cat in all_rules
@@ -162,7 +162,7 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
     if exact_matches:
         # 选最长的匹配词
         best = max(exact_matches, key=lambda x: len(x[0]))
-        return best[1]
+        return (best[1], 1.0)
 
     # 2. 加权 Jaccard 召回
     breed_words = _segment(breed_clean)
@@ -186,8 +186,8 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
             best_cat = cat
 
     if best_score >= threshold:
-        return best_cat
-    return ""
+        return (best_cat, best_score)
+    return None
 
 
 # 补充常见品种规则（精确匹配兜底）
@@ -206,7 +206,7 @@ _MANUAL_RULES = {
     '补偿收缩混凝土': '混凝土/预制构件',
 }
 
-def insert_breed_rule(breed: str, category: str, source: str = "ai", note: str = ""):
+def insert_breed_rule(breed: str, category: str, source: str = "ai", confidence: float = 1.0, note: str = ""):
     """将分类结果写入 breed_category_rules 表"""
     if not breed or not category:
         return
@@ -215,8 +215,8 @@ def insert_breed_rule(breed: str, category: str, source: str = "ai", note: str =
     conn = _get_db_conn()
     c = conn.cursor()
     c.execute(
-        "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
-        (breed, category, source, note)
+        "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, confidence, note) VALUES (?, ?, ?, ?, ?)",
+        (breed, category, source, confidence, note)
     )
     conn.commit()
     jaccard_breed_classify.cache_clear()

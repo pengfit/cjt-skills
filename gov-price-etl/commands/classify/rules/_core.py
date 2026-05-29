@@ -24,7 +24,6 @@ def _query_breed_rules_db(breeds: list[str]) -> dict:
     """仅查 rules_vec.db，不调 API，返回 {breed: category}"""
     if not breeds:
         return {}
-    import sqlite3
     rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
     result = {}
     if os.path.exists(rules_db):
@@ -85,13 +84,13 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     try:
         _ensure_jaccard()
         from jaccard import jaccard_breed_classify, insert_breed_rule
-        cat = jaccard_breed_classify(breed_val)
+        cat, score = jaccard_breed_classify(breed_val)
         if cat:
             return cat
     except Exception:
         pass
 
-    return "其他"  # AI fallback 改为 ETL 批量处理
+    return ("其他", 0.0)  # AI fallback 改为 ETL 批量处理
 
 
 
