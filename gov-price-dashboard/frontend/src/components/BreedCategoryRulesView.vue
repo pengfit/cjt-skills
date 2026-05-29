@@ -170,16 +170,16 @@ import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
-const KEYWORD_KEY = 'bcr_keyword'
-const FILTER_KEY = 'bcr_filter'
-const PAGE_KEY = 'bcr_page'
+const KEYWORD_KEY = 'bcr_keyword2'
+const FILTER_KEY = 'bcr_filter2'
+const PAGE_KEY = 'bcr_page2'
 
-const keyword = ref(sessionStorage.getItem(KEYWORD_KEY) || '')
-const categoryFilter = ref(sessionStorage.getItem(FILTER_KEY) || '')
+const keyword = ref(localStorage.getItem(KEYWORD_KEY) || '')
+const categoryFilter = ref(localStorage.getItem(FILTER_KEY) || '')
 const categoryOptions = ref([])
 const rules = ref([])
 const total = ref(0)
-const page = ref(Number(sessionStorage.getItem(PAGE_KEY)) || 1)
+const page = ref(Number(localStorage.getItem(PAGE_KEY)) || 1)
 const pageSize = ref(50)
 const loading = ref(false)
 const testMode = ref(false)
@@ -210,7 +210,7 @@ const pageRange = computed(() => {
 function debounceLoad(p) {
   clearTimeout(window._bcr_debounce)
   window._bcr_debounce = setTimeout(() => {
-    sessionStorage.setItem(PAGE_KEY, String(p))
+    localStorage.setItem(PAGE_KEY, String(p))
     loadRules(p || 1)
   }, 300)
 }
@@ -221,21 +221,21 @@ async function loadRules(p = 1) {
     const params = { page: p, page_size: pageSize.value }
     if (keyword.value.trim()) {
       params.keyword = keyword.value.trim()
-      sessionStorage.setItem(KEYWORD_KEY, keyword.value.trim())
+      localStorage.setItem(KEYWORD_KEY, keyword.value.trim())
     } else {
-      sessionStorage.removeItem(KEYWORD_KEY)
+      localStorage.removeItem(KEYWORD_KEY)
     }
     if (categoryFilter.value) {
       params.category_filter = categoryFilter.value
-      sessionStorage.setItem(FILTER_KEY, categoryFilter.value)
+      localStorage.setItem(FILTER_KEY, categoryFilter.value)
     } else {
-      sessionStorage.removeItem(FILTER_KEY)
+      localStorage.removeItem(FILTER_KEY)
     }
     const { data } = await axios.get(`${API}/stats/breed-category-rules`, { params })
     rules.value = data.rules || []
     total.value = data.total || 0
     page.value = p
-    sessionStorage.setItem(PAGE_KEY, String(p))
+    localStorage.setItem(PAGE_KEY, String(p))
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
