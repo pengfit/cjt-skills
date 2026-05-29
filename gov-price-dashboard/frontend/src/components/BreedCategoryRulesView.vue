@@ -170,12 +170,16 @@ import CustomSelect from './CustomSelect.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
-const keyword = ref('')
-const categoryFilter = ref('')
+const KEYWORD_KEY = 'bcr_keyword'
+const FILTER_KEY = 'bcr_filter'
+const PAGE_KEY = 'bcr_page'
+
+const keyword = ref(sessionStorage.getItem(KEYWORD_KEY) || '')
+const categoryFilter = ref(sessionStorage.getItem(FILTER_KEY) || '')
 const categoryOptions = ref([])
 const rules = ref([])
 const total = ref(0)
-const page = ref(1)
+const page = ref(Number(sessionStorage.getItem(PAGE_KEY)) || 1)
 const pageSize = ref(50)
 const loading = ref(false)
 const testMode = ref(false)
@@ -205,21 +209,33 @@ const pageRange = computed(() => {
 
 function debounceLoad(p) {
   clearTimeout(window._bcr_debounce)
-  window._bcr_debounce = setTimeout(() => loadRules(p || 1), 300)
+  window._bcr_debounce = setTimeout(() => {
+    sessionStorage.setItem(PAGE_KEY, String(p))
+    loadRules(p || 1)
+  }, 300)
 }
 
 async function loadRules(p = 1) {
   loading.value = true
   try {
     const params = { page: p, page_size: pageSize.value }
-    if (keyword.value.trim()) params.keyword = keyword.value.trim()
-    if (categoryFilter.value) params.category_filter = categoryFilter.value
+    if (keyword.value.trim()) {
+      params.keyword = keyword.value.trim()
+      sessionStorage.setItem(KEYWORD_KEY, keyword.value.trim())
+    } else {
+      sessionStorage.removeItem(KEYWORD_KEY)
+    }
+    if (categoryFilter.value) {
+      params.category_filter = categoryFilter.value
+      sessionStorage.setItem(FILTER_KEY, categoryFilter.value)
+    } else {
+      sessionStorage.removeItem(FILTER_KEY)
+    }
     const { data } = await axios.get(`${API}/stats/breed-category-rules`, { params })
     rules.value = data.rules || []
     total.value = data.total || 0
     page.value = p
-    // count ai vs manual
-
+    sessionStorage.setItem(PAGE_KEY, String(p))
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
@@ -244,7 +260,7 @@ async function loadCategoryOptions() {
   } catch (e) { console.error(e) }
 }
 
-onMounted(() => { loadRules(1); loadCategoryOptions() })
+onMounted(() => { if (page.value > 1) loadRules(page.value); else loadRules(1); loadCategoryOptions() })
 </script>
 
 <style scoped>
