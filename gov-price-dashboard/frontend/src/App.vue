@@ -188,9 +188,10 @@
           <div class="empty-icon">🗺️</div>
           <div class="empty-title">暂无数据</div>
           <div class="empty-hint">
-            <div>可能原因：</div>
+            可能原因：
             <div>· 该省份暂无此类产品的价格记录</div>
             <div>· 数据更新时间晚于最近日期</div>
+            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''">清空关键词</span><span class="suggestion-chip" @click="searchProvince = ''">切换省份</span><span class="suggestion-chip" @click="searchCategory = ''">全部分类</span></div>
           </div>
         </div>
 
@@ -230,44 +231,7 @@
                       <div class="breed-cell">
                         <span class="breed-name" v-html="highlightKeyword(item.breed)"></span>
                         <div class="breed-meta">
-                          <span class="meta-tag tag-thickness" v-if="item.attr?.thickness">{{ item.attr.thickness }}</span>
-                          <span class="meta-tag tag-series" v-if="item.attr?.series">{{ item.attr.series }}</span>
-                          <span class="meta-tag tag-length" v-if="item.attr?.length">{{ item.attr.length }}</span>
-                          <span class="meta-tag tag-width" v-if="item.attr?.width">{{ item.attr.width }}</span>
-                          <span class="meta-tag tag-height" v-if="item.attr?.height">{{ item.attr.height }}</span>
-                          <span class="meta-tag tag-height-range" v-if="item.attr?.height_range">{{ item.attr.height_range }}</span>
-                          <span class="meta-tag tag-diameter" v-if="item.attr?.diameter">{{ item.attr.diameter }}</span>
-                          <span class="meta-tag tag-form" v-if="item.attr?.form">{{ item.attr.form }}</span>
-                          <span class="meta-tag tag-material" v-if="item.attr?.material">{{ item.attr.material }}</span>
-                          <span class="meta-tag tag-grade" v-if="item.attr?.grade">{{ item.attr.grade }}</span>
-                          <span class="meta-tag tag-color" v-if="item.attr?.color">{{ item.attr.color }}</span>
-                          <span class="meta-tag tag-voltage" v-if="item.attr?.voltage">{{ item.attr.voltage }}V</span>
-                          <span class="meta-tag tag-current" v-if="item.attr?.current">{{ item.attr.current }}A</span>
-                          <span class="meta-tag tag-cross" v-if="item.attr?.cross_section">{{ item.attr.cross_section }}</span>
-                          <span class="meta-tag tag-asphalt" v-if="item.attr?.asphalt_type">{{ item.attr.asphalt_type }}</span>
-                          <span class="meta-tag tag-cement" v-if="item.attr?.cement_content">{{ item.attr.cement_content }}</span>
-                          <span class="meta-tag tag-channels" v-if="item.attr?.channels">{{ item.attr.channels }}</span>
-                          <span class="meta-tag tag-doors" v-if="item.attr?.doors">{{ item.attr.doors }}</span>
-                          <span class="meta-tag tag-cores" v-if="item.attr?.cores">{{ item.attr.cores }}</span>
-                          <span class="meta-tag tag-drain" v-if="item.attr?.drain_type">{{ item.attr.drain_type }}</span>
-                          <span class="meta-tag tag-install" v-if="item.attr?.installation_type">{{ item.attr.installation_type }}</span>
-                          <span class="meta-tag tag-temp" v-if="item.attr?.temperature">{{ item.attr.temperature }}</span>
-                          <span class="meta-tag tag-pressure" v-if="item.attr?.pressure">{{ item.attr.pressure }}</span>
-                          <span class="meta-tag tag-ring" v-if="item.attr?.ring_stiffness">{{ item.attr.ring_stiffness }}</span>
-                          <span class="meta-tag tag-ip" v-if="item.attr?.ip_rating">{{ item.attr.ip_rating }}</span>
-                          <span class="meta-tag tag-inner" v-if="item.attr?.inner_diameter">{{ item.attr.inner_diameter }}</span>
-                          <span class="meta-tag tag-wall" v-if="item.attr?.wall_thickness">{{ item.attr.wall_thickness }}</span>
-                          <span class="meta-tag tag-surface" v-if="item.attr?.surface">{{ item.attr.surface }}</span>
-                          <span class="meta-tag tag-fire" v-if="item.attr?.fire_rating">{{ item.attr.fire_rating }}</span>
-                          <span class="meta-tag tag-inlet" v-if="item.attr?.inlet_type">{{ item.attr.inlet_type }}</span>
-                          <span class="meta-tag tag-fiber" v-if="item.attr?.fiber_core">{{ item.attr.fiber_core }}</span>
-                          <span class="meta-tag tag-range-len" v-if="item.attr?.length_range">{{ item.attr.length_range }}</span>
-                          <span class="meta-tag tag-media" v-if="item.attr?.media">{{ item.attr.media }}</span>
-                          <span class="meta-tag tag-range" v-if="item.attr?.range">{{ item.attr.range }}</span>
-                          <span class="meta-tag tag-output" v-if="item.attr?.output">{{ item.attr.output }}</span>
-                          <span class="meta-tag tag-cable" v-if="item.attr?.cable_length">{{ item.attr.cable_length }}</span>
-                          <span class="meta-tag tag-temp" v-if="item.attr?.temp_range">{{ item.attr.temp_range }}</span>
-                          <span class="meta-tag tag-humidity" v-if="item.attr?.humidity_range">{{ item.attr.humidity_range }}</span>
+                          <AttrTags :attr="item.attr" />
                           <span class="meta-sep" v-if="item.city">·</span>
                           <span class="meta-tag city-tag" v-if="item.city">{{ item.city }}</span>
                         </div>
@@ -280,42 +244,15 @@
                     <template v-else-if="col.key === 'price'">
                       <div class="price-main">{{ fmtCell(item.price) }}</div>
                       <div class="price-tax">{{ fmtCell(item.tax_price) }}</div>
-                      <div v-if="getPriceChange(item)" class="price-change" :class="getPriceChange(item).cls">{{ getPriceChange(item).text }}</div>
+                      <div class="price-change" v-if="getPriceChange(item)" :class="getPriceChange(item).cls" style="pointer-events:none">{{ getPriceChange(item).text }}</div>
                     </template>
                     <template v-else-if="col.key === 'attr'">
                       <div class="attr-cell">
-                        <span class="meta-tag tag-thickness" v-if="item.attr?.thickness">{{ item.attr.thickness }}</span>
-                        <span class="meta-tag tag-length" v-if="item.attr?.length">{{ item.attr.length }}</span>
-                        <span class="meta-tag tag-width" v-if="item.attr?.width">{{ item.attr.width }}</span>
-                        <span class="meta-tag tag-height" v-if="item.attr?.height">{{ item.attr.height }}</span>
-                        <span class="meta-tag tag-height-range" v-if="item.attr?.height_range">{{ item.attr.height_range }}</span>
-                        <span class="meta-tag tag-diameter" v-if="item.attr?.diameter">{{ item.attr.diameter }}</span>
-                        <span class="meta-tag tag-grade" v-if="item.attr?.grade">{{ item.attr.grade }}</span>
-                        <span class="meta-tag tag-color" v-if="item.attr?.color">{{ item.attr.color }}</span>
-                        <span class="meta-tag tag-voltage" v-if="item.attr?.voltage">{{ item.attr.voltage }}V</span>
-                        <span class="meta-tag tag-current" v-if="item.attr?.current">{{ item.attr.current }}A</span>
-                        <span class="meta-tag tag-cross" v-if="item.attr?.cross_section">{{ item.attr.cross_section }}</span>
-                        <span class="meta-tag tag-material" v-if="item.attr?.material">{{ item.attr.material }}</span>
-                        <span class="meta-tag tag-asphalt" v-if="item.attr?.asphalt_type">{{ item.attr.asphalt_type }}</span>
-                        <span class="meta-tag tag-cement" v-if="item.attr?.cement_content">{{ item.attr.cement_content }}</span>
-                        <span class="meta-tag tag-channels" v-if="item.attr?.channels">{{ item.attr.channels }}</span>
-                        <span class="meta-tag tag-doors" v-if="item.attr?.doors">{{ item.attr.doors }}</span>
-                        <span class="meta-tag tag-cores" v-if="item.attr?.cores">{{ item.attr.cores }}</span>
-                        <span class="meta-tag tag-drain" v-if="item.attr?.drain_type">{{ item.attr.drain_type }}</span>
-                        <span class="meta-tag tag-install" v-if="item.attr?.installation_type">{{ item.attr.installation_type }}</span>
-                        <span class="meta-tag tag-inlet" v-if="item.attr?.inlet_type">{{ item.attr.inlet_type }}</span>
-                        <span class="meta-tag tag-fiber" v-if="item.attr?.fiber_core">{{ item.attr.fiber_core }}</span>
-                        <span class="meta-tag tag-range-len" v-if="item.attr?.length_range">{{ item.attr.length_range }}</span>
-                        <span class="meta-tag tag-media" v-if="item.attr?.media">{{ item.attr.media }}</span>
-                        <span class="meta-tag tag-range" v-if="item.attr?.range">{{ item.attr.range }}</span>
-                        <span class="meta-tag tag-output" v-if="item.attr?.output">{{ item.attr.output }}</span>
-                        <span class="meta-tag tag-cable" v-if="item.attr?.cable_length">{{ item.attr.cable_length }}</span>
-                        <span class="meta-tag tag-temp" v-if="item.attr?.temp_range">{{ item.attr.temp_range }}</span>
-                        <span class="meta-tag tag-humidity" v-if="item.attr?.humidity_range">{{ item.attr.humidity_range }}</span>
+                        <AttrTags :attr="item.attr" />
                       </div>
                     </template>
                     <template v-else-if="col.key === 'date'">
-                      <span :class="{ 'stale-date': isStale(item.date) }">{{ item.date || '—' }}</span>
+                      <span :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '—' }}</span>
                     </template>
                     <template v-else-if="col.key === 'category'">
                       <span class="cat-badge">{{ item.category || '—' }}</span>
@@ -391,6 +328,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import axios from 'axios'
+import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
 import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
@@ -437,7 +375,7 @@ const allColumns = ref([
   { key: 'breed',    label: '产品名称',  sortable: true,  visible: true, width: 180 },
   { key: 'price',    label: '价格',      sortable: true,  visible: true, width: 110 },
   { key: 'attr',     label: '属性',      sortable: false, visible: false, width: 220 },
-  { key: 'tax_price',label: '含税价',   sortable: false, visible: false, width: 110 },
+
   { key: 'unit',     label: '单位',      sortable: false, visible: true, width: 60  },
   { key: 'date',     label: '日期',      sortable: true,  visible: true, width: 95  },
   { key: 'category', label: '分类',      sortable: true,  visible: true, width: 120 },
@@ -711,6 +649,16 @@ function isStale(dateStr) {
   const now = new Date()
   const diff = (now - d) / (1000 * 60 * 60 * 24)
   return diff > 30
+}
+
+function staleText(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diff = Math.floor((now - d) / (1000 * 60 * 60 * 24))
+  if (diff > 60) return `🕐 ${Math.floor(diff / 30)}个月前`
+  if (diff > 30) return `🕐 ${diff}天前`
+  return ''
 }
 
 function onKeywordInput() {

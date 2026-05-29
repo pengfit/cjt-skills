@@ -415,7 +415,8 @@ async function loadMoreBreeds() {
     } else {
       allBreedsList.value.push(...data)
     }
-    if (data.length >= breedsPageSize.value) {
+    // 任何有数据的响应都推进页码，防止最后一页不满时按钮仍可点击导致重复请求
+    if (data.length > 0) {
       breedsPage.value++
     }
   } catch (e) {
@@ -550,8 +551,11 @@ function renderPriceChart(ranges, stats) {
     }],
   }, true)
 
-  window.addEventListener('resize', () => chart.resize())
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+  }
   resizeHandler = () => chart.resize()
+  window.addEventListener('resize', resizeHandler)
 }
 
 let resizeHandler = null
@@ -1136,6 +1140,7 @@ onMounted(() => loadCategories())
 .spec-table-wrap {
   display: block;
   overflow-y: auto;
+  overflow-x: auto;
 }
 
 .spec-table-header,
