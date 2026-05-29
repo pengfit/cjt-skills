@@ -120,7 +120,8 @@
               <th>品种</th>
               <th>分类</th>
               <th>置信度</th>
-              <th>来源/添加时间</th>
+              <th>来源</th>
+              <th>添加时间</th>
               <th>备注</th>
             </tr>
           </thead>
@@ -137,8 +138,8 @@
               <td><span class="bcr-conf" :class="confClass(r.confidence)">{{ (r.confidence ?? 1).toFixed(2) }}</span></td>
               <td>
                 <span class="bcr-src" :class="`src-${r.source}`">{{ srcLabel(r.source) }}</span>
-                <span class="bcr-date">{{ formatDate(r.created_at) }}</span>
               </td>
+              <td class="bcr-date">{{ formatDate(r.created_at) }}</td>
               <td class="bcr-note" :title="r.note">{{ r.note || '—' }}</td>
             </tr>
           </tbody>
@@ -358,7 +359,7 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 .src-rules_migrated { background: rgba(56,189,248,0.1); color: #38bdf8; }
 .src-manual { background: rgba(52,211,153,0.1); color: #34d399; }
 .bcr-note { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b; font-size: 12px; }
-.bcr-date { color: #64748b; font-size: 12px; white-space: nowrap; margin-left: 6px; }
+.bcr-date { color: #64748b; font-size: 12px; white-space: nowrap; }
 .bcr-conf { font-weight: 700; font-size: 12px; }
 .conf-high { color: #34d399; }
 .conf-mid  { color: #fbbf24; }
