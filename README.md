@@ -118,7 +118,3 @@ parse_spec.py 将复合规格解析为结构化字段：
 | [jinan-price](./jinan-price/SKILL.md) | 济南数据同步 |
 | [rizhao-price](./rizhao-price/SKILL.md) | 日照数据同步 |
 | [self-improving-agent](./self-improving-agent/SKILL.md) | 自改进 Agent |
-
-## 支持城市
-
-西安 (xian) · 四川 (sichuan) · 重庆 (chongqing) · 济南 (jinan) · 日照 (rizhao)
