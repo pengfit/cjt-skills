@@ -14,7 +14,7 @@ RULES_DB = os.path.join(
     "parse_spec", "rules", "rules_vec.db"
 )
 # Jaccard 召回阈值：≥0.8 才接受分类，否则回退到 AI 批量分类
-DEFAULT_THRESHOLD = 0.6
+DEFAULT_THRESHOLD = 0.45
 
 # ── per-process 持久连接 ─────────────────────────────────────────────────────
 _DB_CONN = None
@@ -152,10 +152,6 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
     db_rules = _load_db_rules()
     all_rules = static_rules + db_rules
 
-    # 0. 硬编码品种兜底（最优先，防止混淆）
-    if breed_clean in _MANUAL_RULES:
-        return (_MANUAL_RULES[breed_clean], 1.0)
-
     # 1. 精确包含匹配（优先更长 breed，避免"沥青"→"透水混凝土"被截断）
     exact_matches = [(known_breed, cat) for known_breed, cat in all_rules
                     if known_breed in breed_clean or breed_clean in known_breed]
@@ -190,21 +186,6 @@ def jaccard_breed_classify(breed_clean: str, threshold: float = DEFAULT_THRESHOL
     return None
 
 
-# 补充常见品种规则（精确匹配兜底）
-_MANUAL_RULES = {
-    '普通混凝土': '混凝土/预制构件',
-    '透水混凝土': '混凝土/预制构件',
-    '钢筋混凝土': '混凝土/预制构件',
-    '水下混凝土': '混凝土/预制构件',
-    '抗渗混凝土': '混凝土/预制构件',
-    '细石混凝土': '混凝土/预制构件',
-    '片石混凝土': '混凝土/预制构件',
-    '轻质混凝土': '混凝土/预制构件',
-    '泡沫混凝土': '混凝土/预制构件',
-    '沥青混凝土': '市政材料',
-    '彩色混凝土': '混凝土/预制构件',
-    '补偿收缩混凝土': '混凝土/预制构件',
-}
 
 def insert_breed_rule(breed: str, category: str, source: str = "ai", confidence: float = 1.0, note: str = ""):
     """将分类结果写入 breed_category_rules 表"""

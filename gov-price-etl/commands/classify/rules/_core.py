@@ -37,22 +37,6 @@ def _query_breed_rules_db(breeds: list[str]) -> dict:
     return result
 
 
-def _jaccard_similar_breed(breed: str, min_score: float = 0.6) -> str:
-    """在 rules_vec.db 中查找与 breed char-jaccard 相似的品种，返回 category（仅当最高分>=min_score）"""
-    from .rules.jaccard import _char_jaccard
-    conn = _get_db_conn()
-    c = conn.cursor()
-    c.execute("SELECT breed, category FROM breed_category_rules WHERE breed != '' AND category != ''")
-    best_cat, best_score = "", 0.0
-    for known_breed, cat in c.fetchall():
-        score = _char_jaccard(breed, known_breed)
-        if score > best_score:
-            best_score = score
-            best_cat = cat
-    if best_score >= min_score:
-        return best_cat
-    return ""
-
 
 def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
     """批量查询 AI 分类（仅对未命中品种调 API），返回 {breed: category}"""
@@ -82,37 +66,25 @@ def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
     """
     breed → category 分类。
     流程：
-      1. 本地 DB 精确查 breed_category_rules（首查）
-      2. Jaccard 召回（来自 jaccard.py）
-      3. 未命中 → "其他"（AI 分类由 ETL 批量处理）
+      1. Jaccard 召回（精确包含 + 加权 Jaccard + char-jaccard，阈值 0.45）
+      2. 未命中 → "其他"（AI 批量处理）
     """
     if not breed:
         return "其他"
 
     breed_val = breed.strip()
 
-    # 1. 本地 DB 精确查
-    db_hit = _query_breed_rules_db([breed_val])
-    if db_hit.get(breed_val):
-        return db_hit[breed_val]
-
-
-    # 2. Jaccard 召回
+    # 1. Jaccard 召回
     try:
         _ensure_jaccard()
-        from jaccard import jaccard_breed_classify, insert_breed_rule
+        from classify.rules.jaccard import jaccard_breed_classify
         cat, score = jaccard_breed_classify(breed_val)
         if cat:
             return cat
     except Exception:
         pass
 
-    # 3. 相似品种召回（同一批次入库时复用 DB 中已有分类）
-    similar_cat = _jaccard_similar_breed(breed_val)
-    if similar_cat:
-        return similar_cat
-
-    return "其他"  # AI fallback 改为 ETL 批量处理
+    return "其他"
 
 
 
