@@ -15,7 +15,7 @@ gov-price-etl (ETL 清洗)
     ↓
 dwd_{city}_price (清洗层)
     ↓
-gov-price-etl/sync_dws (聚合同步)
+gov-price-etl/commands/sync_dws (聚合同步)
     ↓
 dws_{city}_price (聚合层)
     ↓
@@ -28,10 +28,14 @@ gov-price-dashboard (可视化)
 cjt-skills/
 ├── gov-price-etl/          # ETL 清洗逻辑
 │   ├── commands/
-│   │   ├── etl.py         # ODS → DWD
-│   │   └── parse_spec/   # 规格解析规则（rules/ 目录驱动）
-│   └── utils/
-│       └── sync_dws.py    # DWD → DWS
+│   │   ├── etl.py         # ODS → DWD 清洗
+│   │   ├── sync_dws.py    # DWD → DWS 聚合同步
+│   │   ├── classify.py    # 品种分类（AI 批量 + Jaccard 召回）
+│   │   ├── clean.py       # 数据清洗工具
+│   │   ├── fix_rule.py    # 分类规则修复
+│   │   ├── test_etl.py    # ETL 测试
+│   │   ├── classify/      # 分类规则目录
+│   │   └── parse_spec/    # 规格解析规则（rules/ 目录驱动）
 │
 ├── gov-price-dashboard/     # 数据可视化看板
 │   ├── api/                # FastAPI 后端 :5200
@@ -41,7 +45,8 @@ cjt-skills/
 ├── sichuan-price/          # 四川数据同步
 ├── chongqing-price/        # 重庆数据同步
 ├── jinan-price/            # 济南数据同步
-└── rizhao-price/           # 日照数据同步
+├── rizhao-price/           # 日照数据同步
+└── self-improving-agent/   # 自改进 Agent 技能
 ```
 
 ## 快速启动
@@ -103,5 +108,19 @@ parse_spec.py 将复合规格解析为结构化字段：
 
 ## 相关文档
 
-- [gov-price-etl](./gov-price-etl/SKILL.md)
-- [gov-price-dashboard](./gov-price-dashboard/SKILL.md)
+各 Skill 独立文档：
+
+| Skill | 说明 |
+|-------|------|
+| [gov-price-etl](./gov-price-etl/SKILL.md) | ETL 清洗、规格解析、分类规则 |
+| [gov-price-dashboard](./gov-price-dashboard/SKILL.md) | 数据可视化看板 API 与前端 |
+| [xa-material-price](./xa-material-price/SKILL.md) | 西安数据同步 |
+| [sichuan-price](./sichuan-price/SKILL.md) | 四川数据同步 |
+| [chongqing-price](./chongqing-price/SKILL.md) | 重庆数据同步 |
+| [jinan-price](./jinan-price/SKILL.md) | 济南数据同步 |
+| [rizhao-price](./rizhao-price/SKILL.md) | 日照数据同步 |
+| [self-improving-agent](./self-improving-agent/SKILL.md) | 自改进 Agent |
+
+## 支持城市
+
+西安 (xian) · 四川 (sichuan) · 重庆 (chongqing) · 济南 (jinan) · 日照 (rizhao)
