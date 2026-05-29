@@ -35,6 +35,9 @@
         />
       </div>
       <div class="bcr-toolbar-right">
+        <button class="bcr-btn bcr-btn-red" @click="clearFilters" :disabled="loading">
+          🗑️ 清空筛选
+        </button>
         <button class="bcr-btn bcr-btn-cyan" @click="testMode = !testMode">
           {{ testMode ? '关闭测试' : '🔬 测试召回' }}
         </button>
@@ -260,6 +263,16 @@ async function loadCategoryOptions() {
   } catch (e) { console.error(e) }
 }
 
+async function clearFilters() {
+  keyword.value = ''
+  categoryFilter.value = ''
+  localStorage.removeItem(KEYWORD_KEY)
+  localStorage.removeItem(FILTER_KEY)
+  localStorage.removeItem(PAGE_KEY)
+  page.value = 1
+  loadRules(1)
+}
+
 onMounted(() => { if (page.value > 1) loadRules(page.value); else loadRules(1); loadCategoryOptions() })
 </script>
 
@@ -309,6 +322,9 @@ onMounted(() => { if (page.value > 1) loadRules(page.value); else loadRules(1); 
 }
 .bcr-btn-cyan { background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
 .bcr-btn-cyan:hover { background: rgba(56,189,248,0.2); }
+.bcr-btn-red { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.bcr-btn-red:hover { background: rgba(248,113,113,0.2); }
+.bcr-btn-red:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Help */
 .bcr-help {

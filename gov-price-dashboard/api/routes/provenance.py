@@ -1804,6 +1804,21 @@ def _call_classify_batch_llm(breeds: list[str]) -> dict:
         return {"ok": False, "message": f"AI 分析异常: {e}"}
 
 
+@router.delete("/api/stats/breed-category-rules")
+def delete_breed_category_rules():
+    """清空 breed_category_rules 全部规则"""
+    import sqlite3
+    _ensure_rules_table()
+    if not os.path.exists(_RULES_DB):
+        return {"ok": True, "deleted": 0}
+    conn = sqlite3.connect(_RULES_DB)
+    c = conn.cursor()
+    c.execute("DELETE FROM breed_category_rules")
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+    return {"ok": True, "deleted": deleted}
+
 @router.get("/api/stats/breed-category-rules")
 def list_breed_category_rules(
     keyword: str = "",

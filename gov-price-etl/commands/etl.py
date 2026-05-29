@@ -358,9 +358,9 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
     session = get_es_client(es_host)
     body = ""
     for i, doc in enumerate(docs):
-        action = {"index": {}}
-        if ids and ids[i]:
-            action["index"]["_id"] = ids[i]
+        # 优先用 ids 里的 _id（来自 ODS 的真实 _id），确保 ai_pending 更新时能命中
+        _id = ids[i] if (ids and i < len(ids) and ids[i]) else None
+        action = {"index": {"_id": _id}} if _id else {"index": {}}
         body += json.dumps(action, ensure_ascii=False) + "\n"
         body += json.dumps(doc, ensure_ascii=False) + "\n"
 
@@ -563,9 +563,14 @@ def etl_city(es_host: str, city: str, cfg: dict,
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
                     continue
-                # category == "其他" 时加入 AI 批量分类
+                # category == "其他" 时先写入 DWD（category="其他"），AI 批量分类后再更新
                 if doc["category"] == "其他":
                     ai_pending.append((doc["breed_clean"], h["_id"]))
+                    # AI 待分类品种：先写入 DWD（不带 category，等 AI 更新时用 update doc_as_upsert 合并）
+                    # 注意：初始写入只有基础字段，AI 更新时会补充完整文档
+                    ai_doc = {k: v for k, v in doc.items() if k != "category"}
+                    docs.append(ai_doc)
+                    doc_ids.append(h["_id"])
                     continue
                 docs.append(doc)
                 doc_ids.append(h["_id"])
@@ -604,21 +609,30 @@ def etl_city(es_host: str, city: str, cfg: dict,
             chunk = breeds[i:i + _AI_BATCH_SIZE]
             cats = _fetch_ai_category_batch(chunk, city)
             breed_cats.update(cats)
+            if i + _AI_BATCH_SIZE < len(breeds):
+                import time; time.sleep(10)
         if breed_cats:
             # 按 doc_id 分组批量更新
             update_body = ""
             for breed_clean, doc_id in ai_pending:
                 cat = breed_cats.get(breed_clean, "其他")
+                # 用 update + doc_as_upsert 代替 index：
+                # 文档不存在时自动创建（upsert），存在时只更新 category 字段（不覆盖其他字段）
                 update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
-                update_body += json.dumps({"doc": {"category": cat}}, ensure_ascii=False) + "\n"
+                update_body += json.dumps({"doc": {"category": cat}, "doc_as_upsert": True}, ensure_ascii=False) + "\n"
             if update_body:
-                session = get_es_client(es_host)
-                r = session.post(f"{es_host}/{dwd_idx}/_bulk",
+                _session = get_es_client(es_host)
+                r = _session.post(f"{es_host}/{dwd_idx}/_bulk",
                                   data=update_body.encode("utf-8"),
                                   headers={"Content-Type": "application/x-ndjson"})
                 result = r.json()
                 errors = sum(1 for it in result.get("items", []) if "error" in it.get("update", {}))
                 ai_updated = len(ai_pending) - errors
+                print(f"  [AI] 批量更新详情: 更新 {ai_updated}/{len(ai_pending)} 条，错误 {errors}")
+                if errors > 0:
+                    for it in result.get("items", [])[:3]:
+                        if "error" in it.get("update", {}):
+                            print(f"    错误: {it['update']['error']}")
         print(f"  [AI] 批量分类 {len(ai_pending)} 条 → 更新 {ai_updated} 条")
 
     print(f"  [ETL] {city} 完成: → {dwd_idx} | etled={etled}, failed={failed}")

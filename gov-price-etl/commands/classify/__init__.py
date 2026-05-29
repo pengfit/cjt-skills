@@ -1,8 +1,8 @@
 """classify.py - gov-price 品种分类引擎（rules/ 动态加载版）"""
 
-from .rules._core import classify_breed, _fetch_ai_category_batch
+from .rules._core import classify_breed, _fetch_ai_category_batch, _ai_cache
 
-__all__ = ["classify_breed", "_fetch_ai_category_batch"]
+__all__ = ["classify_breed", "_fetch_ai_category_batch", "_ai_cache"]
 
 if __name__ == "__main__":
     import sys

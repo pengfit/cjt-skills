@@ -43,12 +43,13 @@ def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
     if not breeds:
         return {}
     import http.client, json as _json
+    from classify import _ai_cache
     # 先从缓存补齐
     uncached = [b for b in breeds if b not in _ai_cache]
     if uncached:
         try:
             body = _json.dumps({"breeds": uncached, "city": city}).encode("utf-8")
-            conn = http.client.HTTPConnection("localhost", 5200, timeout=120)
+            conn = http.client.HTTPConnection("localhost", 5200, timeout=60)
             conn.request("POST", "/api/stats/spec-quality/classify-breed-batch", body=body,
                       headers={"Content-Type": "application/json"})
             resp = conn.getresponse()
@@ -56,6 +57,9 @@ def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
             if data.get("ok"):
                 for breed, r in data.get("results", {}).items():
                     _ai_cache[breed] = r.get("category", "其他")
+            else:
+                for b in uncached:
+                    _ai_cache.setdefault(b, "其他")
         except Exception:
             for b in uncached:
                 _ai_cache.setdefault(b, "其他")
