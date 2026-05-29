@@ -23,6 +23,12 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 
 # 指定区县同步（逗号分隔）
 ./run.sh sync --counties "蓝田县,周至县"
+
+# 查看同步状态
+./run.sh status
+
+# 测试 ES 连接
+./run.sh test
 ```
 
 ## 增量检测（自动触发同步）
@@ -32,7 +38,7 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 ```bash
 ./run.sh check     # 手动运行
 
-# 定时增量检测（建议每小时一次）
+# 建议每小时一次定时增量检测
 0 * * * * cd ~/.openclaw/workspace/skills/xa-material-price && ./run.sh check
 ```
 
@@ -51,7 +57,7 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 
 | 参数 | 说明 |
 |------|------|
-| `--counties` | 指定区县（逗号分隔），默认全部 6 个 |
+| `--counties "区县1,区县2"` | 指定区县，默认全部 6 个 |
 | `--reset` | 重置进度，从头开始 |
 | `--force` | 强制全量同步，忽略增量判断 |
 | `--max-pages N` | 每区县最大页数（默认 2000）|
@@ -75,12 +81,12 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 
 - **方法**：ES 中该区县 `create_time` 正序前 10 条 vs 网站首页该区县前 10 条
 - **匹配键（5 字段）**：`breed + spec + unit + price + tax_price`，完全一致视为同一记录
-- **结果写入**：`material_xian_price_sync_progress` 的 `spot_check_ok`（布尔）和 `spot_check_details`（字符串）
+- **结果写入**：`ods_material_xian_price_sync_progress` 的 `spot_check_ok`（布尔）和 `spot_check_details`（字符串）
 - **用途**：供 gov-price-dashboard Web 页面显示"✓ 抽检通过"或"✗ 抽检异常"标签
 
 ```bash
 # 查看最近一次抽检结果
-curl -s "http://localhost:59200/material_xian_price_sync_progress/_search?size=1&sort=last_updated:desc" \
+curl -s "http://localhost:59200/ods_material_xian_price_sync_progress/_search?size=1&sort=last_updated:desc" \
   -H "Content-Type: application/json" \
   -d '{"_source":["spot_check_ok","spot_check_details"]}'
 ```
@@ -89,6 +95,22 @@ curl -s "http://localhost:59200/material_xian_price_sync_progress/_search?size=1
 
 文档以 `MD5(breed+code+spec+county+update_date+price+tax_price)` 作为 `_id`，重复同步不会产生重复数据。价格变化时生成新文档，能保留价格历史。
 
+## 数据字段
+
+| 字段 | 说明 |
+|------|------|
+| `code` | 材料编码 |
+| `breed` | 材料名称 |
+| `spec` | 规格型号 |
+| `unit` | 单位 |
+| `price` | 除税价格 |
+| `tax_price` | 含税价格 |
+| `county` | 区县 |
+| `province` | 陕西 |
+| `city` | 西安 |
+| `update_date` | 更新时间（页脚解析） |
+| `create_time` | 入库时间 |
+
 ## 配置文件
 
 `config.yml` 控制 ES 连接和同步参数：
@@ -96,8 +118,11 @@ curl -s "http://localhost:59200/material_xian_price_sync_progress/_search?size=1
 ```yaml
 es:
   host: http://localhost:59200
-  index: material_xian_price
-  sync_log_index: material_xian_price_sync_log
+  index: ods_material_xian_price
+  progress_index: ods_material_xian_price_sync_progress
+  sync_log_index: ods_material_xian_price_sync_log
+  batch_size: 500
+  timeout: 30
 
 site:
   base_url: https://zjj.xa.gov.cn/zxcx/gczj/index.aspx
@@ -110,7 +135,7 @@ site:
     - 周至县
 
 sync:
-  last_update_date: "2026-05-07"   # 自动维护，记录最近一次同步的更新日期
+  last_update_date: '2026-05-28'
 ```
 
 ## 项目结构
@@ -123,12 +148,24 @@ xa-material-price/
 ├── config.yml          # ES/站点配置
 ├── .sync_progress.json # 进度文件（自动生成，按区县分别记录）
 └── commands/
-    ├── sync.py         # 同步主程序（ProgressLogger 按区县写入 ES 进度）
+    ├── sync.py         # 同步主程序（含 ProgressStore 本地进度 / ProgressLogger ES 进度）
     ├── check.py        # 增量检测（自动触发后台同步）
     ├── preview.py      # 预览模式（不写入 ES）
     ├── status.py       # 查看同步状态
     ├── test.py         # 测试 ES 连接
-    └── utils.py        # SiteSession、parse_page_date、spot_check_county、ensure_index
+    └── utils.py        # SiteSession、parse_page_date、parse_table_rows、spot_check_county、ensure_index、load_config
+```
+
+## 数据流（完整链路）
+
+```
+zjj.xa.gov.cn
+     ↓ sync.py
+ods_material_xian_price (ES)
+     ↓ gov-price-etl (etl.py)
+dwd_xian_price
+     ↓ sync_dws.py
+dws_xian_price
 ```
 
 ## 依赖
