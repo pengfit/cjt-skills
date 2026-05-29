@@ -28,10 +28,8 @@ gov-price-etl/
 ├── commands/
 │   ├── __init__.py
 │   ├── etl.py                # ODS → DWD 主程序（含内置 DWS 同步）
-│   ├── test_etl.py           # 西安快速测试脚本
 │   ├── clean.py               # 品种/规格/单位/价格清洗函数
 │   ├── classify.py            # 品种分类入口
-│   ├── fix_rule.py            # 从错误样本自动分析并写入 base.py 规则
 │   ├── parse_spec/            # 规格解析引擎（槽位制 + 向量库）
 │   │   ├── __init__.py       # get_parser() 入口，按城市分发
 │   │   ├── base.py            # BaseParseSpec 通用解析基类
@@ -124,8 +122,6 @@ python3 commands/classify/rules/_core.py 铸铁井盖
 
 ```bash
 # 自动分析 spec 错误样本，生成并验证规则
-python3 commands/fix_rule.py --spec "D720*8" --expected '{"diameter":"D720","thickness":"8mm"}'
-python3 commands/fix_rule.py --spec "袋装P.S.A32.5" --expected '{"grade":"P.S.A32.5"}'
 ```
 
 ---
