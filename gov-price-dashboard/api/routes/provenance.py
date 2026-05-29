@@ -60,7 +60,7 @@ es = Elasticsearch([ES_HOST])
 _RULES_DB = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
 
 def _ensure_rules_table():
-    """确保 breed_category_rules 表存在且结构最新（幂等）"""
+    """"确保 breed_category_rules 表存在且结构最新（幂等）"""
     if not os.path.exists(_RULES_DB):
         return
     conn = sqlite3.connect(_RULES_DB)

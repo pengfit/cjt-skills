@@ -1,3 +1,8 @@
+---
+name: xa-material-price
+description: "西安工程造价材料信息采集：从 zjj.xa.gov.cn 抓取西安 6 个区县材料价格数据。"
+---
+
 # xa-material-price
 
 西安工程造价材料信息采集。从 `zjj.xa.gov.cn` 抓取西安 6 个区县材料价格数据，按更新日期增量同步至本地 ES。

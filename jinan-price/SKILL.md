@@ -1,3 +1,8 @@
+---
+name: jinan-price
+description: "济南工程造价材料信息采集：从 jnxxj.jngczjxh.com:5020 抓取材料价格数据。"
+---
+
 # jinan-price
 
 济南工程造价材料信息采集。从 `jnxxj.jngczjxh.com:5020` 抓取材料价格数据，支持多分类、多周期、断点续传、增量自动检测。

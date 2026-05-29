@@ -1,3 +1,8 @@
+---
+name: gov-price-dashboard
+description: "政府材料价格数据可视化看板，基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。"
+---
+
 # gov-price-dashboard
 
 政府材料价格数据可视化看板，基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。

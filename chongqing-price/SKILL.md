@@ -1,3 +1,8 @@
+---
+name: chongqing-price
+description: "重庆工程造价材料信息采集：从 www.cqsgczjxx.org 抓取区县材料价格数据。"
+---
+
 # chongqing-price
 
 重庆工程造价材料信息采集 Skill。从 `www.cqsgczjxx.org`（重庆市建设工程造价信息网）抓取区县材料价格数据，通过 openclaw browser 自动化抓取页面，批量写入本地 ES 索引 `ods_material_chongqing_price`。

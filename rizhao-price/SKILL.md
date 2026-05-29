@@ -1,4 +1,9 @@
-# rizhao-price 日照工程造价材料信息采集
+---
+name: rizhao-price
+description: "日照工程造价材料信息采集：从 http://58.59.43.227:81 抓取材料价格数据。"
+---
+
+# rizhao-price
 
 从日照工程造价信息网站 `http://58.59.43.227:81` 抓取材料价格数据，通过 Playwright 浏览器自动化实现流式抓取，写入本地 ES。
 

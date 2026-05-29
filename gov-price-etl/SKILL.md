@@ -1,4 +1,9 @@
-# gov-price-etl 政府材料价格数据清洗 ETL
+---
+name: gov-price-etl
+description: "政府材料价格数据清洗 ETL：将政府材料价格原始数据（ODS 层）清洗为结构化层（DWD），再聚合为展示层（DWS）。"
+---
+
+# gov-price-etl
 
 将政府材料价格原始数据（ODS 层）清洗为结构化层（DWD），再聚合为展示层（DWS）。
 

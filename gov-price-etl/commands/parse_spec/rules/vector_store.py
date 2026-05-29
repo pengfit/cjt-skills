@@ -41,7 +41,7 @@ def _keyword_score(spec_tokens: set, rule_tokens: frozenset | set) -> float:
 
 # ── SQLite schema ─────────────────────────────────────────────────────────────
 
-CREATE_TABLE = """
+CREATE_TABLE_SPEC = """
 CREATE TABLE IF NOT EXISTS breed_spec_rules (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     pattern     TEXT    NOT NULL UNIQUE,
@@ -55,13 +55,25 @@ CREATE TABLE IF NOT EXISTS breed_spec_rules (
 )
 """
 
+CREATE_TABLE_BREED_CATEGORY = """
+CREATE TABLE IF NOT EXISTS breed_category_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  breed TEXT UNIQUE NOT NULL,
+  category TEXT NOT NULL,
+  source TEXT DEFAULT 'ai',
+  confidence REAL DEFAULT 1.0,
+  note TEXT DEFAULT '',
+  created_at TEXT DEFAULT (date('now'))
+)
+""""
+
 ENSURE_COLS = """
 PRAGMA table_info(breed_spec_rules)
 """
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.execute(CREATE_TABLE)
+    conn.execute(CREATE_TABLE_SPEC)
     conn.commit()
     cols = {r[1] for r in conn.execute(ENSURE_COLS).fetchall()}
     for col, dtype in [
@@ -71,6 +83,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     ]:
         if col not in cols:
             conn.execute(f"ALTER TABLE breed_spec_rules ADD COLUMN {col} {dtype}")
+    conn.execute(CREATE_TABLE_BREED_CATEGORY)
+    conn.commit()
 
 
 # ── VecStore ────────────────────────────────────────────────────────────────
