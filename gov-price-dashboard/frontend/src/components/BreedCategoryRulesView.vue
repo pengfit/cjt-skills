@@ -347,7 +347,7 @@ onMounted(() => { loadRules(1); loadCategoryOptions() })
 .bcr-row:hover td { background: rgba(56,189,248,0.03); }
 .bcr-empty { text-align: center; color: #475569; padding: 36px !important; font-size: 13px; }
 
-.bcr-breed { color: #e2e8f0; font-weight: 600; font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bcr-breed { color: #e2e8f0; font-weight: 600; font-size: 13px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bcr-cat {
   display: inline-block; background: rgba(56,189,248,0.1); color: #38bdf8;
   padding: 2px 9px; border-radius: 5px; font-size: 12px; font-weight: 500;
