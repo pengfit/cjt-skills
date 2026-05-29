@@ -52,23 +52,22 @@
           <div class="bcr-help-item">
             <span class="bcr-help-key">数据源</span>
             <span class="bcr-help-val">
-              <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite）<br/>
+              <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite，616 条规则）<br/>
               品种分类由 AI 批量分类后写入，静态规则文件已废弃
             </span>
           </div>
           <div class="bcr-help-item">
             <span class="bcr-help-key">分类流程</span>
             <span class="bcr-help-val">
-              <strong>① DB 精确查 breed_category_rules</strong><br/>
-              <strong>② Jaccard 相似度召回</strong>（阈值 ≥ 0.35）<br/>
-              <strong>③ 未命中 → AI 批量分类</strong> → 写入 DB 持久化
+              <strong>① Jaccard 召回</strong>（精确包含 + 加权 Jaccard + char Jaccard，阈值 0.45）<br/>
+              <strong>② 未命中 → AI 批量分类</strong> → 写入 DB 持久化
             </span>
           </div>
           <div class="bcr-help-item">
             <span class="bcr-help-key">Jaccard 召回</span>
             <span class="bcr-help-val">
-              基于字符 bigram 相似度，从 DB 中的 breed→category 规则召回<br/>
-              score &lt; 0.35 → 未命中，回退到「其他」
+              从 DB 加载全部 breed→category 规则，综合分 ≥ 0.45 即召回<br/>
+              例：大理石台板（单孔）↔（双孔）综合分 0.499 ≥ 0.45 可直接命中
             </span>
           </div>
           <div class="bcr-help-item">
