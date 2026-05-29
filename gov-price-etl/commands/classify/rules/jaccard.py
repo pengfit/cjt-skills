@@ -14,7 +14,7 @@ RULES_DB = os.path.join(
     "parse_spec", "rules", "rules_vec.db"
 )
 # Jaccard 召回阈值：≥0.8 才接受分类，否则回退到 AI 批量分类
-DEFAULT_THRESHOLD = 0.8
+DEFAULT_THRESHOLD = 0.6
 
 # ── per-process 持久连接 ─────────────────────────────────────────────────────
 _DB_CONN = None
