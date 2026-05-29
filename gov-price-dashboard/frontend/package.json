@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "echarts": "^5.6.0",
     "echarts-for-vue": "^1.4.1",
     "marked": "^18.0.4",
