@@ -11,7 +11,7 @@ except ImportError:
 
 RULES_DB = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "parse_spec", "rules", "rules_vec.db"
+    "classify", "rules", "breed_category_rules.db"
 )
 # Jaccard 召回阈值：≥0.8 才接受分类，否则回退到 AI 批量分类
 DEFAULT_THRESHOLD = 0.45

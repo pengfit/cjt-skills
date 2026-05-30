@@ -21,10 +21,10 @@ def _ensure_jaccard():
 _ai_cache = {}
 
 def _query_breed_rules_db(breeds: list[str]) -> dict:
-    """仅查 rules_vec.db 精确匹配，不调 API，返回 {breed: category}"""
+    """仅查 breed_category_rules.db 精确匹配，不调 API，返回 {breed: category}"""
     if not breeds:
         return {}
-    rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/rules_vec.db"
+    rules_db = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/classify/rules/breed_category_rules.db"
     result = {}
     if os.path.exists(rules_db):
         conn = _get_db_conn()

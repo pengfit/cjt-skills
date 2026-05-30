@@ -10,7 +10,7 @@ import numpy as np
 import sqlite3
 
 RULES_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(RULES_DIR, "rules_vec.db")
+DB_PATH = os.path.join(RULES_DIR, "breed_spec_rules.db")
 
 
 # ── Keyword-set similarity (zero-dep) ────────────────────────────────────────

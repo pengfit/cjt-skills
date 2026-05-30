@@ -58,12 +58,14 @@ es = Elasticsearch([ES_HOST])
 
 
 _RULES_DB = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+_RULES_DB_CAT = os.path.join(ETL_CMD_DIR, "classify", "rules", "breed_category_rules.db")
+_RULES_DB_SPEC = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "breed_spec_rules.db")
 
 def _ensure_rules_table():
     """"确保 breed_category_rules 表存在且结构最新（幂等）"""
-    if not os.path.exists(_RULES_DB):
+    if not os.path.exists(_RULES_DB_CAT):
         return
-    conn = sqlite3.connect(_RULES_DB)
+    conn = sqlite3.connect(_RULES_DB_CAT)
     c = conn.cursor()
     c.execute(
         "CREATE TABLE IF NOT EXISTS breed_category_rules ("
@@ -1067,9 +1069,9 @@ def stats_rules_vector(
     """
     查询 rules_vec.db 中的规则数据（分页 + 过滤 + 搜索）。
     """
-    db_path = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
+    db_path = _RULES_DB_SPEC
     if not os.path.exists(db_path):
-        raise HTTPException(status_code=404, detail="rules_vec.db 不存在")
+        raise HTTPException(status_code=404, detail="breed_spec_rules.db 不存在")
 
     import sqlite3
     conn = sqlite3.connect(db_path)
@@ -1665,11 +1667,11 @@ def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
     _ensure_rules_table()
     _rule_re = re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', re.MULTILINE)
 
-    # 1. 批量从 rules_vec.db 读取已有规则
+    # 1. 批量从 breed_category_rules.db 读取已有规则
     db_results = {}
     unmatched = []
-    if os.path.exists(_RULES_DB):
-        conn = sqlite3.connect(_RULES_DB)
+    if os.path.exists(_RULES_DB_CAT):
+        conn = sqlite3.connect(_RULES_DB_CAT)
         c = conn.cursor()
         placeholders = ",".join("?" for _ in breeds)
         c.execute(f"SELECT breed, category, source, confidence FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
@@ -1685,13 +1687,13 @@ def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
         if not ai_results.get("ok"):
             return ai_results
 
-        # 3. 批量写入 rules_vec.db
+        # 3. 批量写入 breed_category_rules.db
         results_map = ai_results.get("results", {})
         to_insert = [(b, r["category"], "ai", r.get("confidence", 1.0), r.get("note", ""))
                      for b, r in results_map.items() if r.get("category")]
-        if to_insert and os.path.exists(_RULES_DB):
+        if to_insert and os.path.exists(_RULES_DB_CAT):
             try:
-                conn = sqlite3.connect(_RULES_DB)
+                conn = sqlite3.connect(_RULES_DB_CAT)
                 c = conn.cursor()
                 c.executemany(
                     "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, confidence, note) VALUES (?, ?, ?, ?, ?)",
@@ -1784,9 +1786,9 @@ def delete_breed_category_rules():
     """清空 breed_category_rules 全部规则"""
     import sqlite3
     _ensure_rules_table()
-    if not os.path.exists(_RULES_DB):
+    if not os.path.exists(_RULES_DB_CAT):
         return {"ok": True, "deleted": 0}
-    conn = sqlite3.connect(_RULES_DB)
+    conn = sqlite3.connect(_RULES_DB_CAT)
     c = conn.cursor()
     c.execute("DELETE FROM breed_category_rules")
     deleted = c.rowcount
@@ -1808,10 +1810,10 @@ def list_breed_category_rules(
     """
     import sqlite3
     _ensure_rules_table()
-    if not os.path.exists(_RULES_DB):
+    if not os.path.exists(_RULES_DB_CAT):
         return {"rules": [], "total": 0, "page": page, "page_size": page_size}
 
-    conn = sqlite3.connect(_RULES_DB)
+    conn = sqlite3.connect(_RULES_DB_CAT)
     c = conn.cursor()
 
     where = []
@@ -1869,7 +1871,7 @@ def create_breed_category_rule(req: dict = Body(...)):
 
     _ensure_rules_table()
     try:
-        conn = sqlite3.connect(_RULES_DB)
+        conn = sqlite3.connect(_RULES_DB_CAT)
         c = conn.cursor()
         c.execute(
             "INSERT OR REPLACE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
@@ -1889,7 +1891,7 @@ def delete_breed_category_rule(rule_id: int):
     import sqlite3
     _ensure_rules_table()
     try:
-        conn = sqlite3.connect(_RULES_DB)
+        conn = sqlite3.connect(_RULES_DB_CAT)
         c = conn.cursor()
         c.execute("DELETE FROM breed_category_rules WHERE id=?", (rule_id,))
         conn.commit()
