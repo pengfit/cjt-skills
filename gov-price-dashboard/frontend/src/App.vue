@@ -20,7 +20,7 @@
         <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
-        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">数据清洗</button>
+        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">数据入仓</button>
         <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
         <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
       </div>

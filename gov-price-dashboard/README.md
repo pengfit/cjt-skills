@@ -12,7 +12,7 @@
 | **产品列表** | 多维筛选搜索，含关键词/省市县/分类/价格区间筛选，结果分页排序，attr 标签显示 |
 | **数据分布** | 省份/城市数据量分布图，7 天未更新标红提醒 |
 | **类别分析** | 分类下钻，含品种列表和规格价格明细 |
-| **数据清洗** | ODS→DWD→DWS 同步链路状态、各城市抓取进度监控 |
+| **数据入仓** | ODS→DWD→DWS 同步链路状态、各城市抓取进度监控 |
 | **规格规则库** | 规格解析规则查询、添加、测试；AI 生成规则建议；DWD 抽样质量报告 |
 | **分类规则库** | 品种→分类映射规则管理，Jaccard 召回，批量 AI 分类 |
 
@@ -225,7 +225,7 @@ POST /api/stats/spec-quality/classify-breed-batch
 
 ## 相关项目
 
-- **gov-price-etl**：`/skills/gov-price-etl/` — ODS → DWD → DWS 数据清洗与 ETL
+- **gov-price-etl**：`/skills/gov-price-etl/` — ODS → DWD → DWS 数据入仓与 ETL
 - **xian-material-price** — 西安数据同步
 - **sichuan-price** — 四川数据同步
 - **chongqing-price** — 重庆数据同步

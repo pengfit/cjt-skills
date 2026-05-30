@@ -1,4 +1,4 @@
-"""clean.py - gov-price 数据清洗逻辑
+"""clean.py - gov-price 数据入仓逻辑
 
 处理品种、规格、单位的标准化。
 """

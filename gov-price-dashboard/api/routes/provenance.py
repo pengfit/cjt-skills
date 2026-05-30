@@ -564,13 +564,13 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 
     is_all = (city == "all")
     if is_all:
-        dws_idx = ALL_INDICES
+        dwd_idx = ALL_DWD_INDICES
         ods_idx = ALL_ODS_INDICES
         dwd_idx = ALL_DWD_INDICES
         city_label = "全部城市"
     else:
         cfg = CITY_INDEXES[city]
-        dws_idx = cfg["dws"]
+        dwd_idx = cfg["dwd"]
         ods_idx = cfg["ods"]
         dwd_idx = cfg["dwd"]
         city_label = cfg["label"]
@@ -583,21 +583,20 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 "by_province": {
                     "terms": {"field": "province", "size": 50},
                     "aggs": {
-                        "max_date": {"max": {"field": "date"}},
+                        "max_date": {"max": {"field": "etl_time"}},
                         "min_date": {"min": {"field": "date"}},
                         "cnt": {"value_count": {"field": "price"}},
-                        "avg_price": {"avg": {"field": "price"}},
                     }
                 }
             }
         }
-        prov_result = es.search(index=dws_idx, body=prov_body)
+        prov_result = es.search(index=dwd_idx, body=prov_body)
         prov_buckets = prov_result["aggregations"]["by_province"]["buckets"]
 
         # ── 2. 近30天每日入库量 ─────────────────────────────────
         daily_body = {
             "size": 0,
-            "query": {"range": {"etl_time": {"gte": "now-30d"}}},
+            "query": {"range": {"etl_time": {"gte": "now-7d"}}},
             "aggs": {
                 "daily": {
                     "date_histogram": {
@@ -608,7 +607,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        daily_result = es.search(index=dws_idx, body=daily_body)
+        daily_result = es.search(index=dwd_idx, body=daily_body)
         daily_buckets = daily_result["aggregations"]["daily"]["buckets"]
         daily_data = [
             {"date": b["key_as_string"][:10], "count": b["doc_count"]}
@@ -624,12 +623,12 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     "aggs": {
                         "province": {"terms": {"field": "province", "size": 1}},
                         "cnt": {"value_count": {"field": "price"}},
-                        "max_date": {"max": {"field": "date"}},
+                        "max_date": {"max": {"field": "etl_time"}},
                     }
                 }
             }
         }
-        city_result = es.search(index=dws_idx, body=city_body)
+        city_result = es.search(index=dwd_idx, body=city_body)
         city_buckets = city_result["aggregations"]["by_city"]["buckets"]
         city_data = [
             {
@@ -643,11 +642,11 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 
         # ── 4. 数据总量 ──────────────────────────────────────────
         try:
-            count_resp = es.count(index=dws_idx)
+            count_resp = es.count(index=dwd_idx)
             total_count = count_resp["count"]
         except Exception:
             total_body = {"query": {"match_all": {}}, "size": 0, "track_total": True}
-            total_r = es.search(index=dws_idx, body=total_body)
+            total_r = es.search(index=dwd_idx, body=total_body)
             total_count = total_r["hits"]["total"]["value"]
 
         # ── 5. 新鲜度分析 ────────────────────────────────────────
@@ -666,11 +665,10 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     is_old = (datetime.datetime.now() - max_date).days > 30
                 except Exception:
                     pass
-            avg_p = b["avg_price"]["value"]
             province_list.append({
                 "province": b["key"],
                 "count": b["doc_count"],
-                "avg_price": round(avg_p, 2) if avg_p else 0,
+                
                 "latest_date": max_date_str,
                 "is_stale": is_stale,
                 "is_old": is_old,
@@ -685,10 +683,10 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         recent_7d = 0
         prev_7d = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            r1 = pool.submit(es.count, index=dws_idx,
-                body={"query": {"range": {"update_date": {"gte": "now-7d"}}}})
-            r2 = pool.submit(es.count, index=dws_idx,
-                body={"query": {"range": {"update_date": {"gte": "now-14d", "lt": "now-7d"}}}})
+            r1 = pool.submit(es.count, index=dwd_idx,
+                body={"query": {"range": {"etl_time": {"gte": "now-7d"}}}})
+            r2 = pool.submit(es.count, index=dwd_idx,
+                body={"query": {"range": {"etl_time": {"gte": "now-14d", "lt": "now-7d"}}}})
             recent_7d = r1.result()["count"]
             prev_7d = r2.result()["count"]
 
@@ -698,7 +696,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
             f_ods = pool.submit(_index_stats, ods_idx)
             f_dwd = pool.submit(_index_stats, dwd_idx)
-            f_dws = pool.submit(_index_stats, dws_idx)
+            f_dws = pool.submit(_index_stats, dwd_idx)
             ods_stats = f_ods.result()
             dwd_stats = f_dwd.result()
             dws_stats = f_dws.result()

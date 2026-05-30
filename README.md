@@ -31,7 +31,7 @@ cjt-skills/
 │   │   ├── etl.py         # ODS → DWD 清洗
 │   │   ├── sync_dws.py    # DWD → DWS 聚合同步
 │   │   ├── classify.py    # 品种分类（AI 批量 + Jaccard 召回）
-│   │   ├── clean.py       # 数据清洗工具
+│   │   ├── clean.py       # 数据入仓工具
 │   │   ├── classify/      # 分类规则目录
 │   │   └── parse_spec/    # 规格解析规则（rules/ 目录驱动）
 │
