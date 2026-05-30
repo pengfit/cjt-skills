@@ -678,8 +678,8 @@ body {
 .result-table td.tax-price-cell { white-space: nowrap; vertical-align: top; padding-top: 10px !important; text-align: center; color: var(--text-3) !important; font-size: 12px; }
 /* 单位列居中 */
 .result-table td.unit-cell {
-  color: var(--text-3) !important;
-  font-size: 11px !important;
+  color: var(--text) !important;
+  font-size: 12px !important;
   white-space: nowrap;
   vertical-align: middle;
   text-align: center;
