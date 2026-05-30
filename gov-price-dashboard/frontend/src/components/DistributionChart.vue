@@ -26,8 +26,6 @@
       <div class="ov-stat">
         <span class="ov-icon">💰</span>
         <div class="ov-body">
-          <div class="ov-value">{{ overview.avg_price.toLocaleString() }} 元/吨</div>
-          <div class="ov-label">均价</div>
         </div>
       </div>
       <div class="ov-divider"></div>
@@ -65,7 +63,6 @@
             </div>
             <div class="province-chart-stats">
               <span class="province-count">{{ p.count.toLocaleString() }}</span>
-              <span class="province-avg">均价 ¥{{ (p.avg_price || 0).toLocaleString() }}</span>
             </div>
             <div :id="'provinceChart_' + p.province" class="province-chart-box"></div>
           </div>
