@@ -32,9 +32,9 @@ CITY_INDEXES = {
 }
 
 # 全部城市索引汇总
-ALL_INDICES = "dws_xian_price"
-ALL_ODS_INDICES = "ods_material_xian_price"
-ALL_DWD_INDICES = "dwd_xian_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
+ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price"
+ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
 
 # 各城市配置的区县数量（从 config.yml 读取，作为 total_counties 基准）
 CITY_COUNTY_COUNTS = {

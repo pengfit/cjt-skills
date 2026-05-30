@@ -44,7 +44,7 @@ def _make_doc(row: dict, city: str, county: str, period: str, tab_type: str = ''
         'unit': row.get('dw', ''),
         'price': price_val,
         'period': period,
-        'province': '山东省',
+        'province': '山东',
         'city': city,
         'county': county,
         'tab_type': tab_type,

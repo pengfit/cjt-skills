@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
-ALL_INDICES = "dwd_xian_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
 
 app = FastAPI(title="gov-price-dashboard API", version="1.0.0")
 
