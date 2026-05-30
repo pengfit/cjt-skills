@@ -859,7 +859,7 @@ def stats_breed_detail(
                         "cnt": {"value_count": {"field": "price"}},
                         "avg_p": {"avg": {"field": "price"}},
                         "by_spec": {
-                            "terms": {"field": "spec", "size": 200},
+                            "terms": {"field": "spec.keyword", "size": 200},
                             "aggs": {
                                 "cnt": {"value_count": {"field": "price"}},
                                 "avg_p": {"avg": {"field": "price"}},
