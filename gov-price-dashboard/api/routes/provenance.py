@@ -1333,29 +1333,6 @@ def _run_spec_validation_quiet(spec: str = "", attr: str = "", code: str = "") -
         return (0, 0)
     try:
         import re as _re_mod, re as _re
-
-        # 尝试直接正则测试：匹配 re.search(r'...', s) 或 re.sub(r'...', r'...', s)
-        search_match = _re.search(r're\.search\((r["\'][^"\']+["\'])\s*,\s*s\)', code)
-        if search_match:
-            raw_pat = search_match.group(1)
-            inner = raw_pat[2:-1]  # 不需要翻倍，inner 已是正确字符序列
-            try:
-                val = _re_mod.search(inner, spec)
-                return (1, 1) if val else (0, 1)
-            except Exception:
-                return (0, 1)
-
-        sub_match = _re.search(r're\.sub\((r["\'][^"\']+["\'])\s*,\s*(r["\'][^"\']+["\'])\s*,\s*s\)', code)
-        if sub_match:
-            raw_pat = sub_match.group(1)
-            inner = raw_pat[2:-1]  # 不需要翻倍，inner 已是正确字符序列
-            try:
-                val = _re_mod.search(inner, spec)
-                return (1, 1) if val else (0, 1)
-            except Exception:
-                return (0, 1)
-
-        # 兜底：直接 exec（复杂代码场景）
         try:
             exec_globals = {"result": {}, "re": _re_mod, "s": spec}
             exec(code, exec_globals)
