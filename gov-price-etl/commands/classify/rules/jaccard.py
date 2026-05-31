@@ -366,55 +366,6 @@ def insert_breed_rule(breed: str, category: str, source: str = "ai",
 
 
 
-def fix_rules_conflicts(dry_run=True):
-    """检查并修复 breed_category_rules 中的分类冲突（分类器 vs 规则库标注不一致）。
-
-    对每条规则运行 jaccard_breed_classify，若得分>0 但分类结果与规则库标注不同，
-    说明规则库标注可能有误。将分类器的结果写入 DB（默认 dry_run=True 仅报告）。
-
-    Args:
-        dry_run: True=只报告不写入，False=写入修正后的 category
-
-    Returns:
-        list of (breed, old_category, new_category, score)
-    """
-    global _ALL_RULES, _EXACT_INDEX, _GLOBAL_WORD_FREQ
-
-    # 强制重新加载规则（含缓存清除）
-    _get_all_rules()
-
-    conn = _get_rules_db_conn()
-    c = conn.cursor()
-    c.execute("SELECT rowid, breed, category FROM breed_category_rules")
-    rows = c.fetchall()
-
-    fixes = []
-    for rowid, breed, expected_cat in rows:
-        result = jaccard_breed_classify(breed)
-        if not result:
-            continue
-        classified_cat, score = result
-        if classified_cat != expected_cat and score > 0:
-            fixes.append((breed, expected_cat, classified_cat, score))
-
-    if not fixes:
-        return []
-
-    if not dry_run:
-        for breed, old_cat, new_cat, score in fixes:
-            c.execute(
-                "UPDATE breed_category_rules SET category=? WHERE breed=? AND category=?",
-                (new_cat, breed, old_cat)
-            )
-        conn.commit()
-        # 清除缓存，下次 classify 重新加载
-        _ALL_RULES = None
-        _EXACT_INDEX = None
-        _GLOBAL_WORD_FREQ = None
-
-    return fixes
-
-
 def batch_insert_breed_rules(breed_category_pairs: list[tuple[str, str, str, float, str]]):
     """
     批量写入 breed_category_rules 表（幂等，事务提交）。
