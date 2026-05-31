@@ -573,15 +573,15 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 
     is_all = (city == "all")
     if is_all:
-        dwd_idx = ALL_DWD_INDICES
         ods_idx = ALL_ODS_INDICES
         dwd_idx = ALL_DWD_INDICES
+        dws_idx = dwd_idx
         city_label = "全部城市"
     else:
         cfg = CITY_INDEXES[city]
-        dwd_idx = cfg["dwd"]
         ods_idx = cfg["ods"]
         dwd_idx = cfg["dwd"]
+        dws_idx = cfg["dws"]
         city_label = cfg["label"]
 
     try:
@@ -705,7 +705,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
             f_ods = pool.submit(_index_stats, ods_idx)
             f_dwd = pool.submit(_index_stats, dwd_idx)
-            f_dws = pool.submit(_index_stats, dwd_idx)
+            f_dws = pool.submit(_index_stats, dws_idx)
             ods_stats = f_ods.result()
             dwd_stats = f_dwd.result()
             dws_stats = f_dws.result()
@@ -721,7 +721,8 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
             "status": "ok" if sync_ok else "out_of_sync",
         }
 
-        # ── 8. 所有城市完整链路状态 ─────────────────────────────
+        # ── 8. 所有城市完整链路状态（ODS→DWD→DWS + 抓取进度）───
+        scrape_all = stats_scrape_progress_all()
         all_pipelines = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
             futures = {}
@@ -736,6 +737,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 dwd_s = f["dwd"].result()
                 dws_s = f["dws"].result()
                 sync_ok_c = (ods_s.get("count") == dwd_s.get("count") == dws_s.get("count") and ods_s.get("count", 0) > 0)
+                scrape_k = scrape_all.get(k, {})
                 all_pipelines[k] = {
                     "city": k,
                     "city_label": CITY_INDEXES[k]["label"],
@@ -744,6 +746,16 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     "dws": dws_s,
                     "sync_ok": sync_ok_c,
                     "status": "ok" if sync_ok_c else "out_of_sync",
+                    "scrape": {
+                        "latest_run_id": scrape_k.get("latest_run_id"),
+                        "last_updated": scrape_k.get("last_updated", ""),
+                        "total_docs": scrape_k.get("total_docs", 0),
+                        "completed": scrape_k.get("completed", 0),
+                        "running": scrape_k.get("running", 0),
+                        "error": scrape_k.get("error", 0),
+                        "total_counties": scrape_k.get("total_counties", 0),
+                        "counties": scrape_k.get("counties", []),
+                    },
                 }
 
         return {

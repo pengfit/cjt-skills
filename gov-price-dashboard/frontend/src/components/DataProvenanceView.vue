@@ -62,7 +62,20 @@
               {{ pipe.sync_ok ? '✓' : '⚠' }}
             </span>
           </div>
+          <div v-if="scrapeExpandedCity === key && pipe.scrape?.counties?.length" class="pipeline-card-counties">
+            <div v-for="c in pipe.scrape.counties" :key="c.county" class="pipeline-county-chip" :class="c.status || 'not-started'">
+              <span class="chip-dot" :class="c.status || 'not-started'"></span>
+              <span class="chip-name">{{ c.county }}</span>
+              <span class="chip-pct" :class="c.status || 'not-started'">{{ (c.percent || 0).toFixed(0) }}%</span>
+            </div>
+          </div>
           <div class="pipeline-card-stages">
+            <button class="pipe-stage pipe-stage-btn" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }" @click.stop="toggleScrapeCounties(key, pipe)">
+              <div class="pipe-stage-label">抓取</div>
+              <div class="pipe-stage-count">{{ pipe.scrape?.total_counties != null ? (pipe.scrape.completed + '/' + pipe.scrape.total_counties) : "—" }}<span class="pipe-stage-unit">类</span></div>
+              <div class="pipe-stage-date">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : "—" }}</div>
+            </button>
+            <div class="pipe-stage-arrow">→</div>
             <div class="pipe-stage">
               <div class="pipe-stage-label">ODS</div>
               <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
@@ -88,62 +101,6 @@
       </div>
     </div>
 
-    <!-- Scrape Progress - All Cities -->
-    <div class="prov-scrape" v-if="Object.keys(data.scrapeData || {}).length">
-      <div class="panel-header" style="margin-bottom:12px">
-        <span class="panel-dot panel-dot-amber"></span>
-        <span class="panel-title">📡 ODS 抓取进度（全部城市）</span>
-      </div>
-      <div class="scrape-unified-list">
-        <div
-          v-for="(sc, scCity) in data.scrapeData"
-          :key="scCity"
-          class="scrape-unified-card"
-          :class="{ active: scCity === selectedCity }"
-          @click="selectedCity = scCity === selectedCity ? '' : scCity; loadData()"
-        >
-          <!-- 城市基本信息行 -->
-          <div class="unified-city-row">
-            <div class="unified-left">
-              <span class="unified-city-label">{{ sc.city_label }}</span>
-              <span v-if="sc.running > 0" class="scrape-pulse-dot"></span>
-            </div>
-            <div class="unified-center">
-              <div class="unified-bar-wrap">
-                <div class="unified-bar"
-                  :class="sc.error > 0 ? 'error' : sc.completed === sc.total_counties && sc.total_counties > 0 ? 'completed' : 'running'"
-                  :style="{ width: (sc.total_counties > 0 ? (sc.completed / sc.total_counties * 100) : 0) + '%' }">
-                  <span v-if="sc.running > 0" class="unified-bar-shimmer"></span>
-                </div>
-              </div>
-            </div>
-            <div class="unified-right">
-              <span class="unified-badge" :class="sc.error > 0 ? 'error' : sc.completed === sc.total_counties && sc.total_counties > 0 ? 'completed' : 'running'">
-                {{ sc.completed }}/{{ sc.total_counties }}
-              </span>
-              <span class="unified-docs">{{ sc.total_docs?.toLocaleString() }}条</span>
-              <span class="unified-pct">{{ sc.total_counties > 0 ? (sc.completed / sc.total_counties * 100).toFixed(1) : 0 }}%</span>
-              <span class="unified-expand" :class="{ rotated: scCity === selectedCity }" @click.stop="selectedCity = scCity === selectedCity ? '' : scCity; loadData()">▶</span>
-            </div>
-          </div>
-
-          <!-- 区县明细（仅激活城市展开，单行显示全部区县） -->
-          <div v-if="scCity === selectedCity && selectedCityData?.counties?.length" class="unified-county-strip">
-            <div
-              v-for="c in selectedCityData.counties"
-              :key="c.county"
-              class="unified-county-chip"
-              :class="c.status || 'not-started'"
-            >
-              <span class="chip-dot" :class="c.status || 'not-started'"></span>
-              <span class="chip-name">{{ c.county }}</span>
-              <span class="chip-pct" :class="c.status || 'not-started'">{{ (c.percent || 0).toFixed(0) }}%</span>
-            </div>
-          </div>
-          <div v-else-if="scCity === selectedCity" class="unified-county-empty">暂无区县数据</div>
-        </div>
-      </div>
-    </div>
 
     <div v-if="loading" class="prov-loading">
       <div class="loading-spinner"></div>
@@ -306,6 +263,7 @@ import SpecSamplePanel from './SpecSamplePanel.vue'
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
 const error = ref('')
+const scrapeExpandedCity = ref('')
 const selectedCity = ref('xian')
 const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照' }
 const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照' }
@@ -329,6 +287,15 @@ let chartIns = null
 let pollTimer = null
 let pollingActive = ref(false)
 const POLL_INTERVAL_MS = 15000
+
+function scrapePct(scrape) {
+  if (!scrape?.total_counties) return '0%'
+  return ((scrape.completed / scrape.total_counties) * 100).toFixed(1) + '%'
+}
+
+function toggleScrapeCounties(city, pipe) {
+  scrapeExpandedCity.value = (scrapeExpandedCity.value === city) ? '' : city
+}
 
 async function openDwdDrilldown(city, pipe) {
   if (!pipe.dwd?.count) return
@@ -530,14 +497,10 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [provRes, scrapeAllRes, scrapeSingleRes] = await Promise.all([
+    const [provRes] = await Promise.all([
       axios.get(`${API}/stats/provenance`),
-      axios.get(`${API}/stats/scrape-progress-all`),
-      axios.get(`${API}/stats/scrape-progress`, { params: { city: selectedCity.value } }),
     ])
     data.value = provRes.data || {}
-    data.value.scrapeData = scrapeAllRes.data || {}
-    selectedCityData.value = scrapeSingleRes.data || {}
     await nextTick()
     renderChart()
   } catch (e) {
@@ -1008,12 +971,47 @@ onUnmounted(() => {
   border-radius: 6px;
   padding: 6px 8px;
 }
+.pipe-stage-btn { cursor: pointer; transition: all 0.2s; position: relative; }
+.pipe-stage-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #34d399 var(--pct, 0%), rgba(255,255,255,0.1) var(--pct, 0%));
+  border-radius: 0 0 6px 6px;
+  transition: background 0.4s ease;
+}
+.pipe-progress-wrap { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 4px 0 2px; overflow: hidden; }
+.pipe-progress-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #34d399); border-radius: 2px; transition: width 0.4s ease; }
 .pipe-stage-label { font-size: 10px; font-weight: 700; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 2px; }
 .pipe-stage-count { font-size: 15px; font-weight: 800; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
 .pipe-stage-unit { font-size: 10px; color: #64748b; margin-left: 1px; }
 .pipe-stage-date { font-size: 9px; color: #475569; margin-top: 3px; }
 .pipe-stage-arrow { font-size: 14px; color: #38bdf8; flex-shrink: 0; padding: 0 2px; }
 .pipeline-card-etl { font-size: 10px; color: #64748b; margin-top: 6px; }
+.pipeline-card-counties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+.pipeline-county-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.pipeline-county-chip.running { border-color: rgba(56,189,248,0.3); }
+.pipeline-county-chip.completed { border-color: rgba(255,255,255,0.08); }
 .pipeline-status { font-size: 12px; font-weight: 600; }
 .pipeline-status.ok { color: #34d399; }
 .pipeline-status.warn { color: #fbbf24; }
