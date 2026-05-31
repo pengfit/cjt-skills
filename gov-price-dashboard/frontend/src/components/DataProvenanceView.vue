@@ -70,13 +70,15 @@
             </div>
           </div>
           <div class="pipeline-card-stages">
-            <div class="pipe-stage pipe-stage-btn scrape-stage" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }" @click.stop="toggleScrapeCounties(key, pipe)">
-              <div class="pipe-stage-label">抓取</div>
-              <div class="pipe-stage-count">{{ pipe.scrape?.total_counties != null ? (pipe.scrape.completed + '/' + pipe.scrape.total_counties) : "—" }}<span class="pipe-stage-unit">类</span></div>
-              <div class="pipe-stage-date">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : "—" }}</div>
-              <button class="scrape-action-btn" title="检查源站是否有更新" @click.stop="runScrapeCheck(key)" :disabled="scrapeRunning[key]">
+            <div class="pipe-stage scrape-stage" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }">
+              <div class="scrape-inner" @click.stop="toggleScrapeCounties(key, pipe)">
+                <div class="pipe-stage-label">抓取</div>
+                <div class="pipe-stage-count">{{ pipe.scrape?.total_counties != null ? (pipe.scrape.completed + '/' + pipe.scrape.total_counties) : "—" }}<span class="pipe-stage-unit">类</span></div>
+                <div class="pipe-stage-date">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : "—" }}</div>
+              </div>
+              <button class="scrape-action-btn" title="检查更新" @click.stop="runScrapeCheck(key)" :disabled="scrapeRunning[key]">
                 <span v-if="scrapeRunning[key]" class="spin">↻</span>
-                <span v-else>⟳ 检查</span>
+                <span v-else>⟳</span>
               </button>
             </div>
             <div class="pipe-stage-arrow">→</div>
@@ -1273,29 +1275,25 @@ onUnmounted(() => {
 .vec-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
 .vec-page-info { font-size: 12px; color: #64748b; }
 
-.scrape-stage { flex: 1; text-align: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 8px; position: relative; }
+.scrape-stage { flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 8px; gap: 4px; }
+.scrape-inner { flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
 .scrape-action-btn {
-  position: absolute;
-  right: 6px; top: 50%;
-  transform: translateY(-50%);
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(56,189,248,0.4);
-  background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(52,211,153,0.15));
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(56,189,248,0.3);
+  background: rgba(56,189,248,0.08);
   color: #7dd3fc;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; line-height: 1;
-  gap: 4px;
-  padding: 0 8px;
+  font-size: 14px;
   transition: all 0.2s;
-  z-index: 2;
-  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 6px;
 }
-.scrape-action-btn:hover { background: linear-gradient(135deg, rgba(56,189,248,0.35), rgba(52,211,153,0.25)); border-color: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.3); }
-.scrape-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.scrape-action-btn .spin { animation: spin 1s linear infinite; display: inline-block; }
+.scrape-action-btn:hover { background: rgba(56,189,248,0.18); border-color: #38bdf8; }
+.scrape-action-btn:active { transform: scale(0.92); }
+.scrape-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.scrape-action-btn .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 

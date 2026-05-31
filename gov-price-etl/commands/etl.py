@@ -33,6 +33,28 @@ from parse_spec import parse_spec, get_parser
 from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price
 
+# ─── category → category_system 映射 ────────────────────────────────────────
+_CATEGORY_SYSTEM_MAP: dict[str, str] = {}
+
+def _load_category_system_map() -> dict[str, str]:
+    """从 category_in_system.json 构建 category name → code 映射。"""
+    rules_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(rules_dir, "classify", "rules", "category_in_system.json")
+    m = {}
+    if os.path.exists(json_path):
+        with open(json_path) as f:
+            data = json.load(f)
+        for group in data.get("categories", []):
+            for child in group.get("children", []):
+                m[child["name"]] = child["code"]
+    return m
+
+def _get_category_system_map() -> dict[str, str]:
+    global _CATEGORY_SYSTEM_MAP
+    if not _CATEGORY_SYSTEM_MAP:
+        _CATEGORY_SYSTEM_MAP = _load_category_system_map()
+    return _CATEGORY_SYSTEM_MAP
+
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
 def load_config():
     cfg_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config.yml")
@@ -128,6 +150,7 @@ DWD_MAPPING = {
             "price": {"type": "float"},
             "tax_price": {"type": "float"},
             "category": {"type": "keyword"},
+            "category_system": {"type": "keyword"},
             "province": {"type": "keyword"},
             "city": {"type": "keyword"},
             "county": {"type": "keyword"},
@@ -220,6 +243,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "price": price,
         "tax_price": tax_price,
         "category": category,
+        "category_system": _get_category_system_map().get(category, ""),
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),
@@ -271,6 +295,7 @@ def _build_dwd_mapping():
         "price":         {"type": "float"},
         "tax_price":     {"type": "float"},
         "category":      {"type": "keyword"},
+        "category_system": {"type": "keyword"},
         "province":      {"type": "keyword"},
         "city":          {"type": "keyword"},
         "county":        {"type": "keyword"},
@@ -316,6 +341,7 @@ def _build_dws_mapping():
         "breed":             {"type": "keyword"},
         "breed_clean":       {"type": "keyword"},
         "category":          {"type": "keyword"},
+        "category_system":   {"type": "keyword"},
         "unit":              {"type": "keyword"},
         "price":             {"type": "float"},
         "tax_price":         {"type": "float"},
@@ -619,7 +645,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
                 # 用 update + doc_as_upsert 代替 index：
                 # 文档不存在时自动创建（upsert），存在时只更新 category 字段（不覆盖其他字段）
                 update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
-                update_body += json.dumps({"doc": {"category": cat}, "doc_as_upsert": True}, ensure_ascii=False) + "\n"
+                update_body += json.dumps({"doc": {"category": cat, "category_system": _get_category_system_map().get(cat, "")}, "doc_as_upsert": True}, ensure_ascii=False) + "\n"
             if update_body:
                 _session = get_es_client(es_host)
                 r = _session.post(f"{es_host}/{dwd_idx}/_bulk",
