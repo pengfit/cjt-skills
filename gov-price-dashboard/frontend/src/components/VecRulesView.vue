@@ -105,11 +105,11 @@
       <table class="vec-table" v-else>
         <thead>
           <tr>
-            <th style="width:48px">#</th>
+            <th style="width:40px">#</th>
             <th style="width:90px">attr</th>
-            <th>pattern</th>
-            <th>code</th>
-            <th>note</th>
+            <th style="width:160px">pattern</th>
+            <th style="width:180px">code</th>
+            <th style="width:140px">note</th>
             <th style="width:130px">创建时间</th>
           </tr>
         </thead>
@@ -117,9 +117,9 @@
           <tr v-for="(r, idx) in vecRules.items" :key="r.id">
             <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
-            <td><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
-            <td><pre class="vec-code-block" v-html="escapeHtml(r.code || '')"></pre></td>
-            <td class="vec-note" :title="r.note || ''">{{ r.note || '—' }}</td>
+            <td class="vec-pattern-cell"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
+            <td class="vec-code-cell"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></td>
+            <td class="vec-note-cell">{{ r.note || '—' }}</td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
           <tr v-if="!vecRules.items?.length">
@@ -407,15 +407,14 @@ onMounted(() => {
 .vec-code-block {
   background: #0d1117;
   border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 4px;
+  padding: 4px 6px;
   font-family: 'Courier New', monospace;
   font-size: 11px;
   color: #c9d1d9;
   white-space: pre-wrap;
   word-break: break-all;
-  line-height: 1.5;
-  max-width: 320px;
+  line-height: 1.4;
   overflow-x: auto;
 }
 .vec-code-block .cm-comment { color: #8b949e; }
@@ -423,14 +422,9 @@ onMounted(() => {
 .vec-code-block .cm-keyword { color: #ff7b72; }
 .vec-code-block .cm-number { color: #79c0ff; }
 .vec-code-block .cm-func { color: #d2a8ff; }
-.vec-note {
-  color: #6b7280;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-  word-break: break-all;
-}
+.vec-code-cell { width: 180px; overflow: hidden; }
+.vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vec-pattern-cell { width: 160px; }
 .vec-breed { color: #64748b; font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
 .vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }
