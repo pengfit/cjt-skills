@@ -12,6 +12,7 @@ import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, y
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
 sys.path.insert(0, ETL_CMD_DIR)
+sys.path.insert(0, os.path.join(ETL_CMD_DIR, "classify"))
 
 try:
     from parse_spec.rules.vector_store import get_vec_store
@@ -20,7 +21,11 @@ except Exception:
 
 router = APIRouter()
 
+
 ES_HOST = "http://localhost:59200"
+
+# ── ETL classify/jaccard 批量写入接口 ──────────────
+from rules.jaccard import batch_insert_breed_rules
 
 # 城市配置：city key → (dws_idx, ods_idx, dwd_idx, 标签)
 CITY_INDEXES = {
@@ -56,6 +61,8 @@ PROGRESS_INDEXES = {
 
 es = Elasticsearch([ES_HOST])
 
+
+from rules.jaccard import batch_insert_breed_rules
 
 _RULES_DB = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
 _RULES_DB_CAT = os.path.join(ETL_CMD_DIR, "classify", "rules", "breed_category_rules.db")
@@ -1691,18 +1698,8 @@ def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
         results_map = ai_results.get("results", {})
         to_insert = [(b, r["category"], "ai", r.get("confidence", 1.0), r.get("note", ""))
                      for b, r in results_map.items() if r.get("category")]
-        if to_insert and os.path.exists(_RULES_DB_CAT):
-            try:
-                conn = sqlite3.connect(_RULES_DB_CAT)
-                c = conn.cursor()
-                c.executemany(
-                    "INSERT OR IGNORE INTO breed_category_rules (breed, category, source, confidence, note) VALUES (?, ?, ?, ?, ?)",
-                    to_insert
-                )
-                conn.commit()
-                conn.close()
-            except Exception as e:
-                return {"ok": False, "message": f"批量写入数据库失败: {e}"}
+        if to_insert:
+            batch_insert_breed_rules(to_insert)
 
     # 4. 合并结果
     final_results = {}

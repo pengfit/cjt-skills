@@ -1,8 +1,15 @@
-"""classify.py - gov-price 品种分类引擎（rules/ 动态加载版）"""
+"""classify/__init__.py - gov-price 品种分类引擎（rules/ 动态加载版）"""
 
 from .rules._core import classify_breed, _fetch_ai_category_batch, _ai_cache
+from .rules.jaccard import jaccard_breed_classify, insert_breed_rule
 
-__all__ = ["classify_breed", "_fetch_ai_category_batch", "_ai_cache"]
+__all__ = [
+    "classify_breed",
+    "_fetch_ai_category_batch",
+    "_ai_cache",
+    "jaccard_breed_classify",
+    "insert_breed_rule",
+]
 
 if __name__ == "__main__":
     import sys
