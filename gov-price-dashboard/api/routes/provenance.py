@@ -850,11 +850,22 @@ PROMPTS_FILE = os.path.join(SCRIPT_DIR, "prompts.yml")
 def _load_prompts():
     try:
         with open(PROMPTS_FILE) as f:
-            return yaml.safe_load(f)
+            return yaml.safe_load(f) or {}
     except Exception:
         return {}
 
 PROMPTS = _load_prompts()
+
+def _reload_prompts():
+    global PROMPTS
+    PROMPTS = _load_prompts()
+    print("[prompts] reloaded")
+
+@router.post("/api/prompts/reload")
+def reload_prompts():
+    """热重载 prompts.yml"""
+    _reload_prompts()
+    return {"ok": True, "keys": list(PROMPTS.keys())}
 
 def fix_case_prompt_fn(spec, breed="", category="", expected=None):
     """生成 fix-case API 的 user content（fix-case 端点专用）"""
