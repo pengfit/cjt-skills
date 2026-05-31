@@ -50,13 +50,14 @@ except Exception:
 # ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
 
 def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> list:
-    """通过向量库召回候选规则，返回 [(pattern, attr, note, code), ...]"""
+    """通过向量库召回候选规则，返回 [(pattern, attr, note, code), ...]
+    attr_filter 为空字符串时执行全量召回（不过滤）"""
     if get_vec_store is None:
         return []
     try:
         vs = get_vec_store()
         results = vs.search(spec=spec, category=category, breed=breed,
-                            top_k=10, attr_filter=attr_filter)
+                            top_k=10, attr_filter=attr_filter if attr_filter else None)
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
     except Exception:
         return []
@@ -121,51 +122,48 @@ class BaseParseSpec:
 
     def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
         """
-        槽位制解析：每个 attr 独立竞争，解决 A/B/C 三种短路。
+        全量 RAG 召回，每个 attr_name 独立竞争，命中即写入。
+        支持动态字段：不在 ATTR_SLOTS 中的 attr_name 自动被捕获。
         """
         if not spec or spec == "/":
             return {}
 
-        resolved_attrs = {}
-        claimed_attrs = set()
+        resolved = {}
+        claimed = set()
 
-        # ── 槽位填充：每个 attr 独立竞争 ──
-        for attr in ATTR_SLOTS:
-            if attr in claimed_attrs:
+        all_candidates = _rag_candidates(spec, category, breed, attr_filter="")
+        for pattern, attr_name, note, code in all_candidates:
+            if attr_name in claimed:
                 continue
 
-            candidates = _rag_candidates(spec, category, breed, attr_filter=attr)
-
-            for pattern, attr_name, note, code in candidates:
-                try:
-                    m = re.search(pattern, spec)
-                    if not m:
-                        continue
-                except re.error:
+            try:
+                m = re.search(pattern, spec)
+                if not m:
                     continue
+            except re.error:
+                continue
 
-                exec_result = {}
-                if code:
-                    safe_globals = {"re": re, "result": exec_result, "s": spec}
-                    try:
-                        exec(code, safe_globals)
-                    except Exception:
-                        pass
+            exec_result = {}
+            if code:
+                safe_globals = {"re": re, "result": exec_result, "s": spec}
+                try:
+                    exec(code, safe_globals)
+                except Exception:
+                    pass
 
-                if exec_result:
-                    val = exec_result.get(attr) or list(exec_result.values())[0]
+            if exec_result:
+                val = exec_result.get(attr_name) or list(exec_result.values())[0]
+            else:
+                groups = m.groups()
+                if len(groups) == 1:
+                    val = groups[0]
+                elif len(groups) > 1:
+                    val = groups[0]
                 else:
-                    groups = m.groups()
-                    if len(groups) == 1:
-                        val = groups[0]
-                    elif len(groups) > 1:
-                        val = groups[0]
-                    else:
-                        val = m.group(0)
+                    val = m.group(0)
 
-                if val and attr not in claimed_attrs:
-                    resolved_attrs[attr] = val
-                    claimed_attrs.add(attr)
-                    break  # 该 slot 填上，换下一个 attr
+            if val:
+                resolved[attr_name] = val
+                claimed.add(attr_name)
 
-        return resolved_attrs
+        return resolved

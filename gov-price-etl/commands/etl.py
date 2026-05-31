@@ -196,48 +196,16 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         v = spec_parsed.get(key)
         return v if v else default
 
+    # 动态字段：所有 spec 属性（_ATTR_NESTED 兜底），仅保留非空值
+    # spec_parsed 中可能有 parser 返回的新字段（不在 _ATTR_NESTED 中），全部纳入
+    spec_dynamic = {k: v for k, v in spec_parsed.items() if v}
+    static_attrs = {f: gp(f) for f in _ATTR_NESTED if gp(f)}
+    attr = {**static_attrs, **spec_dynamic}
+
     return {
         "breed": breed_raw,
         "breed_clean": breed_clean,
         "spec": spec_clean,
-        "thickness": gp("thickness"),
-        "length": gp("length"),
-        "width": gp("width"),
-        "height": gp("height"),
-        "diameter": gp("diameter"),
-        "ring_stiffness": gp("ring_stiffness"),
-        "pressure": gp("pressure"),
-        "material": gp("material"),
-        "color": gp("color"),
-        "grade": gp("grade"),
-        "voltage": gp("voltage"),
-        "current": gp("current"),
-        "cross_section": gp("cross_section"),
-        "asphalt_type": gp("asphalt_type"),
-        "cement_content": gp("cement_content"),
-        "channels": gp("channels"),
-        "doors": gp("doors"),
-        "cores": gp("cores"),
-        "fiber_core": gp("fiber_core"),
-        "length_range": gp("length_range"),
-        "height_range": gp("height_range"),
-        "media": gp("media"),
-        "range": gp("range"),
-        "output": gp("output"),
-        "cable_length": gp("cable_length"),
-        "temp_range": gp("temp_range"),
-        "humidity_range": gp("humidity_range"),
-        "surface": gp("surface"),
-        "series": gp("series"),
-        "fire_rating": gp("fire_rating"),
-        "temperature": gp("temperature"),
-        "installation_type": gp("installation_type"),
-        "drain_type": gp("drain_type"),
-        "inlet_type": gp("inlet_type"),
-        "form": gp("form"),
-        "ip_rating": gp("ip_rating"),
-        "inner_diameter": gp("inner_diameter"),
-        "wall_thickness": gp("wall_thickness"),
         "needs_spec_parse": needs_spec_parse,
         "unit": unit_clean,
         "price": price,
@@ -255,6 +223,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "code": raw.get("code", ""),
         "source_index": source_index,
         "etl_time": datetime.now().isoformat(),
+        **attr,
     }
 
 
@@ -361,7 +330,8 @@ def _build_dws_mapping():
         "source_index":      {"type": "keyword"},
         "attr": {
             "type": "nested",
-            "properties": {f: {"type": "keyword"} for f in _ATTR_NESTED},
+            "dynamic": True,
+            "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
         },
     }
     return {"mappings": {"properties": base}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
