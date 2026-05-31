@@ -123,6 +123,45 @@ def _index_stats(index: str) -> dict:
         return {"index": index, "count": count, "status": "error", "msg": str(e)}
 
 
+@router.post("/api/scrape/check")
+def api_scrape_check(city: str = Body("...", embed=True)):
+    """
+    触发指定城市的增量检测（check），判断源站是否有更新。
+    实际执行 skill 目录下的 check.py 脚本。
+    """
+    city_script_map = {
+        "xian":      ("xa-material-price",   "check"),
+        "sichuan":   ("sichuan-price",        "check"),
+        "chongqing": ("chongqing-price",      "check"),
+        "jinan":     ("jinan-price",          "check"),
+        "rizhao":    ("rizhao-price",         "check"),
+    }
+    if city not in city_script_map:
+        raise HTTPException(status_code=400, detail=f"未知城市: {city}")
+
+    skill_name, cmd = city_script_map[city]
+    script_dir = f"/Users/pengfit/.openclaw/workspace/skills/{skill_name}"
+    run_sh = os.path.join(script_dir, "run.sh")
+
+    try:
+        result = subprocess.run(
+            [run_sh, cmd],
+            capture_output=True, text=True, timeout=120,
+            cwd=script_dir,
+        )
+        return {
+            "ok": True,
+            "city": city,
+            "returncode": result.returncode,
+            "stdout": result.stdout[:2000],
+            "stderr": result.stderr[:1000],
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="增量检测超时（120s）")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/stats/scrape-progress-all")
 def stats_scrape_progress_all():
     """
@@ -208,14 +247,16 @@ def stats_scrape_progress_all():
                     }
                 }
                 r = es.search(index=idx, body=run_body)
-                buckets = r["aggregations"]["runs"]["buckets"]
-                if buckets:
-                    lat = buckets[0]
+                runs_buckets = r["aggregations"]["runs"]["buckets"]
+
+                if runs_buckets:
+                    lat = runs_buckets[0]
                     lu = (lat.get("latest_ts", {}).get("value_as_string", "") or "")[:19]
                     ch = lat.get("counties", {}).get("hits", {}).get("hits", [])
                     run_id = lat["key"]
                 else:
-                    lu, ch, run_id = "", [], None
+                    lu, ch = "", []
+                    run_id = None
 
             ch = [h for h in ch if (h["_source"].get("county") or h["_source"].get("current_county") or h["_source"].get("area") or h["_source"].get("catalogue_name") or h["_source"].get("tab_name"))]
 

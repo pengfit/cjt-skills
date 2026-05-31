@@ -1,5 +1,5 @@
 #!/bin/bash
-# 西安工程造价材料信息采集 - 启动脚本
+# 重庆工程造价材料信息采集 - 启动脚本
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CMD_DIR="$SCRIPT_DIR/commands"

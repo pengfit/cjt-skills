@@ -332,10 +332,10 @@ def jaccard_breed_classify(breed_clean: str,
         char_score = _dice(breed_clean, known_breed, n=2)
 
         # 综合权重
-        if mat > 0:
-            score = 0.55 * mat + 0.30 * word_score + 0.15 * char_score
-        else:
-            score = 0.20 * word_score + 0.80 * char_score
+        score = max(
+            0.55*mat + 0.30*word_score + 0.15*char_score,
+            0.20*word_score + 0.80*char_score
+        )
 
         if score > best_score:
             best_score = score
