@@ -107,9 +107,8 @@
           <tr>
             <th style="width:48px">#</th>
             <th style="width:90px">attr</th>
-            <th style="width:80px">分类</th>
-            <th style="width:120px">品种</th>
             <th>pattern</th>
+            <th>code</th>
             <th>note</th>
             <th style="width:130px">创建时间</th>
           </tr>
@@ -118,9 +117,8 @@
           <tr v-for="(r, idx) in vecRules.items" :key="r.id">
             <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
-            <td class="vec-cat">{{ r.category || '—' }}</td>
-            <td class="vec-breed">{{ r.breed || '—' }}</td>
             <td><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
+            <td><pre class="vec-code-block" v-html="escapeHtml(r.code || '')"></pre></td>
             <td class="vec-note" :title="r.note || ''">{{ r.note || '—' }}</td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
@@ -163,6 +161,23 @@ const vecAttrOptions = ref([])
 const vecCatOptions = ref([])
 const vecLoading = ref(false)
 const showHelp = ref(false)
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function highlightPy(code) {
+  if (!code) return ''
+  return code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/(#[^\n]*)/g, '<span class="cm-comment">$1</span>')
+    .replace(/(\'[^\n]*\'|"[^\n]*")/g, '<span class="cm-string">$1</span>')
+    .replace(/\b(re|match|search|find|group|compile|sub|exec|print|if|else|elif|for|while|return|in|not|and|or|True|False|None)\b/g, '<span class="cm-keyword">$1</span>')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="cm-number">$1</span>')
+    .replace(/\b(r['"])/g, '<span class="cm-string">$1</span>')
+}
 
 async function loadVecRules(page = 1) {
   vecLoading.value = true
@@ -378,10 +393,9 @@ onMounted(() => {
   font-weight: 600;
 }
 .vec-cat { color: #64748b; font-size: 11px; }
-.vec-pattern {
+.vec-pattern, .vec-code {
   font-family: 'Courier New', monospace;
   font-size: 11px;
-  color: #a5f3fc;
   background: rgba(56,189,248,0.05);
   border-radius: 4px;
   padding: 3px 6px;
@@ -389,6 +403,26 @@ onMounted(() => {
   display: inline-block;
   max-width: 300px;
 }
+.vec-pattern { color: #a5f3fc; }
+.vec-code-block {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  max-width: 320px;
+  overflow-x: auto;
+}
+.vec-code-block .cm-comment { color: #8b949e; }
+.vec-code-block .cm-string { color: #a5d6ff; }
+.vec-code-block .cm-keyword { color: #ff7b72; }
+.vec-code-block .cm-number { color: #79c0ff; }
+.vec-code-block .cm-func { color: #d2a8ff; }
 .vec-note {
   color: #6b7280;
   max-width: 180px;

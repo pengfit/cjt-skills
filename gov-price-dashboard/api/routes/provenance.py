@@ -1405,14 +1405,11 @@ def _run_spec_validation_quiet(spec: str = "", attr: str = "", code: str = "") -
     if not spec or not attr or not code:
         return (0, 0)
     try:
-        import re as _re_mod, re as _re
-        try:
-            exec_globals = {"result": {}, "re": _re_mod, "s": spec}
-            exec(code, exec_globals)
-            val = exec_globals.get("result", {}).get(attr)
-            return (1, 1) if val else (0, 1)
-        except Exception:
-            return (0, 1)
+        import re as _re_mod
+        exec_globals = {"result": {}, "re": _re_mod, "s": spec}
+        exec(code, exec_globals)
+        val = exec_globals.get("result", {}).get(attr)
+        return (1, 1) if val else (0, 1)
     except Exception:
         return (0, 1)
 

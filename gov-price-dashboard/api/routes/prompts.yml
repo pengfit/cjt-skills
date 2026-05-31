@@ -71,11 +71,11 @@ fix_case:
         - 尽量严格匹配
         - 不允许宽泛 .* 贪婪匹配
     11. code_block 格式必须严格如下
-          m = re.match(r'^属性正则', s)
+          m = re.search(r'^属性正则', s)
           if m:
             result['属性名'] = m.group(1)+ '单位'
         示例:
-          m = re.match(r'^DN(\d+)', s)
+          m = re.search(r'^DN(\d+)', s)
           if m:
             result['diameter'] = m.group(1) + 'mm'
     12. suggestions 数量规则
