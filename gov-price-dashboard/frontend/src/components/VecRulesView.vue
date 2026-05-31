@@ -108,7 +108,7 @@
             <th style="width:40px">#</th>
             <th style="width:90px">attr</th>
             <th style="width:160px">pattern</th>
-            <th style="width:180px">code</th>
+            <th style="width:350px">code</th>
             <th style="width:140px">note</th>
             <th style="width:130px">创建时间</th>
           </tr>
@@ -422,7 +422,7 @@ onMounted(() => {
 .vec-code-block .cm-keyword { color: #ff7b72; }
 .vec-code-block .cm-number { color: #79c0ff; }
 .vec-code-block .cm-func { color: #d2a8ff; }
-.vec-code-cell { width: 180px; overflow: hidden; }
+.vec-code-cell { width: 350px; overflow: hidden; }
 .vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-pattern-cell { width: 160px; }
 .vec-breed { color: #64748b; font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
