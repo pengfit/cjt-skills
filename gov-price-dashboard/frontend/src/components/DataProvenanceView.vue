@@ -70,9 +70,9 @@
             </div>
           </div>
           <div class="pipeline-card-stages">
-            <div class="pipe-stage scrape-stage" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }">
+            <div class="pipe-stage scrape-stage stage-scrape" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }">
               <div class="scrape-inner" @click.stop="toggleScrapeCounties(key, pipe)">
-                <div class="pipe-stage-label">抓取</div>
+                <div class="pipe-stage-label stage-scrape-label">抓取</div>
                 <div class="pipe-stage-count">{{ pipe.scrape?.total_counties != null ? (pipe.scrape.completed + '/' + pipe.scrape.total_counties) : "—" }}<span class="pipe-stage-unit">类</span></div>
                 <div class="pipe-stage-date">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : "—" }}</div>
               </div>
@@ -81,21 +81,21 @@
                 <span v-else>⟳</span>
               </button>
             </div>
-            <div class="pipe-stage-arrow">→</div>
-            <div class="pipe-stage">
-              <div class="pipe-stage-label">ODS</div>
+            <div class="pipe-stage-arrow stage-arrow-ods">→</div>
+            <div class="pipe-stage stage-ods">
+              <div class="pipe-stage-label stage-ods-label">ODS</div>
               <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
               <div class="pipe-stage-date">{{ pipe.ods?.min_date }} ~ {{ pipe.ods?.max_date }}</div>
             </div>
-            <div class="pipe-stage-arrow">→</div>
-            <button class="pipe-stage pipe-stage-btn" @click.stop="openDwdDrilldown(key, pipe)" :class="{ disabled: !pipe.dwd?.count }">
-              <div class="pipe-stage-label">DWD</div>
+            <div class="pipe-stage-arrow stage-arrow-dwd">→</div>
+            <button class="pipe-stage pipe-stage-btn stage-dwd" @click.stop="openDwdDrilldown(key, pipe)" :class="{ disabled: !pipe.dwd?.count }">
+              <div class="pipe-stage-label stage-dwd-label">DWD</div>
               <div class="pipe-stage-count">{{ pipe.dwd?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
               <div class="pipe-stage-date">{{ pipe.dwd?.min_date || "无数据" }} ~ {{ pipe.dwd?.max_date }}</div>
             </button>
-            <div class="pipe-stage-arrow">→</div>
-            <div class="pipe-stage">
-              <div class="pipe-stage-label">DWS</div>
+            <div class="pipe-stage-arrow stage-arrow-dws">→</div>
+            <div class="pipe-stage stage-dws">
+              <div class="pipe-stage-label stage-dws-label">DWS</div>
               <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
               <div class="pipe-stage-date">{{ pipe.dws?.min_date }} ~ {{ pipe.dws?.max_date }}</div>
             </div>
@@ -1276,6 +1276,23 @@ onUnmounted(() => {
 .vec-page-info { font-size: 12px; color: #64748b; }
 
 .scrape-stage { flex: 1; display: flex; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 8px; gap: 4px; }
+
+/* 各阶段独立配色 */
+.stage-scrape   { border-color: rgba(168,85,247,0.25); background: rgba(168,85,247,0.04); }
+.stage-scrape-label { color: #c084fc !important; }
+.stage-arrow-ods   { color: #f59e0b; }
+
+.stage-ods     { border-color: rgba(245,158,11,0.25); background: rgba(245,158,11,0.04); }
+.stage-ods-label { color: #fbbf24 !important; }
+.stage-arrow-dwd   { color: #38bdf8; }
+
+.stage-dwd      { border-color: rgba(56,189,248,0.25); background: rgba(56,189,248,0.04); }
+.stage-dwd-label { color: #38bdf8 !important; }
+.stage-arrow-dws   { color: #34d399; }
+
+.stage-dws      { border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.04); }
+.stage-dws-label { color: #34d399 !important; }
+
 .scrape-inner { flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
 .scrape-action-btn {
   width: 30px; height: 30px;
