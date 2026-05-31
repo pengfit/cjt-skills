@@ -107,6 +107,7 @@
           <tr>
             <th style="width:40px">#</th>
             <th style="width:90px">attr</th>
+            <th style="width:80px">所属系统</th>
             <th style="width:160px">pattern</th>
             <th style="width:350px">code</th>
             <th style="width:140px">note</th>
@@ -117,6 +118,7 @@
           <tr v-for="(r, idx) in vecRules.items" :key="r.id">
             <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
+            <td class="vec-cat-sys">{{ r.category_system || '—' }}</td>
             <td class="vec-pattern-cell"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
             <td class="vec-code-cell"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></td>
             <td class="vec-note-cell">{{ r.note || '—' }}</td>

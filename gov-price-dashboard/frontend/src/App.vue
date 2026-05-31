@@ -57,7 +57,7 @@
       <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
 
       <!-- Active Filter Tags (inside filter-bar) -->
-      <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty">
+      <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory || searchCategorySystem">
         <span class="filter-tag" v-if="searchKeyword">
           <strong>产品名称</strong>
           <em>{{ searchKeyword }}</em>
@@ -77,6 +77,11 @@
           <strong>分类</strong>
           <em>{{ searchCategory }}</em>
           <span class="tag-remove" @click="searchCategory = ''; doSearch()">✕</span>
+        </span>
+        <span class="filter-tag" v-if="searchCategorySystem">
+          <strong>系统</strong>
+          <em>{{ searchCategorySystem }}</em>
+          <span class="tag-remove" @click="searchCategorySystem = ''; doSearch()">✕</span>
         </span>
         <span class="filter-tag" v-if="searchCounty">
           <strong>区县</strong>
@@ -132,6 +137,16 @@
               v-model="searchCategory"
               :options="categoryOptions"
               placeholder="全部分类"
+              :searchable="true"
+              @change="doSearch"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">所属系统</label>
+            <CustomSelect
+              v-model="searchCategorySystem"
+              :options="systemOptions"
+              placeholder="全部系统"
               :searchable="true"
               @change="doSearch"
             />
@@ -257,6 +272,9 @@
                     <template v-else-if="col.key === 'category'">
                       <span class="cat-badge">{{ item.category || '—' }}</span>
                     </template>
+                    <template v-else-if="col.key === 'category_system'">
+                      <span class="sys-badge">{{ item.category_system || '—' }}</span>
+                    </template>
                     <template v-else>{{ item[col.key] ?? '—' }}</template>
                   </td>
                 </tr>
@@ -349,7 +367,9 @@ const searchProvince = ref('')
 const searchCity = ref('')
 const searchCounty = ref('')
 const searchCategory = ref('')
+const searchCategorySystem = ref('')
 const categoryOptions = ref([])
+const systemOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
 const searchPage = ref(1)
@@ -376,10 +396,10 @@ const allColumns = ref([
   { key: 'breed',    label: '产品名称',  sortable: true,  visible: true, width: 180 },
   { key: 'price',    label: '价格',      sortable: true,  visible: true, width: 110 },
   { key: 'attr',     label: '属性',      sortable: false, visible: false, width: 220 },
-
   { key: 'unit',     label: '单位',      sortable: false, visible: true, width: 60  },
   { key: 'date',     label: '日期',      sortable: true,  visible: true, width: 95  },
   { key: 'category', label: '分类',      sortable: true,  visible: true, width: 120 },
+  { key: 'category_system', label: '所属系统', sortable: true, visible: true, width: 110 },
 ])
 
 // Price presets
@@ -535,6 +555,7 @@ async function doSearch(pageOverride) {
     if (searchCity.value) params.city = searchCity.value
     if (searchCounty.value) params.county = searchCounty.value
     if (searchCategory.value) params.category = searchCategory.value
+    if (searchCategorySystem.value) params.category_system = searchCategorySystem.value
     if (priceMin.value) params.price_min = priceMin.value
     if (priceMax.value) params.price_max = priceMax.value
     params.page = Number(pageOverride || searchPage.value)
@@ -566,6 +587,7 @@ function resetSearch() {
   searchCity.value = ''
   searchCounty.value = ''
   searchCategory.value = ''
+  searchCategorySystem.value = ''
   priceMin.value = ''
   priceMax.value = ''
   searchPage.value = '1'
@@ -765,6 +787,12 @@ async function loadCategoryOptions() {
   const d = await loadAPI(`${API}/stats/overview`)
   if (d?.by_category) {
     categoryOptions.value = d.by_category.map(c => ({ key: c.category, count: c.count }))
+    // 构造所属系统选项（去重）
+    const sysSet = new Set()
+    for (const c of d.by_category) {
+      if (c.category_system) sysSet.add(c.category_system)
+    }
+    systemOptions.value = Array.from(sysSet).sort().map(k => ({ key: k, count: 0 }))
   }
 }
 

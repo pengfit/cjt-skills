@@ -46,11 +46,37 @@ def search(
     county: Optional[str] = Query(None),
     unit: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    category_system: Optional[str] = Query(None),
     price_min: Optional[float] = Query(None),
     price_max: Optional[float] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
+    from pathlib import Path
+    def _cat_sys_map():
+        try:
+            import json
+            p = Path(__file__).parent / ".." / ".." / "gov-price-etl" / "commands" / "classify" / "rules" / "category_in_system.json"
+            with open(p) as f:
+                raw = json.load(f) or {}
+            result = {}
+            for cat in raw.get("categories", []):
+                sys_name = cat.get("name", "")
+                for child in cat.get("children", []):
+                    cat_name = child.get("name", "")
+                    code = child.get("code", "")
+                    if cat_name and sys_name:
+                        result[cat_name] = sys_name
+                    if cat_name and code:
+                        result[code] = code
+                    if code:
+                        result[sys_name] = code
+            return result
+        except Exception:
+            return {}
+
+    cat_sys_map = _cat_sys_map()
+
     must_clauses = []
     filter_clauses = []
 
@@ -93,6 +119,11 @@ def search(
     elif price_max is not None and price_max >= 0:
         filter_clauses.append({"range": {"price": {"lte": price_max}}})
 
+    if category_system:
+        # 先转成 ES 存储的 code 值
+        cs_val = cat_sys_map.get(category_system, category_system)
+        filter_clauses.append({"term": {"category_system": cs_val}})
+
     query = _build_bool_query(must_clauses, filter_clauses)
     from_idx = (page - 1) * page_size
 
@@ -115,6 +146,7 @@ def search(
                 "id": h["_id"],
                 "breed": h["_source"].get("breed", ""),
                 "category": h["_source"].get("category", ""),
+                "category_system": cat_sys_map.get(h["_source"].get("category", ""), ""),
                 "spec": h["_source"].get("spec", ""),
                 "attr": h["_source"].get("attr", {}),
                 "unit": h["_source"].get("unit", ""),
@@ -149,6 +181,30 @@ def overview(
     city: Optional[str] = Query(None),
     unit: Optional[str] = Query(None),
 ):
+    from pathlib import Path
+    def _cat_sys_map():
+        try:
+            import json
+            p = Path(__file__).parent / ".." / ".." / "gov-price-etl" / "commands" / "classify" / "rules" / "category_in_system.json"
+            with open(p) as f:
+                raw = json.load(f) or {}
+            result = {}
+            for cat in raw.get("categories", []):
+                sys_name = cat.get("name", "")
+                for child in cat.get("children", []):
+                    cat_name = child.get("name", "")
+                    code = child.get("code", "")
+                    if cat_name and sys_name:
+                        result[cat_name] = sys_name
+                    if cat_name and code:
+                        result[code] = code
+                    if code:
+                        result[sys_name] = code
+            return result
+        except Exception:
+            return {}
+    cat_sys_map = _cat_sys_map()
+
     must_clauses = []
     filter_clauses = []
 
@@ -229,7 +285,9 @@ def overview(
                 for b in province_buckets
             ],
             "by_category": [
-                {"category": b["key"], "count": b["count"]["value"], "avg_price": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0}
+                {"category": b["key"], "count": b["count"]["value"],
+                 "avg_price": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
+                 "category_system": cat_sys_map.get(b["key"], "")}
                 for b in aggs.get("by_category", {}).get("buckets", [])
             ],
             "categories": [b["key"] for b in aggs.get("by_category", {}).get("buckets", [])]
