@@ -131,13 +131,10 @@
             :cleanDoneCat="cleanDoneCat"
             :cleanDoneOk="cleanDoneOk"
             :toastMsg="sqToast"
-            :confirmMsg="sqConfirmMsg"
             :coverageLoaded="specQualityCoverageLoaded"
             @refresh="refreshSpecQuality"
             @sample="selectCatForSample"
             @clean="handleCleanRequest"
-            @confirm-clean-cancel="sqConfirmMsg = ''"
-            @confirm-clean-ok="handleConfirmOk"
           />
 
   <!-- SpecSamplePanel is rendered as a standalone modal by the parent (DataProvenanceView) -->
@@ -361,10 +358,20 @@ async function refreshSpecQuality() {
   finally { specQualityLoading.value = false }
 }
 
-async function refreshCategory(cat) {
-  if (sqConfirmMsg.value) return  // already showing a confirmation
-  sqConfirmMsg.value = `确认清洗分类「${cat}」？同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`
-  window._sqConfirmCat = cat  // store cat for handleConfirmOk
+async function refreshSpecQualityCoverage() {
+  // 仅刷新 coverage 覆盖率，不触碰 samples / sqCatFilter，分类列表位置固定
+  if (!dwdDrilldownCity.value) return
+  try {
+    const sq = await axios.get(`${API}/stats/spec-quality`, {
+      params: { city: dwdDrilldownCity.value, _sample: false },
+    })
+    if (sq.data?.coverage) {
+      const newCoverage = JSON.parse(JSON.stringify(sq.data.coverage))
+      console.log('[coverage] 刷新后钢材分类:', newCoverage.find(c => c.category.includes('钢材')), '城市:', dwdDrilldownCity.value)
+      specQuality.value = { ...specQuality.value, coverage: newCoverage }
+      sqCatOptions.value = sq.data.coverage.map(c => c.category)
+    }
+  } catch(e) { console.warn("spec-quality coverage refresh failed", e) }
 }
 
 function selectCatForSample(cat) {
@@ -373,10 +380,15 @@ function selectCatForSample(cat) {
   refreshSpecQuality()
 }
 
-function handleConfirmOk() {
-  const cat = window._sqConfirmCat || ''
-  sqConfirmMsg.value = ''
-  if (!cat) return
+
+function closeDwdDrilldown() {
+  dwdDrilldownCity.value = null
+  specQuality.value = {}
+}
+const specQualityLoading = ref(false)
+const sqSamplesLoading = ref(false)
+const specQualityCoverageLoaded = ref(false)
+function handleCleanRequest(cat) {
   cleaningCats.value[cat] = true
   if (cleanDoneCat.value === cat) cleanDoneCat.value = ''
   axios.post(`${API}/stats/spec-quality/refresh-category`, {
@@ -384,12 +396,11 @@ function handleConfirmOk() {
     category: cat,
   }).then(async (res) => {
     const d = res.data || {}
-    const msg = d.message || (d.ok ? `清洗完成，刷新 ${d.refreshed || 0} 条，DWS 同步 ${d.dws_sync?.ok || 0} 条` : '清洗失败')
-    sqToast.value = msg
+    sqToast.value = d.message || (d.ok ? `清洗完成，刷新 ${d.refreshed || 0} 条，DWS 同步 ${d.dws_sync?.ok || 0} 条` : '清洗失败')
     setTimeout(() => { sqToast.value = '' }, 5000)
     cleanDoneOk.value = !!d.ok
     cleanDoneCat.value = cat
-    await refreshSpecQuality()
+    await refreshSpecQualityCoverage()
   }).catch(e => {
     cleanDoneOk.value = false
     cleanDoneCat.value = cat
@@ -400,18 +411,6 @@ function handleConfirmOk() {
     delete cleaningCats.value[cat]
     setTimeout(() => { if (cleanDoneCat.value === cat) cleanDoneCat.value = '' }, 3000)
   })
-}
-
-function closeDwdDrilldown() {
-  dwdDrilldownCity.value = null
-  specQuality.value = {}
-}
-const specQualityLoading = ref(false)
-const sqSamplesLoading = ref(false)
-const specQualityCoverageLoaded = ref(false)
-function handleCleanRequest(cat) {
-  sqConfirmMsg.value = `确认清洗分类「${cat}」？同一分类下所有规格规则已确认后将触发 DWD 重新清洗。`
-  window._sqConfirmCat = cat
 }
 function closeSamples() {
   sqActiveCat.value = ''
@@ -428,7 +427,6 @@ const sqCatOptions = ref([])
 const sqActiveCat = ref('')
 const sqSampleSize = ref(50)
 const sqToast = ref('')   // 内联 toast
-const sqConfirmMsg = ref('')  // 内联确认提示
 const cleaningCats = ref({})      // { category: true } 清洗中状态
 const cleanDoneCat = ref('')      // 当前显示完成标记的分类
 const cleanDoneOk = ref(true)
@@ -498,9 +496,6 @@ async function confirmFix(sg) {
     fixResult.value = res.data
     if (res.data.ok) {
       sg.applied = true
-      // 成功弹窗
-      fixSuccessMsg.value = res.data.message
-      showFixSuccess.value = true
     }
   } catch(e) {
     fixResult.value = { ok: false, message: e.message }
