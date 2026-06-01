@@ -1300,9 +1300,10 @@ def refresh_category(
 
         es = Elasticsearch([ES_HOST])
 
-        # 查询 DWD 中该分类的全部 docs
+        # 查询 DWD 中该分类的全部 docs，捞 needs_spec_parse=True（待解析的存量数据）
+        # 新增规则后应捞这些记录重跑解析，而不是捞已解析完的 False
         body = {
-            "query": {"term": {"category": category}},
+            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}]}},
             "size": 500,
             "sort": [{"etl_time": "asc"}],
         }
@@ -1312,7 +1313,7 @@ def refresh_category(
         total = resp["hits"]["total"]["value"]
 
         if total == 0:
-            return {"ok": True, "message": f"分类「{category}」无数据，跳过", "city": city}
+            return {"ok": True, "message": f"分类「{category}」无待解析数据（needs_spec_parse=True 为 0）", "city": city}
 
         ok_count = 0
         fail_count = 0
@@ -1342,7 +1343,7 @@ def refresh_category(
             last_hit = hits[-1]
             search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
-                "query": {"term": {"category": category}},
+                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}]}},
                 "size": 500,
                 "search_after": search_after,
                 "sort": [{"etl_time": "asc"}],
