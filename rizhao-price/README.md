@@ -82,7 +82,7 @@ cd ~/.openclaw/workspace/skills/rizhao-price
 | `unit` | 单位 |
 | `price` | 参考价格（元）|
 | `period` | 期数（如 2026-03）|
-| `province` | 山东省 |
+| `province` | 山东 |
 | `city` | 日照市 |
 | `county` | 区县（tab_type=3 时区分具体区县）|
 | `tab_type` | 类别 ID（1/2/3）|

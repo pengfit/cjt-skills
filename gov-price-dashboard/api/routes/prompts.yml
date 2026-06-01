@@ -73,11 +73,11 @@ fix_case:
     11. code_block 格式必须严格如下
           m = re.search(r'^属性正则', s)
           if m:
-            result['属性名'] = m.group(1)+ '单位'
+            result['前缀_属性名'] = m.group(0)+ '单位'
         示例:
           m = re.search(r'^DN(\d+)', s)
           if m:
-            result['diameter'] = m.group(1) + 'mm'
+            result['attr_diameter'] = m.group(0) + 'mm'
     12. suggestions 数量规则
         - 如果识别属性数量为:
           0个属性:返回空数组

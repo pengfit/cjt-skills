@@ -71,7 +71,7 @@ sync:
 | `unit` | keyword | 单位 |
 | `price` | float | 参考价格（元）|
 | `period` | keyword | 期数（如 2026-03）|
-| `province` | keyword | 山东省 |
+| `province` | keyword | 山东 |
 | `city` | keyword | 日照市 |
 | `county` | keyword | 区县（tabType=3 时区分）|
 | `tab_type` | keyword | 类别 ID（1/2/3）|

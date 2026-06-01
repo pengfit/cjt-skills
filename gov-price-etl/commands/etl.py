@@ -100,72 +100,6 @@ CITY_CONFIGS = {
     },
 }
 
-DWD_MAPPING = {
-    "mappings": {
-        "properties": {
-            "breed": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-            "breed_clean": {"type": "keyword"},
-            "spec": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-            "unit": {"type": "keyword"},
-            "thickness": {"type": "keyword"},
-            "length": {"type": "keyword"},
-            "width": {"type": "keyword"},
-            "height": {"type": "keyword"},
-            "height_range": {"type": "keyword"},
-            "diameter": {"type": "keyword"},
-            "ring_stiffness": {"type": "keyword"},
-            "pressure": {"type": "keyword"},
-            "material": {"type": "keyword"},
-            "color": {"type": "keyword"},
-            "grade": {"type": "keyword"},
-            "voltage": {"type": "keyword"},
-            "current": {"type": "keyword"},
-            "cross_section": {"type": "keyword"},
-            "asphalt_type": {"type": "keyword"},
-            "cement_content": {"type": "keyword"},
-            "channels": {"type": "keyword"},
-            "doors": {"type": "keyword"},
-            "cores": {"type": "keyword"},
-            "fiber_core": {"type": "keyword"},
-            "length_range": {"type": "keyword"},
-            "media": {"type": "keyword"},
-            "range": {"type": "keyword"},
-            "output": {"type": "keyword"},
-            "cable_length": {"type": "keyword"},
-            "temp_range": {"type": "keyword"},
-            "humidity_range": {"type": "keyword"},
-            "surface": {"type": "keyword"},
-            "series": {"type": "keyword"},
-            "fire_rating": {"type": "keyword"},
-            "temperature": {"type": "keyword"},
-            "installation_type": {"type": "keyword"},
-            "installation_type": {"type": "keyword"},
-            "drain_type": {"type": "keyword"},
-            "inlet_type": {"type": "keyword"},
-            "form": {"type": "keyword"},
-            "ip_rating": {"type": "keyword"},
-            "needs_spec_parse": {"type": "boolean"},
-            "inner_diameter": {"type": "keyword"},
-            "wall_thickness": {"type": "keyword"},
-            "price": {"type": "float"},
-            "tax_price": {"type": "float"},
-            "category": {"type": "keyword"},
-            "category_system": {"type": "keyword"},
-            "province": {"type": "keyword"},
-            "city": {"type": "keyword"},
-            "county": {"type": "keyword"},
-            "tab_type": {"type": "keyword"},
-            "tab_name": {"type": "keyword"},
-            "update_date": {"type": "date"},
-            "publish_time": {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
-            "period": {"type": "text"},
-            "code": {"type": "keyword"},
-            "source_index": {"type": "keyword"},
-            "etl_time": {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
-        }
-    },
-    "settings": {"number_of_shards": 1, "number_of_replicas": 0}
-}
 
 
 # ─── 单条转换 ────────────────────────────────────────────────────────────────
@@ -192,15 +126,8 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         attr_keys = [k for k, v in spec_parsed.items() if v]
         needs_spec_parse = len(attr_keys) == 0
 
-    def gp(key, default=""):
-        v = spec_parsed.get(key)
-        return v if v else default
-
-    # 动态字段：所有 spec 属性（_ATTR_NESTED 兜底），仅保留非空值
-    # spec_parsed 中可能有 parser 返回的新字段（不在 _ATTR_NESTED 中），全部纳入
-    spec_dynamic = {k: v for k, v in spec_parsed.items() if v}
-    static_attrs = {f: gp(f) for f in _ATTR_NESTED if gp(f)}
-    attr = {**static_attrs, **spec_dynamic}
+    # 全部 spec 属性直接来自 parser 结果，无硬编码字段限制
+    attr = {k: v for k, v in spec_parsed.items() if v}
 
     return {
         "breed": breed_raw,
@@ -257,52 +184,30 @@ def _setup_index_templates(es_host: str):
 
 def _build_dwd_mapping():
     base = {
-        "breed":         {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-        "breed_clean":   {"type": "keyword"},
-        "spec":          {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-        "unit":          {"type": "keyword"},
-        "price":         {"type": "float"},
-        "tax_price":     {"type": "float"},
-        "category":      {"type": "keyword"},
+        "breed":           {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+        "breed_clean":     {"type": "keyword"},
+        "spec":            {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+        "unit":            {"type": "keyword"},
+        "price":           {"type": "float"},
+        "tax_price":       {"type": "float"},
+        "category":        {"type": "keyword"},
         "category_system": {"type": "keyword"},
-        "province":      {"type": "keyword"},
-        "city":          {"type": "keyword"},
-        "county":        {"type": "keyword"},
-        "tab_type":      {"type": "keyword"},
-        "tab_name":      {"type": "keyword"},
-        "update_date":   {"type": "keyword"},
-        "publish_time":  {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
-        "period":        {"type": "text"},
-        "code":          {"type": "keyword"},
-        "source_index":  {"type": "keyword"},
-        "etl_time":      {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        "province":        {"type": "keyword"},
+        "city":            {"type": "keyword"},
+        "county":          {"type": "keyword"},
+        "tab_type":        {"type": "keyword"},
+        "tab_name":        {"type": "keyword"},
+        "update_date":     {"type": "keyword"},
+        "publish_time":    {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        "period":          {"type": "text"},
+        "code":            {"type": "keyword"},
+        "source_index":    {"type": "keyword"},
+        "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
         "needs_spec_parse": {"type": "boolean"},
+        # dynamic: True 让所有 AI 返回的 attr 字段（如 voltage, power, color_temperature 等）自动入 mapping
+        # 无需在此处硬编码字段列表
     }
-    for f in [
-        "length","width","thickness","height","diameter","ring_stiffness","pressure",
-        "material","color","grade","voltage","current","cross_section",
-        "asphalt_type","cement_content","channels","doors","cores","fiber_core",
-        "length_range","height_range","media","range","output","cable_length",
-        "temp_range","humidity_range","surface","series","fire_rating",
-        "temperature","installation_type","drain_type","inlet_type",
-        "form","ip_rating","inner_diameter","wall_thickness",
-    ]:
-        base[f] = {"type": "keyword"}
-    return {"mappings": {"properties": base}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
-
-
-_ATTR_NESTED = [
-    "diameter","thickness","length","width","height",
-    "material","grade","pressure","cores","voltage","current",
-    "form","color","series","temperature",
-    "temp_range","humidity_range","length_range","height_range",
-    "inner_diameter","wall_thickness","fiber_core","cable_length",
-    "channels","doors","media","range","output",
-    "ip_rating","fire_rating","ring_stiffness",
-    "cross_section","drain_type","inlet_type","installation_type",
-    "asphalt_type","cement_content","surface",
-]
-
+    return {"mappings": {"properties": base, "dynamic": True}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
 
 def _build_dws_mapping():
     base = {
@@ -368,24 +273,29 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
     return ok, errors
 
 
-# ─── DWD → DWS 同步 ──────────────────────────────────────────────────────────
-# DWS 的 attr 字段是 nested object，从 DWD 的扁平字段构建
-ATTR_FIELDS = (
-    "diameter,thickness,length,width,height,material,grade,pressure,ring_stiffness,"
-    "cores,voltage,current,cross_section,drain_type,inlet_type,installation_type,"
-    "form,ip_rating,color,series,temperature,temp_range,humidity_range,"
-    "length_range,height_range,inner_diameter,wall_thickness,fiber_core,"
-    "cable_length,channels,doors,media,range,output"
-).split(",")
+# DWD 文档中不属于 attr 的顶层字段（不参与 attr nested 构建）
+_TOP_LEVEL_FIELDS = frozenset([
+    "breed", "breed_clean", "spec", "unit", "price", "tax_price",
+    "category", "category_system", "province", "city", "county",
+    "tab_type", "tab_name", "update_date", "publish_time", "period", "code",
+    "source_index", "etl_time", "needs_spec_parse",
+])
 
 
 def _build_attr(doc: dict) -> dict:
-    """从 DWD 扁平文档中提取 attr nested 字段（仅保留非空值）"""
+    """从 DWD 文档中提取 attr nested 字段（仅保留非空值）。
+
+    动态发现：排除 _TOP_LEVEL_FIELDS 后，其余所有字段均自动纳入 attr，无需任何硬编码维护。
+    """
     attr = {}
-    for f in ATTR_FIELDS:
-        v = doc.get(f)
-        if v and str(v).strip():
-            attr[f] = str(v).strip()
+    for f, v in doc.items():
+        if f in _TOP_LEVEL_FIELDS:
+            continue
+        if v is None:
+            continue
+        s = str(v).strip()
+        if s and s.lower() not in ("", "null", "none"):
+            attr[f] = s
     return attr
 
 
@@ -393,10 +303,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     """
     同步 DWD → DWS。
 
-    入池条件（需同时满足）：
-      1. needs_spec_parse = False
-      2. 至少有一个细分字段（ATTR_FIELDS）非空
-
+    入池条件：needs_spec_parse = False（_build_attr 动态构建，空 attr 自然无影响）。
     category 不为空时只同步该分类。
 
     返回 (成功数, 失败数)。
@@ -405,29 +312,14 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：needs_spec_parse=False 且 至少一个细分字段非空（排除空字符串）
-    attr_should_clauses = []
-    for f in ATTR_FIELDS:
-        attr_should_clauses.append(
-            {
-                "bool": {
-                    "must": [
-                        {"exists": {"field": f}},
-                        {"bool": {"must_not": [{"term": {f: ""}}]}},
-                    ]
-                }
-            }
-        )
-
+    # 入池：needs_spec_parse=False
+    # _build_attr 动态构建 attr，为空的 doc 会自然产出空 attr，不影响查询
+    must_clauses = [{"term": {"needs_spec_parse": False}}]
+    if category:
+        must_clauses.append({"term": {"category": category}})
     body = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"needs_spec_parse": False}},
-                    {"bool": {"should": attr_should_clauses, "minimum_should_match": 1}},
-                ] + ([{"term": {"category": category}}] if category else [])
-            }
-        },
+        "query": {"bool": {"must": must_clauses}},
+        "size": batch_size,
         "size": batch_size,
         "sort": [{"update_date": "asc"}],
     }
