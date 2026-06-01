@@ -382,13 +382,19 @@ function handleConfirmOk() {
   axios.post(`${API}/stats/spec-quality/refresh-category`, {
     city: dwdDrilldownCity.value || 'xian',
     category: cat,
-  }).then(async () => {
-    cleanDoneOk.value = true
+  }).then(async (res) => {
+    const d = res.data || {}
+    const msg = d.message || (d.ok ? `清洗完成，刷新 ${d.refreshed || 0} 条，DWS 同步 ${d.dws_sync?.ok || 0} 条` : '清洗失败')
+    sqToast.value = msg
+    setTimeout(() => { sqToast.value = '' }, 5000)
+    cleanDoneOk.value = !!d.ok
     cleanDoneCat.value = cat
     await refreshSpecQuality()
   }).catch(e => {
     cleanDoneOk.value = false
     cleanDoneCat.value = cat
+    sqToast.value = `清洗失败: ${e?.response?.data?.message || e.message || '未知错误'}`
+    setTimeout(() => { sqToast.value = '' }, 5000)
     console.warn("refresh-category failed", e)
   }).finally(() => {
     delete cleaningCats.value[cat]
