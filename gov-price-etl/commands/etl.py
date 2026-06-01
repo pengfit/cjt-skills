@@ -320,9 +320,11 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     body = {
         "query": {"bool": {"must": must_clauses}},
         "size": batch_size,
-        "size": batch_size,
         "sort": [{"update_date": "asc"}],
     }
+
+    # 确保 DWD/DWS 索引存在（首次运行 DWD 尚未创建时也需提前建 DWS）
+    ensure_indices(es_host, cfg)
 
     resp = session.post(f"{es_host}/{dwd_idx}/_search?scroll=2m", json=body)
     if resp.status_code != 200:
