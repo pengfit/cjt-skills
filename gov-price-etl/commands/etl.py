@@ -312,13 +312,12 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：needs_spec_parse=False
-    # _build_attr 动态构建 attr，为空的 doc 会自然产出空 attr，不影响查询
-    must_clauses = [{"term": {"needs_spec_parse": False}}]
+    # 入池：全部 doc，_build_attr 动态构建 attr，空 attr 的 doc 自然无有效数据
+    must_clauses = []
     if category:
         must_clauses.append({"term": {"category": category}})
     body = {
-        "query": {"bool": {"must": must_clauses}},
+        "query": {"bool": {"must": must_clauses if must_clauses else [{"match_all": {}}]}},
         "size": batch_size,
         "sort": [{"update_date": "asc"}],
     }
@@ -356,6 +355,10 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
             d = dict(h["_source"])
             # 构建 DWS 的 attr nested（从 DWD 扁平字段提取）
             d["attr"] = _build_attr(d)
+            # 删除原顶层 attr_* 字段（已迁移到 attr nested，避免字段冲突
+            for f in list(d.keys()):
+                if f.startswith("attr_"):
+                    d.pop(f)
             # 过滤空 date 字段（空字符串无法解析为 date 类型）
             for f in ("date", "publish_time"):
                 if not d.get(f):

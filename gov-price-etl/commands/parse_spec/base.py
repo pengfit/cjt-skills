@@ -56,8 +56,8 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
         return []
     try:
         vs = get_vec_store()
-        results = vs.search(spec=spec, category=category, breed=breed,
-                            top_k=10, attr_filter=attr_filter if attr_filter else None)
+        results = vs.search(spec="", category=category, breed=breed,
+                            top_k=20, attr_filter=attr_filter if attr_filter else None)
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
     except Exception:
         return []
