@@ -94,7 +94,7 @@ fix_case:
             "ok": true,
             "suggestions": [
               {{
-                "attr": "属性名",
+                "attr": "attr_属性名",
                 "note": "规则说明",
                 "pattern": "正则表达式",
                 "code_block": "代码"
