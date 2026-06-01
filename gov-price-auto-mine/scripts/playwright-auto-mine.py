@@ -4,21 +4,6 @@ Playwright 浏览器自动化：gov-price-dashboard 规格解析全流程
 
 UI 限制：每次「抽」弹出抽样面板，确认录入规则后样本列表立即清空，
          无法批量处理，只能逐样本循环。
-
-流程：
-  1. 打开 dashboard → 数据入仓 tab
-  2. 展开城市 → 点击 DWD 按钮 → 展开规格解析质量面板
-  3. 按解析率最高优先遍历分类（< 100% 才处理）：
-     a. 点击「抽」→ 弹出未解析样本
-     b. 逐个处理：点击样本 → AI 分析 → 确认规则 → 关闭 fix
-     c. 点击「洗」→ 等待清洗完成
-     d. 循环：再次点击「抽」处理下一个样本（直到无未解析样本）
-  4. 换下一个分类，直到所有分类 100%
-
-用法：
-  python3 playwright-auto-mine.py --city rizhao
-  python3 playwright-auto-mine.py --city all
-  python3 playwright-auto-mine.py --city rizhao --headless
 """
 
 import argparse, time, sys
@@ -50,14 +35,12 @@ def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-# ── 页面操作工具 ─────────────────────────────────────────
-
 def goto_provenance(page):
     tab = page.locator(".nav-tab").filter(has_text="数据入仓")
     tab.wait_for(state="visible", timeout=10000)
     if "active" not in (tab.get_attribute("class") or ""):
         tab.click()
-    time.sleep(1)
+    time.sleep(0.3)
 
 
 def expand_city_card(page, city_label: str):
@@ -77,7 +60,7 @@ def expand_city_card(page, city_label: str):
         city_el = card.locator(".pipeline-card-city")
         if city_el.is_visible() and city_label in city_el.inner_text():
             card.click()
-            time.sleep(0.8)
+            time.sleep(0.4)
             log(f"  展开城市：{city_label}")
             return True
     return False
@@ -90,19 +73,18 @@ def click_city_dwd_button(page, city_key: str):
         txt = btn.inner_text()
         if target_count and target_count in txt:
             btn.click()
-            time.sleep(1.5)
+            time.sleep(0.5)
             log(f"  点击 DWD 按钮（{target_count}条）")
             return True
     idx = CITIES.index(city_key) if city_key in CITIES else 0
     dwd_btns[idx].click()
-    time.sleep(1.5)
+    time.sleep(0.5)
     log(f"  点击 DWD 按钮（fallback index={idx}）")
     return True
 
 
 def ensure_sq_panel_visible(page):
     page.locator(".sq-panel").wait_for(state="visible", timeout=15000)
-    time.sleep(0.3)
 
 
 def get_sq_cards(page) -> list:
@@ -113,8 +95,6 @@ def get_card_info(page, card) -> dict:
     try:
         cat_el = card.locator(".card-cat")
         pct_el = card.locator(".card-pct")
-        cat_el.wait_for(state="visible", timeout=3000)
-        pct_el.wait_for(state="visible", timeout=3000)
         cat = cat_el.inner_text().strip()
         pct_str = pct_el.inner_text().strip().replace("%", "")
         try:
@@ -127,7 +107,6 @@ def get_card_info(page, card) -> dict:
 
 
 def close_fix(page):
-    """关闭 fix 弹窗（不关闭 modal）"""
     try:
         ov = page.locator(".fix-overlay")
         cl = page.locator(".fix-close")
@@ -139,31 +118,16 @@ def close_fix(page):
 
 
 def _close_sample_modal(page):
-    """关闭抽样面板"""
     try:
         page.locator(".sample-modal .btn-close").first.click()
-        page.locator(".sample-modal").wait_for(state="hidden", timeout=5000)
+        time.sleep(0.5)
+        if page.locator(".sample-modal").is_visible():
+            page.locator(".sample-modal").wait_for(state="hidden", timeout=3000)
     except Exception:
         pass
 
 
-def _reopen_sample_panel(page, target_card):
-    """重新点击「抽」打开抽样面板，返回是否成功"""
-    try:
-        sample_btn = target_card.locator(".btn-sample")
-        sample_btn.wait_for(state="visible", timeout=5000)
-        if sample_btn.is_disabled():
-            return False
-        sample_btn.click()
-        page.locator(".sample-modal").wait_for(state="visible", timeout=15000)
-        time.sleep(0.3)
-        return True
-    except Exception:
-        return False
-
-
 def wait_for_clean_done(page, timeout=120000):
-    """等待清洗完成（loading spinner 消失）"""
     log(f"  等待清洗完成...")
     start = time.time()
     while time.time() - start < timeout:
@@ -171,21 +135,18 @@ def wait_for_clean_done(page, timeout=120000):
         if spinners.count() == 0:
             elapsed = int(time.time() - start)
             log(f"  清洗完成（{elapsed}s）")
-            time.sleep(3)
+            time.sleep(1)
             return True
-        time.sleep(3)
+        time.sleep(1)
     log(f"  清洗超时")
     return False
 
 
 def process_one_sample(page):
-    """
-    在已打开的抽样面板中处理一个未解析样本。
-    返回 True=成功处理了样本，False=无可处理样本/出错
-    """
+    # ⚠️ 每次重新查询 DOM，不缓存 locators
     unparsed_list = page.locator(".ss-card.ss-empty").all()
     if not unparsed_list:
-        return False
+        return None  # 没有更多未解析样本了（面板可能还在，等下一轮）
 
     unparsed = unparsed_list[0]
     try:
@@ -197,18 +158,16 @@ def process_one_sample(page):
     try:
         unparsed.click()
     except Exception:
+        log(f"  样本点击失败，跳过")
         return False
 
-    # 等待 fix 弹窗
     try:
         page.locator(".fix-overlay").wait_for(state="visible", timeout=12000)
-        time.sleep(0.3)
     except Exception:
         log(f"  fix-case 弹窗未出现，跳过")
         close_fix(page)
         return False
 
-    # AI 分析
     ai_btn = page.locator(".btn-analyze")
     try:
         ai_btn.wait_for(state="visible", timeout=5000)
@@ -222,14 +181,13 @@ def process_one_sample(page):
     ai_btn.click()
     log(f"  AI 分析中...")
 
-    # 轮询等待规则建议（最多 45s，每 2s）
     start = time.time()
     sg_cards = []
     while time.time() - start < 45:
         sg_cards = page.locator(".fix-suggestion-card").all()
         if sg_cards:
             break
-        time.sleep(2)
+        time.sleep(0.25)
 
     if not sg_cards:
         log(f"  AI 生成规则超时")
@@ -239,7 +197,6 @@ def process_one_sample(page):
     sg_count = len(sg_cards)
     log(f"  AI 生成 {sg_count} 条规则")
 
-    # 批量确认
     confirmed = 0
     for _ in range(sg_count + 3):
         sg_list = page.locator(".fix-suggestion-card").all()
@@ -255,7 +212,7 @@ def process_one_sample(page):
                 btn.click()
                 confirmed += 1
                 clicked = True
-                time.sleep(0.3)
+                time.sleep(0.1)
             except Exception:
                 pass
         if not clicked:
@@ -263,17 +220,10 @@ def process_one_sample(page):
 
     log(f"  确认录入 {confirmed} 条规则")
     close_fix(page)
-    time.sleep(0.3)
-    return confirmed > 0
+    return True if confirmed > 0 else False
 
 
 def process_category_one_pass(page, cat_name: str):
-    """
-    单次「抽」流程：打开抽样面板 → 处理所有未解析样本 → 清洗
-    每次抽可以处理面板里的全部样本（前端在确认后列表清空，
-    所以需要重新点击「抽」再处理下一批）
-    返回 True=处理了至少1个样本
-    """
     cards = page.locator(".sq-card").all()
     target_card = None
     for card in cards:
@@ -295,7 +245,6 @@ def process_category_one_pass(page, cat_name: str):
 
     log(f"\n  ▶ 处理分类「{cat_name}」（{rate}%）")
 
-    # 点击「抽」
     sample_btn = target_card.locator(".btn-sample")
     sample_btn.wait_for(state="visible", timeout=5000)
     if sample_btn.is_disabled():
@@ -303,7 +252,7 @@ def process_category_one_pass(page, cat_name: str):
         return False
 
     sample_btn.click()
-    time.sleep(0.3)
+    time.sleep(0.2)
 
     try:
         page.locator(".sample-modal").wait_for(state="visible", timeout=15000)
@@ -313,22 +262,45 @@ def process_category_one_pass(page, cat_name: str):
 
     log(f"  抽样面板已打开")
 
-    # 循环处理面板内所有未解析样本
     samples_processed = 0
+    ai_timeout_count = 0
+    max_ai_timeout = 2  # 连续 2 次 AI 超时则放弃本轮
+
     while True:
-        if process_one_sample(page):
-            samples_processed += 1
-        else:
+        if page.locator(".sample-modal").count() == 0:
+            log(f"  抽样面板已消失，停止处理")
             break
+        if not page.locator(".sample-modal").is_visible():
+            log(f"  抽样面板不可见，停止处理")
+            break
+
+        ok = process_one_sample(page)
+        if ok is None:
+            # 没有更多未解析样本，但面板还在，等一小会儿让面板刷新
+            time.sleep(1)
+            if page.locator(".ss-card.ss-empty").count() == 0:
+                log(f"  样本耗尽，停止处理")
+                break
+        elif ok is True:
+            samples_processed += 1
+            ai_timeout_count = 0  # 重置超时计数
+        else:
+            # AI 超时
+            ai_timeout_count += 1
+            log(f"  AI 超时（连续 {ai_timeout_count}/{max_ai_timeout}）")
+            if ai_timeout_count >= max_ai_timeout:
+                log(f"  连续超时次数过多，停止处理")
+                break
 
     log(f"  面板处理完成（{samples_processed} 个样本）")
     _close_sample_modal(page)
-    time.sleep(0.3)
 
-    if samples_processed == 0:
+    # 有规则确认 或 样本耗尽，都应该触发洗
+    if samples_processed == 0 and ai_timeout_count == 0:
+        # 样本耗尽但无规则确认（已有规则全部确认过），不需要洗
+        log(f"  无新规则确认，跳过清洗")
         return False
 
-    # 重新定位卡片并点击「洗」
     cards2 = page.locator(".sq-card").all()
     target_card2 = None
     for card in cards2:
@@ -359,7 +331,6 @@ def process_category_one_pass(page, cat_name: str):
 
 
 def process_city(page, city_key: str):
-    """处理整个城市"""
     city_label = CITY_LABELS.get(city_key, city_key)
     log(f"\n{'='*60}")
     log(f"▶ 开始处理城市：{city_label} ({city_key})")
@@ -375,15 +346,13 @@ def process_city(page, city_key: str):
         iteration += 1
         cards = get_sq_cards(page)
 
-        # 选解析率最高且 < 100% 的分类
         best_card = None
-        best_pct = 0.0
+        best_info = None
         for card in cards:
             try:
                 info = get_card_info(page, card)
-                pct = info["pct"]
-                if pct < 100 and pct > best_pct:
-                    best_pct = pct
+                if info["pct"] < 100 and (best_info is None or info["pct"] > best_info["pct"]):
+                    best_info = info
                     best_card = card
             except Exception:
                 continue
@@ -392,8 +361,8 @@ def process_city(page, city_key: str):
             log(f"  所有分类已达 100%")
             break
 
-        cat_name = get_card_info(page, best_card)["cat"]
-        log(f"\n  [{iteration}] 分类「{cat_name}」解析率 {best_pct}%")
+        cat_name = best_info["cat"]
+        log(f"\n  [{iteration}] 分类「{cat_name}」解析率 {best_info['pct']}%")
 
         try:
             ok = process_category_one_pass(page, cat_name)
@@ -404,27 +373,8 @@ def process_city(page, city_key: str):
                 page.screenshot(path=f"/tmp/auto-mine-{city_key}-{cat_name[:8]}-err.png")
             except Exception:
                 pass
-            time.sleep(2)
+            time.sleep(0.8)
             continue
-
-        time.sleep(3)
-
-        # 检查解析率
-        cards_now = page.locator(".sq-card").all()
-        final_pct = 0.0
-        for c in cards_now:
-            try:
-                info = get_card_info(page, c)
-                if info["cat"] == cat_name:
-                    final_pct = info["pct"]
-                    break
-            except Exception:
-                continue
-
-        if final_pct >= 100:
-            log(f"  ✅ 分类「{cat_name}」达 100%，换下一个")
-        else:
-            log(f"  分类「{cat_name}」{final_pct}%（< 100%），继续")
 
     log(f"\n  ✅ 城市 {city_label} 处理完成")
 
@@ -456,7 +406,7 @@ def run(cities, headless=False):
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
         page = ctx.new_page()
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=30000)
-        time.sleep(1.5)
+        time.sleep(0.8)
 
     goto_provenance(page)
 
@@ -467,7 +417,7 @@ def run(cities, headless=False):
                 break
             try:
                 ov.locator(".fix-close, .btn-close").first.click()
-                time.sleep(0.2)
+                time.sleep(0.1)
             except Exception:
                 try: ov.click(position={"x": 3, "y": 3})
                 except Exception: pass

@@ -10,6 +10,7 @@ fix_case:
       - 可生成 1~5 条 suggestions
       - 每条 suggestion 只对应一个独立业务属性
       - 不允许一个 regex 同时解析多个属性
+      - 至少生成 1 条
     2. 属性拆分原则
       - 每个可识别业务属性必须单独输出
       - pattern 必须包含捕获组

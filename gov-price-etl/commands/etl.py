@@ -118,7 +118,11 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     tax_price = clean_price(raw.get("tax_price"))
 
     parser = get_parser(city)
-    spec_parsed = parser.parse(spec_clean, breed_clean, category)
+    # breed_raw 用于查规则库（规则里存的是原始格式），breed_clean 用于分类/展示
+    spec_parsed = parser.parse(spec_clean, breed_raw, category)
+    if not spec_parsed:
+        # 回退：用 clean_breed 再查一次（部分规则可能用 clean 格式录入）
+        spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
     if not spec_clean or spec_clean == "/":
         needs_spec_parse = False
