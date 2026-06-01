@@ -17,9 +17,9 @@
     </div>
 
     <!-- Coverage grid -->
-    <div v-if="coverage.length" class="sq-grid">
+    <div v-if="sortedCoverage.length" class="sq-grid">
       <div
-        v-for="c in coverage"
+        v-for="c in sortedCoverage"
         :key="c.category"
         class="sq-card"
         :class="{
@@ -129,6 +129,11 @@ function catColor(name) {
   for (const c of String(name)) { h = (h * 31 + c.charCodeAt(0)) & 0xffffffff }
   return PALETTE[Math.abs(h) % PALETTE.length]
 }
+
+// Sort coverage desc by rate (安装完成率 高→低)
+const sortedCoverage = computed(() =>
+  [...props.coverage].sort((a, b) => b.rate - a.rate)
+)
 
 
 const greenCount = computed(() => props.coverage.filter(c => c.rate >= 80).length)

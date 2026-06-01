@@ -1123,7 +1123,7 @@ def _category_coverage(city="xian"):
             "with_attr": parsed_ok,
             "rate": round(parsed_ok / max(1, total) * 100, 1),
         })
-    coverage.sort(key=lambda x: x["rate"])
+    coverage.sort(key=lambda x: x["rate"], reverse=True)
     return coverage
 
 
@@ -1397,6 +1397,9 @@ class FixCaseRequest(BaseModel):
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
+    skip_duplicate=True 时：
+      - insert 成功（新增）→ 返回 "new"
+      - insert 返回 False（规则已存在）→ 也返回 "new"（非失败）
     """
     code = "\n".join(code_lines)
     if get_vec_store is not None:
@@ -1408,7 +1411,8 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
                     code=code, breed=breed or "", category=category or "",
                     skip_duplicate=True,
                 )
-            return "new"
+                # skip_duplicate=True: insert 返回 False = 规则已存在（非失败）
+                return "new"
         except Exception as e:
             import logging
             _log = logging.getLogger()
