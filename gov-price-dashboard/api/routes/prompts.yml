@@ -1,184 +1,330 @@
 fix_case:
   system: '你是一个建材规格解析规则生成专家。'
   template: |-
-    当前需要为以下规格字符串生成 re 解析规则:
-    原始规格文本:  {spec}
-    任务目标: 
-    从规格文本中尽可能提取结构化业务属性,并生成可直接使用的 Python 正则解析规则。
-    必须严格遵守以下规则:
-    1. 采用多解析策略
-      - 可生成 1~5 条 suggestions
-      - 每条 suggestion 只对应一个独立业务属性
-      - 不允许一个 regex 同时解析多个属性
-      - 至少生成 1 条
-    2. 属性拆分原则
-      - 每个可识别业务属性必须单独输出
-      - pattern 必须包含捕获组
-      - 捕获组只提取该属性实际值
-      - 无法拆分则使用属性名:attr_spec
-    3. 单位保留强制规则
-      - 如果原始规格文本中存在单位，则必须保留单位
-      - pattern 捕获组应优先包含单位
-      - 禁止仅捕获数值后丢失单位
-      - 以下两种方式任选其一：
-        方式A（推荐）
-          原文: 20mm
-          pattern: (20mm)
-          捕获结果: 20mm
-        方式B:
-            原文: 20mm
-            pattern: (\d+)(mm)
-            最终结果必须拼接为: 20mm
-      - 严禁:
-          原文: 20mm
-          pattern: (\d+)
-          结果: 20
-      - 当规格中存在多个单位时，每个属性必须保留其对应单位        
-    4. 属性唯一原则
-      - 一个业务属性只能出现一次
-      - 不允许同义属性重复输出
-        例如:
-          禁止: diameter,diameter_mm,nominal_diameter
-          因为本质均表示同一个属性,只保留:diameter
-    5. 最小字段原则
-      - 只输出业务有价值的属性
-      - 禁止输出辅助属性
-      - 禁止生成:spec_code,raw_spec,full_spec,prefix,suffix,code,identifier,token,dn_prefix,series_code
-      - 字段本身属于明确业务属性
-    6. 单字段规格规则
-      - 如果整个规格仅能识别出一个业务属性,suggestions 必须只返回 1 条
-        例如:DN80,只能返回:diameter
-    7. 业务语义优先原则
-      - 优先输出行业业务属性
-        例如:
-        DN80 
-        → diameter
-        Φ25 
-        → diameter
-        3×2.5 
-        → core_count
-        → cross_section_area
-        2000×1000×10
-        → length
-        → width
-        → thickness
-      - 禁止为了凑数量生成非业务属性
-    8. 行业语义推断
-       {breed_hint}
-       {cat_hint}
-       以及行业常见规格模式进行推断
-       例如:
-        - 管材: 管径×壁厚×长度,DN×壁厚×长度
-        - 钢板: 长×宽×厚
-        - 矩形管: 高×宽×厚
-        - H型钢: 高×宽×腹板厚×翼缘厚
-        - 电缆: 芯数×截面积
-        - 螺纹钢: 直径×长度
-        - 型材: 高×宽×厚
-    9. 纯数字规格推断
-       - 对于纯数字结构:必须优先推断业务属性名
-         例如:200×100×6 
-         优先:
-         height
-         width
-         thickness
-    10. 属性覆盖原则
-        - 必须覆盖所有可识别业务属性
-        - 但不得为了增加 suggestions 数量而生成重复语义属性
-    11. 单位保留与推断规则（强制）
-        - 最终提取结果必须保留单位信息
-        - 原文存在单位时，必须保留原文单位
-        - 原文不存在单位时，允许根据行业语义推断标准单位
-        - 禁止仅输出裸数值
-          示例：
-            原文: DN80mm
-            最终值: 80mm
 
-            原文: Φ25cm
-            最终值: 25cm
+    当前需要为以下规格字符串生成 Python re 解析规则：
 
-            原文: DN80
-            最终值: 80mm
+    原始规格文本: {spec}
 
-            原文: Φ25
-            最终值: 25mm
+    行业提示:
+    {breed_hint}
 
-            原文: 50×5.6 （管材）
-            最终值:
-              diameter = 50mm
-              thickness = 5.6mm
+    分类提示:
+    {cat_hint}
 
-            原文: 2000×1000×10 （钢板）
-            最终值:
-              length = 2000mm
-              width = 1000mm
-              thickness = 10mm
-        - 行业默认单位：
-          管径(diameter)            -> mm
-          壁厚(thickness)           -> mm
-          长度(length)             -> mm
-          宽度(width)              -> mm
-          高度(height)             -> mm
-          截面积(cross_section_area)-> mm²
-          如果原文已有单位：使用原文单位
-          如果原文无单位：使用行业默认单位
-          禁止：
+    任务目标：
+    从规格文本中尽可能提取结构化业务属性，并生成可直接使用的 Python 正则解析规则。
+
+    核心原则
+    
+      1. 一个 suggestion 只对应一个业务属性
+        - 不允许一个 regex 同时解析多个属性
+        - 每个业务属性单独生成一条 suggestion
+        - suggestions 数量必须等于识别出的业务属性数量
+
+      2. 属性拆分原则
+        - 每个可识别业务属性必须单独输出
+        - pattern 必须包含捕获组
+        - 捕获组只提取当前属性对应值
+        - 不允许一个 suggestion 同时返回多个属性
+
+      3. 属性唯一原则
+        - 一个业务属性只能出现一次
+        - 不允许输出同义属性
+          例如：
+           禁止：
+             diameter
+             nominal_diameter
+             outer_diameter
+
+            仅保留：
+              diameter
+
+    标准属性字典
+
+       1. 优先使用以下标准属性名：
+          diameter
+          thickness
+          length
+          width
+          height
+          wall_thickness
+          flange_thickness
+          web_thickness
+          cross_section_area
+          core_count
+          pressure
+          capacity
+          power
+          voltage
+          current
+          frequency
+          weight
+
+       2. 输出时统一格式：
+
+          attr_属性名
+
+          例如：
+
+          attr_diameter
+          attr_thickness
+
+       3. 禁止生成：
+
+          spec_code
+          raw_spec
+          full_spec
+          prefix
+          suffix
+          code
+          identifier
+          token
+          dn_prefix
+          series_code
+
+    行业推断优先级
+
+       1. 按以下顺序推断：
+          行业提示 > 分类提示 > 商品名称 > 通用行业规则
+
+       2. 常见行业规则：
+
+            管材：
+              DN80
               50×5.6
-              ->
-              diameter=50
-              thickness=5.6
-          必须：
-              diameter=50mm
-              thickness=5.6mm       
-    12. Pattern 要求
-        - 使用 Python re 正则
-        - 必须包含捕获组
-        - 尽量严格匹配
-        - 不允许宽泛 .* 贪婪匹配
-    13. code_block 格式必须严格如下
+              DN100×4
 
-          m = re.search(r'正则', s)
-          if m:
-            result['attr_xxx'] = 最终业务值
-        
-        强制要求：
-          - result 中保存的值必须为最终业务值
-          - 最终业务值必须包含单位
-          - 原文有单位时保留原单位
-          - 原文无单位时根据行业默认单位补充
-          - 不允许返回纯数字
-          - 代码格式需要对其
-          - 正则正确工作
+              优先：
+              diameter
+              thickness
 
-         示例：
+            钢板：
+              2000×1000×10
 
-            m = re.search(r'^DN(\d+)$', s)
+              优先：
+              length
+              width
+              thickness
+
+            矩形管：
+              200×100×6
+
+              优先：
+              height
+              width
+              thickness
+
+            H型钢：
+              200×200×8×12
+
+              优先：
+              height
+              width
+              web_thickness
+              flange_thickness
+
+            电缆：
+               3×2.5
+
+              优先：
+              core_count
+              cross_section_area
+
+            螺纹钢：
+              Φ25×12m
+              优先：
+              diameter
+              length
+
+    单位保留与补全规则
+
+        1. 最终写入 result 的值必须保留单位。
+            原文有单位：
+            必须保留原单位。
+
+            示例：
+
+            DN80mm
+            -> 80mm
+
+            Φ25cm
+            -> 25cm
+
+            原文无单位：
+            按行业默认单位补全。
+
+        2. 默认单位：
+
+            diameter -> mm
+            thickness -> mm
+            wall_thickness -> mm
+            flange_thickness -> mm
+            web_thickness -> mm
+            length -> mm
+            width -> mm
+            height -> mm
+            cross_section_area -> mm²
+
+        3. 禁止：
+
+            diameter = 50
+            thickness = 5.6
+
+        4. 必须：
+
+            diameter = 50mm
+            thickness = 5.6mm
+
+    Pattern规则
+
+        1. 使用 Python re。
+
+        2. 必须包含捕获组。
+
+        3. 尽量使用严格匹配：
+
+            ^
+            $
+
+        4. 禁止使用宽泛匹配：
+
+            .*
+            .+
+            .*?
+            .+?
+            ([\\s\\S]*)
+            (.*)
+
+        5. 除 attr_spec 外禁止贪婪匹配。
+
+    Code规则
+
+        1. code_block 必须严格遵循：
+
+            m = re.search(r'正则', s)
+            if m:
+                result['attr_xxx'] = 最终业务值
+
+            要求：
+
+            1. result 保存最终业务值
+            2. 最终业务值必须包含单位
+            3. 不允许保存裸数字
+            4. 正则与 pattern 保持一致
+            5. Python代码可直接执行
+
+         2. 示例：
+
+            m = re.search(r'^DN(\\d+)$', s)
             if m:
                 result['attr_diameter'] = m.group(1) + 'mm'
-                 
-    14. suggestions 数量规则
-        - 如果识别属性数量为:
-          0个属性:返回空数组
-          1个属性:返回1条
-          2个属性:返回2条
-          3个属性:返回3条
-          依此类推
-        - 禁止生成冗余属性补足数量
-    15. 输出格式
-        - 必须返回纯 JSON
-        - 禁止输出:markdown,解释文字,注释,代码块标记
-        - 格式如下
-          {{
-            "ok": true,
-            "suggestions": [
-              {{
-                "attr": "attr_属性名",
-                "note": "规则说明",
-                "pattern": "正则表达式",
-                "code_block": "代码"
-              }}
-            ]
-          }}
+
+    attr_spec兜底规则
+
+        1. 当无法识别任何行业业务属性时：
+
+        2. 如果规格文本仍然具有有效业务内容：
+
+            GC-11
+            ABC-100
+            GKD25
+
+            返回：
+
+            attr_spec
+
+            示例：
+
+            pattern:
+            ^(GC-11)$
+
+        3. code:
+
+            m = re.search(r'^(GC-11)$', s)
+            if m:
+                result['attr_spec'] = m.group(1)
+
+        4. 仅当以下情况允许返回空数组：
+
+            - 空字符串
+            - 全为空白
+            - 无法识别字符
+            - 无有效规格内容
+
+    执行流程
+
+          Step1:
+          识别行业语义
+
+          Step2:
+          识别规格结构
+
+          Step3:
+          提取全部业务属性
+
+          Step4:
+          去除重复属性
+
+          Step5:
+          为每个属性生成独立 regex
+
+          Step6:
+          补全单位
+
+          Step7:
+          生成 code_block
+
+          Step8:
+            校验：
+              - pattern 包含捕获组
+              - result 保存最终业务值
+              - 单位未丢失
+              - suggestions 数量等于属性数量
+
+    suggestions数量规则
+
+        识别1个属性：返回1条
+
+        识别2个属性：返回2条
+
+        识别3个属性：返回3条
+
+        依此类推。
+
+        禁止为了凑数量生成冗余属性。
+
+    输出格式
+
+        必须返回纯JSON。
+
+        禁止输出：
+
+            - markdown
+            - 解释文字
+            - 注释
+            - 代码块标记
+
+        固定格式：
+
+            {{
+              "ok": true,
+              "suggestions": [
+                {{
+                  "attr": "attr_xxx",
+                  "note": "规则说明",
+                  "pattern": "正则表达式",
+                  "code_block": "Python代码"
+                }}
+              ]
+            }}
+
+        如果无有效内容：
+
+            {{
+              "ok": true,
+              "suggestions": []
+            }}
 
 
 classify_breed_batch:

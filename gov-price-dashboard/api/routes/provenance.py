@@ -871,28 +871,17 @@ def fix_case_prompt_fn(spec, breed="", category="", expected=None):
     """生成 fix-case API 的 user content（fix-case 端点专用）"""
     prompts_cfg = PROMPTS.get("fix_case", {})
     tmpl = prompts_cfg.get("template", "")
-    breed_hint = f"\n参考商品名称：{breed}" if breed else ""
-    cat_hint = f"\n所属分类：{category}" if category else ""
+    breed_hint = f"{breed}" if breed else ""
+    cat_hint = f"{category}" if category else ""
     attr_desc = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())
     expected_json = json.dumps(expected or {}, ensure_ascii=False)
-    try:
-        return tmpl.format(
+    return tmpl.format(
             spec=spec,
             breed_hint=breed_hint,
             cat_hint=cat_hint,
             expected=expected_json,
             attr_desc=attr_desc,
         )
-    except (KeyError, ValueError):
-        # YAML {{}} quoting escaped braces → build manually
-        lines = [
-            f"原始规格文本：{spec}",
-            (f"参考商品名称：{breed}" if breed else ""),
-            (f"所属分类：{category}" if category else ""),
-            f"支持属性：{attr_desc}",
-            f"期望解析：{expected_json}",
-        ]
-        return "\n".join(l for l in lines if l)
 
 
 def classify_breed_batch_prompt_fn(breeds: list[str]) -> str:
@@ -1302,17 +1291,18 @@ def refresh_category(
 
         # 查询 DWD 中该分类的全部 docs，捞 needs_spec_parse=True（待解析的存量数据）
         # 新增规则后应捞这些记录重跑解析，而不是捞已解析完的 False
-        # 统计：待同步且待解析的记录数（synced_to_dws=False 且 needs_spec_parse=True）
+        # 统计：待同步且待解析的记录数（synced_to_dws != true 且 needs_spec_parse=True）
+        # 注：现有数据的 synced_to_dws 为 null，must_not synced_to_dws:true 可覆盖 false/null 两种情况
         body_total = {
-            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
             "size": 0,
         }
         resp_total = es.search(index=dwd_idx, body=body_total)
         total = resp_total["hits"]["total"]["value"]
 
-        # 清洗对象：查询待解析且未推送 DWS 的存量
+        # 清洗对象：查询待解析且未推送 DWS 的存量（synced_to_dws != true）
         body = {
-            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}]}},
+            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
             "size": 500,
             "sort": [{"etl_time": "asc"}],
         }
@@ -1351,7 +1341,7 @@ def refresh_category(
             last_hit = hits[-1]
             search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
-                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
                 "size": 500,
                 "search_after": search_after,
                 "sort": [{"etl_time": "asc"}],
