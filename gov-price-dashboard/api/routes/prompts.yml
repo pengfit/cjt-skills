@@ -32,10 +32,10 @@ fix_case:
         - 一个业务属性只能出现一次
         - 不允许输出同义属性
           例如：
-           禁止：
-             diameter
-             nominal_diameter
-             outer_diameter
+            禁止：
+            diameter
+            nominal_diameter
+            outer_diameter
 
             仅保留：
               diameter
@@ -137,6 +137,72 @@ fix_case:
               diameter
               length
 
+    单位识别业务属性规则
+       
+       1. 当规格为“单数值 + 单位”结构时，优先根据单位推断业务属性。
+       
+       2. 映射关系如下：
+            
+            功率：
+              W
+              kW
+              MW
+              → power
+            电压：
+              V
+              kV
+              → voltage
+            电流：
+              A
+              mA
+              → current
+            频率：
+              Hz
+              kHz
+              MHz
+              → frequency
+            重量：
+              g
+              kg
+              t
+              → weight
+            压力：
+              Pa
+              kPa
+              MPa
+              → pressure
+            容量：
+              mL
+              L
+              m³
+              → capacity
+            截面积：
+              mm²
+              cm²
+              m²
+              → cross_section_area
+            长度类：
+              mm
+              cm
+              m
+       
+       3. 结合行业语义判断：
+            管材：
+              → diameter
+            板材：
+              → thickness
+            型材：
+              → height / width / thickness
+            示例：
+              400W → power
+              220V → voltage
+              16A → current
+              50Hz → frequency
+              25kg → weight
+              0.6MPa → pressure
+              200L → capacity
+              2.5mm² → cross_section_area
+
     单位保留与补全规则
 
         1. 最终写入 result 的值必须保留单位。
@@ -222,20 +288,15 @@ fix_case:
 
     attr_spec兜底规则
 
-        1. 当无法识别任何行业业务属性时：
-
-        2. 如果规格文本仍然具有有效业务内容：
-
+        1. 当无法识别任何行业业务属性时，如果规格文本仍然具有有效业务内容：
             GC-11
             ABC-100
             GKD25
-
+            
             返回：
-
             attr_spec
 
             示例：
-
             pattern:
             ^(GC-11)$
 
