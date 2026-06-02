@@ -106,7 +106,7 @@ fix_case:
 
               m = re.search(r'pattern', s)
               if m:
-                  result['attr_xxx'] = value
+                  result['attr_xxx'] = value + '单位'
 
               要求：
               - pattern 与 suggestion.pattern 一致
