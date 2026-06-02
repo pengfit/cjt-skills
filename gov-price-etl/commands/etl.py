@@ -316,8 +316,8 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：全部 doc，_build_attr 动态构建 attr，空 attr 的 doc 自然无有效数据
-    must_clauses = []
+    # 入池：needs_spec_parse = False 才同步
+    must_clauses = [{"term": {"needs_spec_parse": False}}]
     if category:
         must_clauses.append({"term": {"category": category}})
     body = {

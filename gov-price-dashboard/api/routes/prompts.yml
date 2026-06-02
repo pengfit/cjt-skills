@@ -15,21 +15,40 @@ fix_case:
       - 每个可识别业务属性必须单独输出
       - pattern 必须包含捕获组
       - 捕获组只提取该属性实际值
-    3. 属性唯一原则
+      - 无法拆分则使用属性名:attr_spec
+    3. 单位保留强制规则
+      - 如果原始规格文本中存在单位，则必须保留单位
+      - pattern 捕获组应优先包含单位
+      - 禁止仅捕获数值后丢失单位
+      - 以下两种方式任选其一：
+        方式A（推荐）
+          原文: 20mm
+          pattern: (20mm)
+          捕获结果: 20mm
+        方式B:
+            原文: 20mm
+            pattern: (\d+)(mm)
+            最终结果必须拼接为: 20mm
+      - 严禁:
+          原文: 20mm
+          pattern: (\d+)
+          结果: 20
+      - 当规格中存在多个单位时，每个属性必须保留其对应单位        
+    4. 属性唯一原则
       - 一个业务属性只能出现一次
       - 不允许同义属性重复输出
         例如:
           禁止: diameter,diameter_mm,nominal_diameter
           因为本质均表示同一个属性,只保留:diameter
-    4. 最小字段原则
+    5. 最小字段原则
       - 只输出业务有价值的属性
       - 禁止输出辅助属性
       - 禁止生成:spec_code,raw_spec,full_spec,prefix,suffix,code,identifier,token,dn_prefix,series_code
       - 字段本身属于明确业务属性
-    5. 单字段规格规则
+    6. 单字段规格规则
       - 如果整个规格仅能识别出一个业务属性,suggestions 必须只返回 1 条
         例如:DN80,只能返回:diameter
-    6. 业务语义优先原则
+    7. 业务语义优先原则
       - 优先输出行业业务属性
         例如:
         DN80 
@@ -44,7 +63,7 @@ fix_case:
         → width
         → thickness
       - 禁止为了凑数量生成非业务属性
-    7. 行业语义推断
+    8. 行业语义推断
        {breed_hint}
        {cat_hint}
        以及行业常见规格模式进行推断
@@ -56,30 +75,93 @@ fix_case:
         - 电缆: 芯数×截面积
         - 螺纹钢: 直径×长度
         - 型材: 高×宽×厚
-    8. 纯数字规格推断
+    9. 纯数字规格推断
        - 对于纯数字结构:必须优先推断业务属性名
          例如:200×100×6 
          优先:
          height
          width
          thickness
-    9. 属性覆盖原则
+    10. 属性覆盖原则
         - 必须覆盖所有可识别业务属性
         - 但不得为了增加 suggestions 数量而生成重复语义属性
-    10. Pattern 要求
+    11. 单位保留与推断规则（强制）
+        - 最终提取结果必须保留单位信息
+        - 原文存在单位时，必须保留原文单位
+        - 原文不存在单位时，允许根据行业语义推断标准单位
+        - 禁止仅输出裸数值
+          示例：
+            原文: DN80mm
+            最终值: 80mm
+
+            原文: Φ25cm
+            最终值: 25cm
+
+            原文: DN80
+            最终值: 80mm
+
+            原文: Φ25
+            最终值: 25mm
+
+            原文: 50×5.6 （管材）
+            最终值:
+              diameter = 50mm
+              thickness = 5.6mm
+
+            原文: 2000×1000×10 （钢板）
+            最终值:
+              length = 2000mm
+              width = 1000mm
+              thickness = 10mm
+        - 行业默认单位：
+          管径(diameter)            -> mm
+          壁厚(thickness)           -> mm
+          长度(length)             -> mm
+          宽度(width)              -> mm
+          高度(height)             -> mm
+          截面积(cross_section_area)-> mm²
+          如果原文已有单位：使用原文单位
+          如果原文无单位：使用行业默认单位
+          禁止：
+              50×5.6
+              ->
+              diameter=50
+              thickness=5.6
+          必须：
+              diameter=50mm
+              thickness=5.6mm       
+    12. Pattern 要求
         - 使用 Python re 正则
         - 必须包含捕获组
         - 尽量严格匹配
         - 不允许宽泛 .* 贪婪匹配
-    11. code_block 格式必须严格如下
-          m = re.search(r'^属性正则', s)
+    13. code_block 格式必须严格如下
+
+          m = re.search(r'正则', s)
           if m:
-            result['前缀_属性名'] = m.group(0)+ '单位'
-        示例:
-          m = re.search(r'^DN(\d+)', s)
-          if m:
-            result['attr_diameter'] = m.group(0) + 'mm'
-    12. suggestions 数量规则
+            result['attr_xxx'] = 最终业务值
+        
+        强制要求：
+          - result 中保存的值必须为最终业务值
+          - 最终业务值必须包含单位
+          - 原文有单位时保留原单位
+          - 原文无单位时根据行业默认单位补充
+          - 不允许返回纯数字
+         示例：
+
+            m = re.search(r'^DN(\d+)$', s)
+            if m:
+                result['attr_diameter'] = m.group(1) + 'mm'
+
+            m = re.search(r'^(\d+)×(\d+(?:\.\d+)?)$', s)
+            if m:
+                result['attr_diameter'] = m.group(1) + 'mm'
+            
+            m = re.search(r'^(\d+)×(\d+(?:\.\d+)?)$', s)
+            if m:
+                result['attr_thickness'] = m.group(2) + 'mm'  
+                 
+    14. suggestions 数量规则
         - 如果识别属性数量为:
           0个属性:返回空数组
           1个属性:返回1条
@@ -87,10 +169,7 @@ fix_case:
           3个属性:返回3条
           依此类推
         - 禁止生成冗余属性补足数量
-    13. 特殊规则（重点）
-        - 规格:通用,综合
-          属性名:attr_spec
-    14. 输出格式必须是纯 
+    15. 输出格式
         - 必须返回纯 JSON
         - 禁止输出:markdown,解释文字,注释,代码块标记
         - 格式如下

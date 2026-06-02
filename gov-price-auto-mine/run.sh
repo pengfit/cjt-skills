@@ -20,8 +20,8 @@ echo "🚀 启动 auto-mine（城市=$CITY），日志: $LOGFILE"
 echo "PID: $$"
 
 # 关键：不使用 nohup/disown，让 bash 退出后子进程继续运行
-# 使用 Python daemonize 或 setsid 脱离当前 session
-exec setsid python3 "$SCRIPT_DIR/scripts/playwright-auto-mine.py" --city "$CITY" $HEADLESS_FLAG >> "$LOGFILE" 2>&1 &
-
-echo "✅ 后台进程已启动 (pid=$!)，日志: $LOGFILE"
+# macOS 无 setsid，使用 nohup + 后台运行 + 输出重定向
+nohup python3 "$SCRIPT_DIR/scripts/playwright-auto-mine.py" --city "$CITY" $HEADLESS_FLAG >> "$LOGFILE" 2>&1 &
+PID=$!
+echo "✅ 后台进程已启动 (pid=$PID)，日志: $LOGFILE"
 echo "查看日志: tail -f $LOGFILE"

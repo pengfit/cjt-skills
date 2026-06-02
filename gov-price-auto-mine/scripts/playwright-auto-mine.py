@@ -35,32 +35,55 @@ def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
+def wait_visible(page, selector, timeout=15000, **kwargs):
+    """等待元素可见，超时返回 False"""
+    try:
+        page.locator(selector).wait_for(state="visible", timeout=timeout, **kwargs)
+        return True
+    except Exception:
+        return False
+
+
+def wait_hidden(page, selector, timeout=15000, **kwargs):
+    """等待元素隐藏，超时返回 False"""
+    try:
+        page.locator(selector).wait_for(state="hidden", timeout=timeout, **kwargs)
+        return True
+    except Exception:
+        return False
+
+
 def goto_provenance(page):
     tab = page.locator(".nav-tab").filter(has_text="数据入仓")
     tab.wait_for(state="visible", timeout=10000)
-    if "active" not in (tab.get_attribute("class") or ""):
+    if ("active" not in (tab.get_attribute("class") or "")):
         tab.click()
-    time.sleep(0.3)
+        time.sleep(2)  # 等待 tab 切换动画
+        page.locator(".pipeline-card").wait_for(state="visible", timeout=10000)
 
 
 def expand_city_card(page, city_label: str):
+    # 清理可能遮盖的弹层
     for _ in range(3):
         ov = page.locator(".fix-overlay")
         if ov.is_visible():
             try:
                 ov.locator(".fix-close").first.click()
-                time.sleep(0.2)
+                wait_hidden(page, ".fix-overlay", timeout=5000)
             except Exception:
-                ov.click(position={"x": 5, "y": 5})
-                time.sleep(0.2)
+                try: ov.click(position={"x": 5, "y": 5})
+                except Exception: pass
         else:
             break
+
     cards = page.locator(".pipeline-card").all()
     for card in cards:
         city_el = card.locator(".pipeline-card-city")
         if city_el.is_visible() and city_label in city_el.inner_text():
             card.click()
-            time.sleep(0.4)
+            time.sleep(2)  # 等待城市卡片展开动画
+            # 等待卡片展开动画完成（城市卡片切换时有过渡）
+            page.locator(".pipe-stage-btn.stage-dwd").first.wait_for(state="visible", timeout=8000)
             log(f"  展开城市：{city_label}")
             return True
     return False
@@ -73,12 +96,14 @@ def click_city_dwd_button(page, city_key: str):
         txt = btn.inner_text()
         if target_count and target_count in txt:
             btn.click()
-            time.sleep(0.5)
+            time.sleep(2)  # 等待面板切换动画
+            page.locator(".sq-panel").wait_for(state="visible", timeout=10000)
             log(f"  点击 DWD 按钮（{target_count}条）")
             return True
     idx = CITIES.index(city_key) if city_key in CITIES else 0
     dwd_btns[idx].click()
-    time.sleep(0.5)
+    time.sleep(2)  # 等待面板切换动画
+    page.locator(".sq-panel").wait_for(state="visible", timeout=10000)
     log(f"  点击 DWD 按钮（fallback index={idx}）")
     return True
 
@@ -112,34 +137,35 @@ def close_fix(page):
         cl = page.locator(".fix-close")
         if ov.count() > 0 and ov.is_visible() and cl.count() > 0 and cl.is_visible():
             cl.first.click()
-            ov.wait_for(state="hidden", timeout=5000)
+            wait_hidden(page, ".fix-overlay", timeout=5000)
     except Exception:
         pass
 
 
 def _close_sample_modal(page):
     try:
-        page.locator(".sample-modal .btn-close").first.click()
-        time.sleep(0.5)
-        if page.locator(".sample-modal").is_visible():
-            page.locator(".sample-modal").wait_for(state="hidden", timeout=3000)
+        btn = page.locator(".sample-modal .btn-close")
+        if btn.is_visible():
+            btn.first.click()
+            wait_hidden(page, ".sample-modal", timeout=5000)
     except Exception:
+        # 弹窗可能已自行关闭
         pass
 
 
 def wait_for_clean_done(page, timeout=120000):
+    """等待清洗完成：检测 spinner 消失即为完成"""
     log(f"  等待清洗完成...")
     start = time.time()
-    while time.time() - start < timeout:
-        spinners = page.locator(".btn-clean .sp-xs")
-        if spinners.count() == 0:
-            elapsed = int(time.time() - start)
-            log(f"  清洗完成（{elapsed}s）")
-            time.sleep(1)
-            return True
-        time.sleep(1)
-    log(f"  清洗超时")
-    return False
+    try:
+        # 等待 .btn-clean 上的 spinner 消失（即 .sp-xs count == 0）
+        page.locator(".btn-clean .sp-xs").wait_for(state="hidden", timeout=timeout)
+        elapsed = int(time.time() - start)
+        log(f"  清洗完成（{elapsed}s）")
+        return True
+    except Exception:
+        log(f"  清洗超时")
+        return False
 
 
 def process_one_sample(page):
@@ -180,23 +206,23 @@ def process_one_sample(page):
 
     ai_btn.click()
     log(f"  AI 分析中...")
+    time.sleep(2)  # 等待 AI 开始处理
 
-    start = time.time()
-    sg_cards = []
-    while time.time() - start < 45:
-        sg_cards = page.locator(".fix-suggestion-card").all()
-        if sg_cards:
-            break
-        time.sleep(0.25)
-
-    if not sg_cards:
+    # 等待 AI 生成的规则卡片出现（事件驱动，不再轮询）
+    try:
+        page.locator(".fix-suggestion-card").first.wait_for(state="visible", timeout=45000)
+    except Exception:
         log(f"  AI 生成规则超时")
         close_fix(page)
         return False
 
-    sg_count = len(sg_cards)
+    # 等待规则卡片全部渲染完成
+    page.wait_for_timeout(300)
+
+    sg_count = page.locator(".fix-suggestion-card").count()
     log(f"  AI 生成 {sg_count} 条规则")
 
+    # 逐个确认规则，直到没有可点的按钮为止
     confirmed = 0
     for _ in range(sg_count + 3):
         sg_list = page.locator(".fix-suggestion-card").all()
@@ -212,14 +238,17 @@ def process_one_sample(page):
                 btn.click()
                 confirmed += 1
                 clicked = True
-                time.sleep(0.1)
+                # 等待按钮状态更新
+                page.locator(".fix-suggestion-card .btn-confirm-fix").wait_for(state="visible", timeout=3000)
             except Exception:
                 pass
         if not clicked:
             break
 
     log(f"  确认录入 {confirmed} 条规则")
+    time.sleep(2)  # 等待规则确认落库
     close_fix(page)
+    time.sleep(2)  # 等待弹窗关闭动画
     return True if confirmed > 0 else False
 
 
@@ -252,13 +281,8 @@ def process_category_one_pass(page, cat_name: str):
         return False
 
     sample_btn.click()
-    time.sleep(0.2)
-
-    try:
-        page.locator(".sample-modal").wait_for(state="visible", timeout=15000)
-    except Exception:
-        log(f"  抽样面板未出现")
-        return False
+    page.locator(".sample-modal").wait_for(state="visible", timeout=15000)
+    time.sleep(2)  # 等待抽样面板动画完成
 
     log(f"  抽样面板已打开")
 
@@ -267,6 +291,7 @@ def process_category_one_pass(page, cat_name: str):
     max_ai_timeout = 2  # 连续 2 次 AI 超时则放弃本轮
 
     while True:
+        # 面板消失则退出
         if page.locator(".sample-modal").count() == 0:
             log(f"  抽样面板已消失，停止处理")
             break
@@ -276,24 +301,36 @@ def process_category_one_pass(page, cat_name: str):
 
         ok = process_one_sample(page)
         if ok is None:
-            # 没有更多未解析样本，但面板还在，等一小会儿让面板刷新
-            time.sleep(1)
-            if page.locator(".ss-card.ss-empty").count() == 0:
+            # 没有更多未解析样本，但面板还在，等一会儿看是否有刷新
+            time.sleep(2)
+            unparsed_now = page.locator(".ss-card.ss-empty").count()
+            if unparsed_now > 0:
+                # 有新样本了，继续下一轮
+                continue
+            try:
+                page.locator(".ss-card.ss-empty").wait_for(state="attached", timeout=3000)
+            except Exception:
+                # 3s 内没有新样本，视为耗尽
                 log(f"  样本耗尽，停止处理")
                 break
         elif ok is True:
             samples_processed += 1
             ai_timeout_count = 0  # 重置超时计数
         else:
-            # AI 超时
+            # AI 超时（返回 False）
             ai_timeout_count += 1
             log(f"  AI 超时（连续 {ai_timeout_count}/{max_ai_timeout}）")
+            # 检查面板是否消失，如果是则退出，不消失则重试
+            if page.locator(".sample-modal").count() == 0 or not page.locator(".sample-modal").is_visible():
+                log(f"  面板已关闭，中断本分类")
+                break
             if ai_timeout_count >= max_ai_timeout:
                 log(f"  连续超时次数过多，停止处理")
                 break
 
     log(f"  面板处理完成（{samples_processed} 个样本）")
     _close_sample_modal(page)
+    time.sleep(2)  # 等待面板关闭动画
 
     # 有规则确认 或 样本耗尽，都应该触发洗
     if samples_processed == 0 and ai_timeout_count == 0:
@@ -323,7 +360,9 @@ def process_category_one_pass(page, cat_name: str):
         else:
             clean_btn.click()
             log(f"  清洗已触发（{samples_processed} 个样本）")
+            time.sleep(2)  # 等待清洗启动
             wait_for_clean_done(page)
+            time.sleep(2)  # 清洗完成后让界面稳定
     except Exception:
         log(f"  洗按钮不可见，跳过")
 
@@ -362,10 +401,27 @@ def process_city(page, city_key: str):
             break
 
         cat_name = best_info["cat"]
-        log(f"\n  [{iteration}] 分类「{cat_name}」解析率 {best_info['pct']}%")
+        cat_pct_before = best_info["pct"]
+        log(f"\n  [{iteration}] 分类「{cat_name}」解析率 {cat_pct_before}%")
 
         try:
             ok = process_category_one_pass(page, cat_name)
+            # 验证进度是否真正提升（防止卡在同一个样本上）
+            time.sleep(1)  # 等界面刷新
+            cards_after = get_sq_cards(page)
+            new_pct = None
+            for card in cards_after:
+                try:
+                    info = get_card_info(page, card)
+                    if info["cat"] == cat_name:
+                        new_pct = info["pct"]
+                        break
+                except Exception:
+                    continue
+            if new_pct is not None and new_pct <= cat_pct_before:
+                log(f"  ⚠ 解析率未提升（{cat_pct_before}% → {new_pct}%），重试该分类")
+            elif new_pct is not None:
+                log(f"  解析率提升：{cat_pct_before}% → {new_pct}%")
         except Exception as e:
             log(f"  出错: {e}")
             import traceback; traceback.print_exc()
@@ -373,7 +429,8 @@ def process_city(page, city_key: str):
                 page.screenshot(path=f"/tmp/auto-mine-{city_key}-{cat_name[:8]}-err.png")
             except Exception:
                 pass
-            time.sleep(0.8)
+            page.locator(".fix-overlay, .sample-modal").filter(visible=True).first.click(position={"x": 3, "y": 3})
+            page.wait_for_timeout(500)
             continue
 
     log(f"\n  ✅ 城市 {city_label} 处理完成")
@@ -394,11 +451,11 @@ def run(cities, headless=False):
                     ov.locator(".fix-close, .btn-close").first.click()
                 except Exception:
                     ov.click(position={"x": 3, "y": 3})
-                time.sleep(0.2)
+                wait_hidden(page, ".fix-overlay, .sample-modal", timeout=5000)
         page.mouse.click(1, 1)
         if page.url and "localhost:5300" not in page.url:
             page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=30000)
-            time.sleep(1.5)
+            page.locator(".pipeline-card").wait_for(state="visible", timeout=15000)
     except Exception as e:
         log(f"CDP 连接失败（{e}），启动新浏览器")
         pw = sync_playwright().start()
@@ -406,7 +463,7 @@ def run(cities, headless=False):
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
         page = ctx.new_page()
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=30000)
-        time.sleep(0.8)
+        page.locator(".pipeline-card").wait_for(state="visible", timeout=15000)
 
     goto_provenance(page)
 
@@ -417,7 +474,7 @@ def run(cities, headless=False):
                 break
             try:
                 ov.locator(".fix-close, .btn-close").first.click()
-                time.sleep(0.1)
+                wait_hidden(page, ".fix-overlay, .sample-modal", timeout=3000)
             except Exception:
                 try: ov.click(position={"x": 3, "y": 3})
                 except Exception: pass
