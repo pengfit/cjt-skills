@@ -6,114 +6,113 @@ fix_case:
 
     原始规格文本: {spec}
 
-    行业提示:
-    {breed_hint}
+    行业提示:  {breed_hint}
 
-    分类提示:
-    {cat_hint}
+    分类提示: {cat_hint}
 
     任务目标：
     从规格文本中尽可能提取结构化业务属性，并生成可直接使用的 Python 正则解析规则。
 
     核心原则
-    
-      1. 一个 suggestion 只对应一个业务属性
-        - 不允许一个 regex 同时解析多个属性
-        - 每个业务属性单独生成一条 suggestion
-        - suggestions 数量必须等于识别出的业务属性数量
+      
+        1. 一个 suggestion 只对应一个业务属性
+          - 不允许一个 regex 同时解析多个属性
+          - 每个业务属性单独生成一条 suggestion
+          - suggestions 数量必须等于识别出的业务属性数量
 
-      2. 属性拆分原则
-        - 每个可识别业务属性必须单独输出
-        - pattern 必须包含捕获组
-        - 捕获组只提取当前属性对应值
-        - 不允许一个 suggestion 同时返回多个属性
+        2. 属性拆分原则
+          - 每个可识别业务属性必须单独输出
+          - pattern 必须包含捕获组
+          - 捕获组只提取当前属性对应值
+          - 不允许一个 suggestion 同时返回多个属性
 
-      3. 属性唯一原则
-        - 一个业务属性只能出现一次
-        - 不允许输出同义属性
-        例如：
-          禁止：diameter,nominal_diameter,outer_diameter
-          仅保留：diameter
+        3. 属性唯一原则
+          - 一个业务属性只能出现一次
+          - 不允许输出同义属性
+          例如：
+            禁止：diameter,nominal_diameter,outer_diameter
+            仅保留：diameter
 
     标准属性字典
 
-       1. 优先使用以下标准属性名：
-          
-          diameter,thickness,length,width, height,wall_thickness,flange_thickness,  web_thickness, cross_section_area,core_count, pressure, capacity,power, voltage,curren,frequency, weight
+        1. 优先使用以下标准属性名：
+            
+            diameter,thickness,length,width, height,wall_thickness,flange_thickness,  web_thickness, cross_section_area,core_count, pressure, capacity,power, voltage,curren,frequency, weight
 
-       2. 输出时统一格式：
+        2. 输出时统一格式：
 
-          attr_属性名
+            attr_属性名
 
-          例如：
+            例如：
 
-          attr_diameter
-          attr_thickness
+            attr_diameter
+            attr_thickness
 
-       3. 禁止生成：
+        3. 禁止生成：
 
-          spec_code, raw_spec,full_spec,prefix,suffix,code, identifier,token, dn_prefix, series_code
+            spec_code, raw_spec,full_spec,prefix,suffix,code, identifier,token, dn_prefix, series_code
 
     行业推断优先级
 
-       1. 按以下顺序推断：
-          行业提示 > 分类提示 > 商品名称 > 通用行业规则
+        1. 按以下顺序推断：
+        
+            行业提示 > 分类提示 > 商品名称 > 通用行业规则
 
-       2. 常见行业规则：
+        2. 常见行业规则：
 
-            管材：
+              管材：
 
-              DN80
-              50×5.6
-              DN100×4
+                DN80
+                50×5.6
+                DN100×4
 
-              优先：
-              diameter
-              thickness
+                优先：
+                diameter
+                thickness
 
-            钢板：
+              钢板：
 
-              2000×1000×10
+                2000×1000×10
 
-              优先：
-              length
-              width
-              thickness
+                优先：
+                length
+                width
+                thickness
 
-            矩形管：
+              矩形管：
 
-              200×100×6
+                200×100×6
 
-              优先：
-              height
-              width
-              thickness
+                优先：
+                height
+                width
+                thickness
 
-            H型钢：
+              H型钢：
 
-              200×200×8×12
+                200×200×8×12
 
-              优先：
-              height
-              width
-              web_thickness
-              flange_thickness
+                优先：
+                height
+                width
+                web_thickness
+                flange_thickness
 
-            电缆：
+              电缆：
 
-              3×2.5
+                3×2.5
 
-              优先：
-              core_count
-              cross_section_area
+                优先：
+                core_count
+                cross_section_area
 
-            螺纹钢：
+              螺纹钢：
 
-              Φ25×12m
-              
-              优先：
-              diameter
-              length
+                Φ25×12m
+                
+                优先：
+                diameter
+                length
 
     单位识别业务属性规则
        
@@ -222,13 +221,12 @@ fix_case:
                 result['attr_diameter'] = m.group(1) + 'mm'
 
     型号+业务参数规则
+       
        1. 当规格同时包含：型号部分和可识别业务参数部分
             应优先提取业务参数。
-              型号部分保留到 attr_spec。
-              
-              示例：3U9-13W
-              → attr_power = 13W
-              → attr_spec = 3U9
+            示例：3U9-13W
+            → attr_power = 13W
+            → attr_model = 3U9
       
     attr_spec兜底规则
 
@@ -293,8 +291,6 @@ fix_case:
         识别1个属性：返回1条
 
         识别2个属性：返回2条
-
-        识别3个属性：返回3条
 
         依此类推。
 
