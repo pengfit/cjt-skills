@@ -147,19 +147,14 @@ fix_case:
           - 原文有单位时保留原单位
           - 原文无单位时根据行业默认单位补充
           - 不允许返回纯数字
+          - 代码格式需要对其
+          - 正则正确工作
+
          示例：
 
             m = re.search(r'^DN(\d+)$', s)
             if m:
                 result['attr_diameter'] = m.group(1) + 'mm'
-
-            m = re.search(r'^(\d+)×(\d+(?:\.\d+)?)$', s)
-            if m:
-                result['attr_diameter'] = m.group(1) + 'mm'
-            
-            m = re.search(r'^(\d+)×(\d+(?:\.\d+)?)$', s)
-            if m:
-                result['attr_thickness'] = m.group(2) + 'mm'  
                  
     14. suggestions 数量规则
         - 如果识别属性数量为:

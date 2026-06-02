@@ -1302,6 +1302,15 @@ def refresh_category(
 
         # 查询 DWD 中该分类的全部 docs，捞 needs_spec_parse=True（待解析的存量数据）
         # 新增规则后应捞这些记录重跑解析，而不是捞已解析完的 False
+        # 统计：待同步且待解析的记录数（synced_to_dws=False 且 needs_spec_parse=True）
+        body_total = {
+            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "size": 0,
+        }
+        resp_total = es.search(index=dwd_idx, body=body_total)
+        total = resp_total["hits"]["total"]["value"]
+
+        # 清洗对象：查询待解析且未推送 DWS 的存量
         body = {
             "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}]}},
             "size": 500,
@@ -1310,7 +1319,6 @@ def refresh_category(
 
         resp = es.search(index=dwd_idx, body=body)
         hits = resp["hits"]["hits"]
-        total = resp["hits"]["total"]["value"]
 
         if total == 0:
             return {"ok": True, "message": f"分类「{category}」无待解析数据（needs_spec_parse=True 为 0）", "city": city}
@@ -1343,7 +1351,7 @@ def refresh_category(
             last_hit = hits[-1]
             search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
-                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}]}},
+                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
                 "size": 500,
                 "search_after": search_after,
                 "sort": [{"etl_time": "asc"}],
@@ -1395,25 +1403,28 @@ class FixCaseRequest(BaseModel):
 
 
 
-def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> bool:
+def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> str | bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
     skip_duplicate=True 时：
       - insert 成功（新增）→ 返回 "new"
-      - insert 返回 False（规则已存在）→ 也返回 "new"（非失败）
+      - insert 返回 False（规则已存在）→ 返回 "duplicate"（非失败）
+      - 异常 → 返回 False
     """
     code = "\n".join(code_lines)
     if get_vec_store is not None:
         try:
             vs = get_vec_store()
             if pattern and attr:
-                vs.insert(
+                ok = vs.insert(
                     pattern=pattern, attr=attr, note=note or "",
                     code=code, breed=breed or "", category=category or "",
                     skip_duplicate=True,
                 )
-                # skip_duplicate=True: insert 返回 False = 规则已存在（非失败）
-                return "new"
+                if ok:
+                    return "new"
+                # skip_duplicate=True: insert 返回 False = 规则已存在
+                return "duplicate"
         except Exception as e:
             import logging
             _log = logging.getLogger()
@@ -2055,7 +2066,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
             if not pattern:
                 continue
             try:
-                code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
+                code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
                 exec_globals = {"result": {}, "re": re_mod, "s": spec}
                 exec("\n".join(code_block), exec_globals)
                 parse_result.update(exec_globals.get("result", {}))
@@ -2083,14 +2094,14 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     applied_note = None
     wrote_new = False
     for s in all_suggestions:
-        code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].split("\n")
+        code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
         result = _apply_rule_to_base(
             code_block, s["attr"], s["note"], s.get("pattern", ""),
             req.breed or s.get("breed", ""), req.category or s.get("category", ""),
         )
         if result is False:
             return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}
-        if result == "new":
+        if result in ("new", "duplicate"):
             wrote_new = True
         code_str = "\n".join(code_block)
         passed, total = _run_spec_validation_quiet(spec, s["attr"], code_str)

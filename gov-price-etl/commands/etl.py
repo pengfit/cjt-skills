@@ -208,6 +208,7 @@ def _build_dwd_mapping():
         "source_index":    {"type": "keyword"},
         "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
         "needs_spec_parse": {"type": "boolean"},
+        "synced_to_dws":     {"type": "boolean"},
         # dynamic: True 让所有 AI 返回的 attr 字段（如 voltage, power, color_temperature 等）自动入 mapping
         # 无需在此处硬编码字段列表
     }
@@ -232,6 +233,7 @@ def _build_dws_mapping():
         "etl_time":          {"type": "date"},
         "publish_time":      {"type": "date"},
         "needs_spec_parse":  {"type": "boolean"},
+        "synced_to_dws":     {"type": "boolean"},
         "code":              {"type": "keyword"},
         "tab_type":          {"type": "keyword"},
         "tab_name":          {"type": "keyword"},

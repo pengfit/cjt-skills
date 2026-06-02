@@ -189,10 +189,14 @@ class VecStore:
                 ).fetchone()
                 if exists:
                     return False
-            conn.execute("""
-                INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (norm_pat, attr, note, code, breed, category, tok_json))
+            try:
+                conn.execute("""
+                    INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (norm_pat, attr, note, code, breed, category, tok_json))
+            except sqlite3.IntegrityError:
+                # pattern 单字段唯一约束冲突（同一 pattern 不同 attr/breed/category 组合）
+                return False
             conn.commit()
         return True
 

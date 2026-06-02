@@ -240,13 +240,14 @@ def process_one_sample(page):
                 clicked = True
                 # 等待按钮状态更新
                 page.locator(".fix-suggestion-card .btn-confirm-fix").wait_for(state="visible", timeout=3000)
+                time.sleep(2) 
             except Exception:
                 pass
         if not clicked:
             break
 
     log(f"  确认录入 {confirmed} 条规则")
-    time.sleep(2)  # 等待规则确认落库
+    time.sleep(3)  # 等待规则确认落库
     close_fix(page)
     time.sleep(2)  # 等待弹窗关闭动画
     return True if confirmed > 0 else False
@@ -362,7 +363,7 @@ def process_category_one_pass(page, cat_name: str):
             log(f"  清洗已触发（{samples_processed} 个样本）")
             time.sleep(2)  # 等待清洗启动
             wait_for_clean_done(page)
-            time.sleep(2)  # 清洗完成后让界面稳定
+            time.sleep(3)  # 清洗完成后让界面稳定
     except Exception:
         log(f"  洗按钮不可见，跳过")
 
@@ -455,7 +456,7 @@ def run(cities, headless=False):
         page.mouse.click(1, 1)
         if page.url and "localhost:5300" not in page.url:
             page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=30000)
-            page.locator(".pipeline-card").wait_for(state="visible", timeout=15000)
+            page.locator(".pipeline-card").first.wait_for(state="visible", timeout=15000)
     except Exception as e:
         log(f"CDP 连接失败（{e}），启动新浏览器")
         pw = sync_playwright().start()
@@ -463,7 +464,7 @@ def run(cities, headless=False):
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
         page = ctx.new_page()
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=30000)
-        page.locator(".pipeline-card").wait_for(state="visible", timeout=15000)
+        page.locator(".pipeline-card").first.wait_for(state="visible", timeout=15000)
 
     goto_provenance(page)
 
