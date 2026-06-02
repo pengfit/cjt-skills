@@ -14,44 +14,52 @@ fix_case:
     
         从规格文本中尽可能提取结构化业务属性，并生成可直接使用的 Python 正则解析规则。
 
-    核心原则
+    属性核心原则
       
-        1. 一个 suggestion 只对应一个业务属性
-          - 不允许一个 regex 同时解析多个属性
-          - 每个业务属性单独生成一条 suggestion
-          - suggestions 数量必须等于识别出的业务属性数量
+        1. 输出规则
+          - 每个业务属性仅允许生成一个 suggestion
+          - 一个 suggestion 仅对应一个业务属性
+          - suggestions 数量 = 最终识别出的属性数量
+          - 不允许同义属性重复出现
+    
+        2. 属性命名要求
 
-        2. 属性拆分原则
-          - 每个可识别业务属性必须单独输出
-          - pattern 必须包含捕获组
-          - 捕获组只提取当前属性对应值
-          - 不允许一个 suggestion 同时返回多个属性
+          - 标准属性优先级:
 
-        3. 属性唯一原则
-          - 一个业务属性只能出现一次
-          - 不允许输出同义属性
-          例如：
-            禁止：diameter,nominal_diameter,outer_diameter
-            仅保留：diameter
-
-    标准属性字典
-
-        1. 优先使用以下标准属性名：
+            diameter
+            thickness
+            length
+            width
+            height
+            wall_thickness
+            flange_thickness
+            web_thickness
+            cross_section_area
+            core_count
+            pressure
+            capacity
+            power
+            voltage
+            current
+            frequency
+            weight
             
-            diameter,thickness,length,width, height,wall_thickness,flange_thickness,  web_thickness, cross_section_area,core_count, pressure, capacity,power, voltage,curren,frequency, weight
 
-        2. 输出时统一格式：
+            优先使用上述名称。
+            无法归类时再创建新属性。
+          - 正确
 
-            attr_属性名
+              attr_属性名
 
-            例如：
+              例如：
 
-            attr_diameter
-            attr_thickness
+              attr_diameter
+              attr_thickness
+          - 错误
 
-        3. 禁止生成：
-
-            spec_code, raw_spec,full_spec,prefix,suffix,code, identifier,token, dn_prefix, series_code
+              diameter 
+              outside_diameter 
+              pipe_diameter
 
     行业推断优先级
 
@@ -61,121 +69,12 @@ fix_case:
 
         2. 常见行业规则：
 
-              管材：
-
-                DN80
-                50×5.6
-                DN100×4
-
-                优先：
-                diameter
-                thickness
-
-              钢板：
-
-                2000×1000×10
-
-                优先：
-                length
-                width
-                thickness
-
-              矩形管：
-
-                200×100×6
-
-                优先：
-                height
-                width
-                thickness
-
-              H型钢：
-
-                200×200×8×12
-
-                优先：
-                height
-                width
-                web_thickness
-                flange_thickness
-
-              电缆：
-
-                3×2.5
-
-                优先：
-                core_count
-                cross_section_area
-
-              螺纹钢：
-
-                Φ25×12m
-                
-                优先：
-                diameter
-                length
-
-    单位识别业务属性规则
-       
-        1. 当规格为“单数值 + 单位”结构时，优先根据单位推断业务属性。
-        
-        2. 映射关系如下：
-              
-              功率： W, kW, MW → power
-              电压： V,kV → voltage
-              电流： A, mA → current
-              频率： Hz,kHz,MHz → frequency
-              重量： g, kg,t  → weight
-              压力：Pa, kPa,MPa-→ pressure
-              容量： mL, L,m³ → capacity
-              截面积： mm²,cm²,m² → cross_section_area
-              长度类：mm,cm, m
-                结合行业语义判断：
-                    管材： → diameter
-                    板材： → thickness
-                    型材： → height / width / thickness
-              示例：
-                400W → power
-                220V → voltage
-                16A → current
-                50Hz → frequency
-                25kg → weight
-                0.6MPa → pressure
-                200L → capacity
-                2.5mm² → cross_section_area
-
-    单位保留与补全规则
-
-          1. 最终写入 result 的值必须保留单位。
-              原文有单位：
-                必须保留原单位。
-                  示例： 
-                    DN80mm -> 80mm
-                    Φ25cm -> 25cm
-              原文无单位：
-                按行业默认单位补全。
-
-          2. 默认单位：
-
-              diameter -> mm
-              thickness -> mm
-              wall_thickness -> mm
-              flange_thickness -> mm
-              web_thickness -> mm
-              length -> mm
-              width -> mm
-              height -> mm
-              cross_section_area -> mm²
-
-          3. 禁止：
-
-              diameter = 50
-              thickness = 5.6
-
-          4. 必须：
-
-              diameter = 50mm
-              thickness = 5.6mm
+            管材: DN80、50×5.6 → diameter, thickness
+            钢板: 2000×1000×10 → length, width, thickness
+            矩形管: 200×100×6 → height, width, thickness
+            H型钢: 200×200×8×12 → height, width, web_thickness, flange_thickness
+            电缆: 3×2.5 → core_count, cross_section_area
+            螺纹钢: Φ25×12m → diameter, length
 
     Pattern规则
 
@@ -183,12 +82,14 @@ fix_case:
 
           2. 必须包含捕获组。
 
-          3. 尽量使用严格匹配：
+          3. 捕获组只提取当前属性对应值
+
+          4. 尽量使用严格匹配：
 
               ^
               $
 
-          4. 禁止使用宽泛匹配：
+          5. 禁止使用宽泛匹配：
 
               .*
               .+
@@ -197,39 +98,41 @@ fix_case:
               ([\\s\\S]*)
               (.*)
 
-          5. 除 attr_spec 外禁止贪婪匹配。
+          6. 除 attr_spec 外禁止贪婪匹配。
 
     Code规则
 
-          1. code_block 必须严格遵循：
+          1. code_block格式：
 
-              m = re.search(r'正则', s)
+              m = re.search(r'pattern', s)
               if m:
-                  result['attr_xxx'] = 最终业务值
+                  result['attr_xxx'] = value
 
               要求：
+              - pattern 与 suggestion.pattern 一致
+              - result 保存最终值
+              - 最终值必须带单位
 
-              1. result 保存最终业务值
-              2. 最终业务值必须包含单位
-              3. 不允许保存裸数字
-              4. 正则与 pattern 保持一致
-              5. Python代码可直接执行
+          2. 最终写入 result 的值必须带单位
+              - 原文有单位：保留原单位
+              - 原文无单位：补全行业默认单位
 
-          2. 示例：
+              默认单位：
 
-              m = re.search(r'^DN(\\d+)$', s)
-              if m:
-                  result['attr_diameter'] = m.group(1) + 'mm'
+              diameter/thickness/length/width/height/
+              wall_thickness/flange_thickness/web_thickness -> mm
 
-    型号+业务参数规则
-       
-          1. 当规格同时包含：型号部分和可识别业务参数部分
-                应优先提取业务参数。
-                示例：3U9-13W
-                → attr_power = 13W
-                → attr_model = 3U9
+              cross_section_area -> mm²
+
+              禁止：
+
+              50
+
+              允许：
+
+              50mm
       
-    attr_spec兜底规则
+    兜底规则
 
           1. 当无法识别任何行业业务属性时，如果规格文本仍然具有有效业务内容：
               
@@ -243,59 +146,14 @@ fix_case:
               示例：
               pattern:
               ^(GC-11)$
-
-              code:
-
-                m = re.search(r'^(GC-11)$', s)
-                if m:
-                    result['attr_spec'] = m.group(1)
-
-          2. 仅当以下情况允许返回空数组：
-
+          
+          2. 当规格同时包含：型号部分和可识别业务参数部分
+          
+          3. 仅当以下情况允许返回空数组：
               - 空字符串
               - 全为空白
               - 无法识别字符
               - 无有效规格内容
-
-    执行流程
-
-          Step1:
-          识别行业语义
-
-          Step2:
-          识别规格结构
-
-          Step3:
-          提取全部业务属性
-
-          Step4:
-          去除重复属性
-
-          Step5:
-          为每个属性生成独立 regex
-
-          Step6:
-          补全单位
-
-          Step7:
-          生成 code_block
-
-          Step8:
-            校验：
-              - pattern 包含捕获组
-              - result 保存最终业务值
-              - 单位未丢失
-              - suggestions 数量等于属性数量
-
-    suggestions数量规则
-
-          识别1个属性：返回1条
-
-          识别2个属性：返回2条
-
-          依此类推。
-
-          禁止为了凑数量生成冗余属性。
 
     输出格式
 
