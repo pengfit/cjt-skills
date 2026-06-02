@@ -111,9 +111,9 @@ fix_case:
               要求：
               - pattern 与 suggestion.pattern 一致
               - result 保存最终值
-              - 最终值必须带单位
+              - value  必须带单位
 
-          2. 最终写入 result 的值必须带单位
+          2. 最终写入 result 的值必须带单位(重要)
               - 原文有单位：保留原单位
               - 原文无单位：补全行业默认单位
 
@@ -132,6 +132,12 @@ fix_case:
 
               50mm
       
+          3. 示例：
+
+              m = re.search(r'^DN(\\d+)$', s)
+              if m:
+                  result['attr_diameter'] = m.group(1) + 'mm'
+    
     兜底规则
 
           1. 当无法识别任何行业业务属性时，如果规格文本仍然具有有效业务内容：
