@@ -79,7 +79,7 @@ fix_case:
     Pattern规则
 
           1. 使用 Python re。
-              
+
           2. 必须包含捕获组。
 
           3. 捕获组只提取当前属性对应值
@@ -98,45 +98,22 @@ fix_case:
               ([\\s\\S]*)
               (.*)
 
-          6. Pattern 不能与 code_block 混淆（重要）
+          6. 除 attr_spec 外禁止贪婪匹配。
 
-          7. 除 attr_spec 外禁止贪婪匹配。
+    Code_block规则
 
-    Code规则
+            m = re.search(r'Pattern', s)
+            if m:
+                result['attr_xxx'] = value + '单位'
 
-          1. code_block 格式：
-
-              m = re.search(r'Pattern', s)
+            要求：
+              - Pattern 与 suggestion.pattern 一致
+              - result 保存最终值
+              - value  必须带单位
+            示例：
+              m = re.search(r'^DN(\\d+)$', s)
               if m:
-                  result['attr_xxx'] = value + '单位'
-
-              要求：
-                - Pattern 与 suggestion.pattern 一致
-                - result 保存最终值
-                - value  必须带单位
-              示例：
-                m = re.search(r'^DN(\\d+)$', s)
-                if m:
-                    result['attr_diameter'] = m.group(1) + 'mm'
-
-          2. 最终写入 result 的值必须带单位(重要)
-              - 原文有单位：保留原单位
-              - 原文无单位：补全行业默认单位
-
-              默认单位：
-
-              diameter/thickness/length/width/height/
-              wall_thickness/flange_thickness/web_thickness -> mm
-
-              cross_section_area -> mm²
-
-              禁止：
-
-              50
-
-              允许：
-
-              50mm
+                  result['attr_diameter'] = m.group(1) + 'mm'
       
     兜底规则
 
@@ -180,8 +157,8 @@ fix_case:
                   {{
                     "attr": "attr_xxx",
                     "note": "规则说明",
-                    "pattern": "正则表达式",
-                    "code_block": "Python代码"
+                    "pattern": "Pattern",
+                    "code_block": "Code_block"
                   }}
                 ]
               }}
