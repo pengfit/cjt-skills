@@ -54,12 +54,12 @@ def wait_hidden(page, selector, timeout=15000, **kwargs):
 
 
 def goto_provenance(page):
-    tab = page.locator(".nav-tab").filter(has_text="数据入仓")
+    tab = page.locator(".nav-tab").filter(has_text="数据清洗")
     tab.wait_for(state="visible", timeout=10000)
     if ("active" not in (tab.get_attribute("class") or "")):
         tab.click()
         time.sleep(2)  # 等待 tab 切换动画
-        page.locator(".pipeline-card").wait_for(state="visible", timeout=10000)
+        page.locator(".pipeline-card").first.wait_for(state="visible", timeout=10000)
 
 
 def expand_city_card(page, city_label: str):
