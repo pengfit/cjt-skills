@@ -101,7 +101,7 @@
                 </button>
               </div>
             </div>
-            
+            <div class="pipe-stage-arrow stage-arrow-dws">→</div>
             <div class="pipe-stage stage-dws" :style="{'--pct': dwsPct(pipe)}">
               <div class="scrape-inner">
                 <div class="pipe-stage-label stage-dws-label">DWS</div>

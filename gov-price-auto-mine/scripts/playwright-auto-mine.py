@@ -83,33 +83,32 @@ def expand_city_card(page, city_label: str):
             card.click()
             time.sleep(2)  # 等待城市卡片展开动画
             # 等待卡片展开动画完成（城市卡片切换时有过渡）
-            page.locator(".pipe-stage-btn.stage-dwd").first.wait_for(state="visible", timeout=8000)
+            page.locator(".stage-dwd .scrape-action-btn").first.wait_for(state="visible", timeout=8000)
             log(f"  展开城市：{city_label}")
             return True
     return False
 
 
 def click_city_dwd_button(page, city_key: str):
-    dwd_btns = page.locator(".pipe-stage-btn.stage-dwd").all()
-    target_count = CITY_DWD_COUNTS.get(city_key, "")
-    for btn in dwd_btns:
-        txt = btn.inner_text()
-        if target_count and target_count in txt:
-            btn.click()
-            time.sleep(2)  # 等待面板切换动画
-            page.locator(".sq-panel").wait_for(state="visible", timeout=10000)
-            log(f"  点击 DWD 按钮（{target_count}条）")
+    # 先找到城市卡片，再找该卡片的 DWD scrape-inner
+    city_map = {"xian": "西安", "sichuan": "四川", "chongqing": "重庆", "jinan": "济南", "rizhao": "日照"}
+    city_label = city_map.get(city_key, city_key)
+    cards = page.locator(".pipeline-card").all()
+    for card in cards:
+        city_el = card.locator(".pipeline-card-city")
+        if city_label in city_el.inner_text():
+            # 找到该城市的 DWD scrape-inner
+            dwd_stage = card.locator(".stage-dwd")
+            dwd_stage.locator(".scrape-inner").first.click()
+            time.sleep(2)
+            page.locator(".dwd-drilldown-modal").wait_for(state="visible", timeout=10000)
+            log(f"  点击 DWD（{city_label}）")
             return True
-    idx = CITIES.index(city_key) if city_key in CITIES else 0
-    dwd_btns[idx].click()
-    time.sleep(2)  # 等待面板切换动画
-    page.locator(".sq-panel").wait_for(state="visible", timeout=10000)
-    log(f"  点击 DWD 按钮（fallback index={idx}）")
-    return True
+    return False
 
 
 def ensure_sq_panel_visible(page):
-    page.locator(".sq-panel").wait_for(state="visible", timeout=15000)
+    page.locator(".dwd-drilldown-modal").wait_for(state="visible", timeout=15000)
 
 
 def get_sq_cards(page) -> list:

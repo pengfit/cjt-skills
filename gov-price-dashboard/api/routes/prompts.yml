@@ -105,6 +105,7 @@ fix_case:
             
             但必须存在明确业务锚点或维度结构锚点。
 
+
     单位识别规则（重要）
           
           1. 原文有单位：
@@ -153,11 +154,11 @@ fix_case:
           
           2. Pattern 与  Code_block 内容严格区分 
           
-          3. 仅当以下情况允许返回空数组：
-              - 空字符串
-              - 全为空白
-              - 无法识别字符
-              - 无有效规格内容
+          3. 仅当无有效规格内容
+             attr: attr_natural
+             Pattern: 严格匹配
+             note: AI 不确定内容
+              
 
     输出格式
 
@@ -182,13 +183,6 @@ fix_case:
                     "code_block": "Code_block"
                   }}
                 ]
-              }}
-
-          如果无有效内容：
-
-              {{
-                "ok": true,
-                "suggestions": []
               }}
 
 
