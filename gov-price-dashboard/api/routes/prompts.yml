@@ -99,6 +99,32 @@ fix_case:
 
             [×xX＊*╳]
 
+            多维规格维度定位规则（强制）
+              对于：
+
+                A×B
+                A×B×C
+                A×B×C×D
+
+              每个属性必须通过维度位置定位。
+
+              禁止：
+
+                (?<!\d)(\d+)(?!\d)
+
+              因为无法确定维度。
+
+              正确：
+
+              第1维：
+                ^(\d+)[×xX＊*╳]
+
+              第2维：
+                ^(?:\d+)[×xX＊*╳](\d+)[×xX＊*╳]
+
+              第3维：
+                ^(?:\d+)[×xX＊*╳](?:\d+)[×xX＊*╳](\d+)$
+
         9. 单位必须与数值一同捕获。
 
         10. Pattern 不要求必须以 ^ 开头，
@@ -113,24 +139,10 @@ fix_case:
                 示例： 
                   DN80mm -> 80mm
                   Φ25cm -> 25cm
-
+                  
           2. 原文无单位：
-              按行业默认单位补全。
-                功率： W, kW, MW → power
-                电压： V,kV → voltage
-                电流： A, mA → current
-                频率： Hz,kHz,MHz → frequency
-                重量： g, kg,t  → weight
-                压力：Pa, kPa,MPa → pressure
-                容量： mL, L,m³ → capacity
-                截面积： mm²,cm²,m² → cross_section_area
-                长度类：mm,cm, m
-                  结合行业语义判断：
-                      管材： → diameter
-                      板材： → thickness
-                      型材： → height / width / thickness
+              按行业默认单位补全
           
-
     Code_block规则
 
             m = re.search(r'Pattern', s)
@@ -158,6 +170,10 @@ fix_case:
              attr: attr_natural
              Pattern: 严格匹配
              note: AI 不确定内容
+          
+          4. 若 suggestions 中存在：
+             pattern 完全相同
+             则视为错误结果，必须重新生成。   
               
 
     输出格式
