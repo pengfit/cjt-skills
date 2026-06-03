@@ -16,3 +16,4 @@ venv/
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/.gitignore
 .idea
+*.log

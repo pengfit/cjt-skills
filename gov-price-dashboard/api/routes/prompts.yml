@@ -45,6 +45,8 @@ fix_case:
             weight
             gread
 
+          - 属性名禁止出现中文,驼峰命名格式
+
           - 无法归类时再创建新属性名称。
 
           - 正确
@@ -55,17 +57,20 @@ fix_case:
 
               attr_diameter
               attr_thickness
+              attr_rated_load
+
           - 错误
 
               diameter 
               outside_diameter 
               pipe_diameter
+              attrRated_load
 
     行业推断优先级
 
         1. 按以下顺序推断：
         
-            行业提示 > 分类提示 > 商品名称 > 通用行业规则
+            产品提示 > 分类提示  > 通用行业规则
 
         2. 常见行业规则：
 
@@ -78,27 +83,69 @@ fix_case:
 
     Pattern规则
 
-          1. 使用 Python re。
 
-          2. 必须包含捕获组。
+        1. 一个 Pattern 仅服务一个 attr。
 
-          3. 捕获组只提取当前属性对应值
+        2. 一个 Pattern 只能存在一个有效捕获组。
 
-          4. 尽量使用严格匹配：
+        3. 捕获组必须直接返回最终值。
 
-              ^
-              $
+        4. 优先使用业务关键字锚定：
+              抗压强度
+              容重
+              导热系数
+              DN
+              Φ
+              电压
+              功率
+              频率
+              等
+ 
+        5. 仅当不存在业务关键字时，
+            才允许按行业维度位置推断。
 
-          5. 禁止使用宽泛匹配：
+        6. 多维规格：
+            每个属性独立 Pattern。
 
-              .*
-              .+
-              .*?
-              .+?
-              ([\\s\\S]*)
-              (.*)
+        7. 数字必须增加边界控制：
 
-          6. 除 attr_spec 外禁止贪婪匹配。
+            (?<!\\d)
+            (?!\\d)
+
+        8. 尺寸分隔符统一兼容：
+
+            [×xX＊*╳]
+
+        9. 单位必须与数值一同捕获。
+
+        10. Pattern 不要求必须以 ^ 开头，
+            
+            但必须存在明确业务锚点或维度结构锚点。
+
+    单位识别规则（重要）
+          
+          1. 原文有单位：
+              必须保留原单位。
+                示例： 
+                  DN80mm -> 80mm
+                  Φ25cm -> 25cm
+
+          2. 原文无单位：
+              按行业默认单位补全。
+                功率： W, kW, MW → power
+                电压： V,kV → voltage
+                电流： A, mA → current
+                频率： Hz,kHz,MHz → frequency
+                重量： g, kg,t  → weight
+                压力：Pa, kPa,MPa → pressure
+                容量： mL, L,m³ → capacity
+                截面积： mm²,cm²,m² → cross_section_area
+                长度类：mm,cm, m
+                  结合行业语义判断：
+                      管材： → diameter
+                      板材： → thickness
+                      型材： → height / width / thickness
+          
 
     Code_block规则
 
@@ -109,7 +156,7 @@ fix_case:
             要求：
               - Pattern 与 suggestion.pattern 一致
               - result 保存最终值
-              - value  必须带单位
+            
             示例：
               m = re.search(r'^DN(\\d+)$', s)
               if m:
@@ -117,18 +164,9 @@ fix_case:
       
     兜底规则
 
-          1. 当无法识别任何行业业务属性时，如果规格文本仍然具有有效业务内容：
-              
-              GC-11
-              ABC-100
-              GKD25
-              
-              返回：
-              attr_spec
-
-              示例：
-              pattern:
-              ^(GC-11)$
+          1. 当规格无法匹配标准属性：
+              （diameter、length、width、height、thickness 等） 
+               但能够明确表达某种产品业务特征时，优先创建新的业务属性。
           
           2. Pattern 与  Code_block 内容严格区分 
           

@@ -221,7 +221,7 @@ def process_one_sample(page):
 
     sg_count = page.locator(".fix-suggestion-card").count()
     log(f"  AI 生成 {sg_count} 条规则")
-
+    time.sleep(2) 
     # 逐个确认规则，直到没有可点的按钮为止
     confirmed = 0
     for _ in range(sg_count + 3):
@@ -236,11 +236,11 @@ def process_one_sample(page):
                 if "已录入" in txt or "✓" in txt:
                     continue
                 btn.click()
+                time.sleep(2) 
                 confirmed += 1
                 clicked = True
                 # 等待按钮状态更新
                 page.locator(".fix-suggestion-card .btn-confirm-fix").wait_for(state="visible", timeout=3000)
-                time.sleep(2) 
             except Exception:
                 pass
         if not clicked:
@@ -363,7 +363,7 @@ def process_category_one_pass(page, cat_name: str):
             log(f"  清洗已触发（{samples_processed} 个样本）")
             time.sleep(2)  # 等待清洗启动
             wait_for_clean_done(page)
-            time.sleep(3)  # 清洗完成后让界面稳定
+            time.sleep(20)  # 清洗完成后让界面稳定
     except Exception:
         log(f"  洗按钮不可见，跳过")
 

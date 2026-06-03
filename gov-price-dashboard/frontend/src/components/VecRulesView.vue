@@ -30,9 +30,14 @@
           @change="loadVecRules(1)"
         />
       </div>
-      <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
-        {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
-      </button>
+      <div class="vec-toolbar-right">
+        <button class="vec-order-btn" @click="toggleOrder" title="切换升序/降序">
+          {{ vecOrder === 'desc' ? '🔽 最新优先' : '🔼 最早优先' }}
+        </button>
+        <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
+          {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
+        </button>
+      </div>
     </div>
 
     <!-- 使用说明 -->
@@ -161,6 +166,7 @@ const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [],
 const vecSearch = ref('')
 const vecAttrFilter = ref('')
 const vecCatFilter = ref('')
+const vecOrder = ref('desc')
 const vecAttrOptions = ref([])
 const vecCatOptions = ref([])
 const vecLoading = ref(false)
@@ -186,7 +192,7 @@ function highlightPy(code) {
 async function loadVecRules(page = 1) {
   vecLoading.value = true
   try {
-    const params = { page, page_size: 50 }
+    const params = { page, page_size: 50, order: vecOrder.value }
     if (vecSearch.value) params.search = vecSearch.value
     if (vecAttrFilter.value) params.attr = vecAttrFilter.value
     if (vecCatFilter.value) params.category = vecCatFilter.value
@@ -199,6 +205,11 @@ async function loadVecRules(page = 1) {
   } finally {
     vecLoading.value = false
   }
+}
+
+function toggleOrder() {
+  vecOrder.value = vecOrder.value === 'desc' ? 'asc' : 'desc'
+  loadVecRules(1)
 }
 
 onMounted(() => {
@@ -273,6 +284,14 @@ onMounted(() => {
   font-family: inherit;
 }
 .vec-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
+.vec-toolbar-right { display: flex; align-items: center; gap: 8px; }
+.vec-order-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25);
+  border-radius: 20px; color: #38bdf8; font-size: 11.5px;
+  font-weight: 500; padding: 5px 12px; cursor: pointer; transition: all 0.18s;
+}
+.vec-order-btn:hover { background: rgba(56,189,248,0.16); border-color: rgba(56,189,248,0.4); }
 .vec-input::placeholder { color: #475569; }
 .vec-help-btn {
   display: inline-flex;

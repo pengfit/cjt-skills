@@ -1123,6 +1123,7 @@ def stats_rules_vector(
     attr: str = Query("", description="按属性过滤（空=全部）"),
     category: str = Query("", description="按分类过滤（空=全部）"),
     search: str = Query("", description="搜索 pattern/note/代码片段"),
+    order: str = Query("desc", description="排序方向：asc / desc"),
     page: int = Query(1, description="页码"),
     page_size: int = Query(50, description="每页条数"),
 ):
@@ -1157,9 +1158,10 @@ def stats_rules_vector(
     total = c.fetchone()[0]
 
     offset = (page - 1) * page_size
+    order = order.lower() if order.lower() in ("asc", "desc") else "desc"
     c.execute(
         f"SELECT id, pattern, attr, note, code, breed, category, tokens, created_at "
-        f"FROM breed_spec_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
+        f"FROM breed_spec_rules WHERE {where_sql} ORDER BY id {order.upper()} LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
     rows = c.fetchall()
@@ -1558,63 +1560,41 @@ def _extract_suggestion_fields(obj_text):
                 return m.end(), marker
         return None, None
 
-    def extract_pattern_value(obj):
-        value_start, marker = find_field_start(obj, "pattern")
-        if value_start is None:
+    def _extract_json_string_field(obj, field_name):
+        """Extract a JSON string field value by finding unescaped closing quote.
+        Properly handles JSON field values that contain escaped quotes.
+        """
+        # Find "fieldname":
+        idx = obj.find('"' + field_name + '":')
+        if idx < 0:
             return ""
-        raw = obj[value_start:]
+        # Find the opening " of the value (first " after the field name)
+        search_start = idx + len(field_name) + 3  # +3 for '": '
+        first_quote = obj.find('"', search_start)
+        if first_quote < 0:
+            return ""
+        # Find the closing unescaped "
+        i = first_quote + 1
+        while i < len(obj):
+            if obj[i] == '\\':
+                i += 2
+            elif obj[i] == '"':
+                return obj[first_quote+1:i]
+            else:
+                i += 1
+        return ""
 
-        # Skip the opening " of the JSON string value
-        if raw.startswith('"'):
-            raw = raw[1:]
-
-        # Find the next JSON field separator
-        next_markers_raw = [
-            ',"attr":', ',"note":', ',"pattern":', ',"code_block":',
-            ",'attr:", ",'note:", ",'pattern:", ",'code_block:"
-        ]
-        next_pos = len(raw)
-        for marker2 in next_markers_raw:
-            m2 = _re.search(marker2, raw)
-            if m2:
-                next_pos = min(next_pos, m2.start())
-
-        raw = raw[:next_pos]
-
-        # Strip python r'...' wrapper first, then fix JSON escapes on the result
-        if raw.startswith("r'") or raw.startswith('r"'):
+    def extract_pattern_value(obj):
+        raw = _extract_json_string_field(obj, "pattern")
+        if raw.startswith("r'") or raw.startswith('r"') or raw.startswith('r\\"'):
             raw = _strip_r(raw)
-
         return _fix_json_escapes(raw)
 
     def extract_code_block_value(obj):
-        value_start, marker = find_field_start(obj, "code_block")
-        if value_start is None:
-            return ""
-        raw = obj[value_start:]
-
-        # Skip the opening " of the JSON string value
-        if raw.startswith('"'):
-            raw = raw[1:]
-
-        # Find the next JSON field separator
-        next_markers_raw = [
-            ',"attr":', ',"note":', ',"pattern":', ',"code_block":',
-            ",'attr:", ",'note:", ",'pattern:", ",'code_block:"
-        ]
-        next_pos = len(raw)
-        for marker2 in next_markers_raw:
-            m2 = _re.search(marker2, raw)
-            if m2:
-                next_pos = min(next_pos, m2.start())
-
-        raw = raw[:next_pos]
-
-        # Strip python r'...' wrapper first, then fix JSON escapes on the result
-        if raw.startswith("r'") or raw.startswith('r"'):
+        raw = _extract_json_string_field(obj, "code_block")
+        if raw.startswith("r'") or raw.startswith('r"') or raw.startswith('r\\"'):
             raw = _strip_r(raw)
         code = _fix_json_escapes(raw)
-        # Strip stray JSON trailing quote/brace from AI malformed JSON
         code = code.rstrip('"}')
         return code
 
@@ -1647,6 +1627,12 @@ def _strip_r(s):
         if last_single > 2:
             return s[2:last_single]
         return s[2:]
+    # Handle r\"..." (JSON-escaped double quotes from AI)
+    if s.startswith('r\"') and len(s) > 4:
+        end_pattern = '\"'
+        end_idx = s.rfind(end_pattern)
+        if end_idx > 3:
+            return s[3:end_idx]
     return s
 
 def _fix_json_escapes(s):
