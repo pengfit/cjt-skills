@@ -26,24 +26,7 @@ fix_case:
 
           - 优先使用以下名称:
 
-            diameter
-            thickness
-            length
-            width
-            height
-            wall_thickness
-            flange_thickness
-            web_thickness
-            cross_section_area
-            core_count
-            pressure
-            capacity
-            power
-            voltage
-            current
-            frequency
-            weight
-            gread
+            {ref_attr_names}
 
           - 属性名禁止出现中文,驼峰命名格式
 

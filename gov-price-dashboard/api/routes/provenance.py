@@ -857,8 +857,9 @@ def _load_prompts():
 PROMPTS = _load_prompts()
 
 def _reload_prompts():
-    global PROMPTS
+    global PROMPTS, _ATTR_NAMES_CACHE
     PROMPTS = _load_prompts()
+    _ATTR_NAMES_CACHE = ([], 0.0)  # 清空属性名缓存，下次使用时重新加载
     print("[prompts] reloaded")
 
 @router.post("/api/prompts/reload")
@@ -866,6 +867,30 @@ def reload_prompts():
     """热重载 prompts.yml"""
     _reload_prompts()
     return {"ok": True, "keys": list(PROMPTS.keys())}
+
+def _get_ref_attr_names_from_db() -> list[str]:
+    """从 breed_spec_rules.db 读取已有属性名（去 attr_ 前缀）"""
+    try:
+        conn = sqlite3.connect(_RULES_DB_SPEC)
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT attr FROM breed_spec_rules")
+        names = [r[0].replace("attr_", "") for r in cur.fetchall() if r[0].startswith("attr_")]
+        conn.close()
+        return sorted(names)
+    except Exception:
+        return []
+
+# 缓存属性名列表（每 5 分钟刷新一次）
+_ATTR_NAMES_CACHE: tuple[list[str], float] = ([], 0.0)
+
+def _get_ref_attr_names() -> str:
+    global _ATTR_NAMES_CACHE
+    import time
+    names, ts = _ATTR_NAMES_CACHE
+    if not names or (time.time() - ts) > 300:
+        names = _get_ref_attr_names_from_db()
+        _ATTR_NAMES_CACHE = (names, time.time())
+    return ", ".join(names)
 
 def fix_case_prompt_fn(spec, breed="", category="", expected=None):
     """生成 fix-case API 的 user content（fix-case 端点专用）"""
@@ -875,12 +900,14 @@ def fix_case_prompt_fn(spec, breed="", category="", expected=None):
     cat_hint = f"{category}" if category else ""
     attr_desc = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())
     expected_json = json.dumps(expected or {}, ensure_ascii=False)
+    ref_attr_names = _get_ref_attr_names()
     return tmpl.format(
             spec=spec,
             breed_hint=breed_hint,
             cat_hint=cat_hint,
             expected=expected_json,
             attr_desc=attr_desc,
+            ref_attr_names=ref_attr_names,
         )
 
 
