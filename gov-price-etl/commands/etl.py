@@ -282,23 +282,14 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done
     return ok, errors
 
 
-# DWD 文档中不属于 attr 的顶层字段（不参与 attr nested 构建）
-_TOP_LEVEL_FIELDS = frozenset([
-    "breed", "breed_clean", "spec", "unit", "price", "tax_price",
-    "category", "category_system", "province", "city", "county",
-    "tab_type", "tab_name", "update_date", "publish_time", "period", "code",
-    "source_index", "etl_time", "needs_spec_parse", "synced_to_dws",
-])
-
-
 def _build_attr(doc: dict) -> dict:
     """从 DWD 文档中提取 attr nested 字段（仅保留非空值）。
 
-    动态发现：排除 _TOP_LEVEL_FIELDS 后，其余所有字段均自动纳入 attr，无需任何硬编码维护。
+    仅提取 attr_ 前缀字段。
     """
     attr = {}
     for f, v in doc.items():
-        if f in _TOP_LEVEL_FIELDS:
+        if not f.startswith("attr_"):
             continue
         if v is None:
             continue
