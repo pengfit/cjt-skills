@@ -619,10 +619,9 @@ body {
 .result-table {
   width: 100%;
   border-collapse: collapse;
+  border-spacing: 0;
   font-size: 13px;
-  min-width: 900px;
   table-layout: fixed;
-  overflow: hidden;
 }
 
 .result-table thead { background: rgba(26,35,50,0.98); position: sticky; top: 0; z-index: 3; backdrop-filter: blur(8px); }
@@ -670,8 +669,6 @@ body {
   text-align: center;
   background: inherit;
 }
-
-.result-table td:first-child { font-weight: 600; color: #e2e8f0; text-align: center; position: sticky; left: 0; z-index: 2; background: transparent !important; }
 
 /* 价格列居中 */
 .result-table td.price-cell { white-space: nowrap; vertical-align: middle; padding-top: 0 !important; text-align: center; }
@@ -958,9 +955,30 @@ body {
 .change-up { color: #f87171; background: rgba(248,113,113,0.1); }
 .change-down { color: #34d399; background: rgba(52,211,153,0.1); }
 
-/* === Stale row (old date > 30 days) === */
-.stale-row td { opacity: 0.55; }
-.stale-date { color: #475569 !important; font-style: italic; }
+/* Tab switch loading */
+.tab-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; padding: 80px 20px;
+  background: rgba(15,23,42,0.85);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+/* Stale data — left border bar only, no pseudo content */
+.stale-row td { opacity: 0.6; }
+.stale-date {
+  color: #475569 !important;
+  font-style: italic;
+  font-size: 11px;
+  padding: 1px 5px;
+  background: rgba(71, 85, 105, 0.12);
+  border-radius: 3px;
+  border: 1px dashed rgba(71, 85, 105, 0.4);
+  display: inline-block;
+}
 
 /* === Skeleton loading === */
 .skeleton-header {
@@ -987,6 +1005,7 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   flex-shrink: 0;
+  flex-basis: auto;
 }
 
 .skeleton-footer {
@@ -1337,7 +1356,7 @@ body {
 }
 .btn-more:hover { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.3); color: #38bdf8; }
 
-/* ========== Filter Drawer ========== */
+/* Drawer backdrop */
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -1379,16 +1398,25 @@ body {
 .cs-wrapper { overflow: visible; }
 .drawer-footer {
   padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255,255,255,0.08);
   display: flex;
   gap: 10px;
 }
 .drawer-footer .btn-primary,
-.drawer-footer .btn-ghost { flex: 1; text-align: center; padding: 9px; }
+.drawer-footer .btn-ghost {
+  flex: 1; text-align: center;
+  padding: 12px; /* larger touch target */
+  min-height: 44px;
+}
 
 /* Drawer slide animation */
 .drawer-enter-active, .drawer-leave-active { transition: opacity 0.25s, transform 0.25s; }
 .drawer-enter-from, .drawer-leave-to { opacity: 0; transform: translateX(100%); }
+
+/* Fade transition (drawer backdrop) */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 /* ========== Chart Toggle Button ========== */
 .btn-chart-toggle {
@@ -1509,6 +1537,41 @@ body {
     right: 0;
     max-height: 80vh;
   }
+
+/* Chart card header + action buttons */
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.chart-actions { display: flex; gap: 6px; }
+.chart-btn {
+  background: rgba(30,41,59,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-3);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.chart-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+/* Tab loading spinner */
+.tab-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; padding: 80px 20px;
+  background: rgba(15,23,42,0.85);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  color: var(--text-3);
+  font-size: 13px;
+}
 
   /* ── Dist page ── */
   .dist-page { padding: 10px 12px; gap: 12px; }
@@ -1660,24 +1723,19 @@ body {
 }
 .filter-tag-clear:hover { color: #94a3b8; }
 
-.history-clear {
-  font-size: 12px;
+/* History clear button (single definition) */
+.history-clear-btn {
+  background: none;
+  border: none;
   color: var(--text-3);
+  font-size: 11px;
   cursor: pointer;
-  padding: 3px 8px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  transition: color 0.15s;
   margin-left: 4px;
 }
-.history-clear:hover { color: var(--text-2); }
-
-.history-clear {
-  font-size: 12px;
-  color: var(--text-3);
-  cursor: pointer;
-  padding: 3px 8px;
-  margin-left: 8px;
-  opacity: 0.6;
-}
-.history-clear:hover { opacity: 1; }
+.history-clear-btn:hover { color: var(--text-2); }
 
 /* Search history bar */
 .search-history-bar {
@@ -1760,7 +1818,6 @@ body {
   padding: 2px 8px;
   border-radius: 4px;
   border: 1px solid rgba(56,189,248,0.2);
-}
 }
 
 /* Spec structural field tags - harmonious palette for dark navy background */

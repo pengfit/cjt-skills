@@ -126,6 +126,7 @@ const error = ref('')
 const rangeData = ref([])
 const provinceData = ref([])
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0 })
+const provinceChartIns = {}  // store province chart instances for export
 const rangeBarIns = ref(null)
 
 const dominantPct = computed(() => {
@@ -183,6 +184,39 @@ function getPct(count) {
 function getRangePct(count, total) {
   if (!total) return 0
   return (count / total) * 100
+}
+
+// Export chart as PNG
+function exportChart(chartId) {
+  const el = document.getElementById(chartId)
+  if (!el) return
+  const chart = echarts.getInstanceByDom(el)
+  if (!chart) return
+  const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#0c1222' })
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${chartId}_${new Date().toISOString().slice(0, 10)}.png`
+  a.click()
+}
+
+function exportAllCharts() {
+  exportChart('rangeBarChart')
+  setTimeout(() => {
+    for (const province of Object.keys(provinceChartIns || {})) {
+      exportChart('provinceChart_' + province)
+    }
+  }, 300)
+}
+
+// Toggle fullscreen for a chart container
+function toggleFullscreen(chartId) {
+  const el = document.getElementById(chartId)
+  if (!el) return
+  if (!document.fullscreenElement) {
+    el.requestFullscreen?.() || el.webkitRequestFullscreen?.()
+  } else {
+    document.exitFullscreen?.() || document.webkitExitFullscreen?.()
+  }
 }
 
 async function loadData() {
@@ -319,6 +353,7 @@ function renderOneProvince(province) {
   const el = document.getElementById('provinceChart_' + province)
   if (!el) return
   const chart = markRaw(echarts.init(el))
+  provinceChartIns[province] = chart
   const validRanges = p.ranges.filter(r => r.count)
   if (!validRanges.length) return
 

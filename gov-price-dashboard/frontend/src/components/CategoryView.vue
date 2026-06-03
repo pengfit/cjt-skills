@@ -725,18 +725,22 @@ onMounted(() => loadCategories())
 }
 
 .btn-back {
-  padding: 6px 16px;
+  padding: 8px 18px;
   background: rgba(30,41,59,0.8);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   color: #94a3b8;
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .btn-back:hover {
   background: rgba(56,189,248,0.1);
+  border-color: rgba(56,189,248,0.3);
   color: #38bdf8;
 }
 

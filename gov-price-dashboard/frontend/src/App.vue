@@ -17,12 +17,12 @@
           <circle cx="47" cy="18" r="4" fill="#38bdf8"/>
         </svg>
         <span class="top-bar-brand">材价通</span>
-        <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
-        <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
-        <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
-        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">数据清洗</button>
-        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
-        <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
+        <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">📋 全部数据</button>
+        <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">🏷️ 全部类别</button>
+        <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">📊 数据统计</button>
+        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">🔍 数据清洗</button>
+        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">🧠 品种分类</button>
+        <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">⚙️ 规格解析</button>
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
@@ -118,7 +118,7 @@
               :disabled="!searchProvince"
               placeholder="全部城市"
               :searchable="true"
-              @change="doSearch"
+              @change="onCityChange"
             />
           </div>
           <div class="filter-group">
@@ -126,6 +126,7 @@
             <CustomSelect
               v-model="searchCounty"
               :options="filteredCounties.map(c => ({ key: c.key, count: c.count }))"
+              :disabled="!searchProvince || !searchCity"
               placeholder="全部区县"
               :searchable="true"
               @change="doSearch"
@@ -151,6 +152,24 @@
               @change="doSearch"
             />
           </div>
+          <!-- Price range presets exposed in drawer -->
+          <div class="filter-group">
+            <label class="filter-label">价格区间</label>
+            <div class="price-presets">
+              <span
+                v-for="preset in pricePresets"
+                :key="preset.label"
+                class="preset-chip"
+                :class="{ active: isPresetActive(preset) }"
+                @click="isPresetActive(preset) ? expandRange() : applyPreset(preset)"
+              >{{ preset.label }}</span>
+            </div>
+            <div class="price-range-row" style="margin-top:6px">
+              <input class="price-input filter-input" v-model="priceMin" placeholder="最低价" @keyup.enter="doSearch()" style="width:78px" />
+              <span class="price-dash">-</span>
+              <input class="price-input filter-input" v-model="priceMax" placeholder="最高价" @keyup.enter="doSearch()" style="width:78px" />
+            </div>
+          </div>
           <div class="filter-group">
             <label class="filter-label">搜索历史</label>
             <div class="search-history-bar" v-if="searchHistory.length && !searchKeyword">
@@ -160,7 +179,7 @@
                 class="history-chip"
                 @click="searchKeyword = h; doSearch()"
               >{{ h }}</span>
-              <span class="history-clear" @click="clearHistory()">清空历史</span>
+              <button class="history-clear-btn" @click="clearHistory()">清空</button>
             </div>
           </div>
         </div>
@@ -169,6 +188,10 @@
           <button class="btn-ghost" @click="resetSearch">重置</button>
         </div>
       </div>
+    </Transition>
+    <!-- Drawer backdrop for mobile/desktop click-outside close -->
+    <Transition name="fade">
+      <div class="drawer-backdrop" v-if="showDrawer" @click="showDrawer = false"></div>
     </Transition>
 
       <!-- RIGHT: Content Area -->
@@ -179,13 +202,13 @@
         <Transition name="content-fade">
         <div>
 
-        <!-- Skeleton loading (rows inside table wrapper) -->
+        <!-- Skeleton loading — uses flex:0 0 Npx so widths always match table -->
         <div class="content-card" v-if="loading">
           <div class="skeleton-header">
-            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ width: col.width + 'px' }"></div>
+            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
           </div>
           <div class="skeleton-row" v-for="i in 8" :key="i">
-            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ width: col.width + 'px' }"></div>
+            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
           </div>
           <div class="skeleton-footer"></div>
         </div>
@@ -205,8 +228,8 @@
           <div class="empty-hint">
             可能原因：
             <div>· 该省份暂无此类产品的价格记录</div>
-            <div>· 数据更新时间晚于最近日期</div>
-            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''">清空关键词</span><span class="suggestion-chip" @click="searchProvince = ''">切换省份</span><span class="suggestion-chip" @click="searchCategory = ''">全部分类</span></div>
+            <div>· 筛选条件过细，请尝试扩大范围</div>
+            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategory = ''; searchCategorySystem = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
           </div>
         </div>
 
@@ -220,6 +243,7 @@
                     v-for="col in visibleColumns"
                     :key="col.key"
                     :class="{ sorted: sortKey === col.key, sortable: col.sortable }"
+                    :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                     @click="col.sortable && sortBy(col.key)"
                   >
                     {{ col.label }}
@@ -240,6 +264,7 @@
                     v-for="col in visibleColumns"
                     :key="col.key"
                     :class="getCellClass(col.key, item)"
+                    :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                     :title="col.key === 'breed' ? item.breed : col.key === 'spec' ? item.spec_clean : undefined"
                   >
                     <template v-if="col.key === 'breed'">
@@ -315,7 +340,9 @@
 
     <!-- Distribution page -->
     <template v-if="curTab === 'dist'">
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <DistributionChart
+        v-else
         :keyword="searchKeyword"
         :province="searchProvince"
         :city="searchCity"
@@ -323,19 +350,23 @@
     </template>
 
     <template v-if="curTab === 'category'">
-      <CategoryView />
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <CategoryView v-else />
     </template>
 
     <template v-if="curTab === 'provenance'">
-      <DataProvenanceView />
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <DataProvenanceView v-else />
     </template>
 
     <template v-if="curTab === 'rules'">
-      <VecRulesView />
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <VecRulesView v-else />
     </template>
 
     <template v-if="curTab === 'breedcat'">
-      <BreedCategoryRulesView />
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <BreedCategoryRulesView v-else />
     </template>
   </div>
 
@@ -413,6 +444,7 @@ const pricePresets = [
 // Toast
 const toast = ref({ show: false, msg: '' })
 const searchError = ref(false)
+const tabLoading = ref(false)
 
 // Province colors (palette)
 const PROVINCE_COLORS = {
@@ -516,6 +548,11 @@ function sortBy(key) {
   }
 }
 
+function onCityChange() {
+  searchCounty.value = ''
+  doSearch()
+}
+
 function onProvinceChange() {
   searchCity.value = ''
   searchCounty.value = ''
@@ -534,7 +571,11 @@ function nextPage() {
 }
 
 function goToPage(p) {
-  if (p < 1 || p > (searchResult.value.pages || 1)) return
+  const maxPage = searchResult.value.pages || 1
+  if (p < 1 || p > maxPage) {
+    showToast(`页码超出范围，当前仅第 1-${maxPage} 页`)
+    return
+  }
   searchPage.value = String(p)
   doSearch(Number(searchPage.value))
 }
@@ -729,6 +770,7 @@ function exportCurrentPage() {
   a.download = `建材价格_${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
+  showToast(`已导出 ${sortedData.value.length} 条数据`)
 }
 
 async function refreshAll() {
@@ -760,6 +802,14 @@ watch(
     }
   }
 )
+
+// Tab switch loading feedback
+watch(curTab, (newTab, oldTab) => {
+  if (newTab !== 'list') {
+    tabLoading.value = true
+    setTimeout(() => { tabLoading.value = false }, 100)
+  }
+})
 
 // ============================================================
 // API
@@ -811,6 +861,7 @@ onMounted(() => {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       showColConfig.value = false
+      if (showDrawer.value) showDrawer.value = false
     }
     if ((e.key === '/' || (e.ctrlKey && e.key === 'k')) && !e.target.matches('input, textarea')) {
       e.preventDefault()

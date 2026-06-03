@@ -1,9 +1,10 @@
 <template>
   <div class="cs-wrapper" ref="wrapperRef">
-    <div class="cs-trigger" :class="{ open: isOpen, disabled }" @click="toggle" @keydown.down.prevent="openAndFocus" @keydown.up.prevent="openAndFocusLast" @keydown.enter.prevent="toggle" tabindex="0">
+    <div class="cs-trigger" :class="{ open: isOpen, disabled }" @click="toggle" @keydown.down.prevent="openAndFocus" @keydown.up.prevent="openAndFocusLast" @keydown.enter.prevent="toggle" @keydown.escape="handleEscape" tabindex="0">
       <span class="cs-value" :class="{ placeholder: !modelValue }">
         {{ displayText }}
       </span>
+      <button v-if="modelValue && !disabled" class="cs-clear" @click.stop="clearValue" title="清空">✕</button>
       <span class="cs-arrow">▾</span>
     </div>
     <Transition name="cs-drop">
@@ -128,6 +129,20 @@ function scrollToIdx(idx) {
   })
 }
 
+function handleEscape() {
+  if (isOpen.value) {
+    close()
+  } else if (props.modelValue) {
+    clearValue()
+  }
+}
+
+function clearValue() {
+  emit('update:modelValue', '')
+  emit('change', '')
+  close()
+}
+
 // Click outside
 function onDocClick(e) {
   if (!wrapperRef.value?.contains(e.target)) close()
@@ -168,6 +183,19 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
 
 .cs-arrow { font-size: 10px; color: var(--text-3); transition: transform 0.2s; flex-shrink: 0; margin-left: 4px; }
 .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
+
+.cs-clear {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.cs-clear:hover { color: var(--text); }
 
 .cs-dropdown {
   position: absolute;
