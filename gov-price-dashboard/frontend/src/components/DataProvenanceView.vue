@@ -88,16 +88,26 @@
               <div class="pipe-stage-date">{{ pipe.ods?.min_date }} ~ {{ pipe.ods?.max_date }}</div>
             </div>
             <div class="pipe-stage-arrow stage-arrow-dwd">→</div>
-            <button class="pipe-stage pipe-stage-btn stage-dwd" @click.stop="openDwdDrilldown(key, pipe)" :class="{ disabled: !pipe.dwd?.count }">
-              <div class="pipe-stage-label stage-dwd-label">DWD</div>
-              <div class="pipe-stage-count">{{ pipe.dwd?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
-              <div class="pipe-stage-date">{{ pipe.dwd?.min_date || "无数据" }} ~ {{ pipe.dwd?.max_date }}</div>
-            </button>
-            <div class="pipe-stage-arrow stage-arrow-dws">→</div>
-            <div class="pipe-stage stage-dws">
-              <div class="pipe-stage-label stage-dws-label">DWS</div>
-              <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
-              <div class="pipe-stage-date">{{ pipe.dws?.min_date }} ~ {{ pipe.dws?.max_date }}</div>
+            <div class="pipe-stage scrape-stage stage-dwd" :style="{ '--pct': dwdPct(pipe) }" :class="{ disabled: !pipe.dwd?.count }">
+              <div class="scrape-inner" @click.stop="openDwdDrilldown(key, pipe)">
+                <div class="pipe-stage-label stage-dwd-label">DWD</div>
+                <div class="pipe-stage-count">{{ pipe.dwd?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
+                <div class="pipe-stage-sub" v-if="pipe.dwd?.count">{{ (pipe.dws?.count || 0).toLocaleString() }}/{{ pipe.dwd.count.toLocaleString() }}</div>
+              </div>
+              <div class="stage-dwd-right">
+                <button class="scrape-action-btn" title="同步 DWD→DWS" @click.stop="runFlushDws(key)" :disabled="dwsRunning[key]">
+                  <span v-if="dwsRunning[key]" class="spin">↻</span>
+                  <span v-else>⟳</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="pipe-stage stage-dws" :style="{'--pct': dwsPct(pipe)}">
+              <div class="scrape-inner">
+                <div class="pipe-stage-label stage-dws-label">DWS</div>
+                <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
+                <div class="pipe-stage-date">{{ pipe.dws?.min_date || '—' }} ~ {{ pipe.dws?.max_date || '—' }}</div>
+              </div>
             </div>
           </div>
           <div class="pipeline-card-etl" v-if="pipe.dwd?.last_etl">
@@ -268,6 +278,7 @@ const loading = ref(false)
 const error = ref('')
 const scrapeExpandedCity = ref('')
 const scrapeRunning = ref({})
+const dwsRunning = ref({})
 const selectedCity = ref('xian')
 const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照' }
 const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照' }
@@ -295,6 +306,30 @@ const POLL_INTERVAL_MS = 15000
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0%'
   return ((scrape.completed / scrape.total_counties) * 100).toFixed(1) + '%'
+}
+
+function dwdPct(pipe) {
+  if (!pipe.ods?.count) return '0%'
+  const dwdCount = pipe.dwd?.count || 0
+  return ((dwdCount / pipe.ods.count) * 100).toFixed(1) + '%'
+}
+
+function dwsPct(pipe) {
+  if (!pipe.dwd?.count) return '0%'
+  const dwsCount = pipe.dws?.count || 0
+  return ((dwsCount / pipe.dwd.count) * 100).toFixed(1) + '%'
+}
+
+async function runFlushDws(city) {
+  dwsRunning.value = { ...dwsRunning.value, [city]: true }
+  try {
+    await axios.post(`${API}/stats/provenance/flush-city`, { city })
+  } catch (e) {
+    console.error('flush-city failed', e)
+  } finally {
+    dwsRunning.value = { ...dwsRunning.value, [city]: false }
+  }
+  loadData()
 }
 
 function toggleScrapeCounties(city, pipe) {
@@ -1007,6 +1042,7 @@ onUnmounted(() => {
 .pipe-stage-count { font-size: 15px; font-weight: 800; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
 .pipe-stage-unit { font-size: 10px; color: #64748b; margin-left: 1px; }
 .pipe-stage-date { font-size: 9px; color: #475569; margin-top: 3px; }
+.pipe-stage-sub { font-size: 9px; color: #34d399; margin-top: 2px; }
 .pipe-stage-arrow { font-size: 14px; color: #38bdf8; flex-shrink: 0; padding: 0 2px; }
 .pipeline-card-etl { font-size: 10px; color: #64748b; margin-top: 6px; }
 .pipeline-card-counties {
@@ -1287,12 +1323,12 @@ onUnmounted(() => {
 .stage-ods-label { color: #fbbf24 !important; }
 .stage-arrow-dwd   { color: #38bdf8; }
 
-.stage-dwd      { border-color: rgba(56,189,248,0.25); background: rgba(56,189,248,0.04); }
+.stage-dwd      { border-color: rgba(56,189,248,0.25); background: rgba(56,189,248,0.04); position: relative; }
 .stage-dwd-label { color: #38bdf8 !important; }
+.stage-dwd .scrape-action-btn { opacity: 1; }
 .stage-arrow-dws   { color: #34d399; }
 
 .stage-dws      { border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.04); }
-.stage-dws-label { color: #34d399 !important; }
 
 .scrape-inner { flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
 .scrape-action-btn {

@@ -1406,6 +1406,134 @@ def refresh_category(
         return {"ok": False, "message": str(e)}
 
 
+@router.post("/api/stats/provenance/flush-city")
+def flush_city_dws(
+    city: str = Body(..., embed=True),
+):
+    """
+    与 refresh-category 逻辑一致：
+    1. 查询 DWD 中 needs_spec_parse=True 的记录
+    2. 用 transform_doc（规则库，非 AI）重新解析并回写 DWD
+    3. 调用 flush_to_dws 同步到 DWS
+    """
+    dwd_idx_map = {
+        "xian":      "dwd_xian_price",
+        "sichuan":   "dwd_sichuan_price",
+        "chongqing": "dwd_chongqing_price",
+        "jinan":     "dwd_jinan_price",
+        "rizhao":    "dwd_rizhao_price",
+    }
+    dws_idx_map = {
+        "xian":      "dws_xian_price",
+        "sichuan":   "dws_sichuan_price",
+        "chongqing": "dws_chongqing_price",
+        "jinan":     "dws_jinan_price",
+        "rizhao":    "dws_rizhao_price",
+    }
+    dwd_idx = dwd_idx_map.get(city)
+    dws_idx = dws_idx_map.get(city)
+    if not dwd_idx:
+        return {"ok": False, "message": f"未知城市: {city}"}
+
+    try:
+        sys.path.insert(0, ETL_CMD_DIR)
+        from etl import transform_doc
+
+        es = Elasticsearch([ES_HOST])
+
+        # 统计待解析记录数
+        body_total = {
+            "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "size": 0,
+        }
+        resp_total = es.search(index=dwd_idx, body=body_total)
+        total = resp_total["hits"]["total"]["value"]
+
+        if total == 0:
+            return {
+                "ok": True,
+                "city": city,
+                "message": "无待解析数据，跳过 DWS 同步",
+                "dwd_reparsed": 0,
+                "dws_synced": 0,
+                "dws_failed": 0,
+            }
+
+        body = {
+            "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "size": 500,
+            "sort": [{"etl_time": "asc"}],
+        }
+        resp = es.search(index=dwd_idx, body=body)
+        hits = resp["hits"]["hits"]
+
+        ok_count = 0
+        fail_count = 0
+
+        def _process_batch(batch_hits):
+            nonlocal ok_count, fail_count
+            for h in batch_hits:
+                doc = h["_source"]
+                raw = {
+                    "breed": doc.get("breed", ""),
+                    "spec": doc.get("spec", ""),
+                    "unit": doc.get("unit", ""),
+                    "price": doc.get("price", 0),
+                    "tax_price": doc.get("tax_price", 0),
+                    "county": doc.get("county", ""),
+                    "province": doc.get("province", ""),
+                    "city": doc.get("city", ""),
+                    "update_date": doc.get("update_date", ""),
+                    "create_time": doc.get("create_time", ""),
+                }
+                try:
+                    dwd_doc = transform_doc(raw, dwd_idx, city)
+                    es.index(index=dwd_idx, id=h["_id"], document=dwd_doc)
+                    ok_count += 1
+                except Exception:
+                    fail_count += 1
+
+        _process_batch(hits)
+        processed = len(hits)
+
+        while processed < total:
+            last_hit = hits[-1]
+            search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
+            body_page = {
+                "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+                "size": 500,
+                "search_after": search_after,
+                "sort": [{"etl_time": "asc"}],
+            }
+            try:
+                resp_page = es.search(index=dwd_idx, body=body_page)
+            except Exception:
+                break
+            hits_page = resp_page["hits"]["hits"]
+            if not hits_page:
+                break
+            _process_batch(hits_page)
+            processed += len(hits_page)
+            hits = hits_page
+
+        # 解析完成后同步 DWD→DWS
+        # 先 refresh DWD，确保 flush_to_dws 能读到最新解析结果
+        es.indices.refresh(index=dwd_idx)
+        from etl import flush_to_dws as _flush_to_dws
+        flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx})
+
+        return {
+            "ok": True,
+            "city": city,
+            "dwd_reparsed": ok_count,
+            "dwd_failed": fail_count,
+            "dws_synced": flush_ok,
+            "dws_failed": flush_fail,
+        }
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+
 # ═══════════════════════════════════════════════════════
 # Spec 修复接口：预览 + 确认写入
 # ═══════════════════════════════════════════════════════
@@ -1419,7 +1547,6 @@ class FixCaseRequest(BaseModel):
     suggestions: list = []
     breed: str = ""
     category: str = ""
-
 
 
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> str | bool:

@@ -154,6 +154,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "code": raw.get("code", ""),
         "source_index": source_index,
         "etl_time": datetime.now().isoformat(),
+        "synced_to_dws": False,
         **attr,
     }
 
@@ -208,6 +209,7 @@ def _build_dwd_mapping():
         "source_index":    {"type": "keyword"},
         "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
         "needs_spec_parse": {"type": "boolean"},
+        "synced_to_dws":    {"type": "boolean"},
         "synced_to_dws":     {"type": "boolean"},
         # dynamic: True 让所有 AI 返回的 attr 字段（如 voltage, power, color_temperature 等）自动入 mapping
         # 无需在此处硬编码字段列表
@@ -233,6 +235,7 @@ def _build_dws_mapping():
         "etl_time":          {"type": "date"},
         "publish_time":      {"type": "date"},
         "needs_spec_parse":  {"type": "boolean"},
+        "synced_to_dws":    {"type": "boolean"},
         "synced_to_dws":     {"type": "boolean"},
         "code":              {"type": "keyword"},
         "tab_type":          {"type": "keyword"},
@@ -284,7 +287,7 @@ _TOP_LEVEL_FIELDS = frozenset([
     "breed", "breed_clean", "spec", "unit", "price", "tax_price",
     "category", "category_system", "province", "city", "county",
     "tab_type", "tab_name", "update_date", "publish_time", "period", "code",
-    "source_index", "etl_time", "needs_spec_parse",
+    "source_index", "etl_time", "needs_spec_parse", "synced_to_dws",
 ])
 
 
@@ -318,27 +321,25 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：needs_spec_parse = False 才同步
-    must_clauses = [{"term": {"needs_spec_parse": False}}]
+    # 入池：needs_spec_parse = False 且未同步过 DWS
+    must_clauses = [{"term": {"needs_spec_parse": False}}, {"term": {"synced_to_dws": False}}]
     if category:
         must_clauses.append({"term": {"category": category}})
     body = {
         "query": {"bool": {"must": must_clauses if must_clauses else [{"match_all": {}}]}},
         "size": batch_size,
-        "sort": [{"update_date": "asc"}],
+        "sort": [{"etl_time": "asc"}],
     }
 
-    # 确保 DWD/DWS 索引存在（首次运行 DWD 尚未创建时也需提前建 DWS）
     ensure_indices(es_host, cfg)
 
-    resp = session.post(f"{es_host}/{dwd_idx}/_search?scroll=2m", json=body)
+    resp = session.post(f"{es_host}/{dwd_idx}/_search", json=body)
     if resp.status_code != 200:
         print(f"  [DWS] 查询 DWD 失败: {resp.text[:200]}")
         return 0, 0
 
     data = resp.json()
     hits = data["hits"]["hits"]
-    scroll_id = data.get("_scroll_id", "")
     total = data["hits"]["total"]
     if isinstance(total, dict):
         total = total.get("value", 0)
@@ -377,19 +378,35 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
         synced += ok
         failed += err
 
+        # 批量标记已同步（避免重复入池）
+        if ok > 0:
+            ok_ids = [doc_ids[i] for i in range(min(ok, len(doc_ids)))]
+            body = ''
+            for did in ok_ids:
+                body += json.dumps({"update": {"_id": did}}, ensure_ascii=False) + "\n"
+                body += json.dumps({"doc": {"synced_to_dws": True}}, ensure_ascii=False) + "\n"
+            session.post(f'{es_host}/{dwd_idx}/_bulk', data=body.encode('utf-8'),
+                        headers={'Content-Type': 'application/x-ndjson'})
+
         if pages % 20 == 0:
             print(f"    pages={pages}, synced={synced}/{total}")
 
-        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
-                             json={"scroll_id": scroll_id})
-        if resp.status_code != 200:
+        last_hit = hits[-1]
+        search_after = [last_hit["_source"].get("etl_time", "")]
+        body_page = {
+            "query": {"bool": {"must": must_clauses if must_clauses else [{"match_all": {}}]}},
+            "size": batch_size,
+            "search_after": search_after,
+            "sort": [{"etl_time": "asc"}],
+        }
+        try:
+            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page)
+        except Exception:
             break
-        result = resp.json()
+        if resp_page.status_code != 200:
+            break
+        result = resp_page.json()
         hits = result["hits"]["hits"]
-        scroll_id = result.get("_scroll_id", "")
-
-    if scroll_id:
-        session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
 
     print(f"  [DWS] {city} 完成: synced={synced}, failed={failed}")
     return synced, failed
