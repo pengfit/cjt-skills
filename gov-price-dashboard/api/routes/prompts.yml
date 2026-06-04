@@ -326,17 +326,12 @@ batch_spec_parse:
 
     # 输入格式
     specs:
-      - spec: "240×115×90"
-        breed: "蒸压加气混凝土砌块"
-        category: "砌体墙体材料"
-      - spec: "DN80×5m"
-        breed: "给水钢管"
-        category: "给排水材料"
-      - spec: "3×2.5mm²"
-        breed: "电力电缆"
-        category: "电气材料"
-      ...
+    specs:
+    {specs_str}
+    # 属性名参考
 
+    # 属性名参考
+    {ref_attr_names}
     # 核心解析规则（与 fix_case 完全一致）
 
     属性拆分原则

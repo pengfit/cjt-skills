@@ -905,8 +905,6 @@ def fix_case_prompt_fn(spec, breed="", category="", expected=None):
             spec=spec,
             breed_hint=breed_hint,
             cat_hint=cat_hint,
-            expected=expected_json,
-            attr_desc=attr_desc,
             ref_attr_names=ref_attr_names,
         )
 
@@ -2151,14 +2149,10 @@ def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
         lines.append(f'      - spec: "{spec}"\n        breed: "{breed}"\n        category: "{cat}"')
     specs_str = "\n".join(lines)
     try:
-        return tmpl.format(
-            specs_str=specs_str,
-            batch_size=batch_size,
-            ref_attr_names=ref_attr_names,
-        )
+        return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_attr_names}", ref_attr_names)
     except (KeyError, ValueError):
-        return f"specs:\n{specs_str}\n\nbatch_size: {batch_size}\n"
-
+        specs_sample = "\n".join(lines)
+        return f"specs:\n{specs_sample}\n\nbatch_size: {batch_size}\n"
 
 def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
     """调用 OpenClaw LLM 批量解析规格文本，返回 [{spec, ok, attr, failed_reason}, ...]"""
