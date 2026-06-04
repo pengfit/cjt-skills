@@ -2247,35 +2247,54 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
                 continue
             results = ai_result.get("results", [])
             for r in results:
+                suggestions = r.get("suggestions", [])
+                ok = r.get("ok", False)
+                # 从 suggestions 提取 attr
+                attr = {}
+                for s in suggestions:
+                    attr_name = s.get("attr", "")
+                    if not attr_name:
+                        continue
+                    # 提取 value
+                    code_block = s.get("code_block", "")
+                    pattern = s.get("pattern", "")
+                    # 从 code_block 执行结果取 value（简化）
+                    if code_block:
+                        try:
+                            import re as re_mod
+                            exec_globals = {"result": {}, "re": re_mod, "s": r.get("spec", "")}
+                            exec(code_block if isinstance(code_block, str) else "\n".join(code_block), exec_globals)
+                            attr.update(exec_globals.get("result", {}))
+                        except Exception:
+                            pass
+                    # 从 pattern 匹配取 value（备用）
+                    if not attr and pattern:
+                        try:
+                            m = re_mod.search(pattern, r.get("spec", ""))
+                            if m:
+                                attr[attr_name] = m.group(1) if m.groups() else m.group(0)
+                        except Exception:
+                            pass
                 all_results.append({
                     "spec": r.get("spec", ""),
-                    "ok": r.get("ok", False),
-                    "attr": r.get("attr", {}),
-                    "failed_reason": r.get("failed_reason", ""),
+                    "ok": ok,
+                    "suggestions": suggestions,
                 })
                 # 写入规则库
-                if req.write_rules and r.get("ok") and r.get("attr"):
-                    attr_dict = r["attr"]
+                if req.write_rules and ok and suggestions:
                     if get_vec_store is not None:
                         vs = get_vec_store()
-                        for attr_name, attr_val in attr_dict.items():
-                            if attr_name.startswith("attr_"):
-                                pass
-                            elif attr_name in ATTR_FIELDS_MAP:
-                                attr_name = f"attr_{attr_name}"
-                            else:
-                                attr_name = f"attr_{attr_name}"
-                            # 用原 spec 作为 pattern（简化处理）
-                            ok = vs.insert(
-                                pattern=r["spec"],
-                                attr=attr_name,
-                                note="ai-batch-generate",
-                                code="",
+                        for s in suggestions:
+                            ok2 = vs.insert(
+                                pattern=s.get("pattern", ""),
+                                attr=s.get("attr", ""),
+                                note=s.get("note", "ai-batch"),
+                                code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
                                 breed=r.get("breed", ""),
                                 category=r.get("category", ""),
                                 skip_duplicate=True,
                             )
-                            if ok:
+                            if ok2:
                                 rules_written += 1
 
     return {

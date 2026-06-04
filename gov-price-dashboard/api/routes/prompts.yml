@@ -320,9 +320,9 @@ classify_breed_batch:
 
 
 batch_spec_parse:
-  system: '你是一个建材规格解析专家。'
+  system: '你是一个建材规格解析规则生成专家。'
   template: |-
-    你是一个建材规格解析专家。以下是一批规格文本，请逐一解析为结构化属性。
+    你是一个建材规格解析专家。以下是一批规格文本，请逐一解析并生成规则。
 
     # 输入格式
     specs:
@@ -337,30 +337,17 @@ batch_spec_parse:
         category: "电气材料"
       ...
 
-    # 核心解析规则（必须严格遵守）
+    # 核心解析规则（与 fix_case 完全一致）
 
     属性拆分原则
-      - 每个可识别业务属性必须单独提取
-      - 相同业务属性仅允许生成一个 attr
+      - 每个可识别业务属性必须单独 suggestion
+      - 相同业务属性仅允许生成一个 suggestion
       - 遇到复合型内容要拆分任何有可能的业务属性
 
     属性命名规范
-      - 优先使用标准名称: diameter, thickness, length, width, height, material, grade, pressure, cores, voltage, current, power, color, type, model, surface, weight, color_temperature
+      - 优先使用标准名称: diameter, thickness, length, width, height, material, grade, pressure, cores, voltage, current, power, color, type, model, surface, weight
       - 格式: attr_xxx（禁止中文、驼峰）
       - 无法归类时创建新属性名 attr_xxx
-
-    尺寸分隔符统一兼容: [×xX＊*╳]
-
-    多维规格维度定位规则（强制）
-      A×B:       第1维 → attr_length, 第2维 → attr_width
-      A×B×C:     第1维 → attr_length, 第2维 → attr_width, 第3维 → attr_height
-      A×B×C×D:   按行业规则分配
-      禁止使用 (?<!\d)(\d+)(?!\d) 这种无法确定维度的模式
-      正确: ^(\d+)[×xX＊*╳] 定位第1维, ^(?:\d+)[×xX＊*╳](\d+) 定位第2维
-
-    单位规则
-      - 原文有单位必须保留原单位: DN80mm → 80mm, Φ25cm → 25cm
-      - 原文无单位按行业默认单位补全
 
     行业推断优先级
       产品提示 > 分类提示 > 通用行业规则
@@ -372,36 +359,58 @@ batch_spec_parse:
         电缆: 3×2.5 → cores, cross_section_area
         螺纹钢: Φ25×12m → diameter, length
 
-    兜底规则
-      - 规格无法匹配标准属性但能明确表达业务特征时，优先创建新业务属性
-      - 无有效规格内容: attr: attr_natural
-      - 解析失败时 attr 设为空对象 {}，填写 failed_reason
+    Pattern规则
+      1. 一个 Pattern 仅服务一个 attr
+      2. 一个 Pattern 只能存在一个有效捕获组
+      3. 数字必须增加边界控制: (?<!\d)(?!\d)
+      4. 尺寸分隔符统一兼容: [×xX＊*╳]
+      5. 多维规格：每个属性独立 Pattern
+      6. 单位必须与数值一同捕获
+      7. 禁止 (?<!\d)(\d+)(?!\d)，正确: ^(\d+)[×xX＊*╳] 定位第1维
 
-    # 输出格式（严格 JSON 数组）
+    单位规则
+      - 原文有单位必须保留: DN80mm → 80mm
+      - 原文无单位按行业默认补全
+
+    兜底规则
+      - 无有效规格内容: attr=attr_natural, pattern=严格匹配
+      - 无法解析时该 attr 跳过
+
+    # 输出格式（严格 JSON，与 fix_case 一致）
     [
       {{
         "spec": "240×115×90",
         "ok": true,
-        "attr": {{"length": "240", "width": "115", "height": "90"}},
-        "failed_reason": ""
-      }},
-      {{
-        "spec": "DN80×5m",
-        "ok": true,
-        "attr": {{"diameter": "80", "length": "5"}},
-        "failed_reason": ""
+        "suggestions": [
+          {{
+            "attr": "attr_length",
+            "note": "第1维，长度",
+            "pattern": "^(\\d+)[×xX＊*╳]",
+            "code_block": "m = re.search(r'^(\\d+)[×xX＊*╳]', s)\\nif m:\\n    result['attr_length'] = m.group(1)"
+          }},
+          {{
+            "attr": "attr_width",
+            "note": "第2维，宽度",
+            "pattern": "^(?:\\d+)[×xX＊*╳](\\d+)[×xX＊*╳]",
+            "code_block": "m = re.search(r'^(?:\\d+)[×xX＊*╳](\\d+)[×xX＊*╳]', s)\\nif m:\\n    result['attr_width'] = m.group(1)"
+          }},
+          {{
+            "attr": "attr_height",
+            "note": "第3维，高度",
+            "pattern": "^(?:\\d+)[×xX＊*╳](?:\\d+)[×xX＊*╳](\\d+)$",
+            "code_block": "m = re.search(r'^(?:\\d+)[×xX＊*╳](?:\\d+)[×xX＊*╳](\\d+)$', s)\\nif m:\\n    result['attr_height'] = m.group(1)"
+          }}
+        ]
       }},
       {{
         "spec": "无法解析的规格",
         "ok": false,
-        "attr": {{}},
-        "failed_reason": "无法匹配任何标准属性"
+        "suggestions": []
       }}
     ]
 
     要求:
-      - 严格输出 JSON，不做解释、不加 markdown、不加注释
-      - 输出顺序必须与输入顺序一致
-      - 不得遗漏任何一条规格
+      - 严格输出 JSON，不做解释、不加 markdown
+      - 输出顺序与输入顺序一致
+      - 不得遗漏任何一条
       - batch_size: {batch_size} 条/批
-
