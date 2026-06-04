@@ -280,6 +280,186 @@ def _build_attr(doc: dict) -> dict:
     return attr
 
 
+def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 30, category: str = "") -> tuple:
+    """
+    同步 DWD → DWS，附带批量 AI 解析补全 attr。
+
+    流程：
+      1. 从 DWD 捞 spec 非空文档
+      2. 先用规则库（本地 parse）尝试解析
+      3. 规则库解析失败的 doc，攒 batch 调 AI 补全 attr
+      4. AI 补全后回写 DWD，再同步到 DWS
+
+    返回 (成功数, 失败数)。
+    """
+    import sys
+    sys.path.insert(0, ETL_CMD_DIR)
+    try:
+        from parse_spec import get_parser
+    except Exception:
+        get_parser = None
+
+    dwd_idx = cfg["dwd"]
+    dws_idx = cfg["dws"]
+    session = get_es_client(es_host)
+
+    must_clauses = [{"exists": {"field": "spec"}}]
+    if category:
+        must_clauses.append({"term": {"category": category}})
+
+    ensure_indices(es_host, cfg)
+
+    # 先统计总数
+    body_count = {"query": {"bool": {"must": must_clauses}}, "size": 0}
+    count_resp = session.post(f"{es_host}/{dwd_idx}/_count", json=body_count)
+    total = count_resp.json().get("count", 0) if count_resp.status_code == 200 else 0
+    if total == 0:
+        print(f"  [DWS+AI] {city}: 无待同步数据")
+        return 0, 0
+    print(f"  [DWS+AI] {city}: {dwd_idx} → {dws_idx} ({total:,} 条)")
+
+    # 加载解析器
+    parser = get_parser(city) if get_parser else None
+
+    synced = 0
+    failed = 0
+    ai_parsed = 0
+    ai_failed = 0
+    pages = 0
+
+    body = {"query": {"bool": {"must": must_clauses}}, "size": batch_size, "sort": [{"etl_time": "asc"}]}
+    resp = session.post(f"{es_host}/{dwd_idx}/_search", json=body)
+    if resp.status_code != 200:
+        print(f"  [DWS+AI] 查询 DWD 失败: {resp.text[:200]}")
+        return 0, 0
+    hits = resp.json()["hits"]["hits"]
+
+    # 待 AI 解析的批次
+    ai_batch: list[dict] = []  # [{doc_id, spec, breed, category, index}, ...]
+
+    def _flush_ai_batch():
+        nonlocal ai_batch, ai_parsed, ai_failed
+        if not ai_batch:
+            return
+        # 调用 batch-spec-parse API
+        import urllib.request, urllib.error, json as _json
+        items = [{"spec": b["spec"], "breed": b["breed"], "category": b["category"]} for b in ai_batch]
+        token = ""
+        try:
+            with open("/Users/pengfit/.openclaw/openclaw.json") as f:
+                token = _json.load(f).get("gateway", {}).get("auth", {}).get("token", "")
+        except Exception:
+            pass
+        body_req = _json.dumps({"items": items, "batch_size": ai_batch_size, "write_rules": True}).encode("utf-8")
+        req = urllib.request.Request(
+            "http://localhost:5200/api/stats/spec-quality/batch-spec-parse",
+            data=body_req,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                result = _json.loads(r.read())
+            if result.get("ok"):
+                results = result.get("results", [])
+                # 回写 DWD
+                for i, res in enumerate(results):
+                    if i >= len(ai_batch):
+                        break
+                    b = ai_batch[i]
+                    if res.get("ok") and res.get("attr"):
+                        # 回写 attr 到 DWD
+                        doc_update = {"doc": {"attr": res["attr"]}}
+                        session.post(f"{es_host}/{dwd_idx}/_update/{b['doc_id']}", json=doc_update)
+                        ai_parsed += 1
+                    else:
+                        ai_failed += 1
+                print(f"    [AI] batch {len(ai_batch)} 条 → 成功 {ai_parsed % ai_batch_size}, 失败 {ai_failed % ai_batch_size}")
+        except Exception as e:
+            print(f"    [AI] batch 调用失败: {e}")
+            ai_failed += len(ai_batch)
+        ai_batch = []
+
+    while hits:
+        pages += 1
+        docs, doc_ids = [], []
+        batch_to_sync = []  # [(doc, doc_id), ...]
+
+        for h in hits:
+            d = dict(h["_source"])
+            doc_id = h["_id"]
+            spec = d.get("spec", "")
+            breed = d.get("breed", "")
+            cat = d.get("category", "")
+
+            # 先用规则库尝试解析
+            attr = {}
+            if parser and spec and spec != "/":
+                try:
+                    attr = parser.parse(spec, breed, cat) or {}
+                except Exception:
+                    pass
+
+            if attr:
+                # 规则库命中，直接同步
+                d["attr"] = attr
+                for f in list(d.keys()):
+                    if f.startswith("attr_"):
+                        d.pop(f)
+                for f in ("date", "publish_time"):
+                    if not d.get(f):
+                        d.pop(f, None)
+                batch_to_sync.append((d, doc_id))
+            else:
+                # 规则库未命中，攒 batch 调 AI
+                ai_batch.append({"doc_id": doc_id, "spec": spec, "breed": breed, "category": cat})
+
+        # AI batch 满了则触发解析
+        if len(ai_batch) >= ai_batch_size:
+            _flush_ai_batch()
+
+        # 同步本批已解析的 docs
+        if batch_to_sync:
+            d_list = [x[0] for x in batch_to_sync]
+            d_ids = [x[1] for x in batch_to_sync]
+            ok, err = bulk_index(es_host, dws_idx, d_list, d_ids)
+            synced += ok
+            failed += err
+
+        # 标记已同步
+        if batch_to_sync:
+            ok_ids = [x[1] for x in batch_to_sync[:ok]]
+            if ok_ids:
+                body_up = "\n".join(
+                    json.dumps({"update": {"_id": did}}, ensure_ascii=False) + "\n" +
+                    json.dumps({"doc": {}}, ensure_ascii=False)
+                    for did in ok_ids
+                )
+                session.post(f"{es_host}/{dwd_idx}/_bulk", data=body_up.encode("utf-8"),
+                            headers={"Content-Type": "application/x-ndjson"})
+
+        if pages % 20 == 0:
+            print(f"    pages={pages}, synced={synced}, ai_parsed={ai_parsed}, ai_failed={ai_failed}")
+
+        last_hit = hits[-1]
+        search_after = [last_hit["_source"].get("etl_time", "")]
+        body_page = {"query": {"bool": {"must": must_clauses}}, "size": batch_size, "search_after": search_after, "sort": [{"etl_time": "asc"}]}
+        try:
+            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page)
+        except Exception:
+            break
+        if resp_page.status_code != 200:
+            break
+        hits = resp_page.json()["hits"]["hits"]
+
+    # 剩余 AI batch
+    if ai_batch:
+        _flush_ai_batch()
+
+    print(f"  [DWS+AI] {city} 完成: synced={synced}, failed={failed}, ai_parsed={ai_parsed}, ai_failed={ai_failed}")
+    return synced, failed
+
+
 def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, category: str = "") -> tuple:
     """
     同步 DWD → DWS。

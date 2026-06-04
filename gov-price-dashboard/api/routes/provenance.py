@@ -2131,6 +2131,163 @@ class ClassifyBreedBatchRequest(BaseModel):
     city: str = "xian"
 
 
+class BatchSpecParseRequest(BaseModel):
+    items: list[dict]  # [{spec, breed, category}, ...]
+    batch_size: int = 30
+    city: str = "xian"
+    write_rules: bool = True  # 是否将成功的解析写回规则库
+
+
+def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
+    """生成批量规格解析的 user content（继承 fix_case 规则体系）"""
+    prompts_cfg = PROMPTS.get("batch_spec_parse", {})
+    tmpl = prompts_cfg.get("template", "")
+    ref_attr_names = _get_ref_attr_names()
+    lines = []
+    for i, item in enumerate(items[:batch_size]):
+        spec = item.get("spec", "")
+        breed = item.get("breed", "")
+        cat = item.get("category", "")
+        lines.append(f'      - spec: "{spec}"\n        breed: "{breed}"\n        category: "{cat}"')
+    specs_str = "\n".join(lines)
+    try:
+        return tmpl.format(
+            specs_str=specs_str,
+            batch_size=batch_size,
+            ref_attr_names=ref_attr_names,
+        )
+    except (KeyError, ValueError):
+        return f"specs:\n{specs_str}\n\nbatch_size: {batch_size}\n"
+
+
+def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
+    """调用 OpenClaw LLM 批量解析规格文本，返回 [{spec, ok, attr, failed_reason}, ...]"""
+    import urllib.request, urllib.error, http.client
+    token = ""
+    try:
+        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
+            d = json.load(f)
+            token = d.get("gateway", {}).get("auth", {}).get("token", "")
+    except Exception:
+        return {"ok": False, "message": "无法读取 OpenClaw token"}
+
+    prompt = batch_spec_parse_prompt_fn(items, batch_size)
+    system_msg = PROMPTS.get("batch_spec_parse", {}).get("system", "你是一个建材规格解析专家。")
+
+    body = json.dumps({
+        "model": "openclaw",
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": prompt},
+        ],
+        "user": "batch-spec-parse-agent",
+        "max_tokens": 4096,
+        "temperature": 0.1,
+    }).encode("utf-8")
+
+    try:
+        c = http.client.HTTPConnection("localhost", 18789, timeout=120)
+        c.request("POST", "/v1/chat/completions", body=body, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+        })
+        resp = c.getresponse()
+        data = json.loads(resp.read())
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        if not content:
+            return {"ok": False, "message": "AI 返回空内容"}
+        if content.startswith("```"):
+            parts = content.split("```")
+            content = parts[1] if len(parts) > 1 else parts[0]
+            if content.startswith("json"):
+                content = content[4:]
+        # 解析 JSON 数组
+        result = json.loads(content)
+        if isinstance(result, list):
+            return {"ok": True, "results": result}
+        return {"ok": False, "message": "AI 返回不是 JSON 数组"}
+    except urllib.error.URLError as e:
+        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
+    except json.JSONDecodeError as e:
+        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
+    except Exception as e:
+        return {"ok": False, "message": f"AI 分析异常: {e}"}
+
+
+@router.post("/api/stats/spec-quality/batch-spec-parse")
+def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
+    """
+    批量规格解析接口：输入 [{spec, breed, category}, ...]，AI 批量解析为 attr 结构。
+    成功后可选写入规则库（write_rules=True）。
+    返回 {ok, results: [{spec, ok, attr, failed_reason}], rules_written}
+    """
+    items = [{"spec": i.get("spec", ""), "breed": i.get("breed", ""), "category": i.get("category", "")}
+             for i in req.items if i.get("spec")]
+    if not items:
+        return {"ok": False, "message": "items 不能为空"}
+
+    # 按 category 分批，避免混淆
+    from collections import defaultdict
+    by_cat: dict[str, list] = defaultdict(list)
+    for item in items:
+        by_cat[item["category"]].append(item)
+
+    all_results = []
+    rules_written = 0
+
+    for cat, cat_items in by_cat.items():
+        for i in range(0, len(cat_items), req.batch_size):
+            batch = cat_items[i:i + req.batch_size]
+            ai_result = _call_batch_spec_parse_llm(batch, req.batch_size)
+            if not ai_result.get("ok"):
+                # 本批失败，标记全部为失败
+                for item in batch:
+                    all_results.append({"spec": item["spec"], "ok": False, "attr": {}, "failed_reason": ai_result.get("message", "")})
+                continue
+            results = ai_result.get("results", [])
+            for r in results:
+                all_results.append({
+                    "spec": r.get("spec", ""),
+                    "ok": r.get("ok", False),
+                    "attr": r.get("attr", {}),
+                    "failed_reason": r.get("failed_reason", ""),
+                })
+                # 写入规则库
+                if req.write_rules and r.get("ok") and r.get("attr"):
+                    attr_dict = r["attr"]
+                    if get_vec_store is not None:
+                        vs = get_vec_store()
+                        for attr_name, attr_val in attr_dict.items():
+                            if attr_name.startswith("attr_"):
+                                pass
+                            elif attr_name in ATTR_FIELDS_MAP:
+                                attr_name = f"attr_{attr_name}"
+                            else:
+                                attr_name = f"attr_{attr_name}"
+                            # 用原 spec 作为 pattern（简化处理）
+                            ok = vs.insert(
+                                pattern=r["spec"],
+                                attr=attr_name,
+                                note="ai-batch-generate",
+                                code="",
+                                breed=r.get("breed", ""),
+                                category=r.get("category", ""),
+                                skip_duplicate=True,
+                            )
+                            if ok:
+                                rules_written += 1
+
+    return {
+        "ok": True,
+        "total": len(all_results),
+        "ok_count": sum(1 for r in all_results if r["ok"]),
+        "failed_count": sum(1 for r in all_results if not r["ok"]),
+        "results": all_results,
+        "rules_written": rules_written,
+    }
+
+
 @router.post("/api/stats/spec-quality/fix-case")
 def fix_spec_case(req: FixCaseRequest = Body(...)):
     """
