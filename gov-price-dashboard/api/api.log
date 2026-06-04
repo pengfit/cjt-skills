@@ -1,109 +1,480 @@
-INFO:     Started server process [57617]
+INFO:     Started server process [35487]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:5200 (Press CTRL+C to quit)
-INFO:     127.0.0.1:61712 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61710 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61714 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61712 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61739 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61781 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61779 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61778 - "GET /api/stats/provenance HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61902 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61903 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61900 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61902 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61952 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61953 - "GET /api/filter-options HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61955 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:61952 - "GET /api/stats/overview HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:62832 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63585 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63587 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63587 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63585 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63587 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63585 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63587 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63585 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63528 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63584 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63646 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63621 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63669 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63709 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63749 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63787 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63830 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63875 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63927 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63980 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64027 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64067 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64109 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49359 - "POST /api/stats/spec-quality/classify-breed-batch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49980 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49978 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49977 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49978 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49978 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49977 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50117 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50144 - "GET /api/stats/categories?size=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50145 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50147 - "GET /api/stats/category-detail?category=%E9%92%A2%E6%9D%90%2F%E9%87%91%E5%B1%9E%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50144 - "GET /api/stats/category-detail?category=%E6%9C%BA%E6%A2%B0%E8%AE%BE%E5%A4%87 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50153 - "GET /api/stats/category-detail?category=%E6%99%BA%E8%83%BD%E5%8C%96%2F%E5%BC%B1%E7%94%B5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50151 - "GET /api/stats/category-detail?category=%E6%B6%88%E9%98%B2%E5%99%A8%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50149 - "GET /api/stats/category-detail?category=%E5%B8%82%E6%94%BF%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50147 - "GET /api/stats/category-detail?category=%E8%AE%BE%E5%A4%87%E4%BB%AA%E5%99%A8 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50145 - "GET /api/stats/category-detail?category=%E7%94%B5%E6%B0%94%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50144 - "GET /api/stats/category-detail?category=%E6%B7%B7%E5%87%9D%E5%9C%9F%2F%E9%A2%84%E5%88%B6%E6%9E%84%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50151 - "GET /api/stats/category-detail?category=%E6%B0%B4%E6%B3%A5%2F%E7%A0%82%E6%B5%86%2F%E8%83%B6%E5%87%9D%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50153 - "GET /api/stats/category-detail?category=%E7%AE%A1%E6%9D%90%E7%AE%A1%E4%BB%B6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50149 - "GET /api/stats/category-detail?category=%E5%9C%9F%E5%B7%A5%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50145 - "GET /api/stats/category-detail?category=%E5%AE%89%E8%A3%85%E8%BE%85%E6%9D%90 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50147 - "GET /api/stats/category-detail?category=%E9%98%B2%E7%81%AB%E6%9D%90%E6%96%99 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50149 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50145 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50147 - "GET /api/stats/provenance HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50194 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50195 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50554 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50556 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50552 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50556 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50556 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50552 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51590 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51586 - "GET /api/filter-options HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51589 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51585 - "GET /api/stats/overview HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51585 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51589 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51779 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51779 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51789 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52262 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52263 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52412 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52413 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52695 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52695 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52702 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58693 - "GET /api/stats/scrape-progress?city=xian HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58692 - "GET /api/stats/scrape-progress-all HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58690 - "GET /api/stats/provenance HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58690 - "GET /api/stats/rules-vector?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58690 - "GET /api/stats/breed-category-rules?page=1&page_size=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58692 - "GET /api/stats/breed-category-rules?distinct_categories=1 HTTP/1.1" 200 OK
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [57617]
+INFO:     127.0.0.1:54904 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54969 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54997 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55049 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55061 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55066 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55081 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55087 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55095 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55194 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55205 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55211 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55234 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55239 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55246 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55256 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55274 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55281 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55317 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55370 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55405 - "GET /api/stats/rules-vector?page=1&page_size=50&order=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55408 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55410 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55406 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55410 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55376 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55382 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55423 - "GET /api/stats/provenance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55423 - "GET /api/stats/rules-vector?page=1&page_size=50&order=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55418 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55415 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55517 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55523 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55536 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55543 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55577 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55692 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55780 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55786 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55793 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56085 - "GET /api/stats/rules-vector?page=1&page_size=50&order=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56089 - "GET /api/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56091 - "GET /api/search?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56088 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56091 - "GET /api/stats/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56388 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 56, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 2274, in batch_spec_parse
+    ok2 = vs.insert(
+        pattern=s.get("pattern", ""),
+    ...<5 lines>...
+        skip_duplicate=True,
+    )
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/vector_store.py", line 193, in insert
+    conn.execute("""
+    ~~~~~~~~~~~~^^^^
+        INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """, (norm_pat, attr, note, code, breed, category, tok_json))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+INFO:     127.0.0.1:56394 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 56, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 2274, in batch_spec_parse
+    ok2 = vs.insert(
+        pattern=s.get("pattern", ""),
+    ...<5 lines>...
+        skip_duplicate=True,
+    )
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/vector_store.py", line 193, in insert
+    conn.execute("""
+    ~~~~~~~~~~~~^^^^
+        INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """, (norm_pat, attr, note, code, breed, category, tok_json))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+INFO:     127.0.0.1:56401 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 56, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 2274, in batch_spec_parse
+    ok2 = vs.insert(
+        pattern=s.get("pattern", ""),
+    ...<5 lines>...
+        skip_duplicate=True,
+    )
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/vector_store.py", line 193, in insert
+    conn.execute("""
+    ~~~~~~~~~~~~^^^^
+        INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """, (norm_pat, attr, note, code, breed, category, tok_json))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+INFO:     127.0.0.1:56407 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 56, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 2274, in batch_spec_parse
+    ok2 = vs.insert(
+        pattern=s.get("pattern", ""),
+    ...<5 lines>...
+        skip_duplicate=True,
+    )
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/vector_store.py", line 193, in insert
+    conn.execute("""
+    ~~~~~~~~~~~~^^^^
+        INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """, (norm_pat, attr, note, code, breed, category, tok_json))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+INFO:     127.0.0.1:56414 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 56, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/starlette/concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-dashboard/api/routes/provenance.py", line 2274, in batch_spec_parse
+    ok2 = vs.insert(
+        pattern=s.get("pattern", ""),
+    ...<5 lines>...
+        skip_duplicate=True,
+    )
+  File "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands/parse_spec/rules/vector_store.py", line 193, in insert
+    conn.execute("""
+    ~~~~~~~~~~~~^^^^
+        INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """, (norm_pat, attr, note, code, breed, category, tok_json))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+INFO:     127.0.0.1:56420 - "POST /api/stats/spec-quality/batch-spec-parse HTTP/1.1" 200 OK

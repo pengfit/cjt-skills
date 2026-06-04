@@ -2146,7 +2146,7 @@ def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
         spec = item.get("spec", "")
         breed = item.get("breed", "")
         cat = item.get("category", "")
-        lines.append(f'      - spec: "{spec}"\n        breed: "{breed}"\n        category: "{cat}"')
+        lines.append(f'规格文本: {spec} ，产品提示: {breed} ，分类提示: {cat}')
     specs_str = "\n".join(lines)
     try:
         return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_attr_names}", ref_attr_names)
@@ -2180,7 +2180,7 @@ def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
     }).encode("utf-8")
 
     try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=120)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=300)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -2259,14 +2259,6 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
                             exec_globals = {"result": {}, "re": re_mod, "s": r.get("spec", "")}
                             exec(code_block if isinstance(code_block, str) else "\n".join(code_block), exec_globals)
                             attr.update(exec_globals.get("result", {}))
-                        except Exception:
-                            pass
-                    # 从 pattern 匹配取 value（备用）
-                    if not attr and pattern:
-                        try:
-                            m = re_mod.search(pattern, r.get("spec", ""))
-                            if m:
-                                attr[attr_name] = m.group(1) if m.groups() else m.group(0)
                         except Exception:
                             pass
                 all_results.append({

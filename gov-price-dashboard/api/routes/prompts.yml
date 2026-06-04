@@ -131,7 +131,6 @@ fix_case:
             
             但必须存在明确业务锚点或维度结构锚点。
 
-
     单位识别规则（重要）
           
           1. 原文有单位：
@@ -324,88 +323,201 @@ batch_spec_parse:
   template: |-
     你是一个建材规格解析专家。以下是一批规格文本，请逐一解析并生成规则。
 
-    # 输入格式
-    specs:
-    specs:
-    {specs_str}
-    # 属性名参考
+    输入规格列表
+       {specs_str}
 
-    # 属性名参考
-    {ref_attr_names}
-    # 核心解析规则（与 fix_case 完全一致）
+    属性名参考
+       {ref_attr_names}
 
-    属性拆分原则
-      - 每个可识别业务属性必须单独 suggestion
-      - 相同业务属性仅允许生成一个 suggestion
-      - 遇到复合型内容要拆分任何有可能的业务属性
+    核心原则
+      
+        1. 属性拆分原则
+          - 每个可识别业务属性必须单独 suggestion
+          - 相同业务属性仅允许生成一个 suggestion
+          - suggestions 数量 = 最终识别出的属性数量
+          - 遇到复合型的内容要拆分任何有可能的业务属性（重要）
 
-    属性命名规范
-      - 优先使用标准名称: diameter, thickness, length, width, height, material, grade, pressure, cores, voltage, current, power, color, type, model, surface, weight
-      - 格式: attr_xxx（禁止中文、驼峰）
-      - 无法归类时创建新属性名 attr_xxx
+        2. 业务属性命名要求
+
+          - 优先使用以下名称:
+
+            {ref_attr_names}
+
+          - 属性名禁止出现中文,驼峰命名格式
+
+          - 无法归类时再创建新属性名称。
+
+          - 正确
+
+              attr_属性名
+
+              例如：
+
+              attr_diameter
+              attr_thickness
+              attr_rated_load
+
+          - 错误
+
+              diameter 
+              outside_diameter 
+              pipe_diameter
+              attrRated_load
 
     行业推断优先级
-      产品提示 > 分类提示 > 通用行业规则
-      常见行业规则:
-        管材: DN80, 50×5.6 → diameter, thickness
-        钢板: 2000×1000×10 → length, width, thickness
-        矩形管: 200×100×6 → height, width, thickness
-        H型钢: 200×200×8×12 → height, width, web_thickness, flange_thickness
-        电缆: 3×2.5 → cores, cross_section_area
-        螺纹钢: Φ25×12m → diameter, length
+
+        1. 按以下顺序推断：
+        
+            产品提示 > 分类提示  > 通用行业规则
+
+        2. 常见行业规则：
+
+            管材: DN80、50×5.6 → diameter, thickness
+            钢板: 2000×1000×10 → length, width, thickness
+            矩形管: 200×100×6 → height, width, thickness
+            H型钢: 200×200×8×12 → height, width, web_thickness, flange_thickness
+            电缆: 3×2.5 → core_count, cross_section_area
+            螺纹钢: Φ25×12m → diameter, length
 
     Pattern规则
-      1. 一个 Pattern 仅服务一个 attr
-      2. 一个 Pattern 只能存在一个有效捕获组
-      3. 数字必须增加边界控制: (?<!\d)(?!\d)
-      4. 尺寸分隔符统一兼容: [×xX＊*╳]
-      5. 多维规格：每个属性独立 Pattern
-      6. 单位必须与数值一同捕获
-      7. 禁止 (?<!\d)(\d+)(?!\d)，正确: ^(\d+)[×xX＊*╳] 定位第1维
 
-    单位规则
-      - 原文有单位必须保留: DN80mm → 80mm
-      - 原文无单位按行业默认补全
 
+        1. 一个 Pattern 仅服务一个 attr。
+
+        2. 一个 Pattern 只能存在一个有效捕获组。
+
+        3. 捕获组必须直接返回最终值。
+
+        4. 优先使用业务关键字锚定：
+              抗压强度
+              容重
+              导热系数
+              DN
+              Φ
+              电压
+              功率
+              频率
+              等
+ 
+        5. 仅当不存在业务关键字时，
+            才允许按行业维度位置推断。
+
+        6. 多维规格：
+            每个属性独立 Pattern。
+
+        7. 数字必须增加边界控制：
+
+            (?<!\\d)
+            (?!\\d)
+
+        8. 尺寸分隔符统一兼容：
+
+            [×xX＊*╳]
+
+            多维规格维度定位规则（强制）
+              对于：
+
+                A×B
+                A×B×C
+                A×B×C×D
+
+              每个属性必须通过维度位置定位。
+
+              禁止：
+
+                (?<!\d)(\d+)(?!\d)
+
+              因为无法确定维度。
+
+              正确：
+
+              第1维：
+                ^(\d+)[×xX＊*╳]
+
+              第2维：
+                ^(?:\d+)[×xX＊*╳](\d+)[×xX＊*╳]
+
+              第3维：
+                ^(?:\d+)[×xX＊*╳](?:\d+)[×xX＊*╳](\d+)$
+
+        9. 单位必须与数值一同捕获。
+
+        10. Pattern 不要求必须以 ^ 开头，
+            
+            但必须存在明确业务锚点或维度结构锚点。
+
+    单位识别规则（重要）
+          
+          1. 原文有单位：
+              必须保留原单位。
+                示例： 
+                  DN80mm -> 80mm
+                  Φ25cm -> 25cm
+                  
+          2. 原文无单位：
+              按行业默认单位补全
+          
+    Code_block规则
+
+            m = re.search(r'Pattern', s)
+            if m:
+                result['attr_xxx'] = value + '单位'
+
+            要求：
+              - Pattern 与 suggestion.pattern 一致
+              - result 保存最终值
+            
+            示例：
+              m = re.search(r'^DN(\\d+)$', s)
+              if m:
+                  result['attr_diameter'] = m.group(1) + 'mm'
+      
     兜底规则
-      - 无有效规格内容: attr=attr_natural, pattern=严格匹配
-      - 无法解析时该 attr 跳过
 
-    # 输出格式（严格 JSON，与 fix_case 一致）
-    [
-      {{
-        "spec": "240×115×90",
-        "ok": true,
-        "suggestions": [
-          {{
-            "attr": "attr_length",
-            "note": "第1维，长度",
-            "pattern": "^(\\d+)[×xX＊*╳]",
-            "code_block": "m = re.search(r'^(\\d+)[×xX＊*╳]', s)\\nif m:\\n    result['attr_length'] = m.group(1)"
-          }},
-          {{
-            "attr": "attr_width",
-            "note": "第2维，宽度",
-            "pattern": "^(?:\\d+)[×xX＊*╳](\\d+)[×xX＊*╳]",
-            "code_block": "m = re.search(r'^(?:\\d+)[×xX＊*╳](\\d+)[×xX＊*╳]', s)\\nif m:\\n    result['attr_width'] = m.group(1)"
-          }},
-          {{
-            "attr": "attr_height",
-            "note": "第3维，高度",
-            "pattern": "^(?:\\d+)[×xX＊*╳](?:\\d+)[×xX＊*╳](\\d+)$",
-            "code_block": "m = re.search(r'^(?:\\d+)[×xX＊*╳](?:\\d+)[×xX＊*╳](\\d+)$', s)\\nif m:\\n    result['attr_height'] = m.group(1)"
-          }}
-        ]
-      }},
-      {{
-        "spec": "无法解析的规格",
-        "ok": false,
-        "suggestions": []
-      }}
-    ]
+          1. 当规格无法匹配标准属性：
+              （diameter、length、width、height、thickness 等） 
+               但能够明确表达某种产品业务特征时，优先创建新的业务属性。
+          
+          2. Pattern 与  Code_block 内容严格区分 
+          
+          3. 仅当无有效规格内容
+             attr: attr_natural
+             Pattern: 严格匹配
+             note: AI 不确定内容
+          
+          4. 若 suggestions 中存在：
+             pattern 完全相同
+             则视为错误结果，必须重新生成。   
+             
+    输出格式
 
-    要求:
-      - 严格输出 JSON，不做解释、不加 markdown
-      - 输出顺序与输入顺序一致
-      - 不得遗漏任何一条
-      - batch_size: {batch_size} 条/批
+          必须返回纯JSON。
+
+          输出顺序与输入顺序一致（重要）
+          
+          不得遗漏任何一条（重要）
+
+          禁止输出：
+
+              - markdown
+              - 解释文字
+              - 注释
+              - 代码块标记
+
+          固定格式：
+
+               [
+                  {{
+                    "spec": "spec",
+                    "breed": "breed",
+                    "ok": true,
+                    "suggestions": [
+                        {{
+                                "attr": "attr_xxx",
+                                "note": "规则说明",
+                                "pattern": "Pattern",
+                                "code_block": "Code_block"
+                          }}
+                    ]
+                  }}
+                ]
