@@ -991,7 +991,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if parser is None:
         return []
 
-    must_clauses = [{"term": {"needs_spec_parse": True}}]
+    must_clauses = []
     if category:
         must_clauses.append({"term": {"category": category}})
     query = {
@@ -1011,7 +1011,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     if total == 0:
         return []
 
-    # 每个 breed 取 1 条样本（优先取 needs_spec_parse=True 的）
+    # 每个 breed 取 1 条样本
     seen_breeds = {}
     # 多次随机 offset 尽力采集不同 breed
     max_offset = max(0, total - sample_size)
@@ -1022,7 +1022,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
 
     body = {
         "size": sample_size,
-        "_source": ["spec", "category", "breed", "needs_spec_parse"],
+        "_source": ["spec", "category", "breed"],
         "query": query,
         "from": offset,
         "sort": [{"_doc": "asc"}],
@@ -1033,16 +1033,12 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     except Exception:
         return []
 
-    # 先放 needs_spec_parse=True 的样本（待解析）
-    pending = []
-    # 再放 needs_spec_parse=False 的样本（已解析）
     resolved = []
     for h in result.get("hits", {}).get("hits", []):
         src = h["_source"]
         spec = src.get("spec", "")
         breed = src.get("breed", "") or ""
-        needs_spec_parse = src.get("needs_spec_parse", True)
-        has_attr = not needs_spec_parse
+        has_attr = bool(src.get("attr"))
 
         if breed in seen_breeds:
             continue
@@ -1052,15 +1048,10 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
             "category": src.get("category", ""),
             "breed": breed,
             "has_attr": has_attr,
-            "needs_spec_parse": needs_spec_parse,
         }
-        if needs_spec_parse:
-            pending.append(entry)
-        else:
-            resolved.append(entry)
+        resolved.append(entry)
 
-    # 返回：待解析样本排前面，最多 sample_size 条
-    samples = (pending + resolved)[:sample_size]
+    samples = resolved[:sample_size]
     return samples
 
 
@@ -1098,8 +1089,6 @@ def _category_coverage(city="xian"):
             }
         }
     }
-    # needs_spec_parse: True=仍需解析, False=已解析出字段
-    # ES boolean term query on missing field behaves unpredictably
     real_aggs_body = {
         "size": 0,
         "aggs": {
@@ -1109,11 +1098,9 @@ def _category_coverage(city="xian"):
                     "total_spec": {
                         "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
                     },
-                    # needs_spec_parse: True=仍需解析（vector无匹配/失败）, False=已解析出字段
                     # 解析成功率 = 已解析出字段的 docs / 总 spec docs
                     "parsed_ok": {
                         "filter": {"bool": {
-                            "must": [{"term": {"needs_spec_parse": False}}],
                             "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]
                         }}
                     }
@@ -1318,20 +1305,16 @@ def refresh_category(
 
         es = Elasticsearch([ES_HOST])
 
-        # 查询 DWD 中该分类的全部 docs，捞 needs_spec_parse=True（待解析的存量数据）
-        # 新增规则后应捞这些记录重跑解析，而不是捞已解析完的 False
-        # 统计：待同步且待解析的记录数（synced_to_dws != true 且 needs_spec_parse=True）
-        # 注：现有数据的 synced_to_dws 为 null，must_not synced_to_dws:true 可覆盖 false/null 两种情况
+        # 查询 DWD 中该分类的全部 docs
         body_total = {
-            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
+            "query": {"bool": {"must": [{"term": {"category": category}}]}},
             "size": 0,
         }
         resp_total = es.search(index=dwd_idx, body=body_total)
         total = resp_total["hits"]["total"]["value"]
 
-        # 清洗对象：查询待解析且未推送 DWS 的存量（synced_to_dws != true）
         body = {
-            "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
+            "query": {"bool": {"must": [{"term": {"category": category}}]}},
             "size": 500,
             "sort": [{"etl_time": "asc"}],
         }
@@ -1340,7 +1323,7 @@ def refresh_category(
         hits = resp["hits"]["hits"]
 
         if total == 0:
-            return {"ok": True, "message": f"分类「{category}」无待解析数据（needs_spec_parse=True 为 0）", "city": city}
+            return {"ok": True, "message": f"分类「{category}」无待清洗数据", "city": city}
 
         ok_count = 0
         fail_count = 0
@@ -1370,7 +1353,7 @@ def refresh_category(
             last_hit = hits[-1]
             search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
-                "query": {"bool": {"must": [{"term": {"category": category}}, {"term": {"needs_spec_parse": True}}, {"bool": {"must_not": [{"term": {"synced_to_dws": True}}]}}]}},
+                "query": {"bool": {"must": [{"term": {"category": category}}]}},
                 "size": 500,
                 "search_after": search_after,
                 "sort": [{"etl_time": "asc"}],
@@ -1412,7 +1395,7 @@ def flush_city_dws(
 ):
     """
     与 refresh-category 逻辑一致：
-    1. 查询 DWD 中 needs_spec_parse=True 的记录
+    1. 查询 DWD 中的全部记录
     2. 用 transform_doc（规则库，非 AI）重新解析并回写 DWD
     3. 调用 flush_to_dws 同步到 DWS
     """
@@ -1441,9 +1424,9 @@ def flush_city_dws(
 
         es = Elasticsearch([ES_HOST])
 
-        # 统计待解析记录数
+        # 统计待清洗记录数
         body_total = {
-            "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "query": {"bool": {"must": []}},
             "size": 0,
         }
         resp_total = es.search(index=dwd_idx, body=body_total)
@@ -1460,7 +1443,7 @@ def flush_city_dws(
             }
 
         body = {
-            "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+            "query": {"bool": {"must": []}},
             "size": 500,
             "sort": [{"etl_time": "asc"}],
         }
@@ -1500,7 +1483,7 @@ def flush_city_dws(
             last_hit = hits[-1]
             search_after = last_hit.get("sort") or [last_hit["_source"].get("etl_time", "")]
             body_page = {
-                "query": {"bool": {"must": [{"term": {"needs_spec_parse": True}}, {"term": {"synced_to_dws": False}}]}},
+                "query": {"bool": {"must": []}},
                 "size": 500,
                 "search_after": search_after,
                 "sort": [{"etl_time": "asc"}],
