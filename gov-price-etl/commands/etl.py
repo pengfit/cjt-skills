@@ -124,20 +124,12 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         # 回退：用 clean_breed 再查一次（部分规则可能用 clean 格式录入）
         spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
-    if not spec_clean or spec_clean == "/":
-        needs_spec_parse = False
-    else:
-        attr_keys = [k for k, v in spec_parsed.items() if v]
-        needs_spec_parse = len(attr_keys) == 0
-
-    # 全部 spec 属性直接来自 parser 结果，无硬编码字段限制
     attr = {k: v for k, v in spec_parsed.items() if v}
 
     return {
         "breed": breed_raw,
         "breed_clean": breed_clean,
         "spec": spec_clean,
-        "needs_spec_parse": needs_spec_parse,
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
@@ -154,7 +146,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "code": raw.get("code", ""),
         "source_index": source_index,
         "etl_time": datetime.now().isoformat(),
-        "synced_to_dws": False,
         **attr,
     }
 
@@ -208,11 +199,7 @@ def _build_dwd_mapping():
         "code":            {"type": "keyword"},
         "source_index":    {"type": "keyword"},
         "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
-        "needs_spec_parse": {"type": "boolean"},
-        "synced_to_dws":    {"type": "boolean"},
-        "synced_to_dws":     {"type": "boolean"},
-        # dynamic: True 让所有 AI 返回的 attr 字段（如 voltage, power, color_temperature 等）自动入 mapping
-        # 无需在此处硬编码字段列表
+        # dynamic: True 让所有 AI 返回的 attr 字段自动入 mapping
     }
     return {"mappings": {"properties": base, "dynamic": True}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
 
@@ -234,9 +221,6 @@ def _build_dws_mapping():
         "update_date":       {"type": "keyword"},
         "etl_time":          {"type": "date"},
         "publish_time":      {"type": "date"},
-        "needs_spec_parse":  {"type": "boolean"},
-        "synced_to_dws":    {"type": "boolean"},
-        "synced_to_dws":     {"type": "boolean"},
         "code":              {"type": "keyword"},
         "tab_type":          {"type": "keyword"},
         "tab_name":          {"type": "keyword"},
@@ -259,12 +243,9 @@ def ensure_dwd(es_host: str, dwd_index: str):
 def ensure_dws(es_host: str, dws_index: str):
     pass  # now handled by ensure_indices
 
-def bulk_index(es_host: str, index: str, docs: list, ids: list = None, mark_done: bool = False) -> tuple:
+def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
     if not docs:
         return 0, 0
-    if mark_done:
-        for doc in docs:
-            doc["needs_spec_parse"] = False
     session = get_es_client(es_host)
     body = ""
     for i, doc in enumerate(docs):
@@ -303,8 +284,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     """
     同步 DWD → DWS。
 
-    入池条件：needs_spec_parse = False（_build_attr 动态构建，空 attr 自然无影响）。
-    category 不为空时只同步该分类。
+    入池条件：spec 非空。category 不为空时只同步该分类。
 
     返回 (成功数, 失败数)。
     """
@@ -312,12 +292,11 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
-    # 入池：needs_spec_parse = False 且未同步过 DWS
-    must_clauses = [{"term": {"needs_spec_parse": False}}, {"term": {"synced_to_dws": False}}]
+    must_clauses = [{"exists": {"field": "spec"}}]
     if category:
         must_clauses.append({"term": {"category": category}})
     body = {
-        "query": {"bool": {"must": must_clauses if must_clauses else [{"match_all": {}}]}},
+        "query": {"bool": {"must": must_clauses}},
         "size": batch_size,
         "sort": [{"etl_time": "asc"}],
     }
@@ -369,13 +348,13 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
         synced += ok
         failed += err
 
-        # 批量标记已同步（避免重复入池）
         if ok > 0:
             ok_ids = [doc_ids[i] for i in range(min(ok, len(doc_ids)))]
-            body = ''
-            for did in ok_ids:
-                body += json.dumps({"update": {"_id": did}}, ensure_ascii=False) + "\n"
-                body += json.dumps({"doc": {"synced_to_dws": True}}, ensure_ascii=False) + "\n"
+            body = '\n'.join(
+                json.dumps({"update": {"_id": did}}, ensure_ascii=False) + "\n" +
+                json.dumps({"doc": {}}, ensure_ascii=False)
+                for did in ok_ids
+            )
             session.post(f'{es_host}/{dwd_idx}/_bulk', data=body.encode('utf-8'),
                         headers={'Content-Type': 'application/x-ndjson'})
 
@@ -589,7 +568,6 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
     parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
-    parser.add_argument("--mark-done", action="store_true", help="清洗指定分类时：规则已全部确认，直接标记 needs_spec_parse=False")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
     args = parser.parse_args()
 
