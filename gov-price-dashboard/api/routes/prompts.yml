@@ -131,17 +131,53 @@ fix_case:
             
             但必须存在明确业务锚点或维度结构锚点。
 
-    单位识别规则（重要）
-          
-          1. 原文有单位：
-              必须保留原单位。
-                示例： 
+    单位识别规则（重要，必须强制执行）
+
+          核心原则：单位必须与数值一同返回，禁止只返回纯数值。
+
+          1. 原文有单位：必须保留原单位
+                示例：
                   DN80mm -> 80mm
                   Φ25cm -> 25cm
-                  
-          2. 原文无单位：
-              按行业默认单位补全
-          
+                  δ=4.5mm -> 4.5mm
+                  50×5.6 -> 50×5.6（单位已在分隔符中体现）
+
+          2. 原文无单位（重要！必须补全）：
+                规格中无明确单位标记时，按以下行业默认值补全：
+
+                行业/分类 → 默认单位
+
+                钢材/钢板/型材 → mm（长度、厚度、宽度均用mm）
+                管材（无缝管/焊管） → mm（直径、壁厚）
+                混凝土/水泥 → 无尺寸单位（仅等级，如C30、P·O 42.5）
+                电缆/电线 → mm（截面积 cross_section 用 mm²）
+                木材/竹材 → mm（长度、宽度、厚度）
+                涂料/油漆 → 无尺寸单位
+                阀门/管件 → mm（公称直径）
+                保温材料 → mm（厚度）
+                防水材料 → mm（厚度）
+
+                示例：
+                  "2000×1000×10"（钢板）→ length=2000mm, width=1000mm, thickness=10mm
+                  "DN80"（管材）→ diameter=80mm
+                  "3×2.5"（电缆）→ cores=3, cross_section=2.5mm²
+                  "C30"（混凝土）→ grade=30（无长度单位，属等级标识）
+                  "P·O 42.5级"（水泥）→ type=P·O, grade=42.5（无长度单位）
+
+          3. 等级标识与尺寸单位的区分：
+                - C30 / C35 / C40 等为强度等级，不是尺寸，单位为"级"或不带单位
+                - 42.5级 / 32.5级 为水泥标号，不是尺寸
+                - 这类属性用 attr_grade 或 attr_type 捕获，不需要补全长度单位
+
+          4. 单位符号规范：
+                mm → mm（毫米）
+                cm → cm（厘米）
+                m → m（米）
+                mm² → mm²（平方毫米，截面积用）
+                m² → m²（平方米，面积用）
+                m³ → m³（立方米，体积用）
+                t → t（吨，重量用）
+
     Code_block规则
 
             m = re.search(r'Pattern', s)
@@ -150,13 +186,25 @@ fix_case:
 
             要求：
               - Pattern 与 suggestion.pattern 一致
-              - result 保存最终值
-            
+              - result 保存最终值（含单位）
+
             示例：
               m = re.search(r'^DN(\\d+)$', s)
               if m:
                   result['attr_diameter'] = m.group(1) + 'mm'
-      
+
+            示例（多维）：
+              m = re.search(r'^(\\d+)×(\\d+)×(\\d+)$', s)
+              if m:
+                  result['attr_length'] = m.group(1) + 'mm'
+                  result['attr_width'] = m.group(2) + 'mm'
+                  result['attr_thickness'] = m.group(3) + 'mm'
+
+            示例（等级标识，无单位）：
+              m = re.search(r'^C(\\d+)$', s)
+              if m:
+                  result['attr_grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
+
     兜底规则
 
           1. 当规格无法匹配标准属性：
@@ -165,7 +213,7 @@ fix_case:
           
           2. Pattern 与  Code_block 内容严格区分 
           
-          3. 仅当无有效规格内容
+          3. 仅当无有效规格内容（重要，必须强制执行）
              attr: attr_natural
              Pattern: 严格匹配
              note: AI 不确定内容
@@ -446,17 +494,53 @@ batch_spec_parse:
             
             但必须存在明确业务锚点或维度结构锚点。
 
-    单位识别规则（重要）
-          
-          1. 原文有单位：
-              必须保留原单位。
-                示例： 
+    单位识别规则（重要，必须强制执行）
+
+          核心原则：单位必须与数值一同返回，禁止只返回纯数值。
+
+          1. 原文有单位：必须保留原单位
+                示例：
                   DN80mm -> 80mm
                   Φ25cm -> 25cm
-                  
-          2. 原文无单位：
-              按行业默认单位补全
-          
+                  δ=4.5mm -> 4.5mm
+                  50×5.6 -> 50×5.6（单位已在分隔符中体现）
+
+          2. 原文无单位（重要！必须补全）：
+                规格中无明确单位标记时，按以下行业默认值补全：
+
+                行业/分类 → 默认单位
+
+                钢材/钢板/型材 → mm（长度、厚度、宽度均用mm）
+                管材（无缝管/焊管） → mm（直径、壁厚）
+                混凝土/水泥 → 无尺寸单位（仅等级，如C30、P·O 42.5）
+                电缆/电线 → mm（截面积 cross_section 用 mm²）
+                木材/竹材 → mm（长度、宽度、厚度）
+                涂料/油漆 → 无尺寸单位
+                阀门/管件 → mm（公称直径）
+                保温材料 → mm（厚度）
+                防水材料 → mm（厚度）
+
+                示例：
+                  "2000×1000×10"（钢板）→ length=2000mm, width=1000mm, thickness=10mm
+                  "DN80"（管材）→ diameter=80mm
+                  "3×2.5"（电缆）→ cores=3, cross_section=2.5mm²
+                  "C30"（混凝土）→ grade=C30（无长度单位，属等级标识）
+                  "P·O 42.5级"（水泥）→ type=P·O, grade=42.5（无长度单位）
+
+          3. 等级标识与尺寸单位的区分：
+                - C30 / C35 / C40 等为强度等级，不是尺寸，单位为"级"或不带单位
+                - 42.5级 / 32.5级 为水泥标号，不是尺寸
+                - 这类属性用 attr_grade 或 attr_type 捕获，不需要补全长度单位
+
+          4. 单位符号规范：
+                mm → mm（毫米）
+                cm → cm（厘米）
+                m → m（米）
+                mm² → mm²（平方毫米，截面积用）
+                m² → m²（平方米，面积用）
+                m³ → m³（立方米，体积用）
+                t → t（吨，重量用）
+
     Code_block规则
 
             m = re.search(r'Pattern', s)
@@ -465,13 +549,25 @@ batch_spec_parse:
 
             要求：
               - Pattern 与 suggestion.pattern 一致
-              - result 保存最终值
-            
+              - result 保存最终值（含单位）
+
             示例：
               m = re.search(r'^DN(\\d+)$', s)
               if m:
                   result['attr_diameter'] = m.group(1) + 'mm'
-      
+
+            示例（多维）：
+              m = re.search(r'^(\\d+)×(\\d+)×(\\d+)$', s)
+              if m:
+                  result['attr_length'] = m.group(1) + 'mm'
+                  result['attr_width'] = m.group(2) + 'mm'
+                  result['attr_thickness'] = m.group(3) + 'mm'
+
+            示例（等级标识，无单位）：
+              m = re.search(r'^C(\\d+)$', s)
+              if m:
+                  result['attr_grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
+
     兜底规则
 
           1. 当规格无法匹配标准属性：
@@ -480,7 +576,7 @@ batch_spec_parse:
           
           2. Pattern 与  Code_block 内容严格区分 
           
-          3. 仅当无有效规格内容
+          3. 仅当无有效规格内容（重要，必须强制执行）
              attr: attr_natural
              Pattern: 严格匹配
              note: AI 不确定内容
