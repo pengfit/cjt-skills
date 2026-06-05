@@ -43,7 +43,7 @@ gov-price-etl/
 │   │   └── rules/
 │   │       ├── _attrs.py      # 属性槽位定义（ATTR_SLOTS 来源）
 │   │       ├── vector_store.py # 向量规则库（SQLite，唯一规则源）
-│   │       └── rules_vec.db   # 规则数据库（SQLite）
+│   │       └── breed_spec_rules.db   # 规则数据库（SQLite）
 │   └── classify/
 │       ├── __init__.py
 │       └── rules/
@@ -151,7 +151,7 @@ sync:
 
 ### parse_spec 规格解析（槽位制 + RAG 向量库）
 
-**规则唯一来源**：`parse_spec/rules/rules_vec.db`（SQLite），不再从 rules/*.py 读取。
+**规则唯一来源**：`parse_spec/rules/breed_spec_rules.db`（SQLite），不再从 rules/*.py 读取。
 
 **解析流程（槽位制）**：
 1. 动态加载 `ATTR_SLOTS`（从 `_attrs.py` 提取所有 `"attr" → "描述"` 行）

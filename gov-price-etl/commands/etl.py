@@ -34,26 +34,37 @@ from parse_spec.base import clean_spec
 from clean import clean_breed, clean_unit, clean_price
 
 # ─── category → category_system 映射 ────────────────────────────────────────
-_CATEGORY_SYSTEM_MAP: dict[str, str] = {}
+_CATEGORY_CODE_MAP: dict[str, str] = {}
+_CATEGORY_NAME_MAP: dict[str, str] = {}  # code → name
 
-def _load_category_system_map() -> dict[str, str]:
-    """从 category_in_system.json 构建 category name → code 映射。"""
+def _load_category_system_map() -> tuple[dict[str, str], dict[str, str]]:
+    """从 category_in_system.json 构建 category name → code 和 name 映射。"""
     rules_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(rules_dir, "classify", "rules", "category_in_system.json")
-    m = {}
+    code_map: dict[str, str] = {}
+    name_map: dict[str, str] = {}
     if os.path.exists(json_path):
         with open(json_path) as f:
             data = json.load(f)
         for group in data.get("categories", []):
             for child in group.get("children", []):
-                m[child["name"]] = child["code"]
-    return m
+                code_map[child["name"]] = child["code"]
+                name_map[child["code"]] = child["name"]
+    return code_map, name_map
+
+def _get_category_system_maps() -> tuple[dict[str, str], dict[str, str]]:
+    global _CATEGORY_CODE_MAP, _CATEGORY_NAME_MAP
+    if not _CATEGORY_CODE_MAP:
+        _CATEGORY_CODE_MAP, _CATEGORY_NAME_MAP = _load_category_system_map()
+    return _CATEGORY_CODE_MAP, _CATEGORY_NAME_MAP
 
 def _get_category_system_map() -> dict[str, str]:
-    global _CATEGORY_SYSTEM_MAP
-    if not _CATEGORY_SYSTEM_MAP:
-        _CATEGORY_SYSTEM_MAP = _load_category_system_map()
-    return _CATEGORY_SYSTEM_MAP
+    code_map, _ = _get_category_system_maps()
+    return code_map
+
+def _get_category_system_name_map() -> dict[str, str]:
+    _, name_map = _get_category_system_maps()
+    return name_map
 
 # ─── AI 分类结果缓存（进程内，同一 breed 不重复调用 AI）───────────────────────
 def load_config():
@@ -135,6 +146,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "tax_price": tax_price,
         "category": category,
         "category_system": _get_category_system_map().get(category, ""),
+        "category_system_name": _get_category_system_name_map().get(_get_category_system_map().get(category, ""), ""),
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),
@@ -188,6 +200,7 @@ def _build_dwd_mapping():
         "tax_price":       {"type": "float"},
         "category":        {"type": "keyword"},
         "category_system": {"type": "keyword"},
+        "category_system_name": {"type": "keyword"},
         "province":        {"type": "keyword"},
         "city":            {"type": "keyword"},
         "county":          {"type": "keyword"},
@@ -210,6 +223,7 @@ def _build_dws_mapping():
         "breed_clean":       {"type": "keyword"},
         "category":          {"type": "keyword"},
         "category_system":   {"type": "keyword"},
+        "category_system_name": {"type": "keyword"},
         "unit":              {"type": "keyword"},
         "price":             {"type": "float"},
         "tax_price":         {"type": "float"},
@@ -454,7 +468,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     # 执行 code_block 提取 value
                     try:
                         import re as _re_mod
-                        _exec_globals = {"result": {}, "re": _re_mod, "s": b["spec"]}
+                        _exec_globals = {"result": {}, "re": _re_mod, "s": doc["spec"]}
                         _code = c if isinstance(c, str) else "\n".join(c)
                         exec(_code, _exec_globals)
                         _val = _exec_globals.get("result", {}).get(a, "")
@@ -472,11 +486,34 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
             dws_docs, dws_ids = [], []
             for doc in docs_to_sync:
                 did = doc["doc_id"]
-                # 从 hits 找源文档
+                suggestions = doc["suggestions"]
+                # 重新执行 code_block 获取 attrs（从 suggestions，不依赖 DWD 回写）
+                dws_attrs = {}
+                for s in suggestions:
+                    a = s.get("attr", "")
+                    c = s.get("code_block", "")
+                    if not a or not c:
+                        continue
+                    try:
+                        _eg = {"result": {}, "re": _re_mod, "s": doc["spec"]}
+                        _cd = c if isinstance(c, str) else "\n".join(c)
+                        exec(_cd, _eg)
+                        _v = _eg.get("result", {}).get(a, "")
+                        if _v:
+                            dws_attrs[a] = str(_v)
+                    except Exception as e:
+                        print(f"  [DEBUG] code_block failed for {a}: {e}", flush=True)
+                # 从 hits 找源文档（此时 DWD 尚未 refresh，仍是旧数据，所以用 dws_attrs）
                 src = next((h["_source"] for h in hits if h["_id"] == did), None)
                 if not src:
                     continue
-                src["attr"] = {**(src.get("attr") or {}), **_build_attr(src)}
+                # 将 dws_attrs 放入 src["attr"]（嵌套对象）
+                nested_attr = {**dws_attrs}
+                for _ak, _av in (src.get("attr") or {}).items():
+                    if _ak not in nested_attr:
+                        nested_attr[_ak] = _av
+                src["attr"] = nested_attr
+                print(f"  [DEBUG] dws_attrs for spec={doc['spec']}: {dws_attrs}", flush=True)
                 for f in list(src.keys()):
                     if f.startswith("attr_"):
                         src.pop(f)
@@ -788,7 +825,14 @@ def etl_city(es_host: str, city: str, cfg: dict,
                 # 用 update + doc_as_upsert 代替 index：
                 # 文档不存在时自动创建（upsert），存在时只更新 category 字段（不覆盖其他字段）
                 update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
-                update_body += json.dumps({"doc": {"category": cat, "category_system": _get_category_system_map().get(cat, "")}, "doc_as_upsert": True}, ensure_ascii=False) + "\n"
+                update_body += json.dumps({
+                    "doc": {
+                        "category": cat,
+                        "category_system": _get_category_system_map().get(cat, ""),
+                        "category_system_name": _get_category_system_name_map().get(_get_category_system_map().get(cat, ""), ""),
+                    },
+                    "doc_as_upsert": True,
+                }, ensure_ascii=False) + "\n"
             if update_body:
                 _session = get_es_client(es_host)
                 r = _session.post(f"{es_host}/{dwd_idx}/_bulk",
@@ -852,6 +896,7 @@ def main():
     parser.add_argument("--since", default="", help="增量起始日期 YYYY-MM-DD")
     parser.add_argument("--category", default="", help="只清洗指定分类（category 字段过滤）")
     parser.add_argument("--batch-size", type=int, default=500, help="批量大小")
+    parser.add_argument("--mark-done", action="store_true", help="批量确认规则（直接标记 needs_spec_parse=False，不走 AI）")
     args = parser.parse_args()
 
     cfg = load_config()
