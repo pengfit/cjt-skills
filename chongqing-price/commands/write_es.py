@@ -29,7 +29,7 @@ ES_INDEX = _es_cfg.get('index', 'ods_material_chongqing_price')
 PROGRESS_INDEX = _es_cfg.get('progress_index', 'ods_chongqing_price_progress')
 RUN_ID_PREFIX = "cq_run"
 
-ALL_COUNTIES = [
+ALL_COUNTIES_DISTRICT = [
     "主城区", "万州区", "涪陵区", "黔江区", "长寿区", "江津区", "合川区",
     "永川区", "南川区", "梁平区", "城口县", "丰都县", "垫江县", "忠县",
     "开州区", "云阳县", "奉节县", "巫山县", "巫溪县", "石柱县", "秀山县",
@@ -37,6 +37,39 @@ ALL_COUNTIES = [
     "璧山区", "彭水县1", "彭水县2", "彭水县3", "荣昌区1", "荣昌区2",
     "潼南区", "武隆区",
 ]
+
+ALL_COUNTIES_MORTAR = [
+    "主城区", "永川区", "綦江区", "璧山区",
+]
+
+SOURCE_CONFIG = {
+    "district": {
+        "div_id": "gqxdfclDiv",
+        "counties": ALL_COUNTIES_DISTRICT,
+        "counties_key": "ALL_COUNTIES",
+        "label": "区县主要材料信息价",
+        "item_label": "区县材料价格",
+        "onclick": "loadrgjgXX('{div_id}',1,0,'{label}')",
+    },
+    "mortar": {
+        "div_id": "ybsjDiv",
+        "counties": ALL_COUNTIES_MORTAR,
+        "counties_key": "ALL_COUNTIES_MORTAR",
+        "label": "预拌砂浆信息价",
+        "item_label": "预拌砂浆价格",
+        "onclick": "loadrgjgXX('{div_id}',1,0,'{label}')",
+    },
+    "citywide": {
+        "div_id": "zyclDiv",
+        "counties": ["主城区"],  # 无区县选择，左侧类目选择
+        "counties_key": "ALL_COUNTIES_CITYWIDE",
+        "label": "重庆市材料信息价",
+        "item_label": "重庆市材料信息价",
+        "onclick": "loadJJ('{div_id}','1')",
+    },
+}
+
+ALL_COUNTIES = ALL_COUNTIES_DISTRICT
 
 PROGRESS_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -290,11 +323,66 @@ return'NOT_FOUND';
     return "OK" in _eval_js(js)
 
 
-def _select_month(month_num: str):
+def _click_source_tab(source: str):
+    """点击材料信息价下的子tab：district / mortar / citywide"""
+    cfg = SOURCE_CONFIG.get(source)
+    if not cfg:
+        return False
+    div_id = cfg["div_id"]
+    js = f'''(function(){{
+var spans = document.querySelectorAll('#CLJGXX .slectMenu span');
+for(var i=0;i<spans.length;i++){{
+  if(spans[i].getAttribute('showdiv')==='{div_id}'){{
+    spans[i].click();
+    return'OK:'+'{div_id}';
+  }}
+}}
+return'NOT_FOUND';
+}})()'''
+    return 'OK' in _eval_js(js)
+
+def _click_county(name: str, source: str = "district"):
+    """点击区县选择器中的目标区县（span.localitySelect 方式）"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "gqxdfclDiv")
+    js = f'''(function(){{
+var spans = document.querySelectorAll('#{div_id} .locality span');
+for(var i=0;i<spans.length;i++){{
+  if(spans[i].innerText.trim()==="{name}"){{
+    var cur = document.querySelector('#{div_id} .localitySelect');
+    if(cur) cur.classList.remove("localitySelect");
+    spans[i].classList.add("localitySelect");
+    spans[i].click();
+    return"OK:{name}";
+  }}
+}}
+return"NOT_FOUND:{name}";
+}})()'''
+    return "OK" in _eval_js(js)
+
+def _click_search(source: str = "district"):
+    """点击搜索按钮"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "gqxdfclDiv")
+    label = cfg.get("item_label", "")
+    onclick_tpl = cfg.get("onclick", "loadrgjgXX('{div_id}',1,0,'{label}')")
+    onclick_str = onclick_tpl.replace('{div_id}', div_id).replace('{label}', label)
+    js = f'''(function(){{
+var btns = document.querySelectorAll('#{div_id} button');
+for(var i=0;i<btns.length;i++){{
+  if(btns[i].innerText.trim()==='搜索'){{btns[i].click();return'OK:search';}}
+}}
+return'NOT_FOUND';
+}})()'''
+    return 'OK' in _eval_js(js)
+
+def _select_month(month_num: str, source: str = "district"):
     """选中目标月份，month_num 传入 04（自动拼接"月"）"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "gqxdfclDiv")
     month_val = f"{month_num}月"
-    js = f"""(function(){{
-var sels = document.querySelectorAll('select.month');
+    js = f'''(function(){{
+var sels = document.querySelectorAll('#{div_id} select.month');
 var target = null;
 for(var i=0;i<sels.length;i++){{
   if(sels[i].options.length >= 4){{ target = sels[i]; break; }}
@@ -314,59 +402,51 @@ for(var i=0;i<target.options.length;i++){{
   }}
 }}
 return found ? 'OK:{month_val}' : 'MONTH_NOT_FOUND:{month_val}';
-}})()"""
+}})()'''
     return 'OK' in _eval_js(js)
 
-def _click_county(name: str):
-    """点击区县选择器中的目标区县（span.localitySelect 方式）"""
+def _click_next(source: str = "district"):
+    """点击下一页（通用，通过 div_id 定位）"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "gqxdfclDiv")
     js = f'''(function(){{
-var spans = document.querySelectorAll("#gqxdfclDiv .locality span");
+var spans = document.querySelectorAll('#{div_id} span.pageBtn');
 for(var i=0;i<spans.length;i++){{
-  if(spans[i].innerText.trim()==="{name}"){{
-    var cur = document.querySelector("#gqxdfclDiv .localitySelect");
-    if(cur) cur.classList.remove("localitySelect");
-    spans[i].classList.add("localitySelect");
-    spans[i].click();
-    return"OK:{name}";
-  }}
-}}
-return"NOT_FOUND:{name}";
-}})()'''
-    return "OK" in _eval_js(js)
-
-
-def _click_next():
-    js = """(function(){
-var as=document.querySelectorAll('#gqxdfclDiv a');
-for(var i=0;i<as.length;i++){{
-  if(as[i].innerText.includes('下一页')){{as[i].click();return'OK:next';}}
+  if(spans[i].innerText.trim()==='下一页'){{spans[i].click();return'OK:next';}}
 }}
 return'NO_NEXT';
-}})()"""
-    return "OK" in _eval_js(js)
+}})()'''
+    return 'OK' in _eval_js(js)
 
-
-def _extract_page() -> dict:
-    js = '''(function(){
-var tab = document.querySelector("#gqxdfclDiv");
-if(!tab) return JSON.stringify({err:"no tab"});
-var tbody = tab.querySelector("tbody");
-if(!tbody) return JSON.stringify({err:"no tbody"});
+def _extract_page(source: str = "district") -> dict:
+    """提取当前页数据（通用，通过 div_id 定位）"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "gqxdfclDiv")
+    js = f'''(function(){{
+var tab = document.querySelector('#{div_id}');
+if(!tab) return JSON.stringify({{err:'no tab'}});
+var tbody = tab.querySelector('tbody.tbody');
+if(!tbody) return JSON.stringify({{err:'no tbody'}});
 var rows = [];
-tbody.querySelectorAll("tr").forEach(function(tr){{
-  var cells = tr.querySelectorAll("td");
+tbody.querySelectorAll('tr').forEach(function(tr){{
+  var cells = tr.querySelectorAll('td');
   if(cells.length >= 6) rows.push(Array.from(cells).map(function(c){{return c.innerText.trim();}}));
 }});
 var bt = document.body.innerText;
-var tp = bt.match(/共\\s*(\\d+)\\s*页/);
-var cp = bt.match(/第(\\d+)\\s*页/);
-return JSON.stringify({rows:rows,totalPages:tp?parseInt(tp[1]):1,currentPage:cp?parseInt(cp[1]):1,hasNext:bt.includes("下一页")});
-})()'''
+var tp = bt.match(/共\s*(\d+)\s*页/);
+var cp = bt.match(/第(\d+)\s*页/);
+return JSON.stringify({{rows:rows,totalPages:tp?parseInt(tp[1]):1,currentPage:cp?parseInt(cp[1]):1,hasNext:bt.includes('下一页')}});
+}})()'''
     try:
         raw = _eval_js(js)
         return json.loads(raw)
     except Exception:
-        return {"rows": [], "totalPages": 1, "currentPage": 1, "hasNext": False}
+        return {{"rows": [], "totalPages": 1, "currentPage": 1, "hasNext": False}}
+
+def _get_counties(source: str):
+    """获取指定 source 对应的区县列表"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    return cfg.get("counties", [])
 
 
 # ─── 进度文件 ────────────────────────────────────────────────
@@ -401,6 +481,7 @@ def cmd_sync(args):
     reset = args.reset
     target_period = args.period
     run_id = args.run_id or f"{RUN_ID_PREFIX}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    source = getattr(args, 'source', 'district')
 
     _ensure_index(ES_INDEX, {
         "mappings": {
@@ -416,6 +497,7 @@ def cmd_sync(args):
                 "city":        {"type": "keyword"},
                 "county":      {"type": "keyword"},
                 "area_code":   {"type": "keyword"},
+                "source":      {"type": "keyword"},
                 "update_date": {"type": "date", "format": "yyyy-MM-dd"},
                 "create_time": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||strict_date_optional_time"}
             }
@@ -434,58 +516,81 @@ def cmd_sync(args):
             "duration_sec": {"type": "float"},
             "last_updated": {"type": "keyword"},
             "error":        {"type": "text"},
+            "source":       {"type": "keyword"},
         }}
     })
+
+    month_num = re.search(r'(\d{1,2})月', target_period)
+    if not month_num:
+        print(f"[!] 无法从 '{target_period}' 提取月份")
+        return
+    mn = month_num.group(1).zfill(2)
+
+    # 单一 source 模式（CLI backward compat）
+    if source != "all":
+        _run_sync_source(source, tab_id, target_period, run_id, reset, mn)
+        return
+
+    # 全量模式：依次跑 district / mortar / citywide
+    for src in ["district", "mortar", "citywide"]:
+        print(f"\n{'='*50}")
+        print(f"[*] 开始同步: {src} ({SOURCE_CONFIG[src]['label']})")
+        print(f"{'='*50}")
+        _run_sync_source(src, tab_id, target_period, run_id, reset=True, mn=mn)
+
+
+def _run_sync_source(source, tab_id, target_period, run_id, reset, mn):
+    """针对单个 source 执行同步"""
+    cfg = SOURCE_CONFIG.get(source, {})
+    div_id = cfg.get("div_id", "")
+    all_counties = _get_counties(source)
+    item_label = cfg.get("item_label", "")
 
     prog = _load_progress()
     if reset:
         _reset_progress()
         prog = {"done": [], "run_id": run_id}
-        print("[i] 已重置进度")
+        print(f"[i] 已重置进度 ({source})")
 
-    done_counties = prog.get("done", [])
-    remaining = [c for c in ALL_COUNTIES if c not in done_counties]
+    # load progress keyed by source
+    done_key = f"done_{source}"
+    done_counties = prog.get(done_key, [])
+    remaining = [c for c in all_counties if c not in done_counties]
 
-    print(f"[*] run_id: {run_id}")
-    print(f"[*] 共 {len(ALL_COUNTIES)} 个区县，已完成 {len(done_counties)} 个，剩余 {len(remaining)} 个")
+    print(f"[*] source: {source}, 共 {len(all_counties)} 个区县，已完成 {len(done_counties)} 个，剩余 {len(remaining)} 个")
     print(f"[*] 目标周期: {target_period}")
-    print(f"[*] 浏览器 tab: {tab_id}")
 
     token = _load_gateway_token()
     if not token:
-        print("[!] 未找到 Gateway token，请检查 ~/.openclaw/openclaw.json")
+        print("[!] 未找到 Gateway token")
         return
 
-    print(f"[*] 聚焦浏览器标签页 {tab_id}...")
     if not _focus_tab(tab_id):
-        print(f"[!] 聚焦标签页失败，请确保浏览器已打开并传入正确的 --tab-id")
+        print(f"[!] 聚焦标签页失败")
         return
 
-    # 先点击"材料信息价"标签页
     print("[*] 点击'材料信息价'标签页...")
     if not _click_material_price_tab():
         print("[!] 点击材料信息价标签页失败")
         return
     time.sleep(2)
 
-    # 选中目标月份
-    month_num = re.search(r'(\d{1,2})月', target_period)
-    if not month_num:
-        print(f"[!] 无法从 '{target_period}' 提取月份")
+    print(f"[*] 点击子tab: {source} ({div_id})...")
+    if not _click_source_tab(source):
+        print(f"[!] 点击子tab失败: {source}")
         return
-    mn = month_num.group(1).zfill(2)
+    time.sleep(2)
+
     print(f"[*] 选中月份: {mn}...")
-    if not _select_month(mn):
+    if not _select_month(mn, source):
         print(f"[!] 月份选择失败: {mn}")
         return
     time.sleep(1)
 
     interrupted = False
-
     def _sig_handler(s, f):
         nonlocal interrupted
         interrupted = True
-
     signal.signal(signal.SIGINT, _sig_handler)
 
     start_time = time.time()
@@ -494,32 +599,31 @@ def cmd_sync(args):
     for i, county in enumerate(remaining, len(done_counties) + 1):
         if interrupted:
             print("\n[!] 中断，保存进度...")
-            _save_progress(done_counties, run_id)
+            prog[done_key] = done_counties
+            _save_progress_all(prog, run_id)
             break
 
         t0 = time.time()
-        print(f"[{i}/{len(ALL_COUNTIES)}] >>> {county}")
+        print(f"[{i}/{len(all_counties)}] >>> {county} [{source}]")
 
         try:
-            # 先点击搜索
-            _click_search()
+            _click_search(source)
             time.sleep(random.randint(3, 5))
 
-            # 点击目标区县
-            ok = _click_county(county)
+            ok = _click_county(county, source)
             if not ok:
                 print(f"  [!] 点击区县失败")
-                cmd_progress(run_id, county, target_period, 1, 1, 0, "error", "click failed", 0)
+                cmd_progress(run_id, county, target_period, 1, 1, 0, "error", "click failed", 0, source)
                 done_counties.append(county)
-                _save_progress(done_counties, run_id)
+                prog[done_key] = done_counties
+                _save_progress_all(prog, run_id)
                 continue
             time.sleep(random.randint(3, 5))
 
-            # 提取分页数据
             all_rows = []
             page = 1
             while page <= 50:
-                data = _extract_page()
+                data = _extract_page(source)
                 rows = data.get("rows", [])
                 total_pages = data.get("totalPages", 1)
                 has_next = data.get("hasNext", False)
@@ -529,18 +633,19 @@ def cmd_sync(args):
                 if page >= total_pages or not has_next:
                     break
 
-                if not _click_next():
+                if not _click_next(source):
                     break
                 time.sleep(random.randint(2, 4))
                 page += 1
 
-            n = cmd_write(run_id, county, target_period, json.dumps({"rows": all_rows}))
+            n = cmd_write(run_id, county, target_period, json.dumps({"rows": all_rows}), source=source)
             duration = time.time() - t0
             status = "completed" if n > 0 else "error"
-            cmd_progress(run_id, county, target_period, 1, 1, n, status, "", duration)
+            cmd_progress(run_id, county, target_period, 1, 1, n, status, "", duration, source)
             total_docs += n
             done_counties.append(county)
-            _save_progress(done_counties, run_id)
+            prog[done_key] = done_counties
+            _save_progress_all(prog, run_id)
 
             icon = "✓" if status == "completed" else "✗"
             print(f"  [{icon}] {county}: 写入 {n} 条, {duration:.1f}s")
@@ -548,13 +653,109 @@ def cmd_sync(args):
         except Exception as e:
             duration = time.time() - t0
             print(f"  [✗] {county}: {e}")
-            cmd_progress(run_id, county, target_period, 1, 1, 0, "error", str(e), duration)
+            cmd_progress(run_id, county, target_period, 1, 1, 0, "error", str(e), duration, source)
             done_counties.append(county)
-            _save_progress(done_counties, run_id)
+            prog[done_key] = done_counties
+            _save_progress_all(prog, run_id)
 
     duration_total = time.time() - start_time
-    cmd_summary(run_id, len(ALL_COUNTIES), len(done_counties), total_docs, duration_total)
-    print(f"\n[DONE] 总计 {total_docs} 条文档，耗时 {duration_total:.1f}s")
+    print(f"\n[DONE:{source}] {len(done_counties)}/{len(all_counties)} counties, {total_docs} docs, {duration_total:.1f}s")
+
+
+def _save_progress_all(prog, run_id):
+    """保存进度（支持多 source）"""
+    prog["run_id"] = run_id
+    prog["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
+        json.dump(prog, f, ensure_ascii=False, indent=2)
+
+
+def cmd_progress(run_id, county, period, page, total_pages, docs_written, status, error_msg, duration, source="district"):
+    body = {
+        "run_id": run_id, "area": county, "period": period,
+        "current_page": page, "total_pages": total_pages,
+        "docs_written": docs_written, "status": status,
+        "duration_sec": duration, "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "error": error_msg or "",
+        "source": source,
+    }
+    try:
+        requests.post(f"{ES_HOST}/{PROGRESS_INDEX}/_doc", json=body, timeout=10)
+    except Exception:
+        pass
+
+
+def cmd_write(run_id, county, period, result_json, source="district"):
+    """将抓取的 rows 解析并写入 ES"""
+    try:
+        result = json.loads(result_json)
+        rows = result.get("rows", [])
+    except Exception:
+        rows = []
+
+    if not rows:
+        return 0
+
+    period_date = f"{period.replace('年', '-').replace('月', '-01')}"
+    if len(period_date) > 10:
+        period_date = period_date[:10]
+    docs = []
+    for row in rows:
+        if len(row) < 6:
+            continue
+        is_tax = "1" if row[4] else "0"
+        price = _safe_float(row[5]) if is_tax == "1" else _safe_float(row[4])
+        tax_price = _safe_float(row[4]) if is_tax == "1" else _safe_float(row[5])
+        docs.append({
+            "breed": row[1].strip(),
+            "spec": row[2].strip(),
+            "unit": row[3].strip(),
+            "price": price,
+            "tax_price": tax_price,
+            "is_tax": is_tax,
+            "period": period_date,
+            "province": "重庆市",
+            "city": "重庆市",
+            "county": county,
+            "area_code": "500000",
+            "update_date": period_date,
+            "source": source,
+            "run_id": run_id,
+            "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        })
+
+    if not docs:
+        return 0
+
+    actions = ""
+    for d in docs:
+        actions += json.dumps({"index": {}}, ensure_ascii=False) + "\n"
+        actions += json.dumps(d, ensure_ascii=False) + "\n"
+
+    try:
+        r = requests.post(f"{ES_HOST}/{ES_INDEX}/_bulk", data=actions.encode("utf-8"),
+                         headers={"Content-Type": "application/x-ndjson"}, timeout=30)
+        resp = r.json()
+        return sum(1 for item in resp.get("items", []) if item.get("index", {}).get("status") in (200, 201))
+    except Exception:
+        return 0
+
+
+def _safe_float(s):
+    try:
+        return float(s)
+    except Exception:
+        return 0.0
+
+
+def cmd_init():
+    pass  # index created on-demand
+
+
+def cmd_summary(run_id, total, completed, docs, duration):
+    print(f"\n[DONE] run_id={run_id}, {completed}/{total} counties, {docs} docs, {duration:.1f}s")
+
+
 
 
 # ─── CLI 入口 ────────────────────────────────────────────────
@@ -602,6 +803,8 @@ def main():
         parser.add_argument("--period", default="2026年01月", help="目标周期")
         parser.add_argument("--tab-id", default="", help="浏览器 tab targetId")
         parser.add_argument("--run-id", default="", help="指定 run_id")
+        parser.add_argument("--source", default="district",
+                            help="数据来源: district / mortar / citywide / all")
         args = parser.parse_args(sys.argv[2:])
         cmd_sync(args)
 
