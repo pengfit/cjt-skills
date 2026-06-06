@@ -23,8 +23,12 @@ def main():
             prog = json.load(f)
         print("=== 本地进度 ===")
         print(f"  run_id: {prog.get('run_id', 'N/A')}")
-        print(f"  已完成区县: {len(prog.get('done', []))} 个")
         print(f"  保存时间: {prog.get('saved_at', 'N/A')}")
+        # 各 source 进度
+        for key, label in [('done', '已完成的'), ('done_district', '区县材料'), ('done_mortar', '预拌砂浆'), ('done_citywide', '重庆材料信息价')]:
+            items = prog.get(key, [])
+            if items or key == 'done':
+                print(f"  {label}: {len(items)} 个")
 
     # ES 进度索引
     try:
@@ -38,7 +42,16 @@ def main():
                 print(f"\n=== ES 进度记录 ({len(hits)} 条最新) ===")
                 for h in hits:
                     src = h.get("_source", {})
-                    print(f"  {src.get('area')} | {src.get('status')} | {src.get('docs_written')} docs | {src.get('last_updated')}")
+                    area = src.get('area', '')
+                    # area 格式: "来源-名称"，尝试拆分
+                    if '-' in area:
+                        idx = area.index('-')
+                        source_tag = area[:idx]
+                        name = area[idx+1:]
+                        display = f"[{source_tag}] {name}"
+                    else:
+                        display = area
+                    print(f"  {display} | {src.get('status')} | {src.get('docs_written')} docs | {src.get('last_updated')}")
             else:
                 print("\n=== ES 进度: 暂无记录 ===")
         else:

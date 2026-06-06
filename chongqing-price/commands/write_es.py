@@ -224,11 +224,13 @@ def cmd_write(run_id, county, period, result_json):
     return 0
 
 
-def cmd_progress(run_id, county, period, current_page, total_pages, docs_written, status, error="", duration=0):
+def cmd_progress(run_id, county, period, current_page, total_pages, docs_written, status, error="", duration=0, source="district"):
+    label_map = {"district": "区县材料", "mortar": "预拌砂浆", "citywide": "重庆材料信息价"}
+    area_label = f"{label_map.get(source, source)}-{county}"
     doc = {
         "run_id": run_id,
         "status": status,
-        "area": county,
+        "area": area_label,
         "period": period,
         "current_page": current_page,
         "total_pages": total_pages,
@@ -791,8 +793,10 @@ def _save_progress_all(prog, run_id):
 
 
 def cmd_progress(run_id, county, period, page, total_pages, docs_written, status, error_msg, duration, source="district"):
+    label_map = {"district": "区县材料", "mortar": "预拌砂浆", "citywide": "重庆材料信息价"}
+    area_label = f"{label_map.get(source, source)}-{county}"
     body = {
-        "run_id": run_id, "area": county, "period": period,
+        "run_id": run_id, "area": area_label, "period": period,
         "current_page": page, "total_pages": total_pages,
         "docs_written": docs_written, "status": status,
         "duration_sec": duration, "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

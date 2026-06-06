@@ -303,7 +303,7 @@ def _build_attr(doc: dict) -> dict:
     return attr
 
 
-def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 30, category: str = "") -> tuple:
+def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 5, category: str = "") -> tuple:
     """
     同步 DWD → DWS，附带批量 AI 解析补全 attr。
 
@@ -890,7 +890,7 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
         total_etled += ok
         total_failed += fail
 
-        dws_ok, dws_fail = flush_to_dws_with_ai(es_host, city, cfg, batch_size=batch_size, ai_batch_size=30)
+        dws_ok, dws_fail = flush_to_dws_with_ai(es_host, city, cfg, batch_size=batch_size, ai_batch_size=5)
         print(f"  [DWS+AI] {city} 同步结果: ok={dws_ok}, fail={dws_fail}")
 
     print(f"\n[ETL] 全部完成: etled={total_etled}, failed={total_failed}")
