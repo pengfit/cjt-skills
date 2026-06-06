@@ -125,8 +125,13 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
 
-    price = clean_price(raw.get("price"))
-    tax_price = clean_price(raw.get("tax_price"))
+    price = clean_price(raw.get("price")) or 0.0
+    tax_price = clean_price(raw.get("tax_price")) or 0.0
+    # Crawler bug: when is_tax="0" (不含税), wrote 不含税价 to tax_price, left price=0
+    # Fix: if price==0 but tax_price has value, use tax_price as the price
+    if price == 0.0 and tax_price > 0:
+        price = tax_price
+        tax_price = 0.0
 
     parser = get_parser(city)
     # breed_raw 用于查规则库（规则里存的是原始格式），breed_clean 用于分类/展示
@@ -156,6 +161,8 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "publish_time": raw.get("publish_time", ""),
         "period": raw.get("period", ""),
         "code": raw.get("code", ""),
+        "source": raw.get("source", ""),
+        "citywide_category": raw.get("category", ""),  # 城市材料分类（建安工程材料等），区别于 classify_breed 的 category
         "source_index": source_index,
         "etl_time": datetime.now().isoformat(),
         **attr,
@@ -239,6 +246,8 @@ def _build_dws_mapping():
         "tab_type":          {"type": "keyword"},
         "tab_name":          {"type": "keyword"},
         "period":            {"type": "text"},
+        "source":            {"type": "keyword"},
+        "citywide_category": {"type": "keyword"},
         "source_index":      {"type": "keyword"},
         "attr": {
             "type": "nested",
@@ -674,6 +683,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
             body = '\n'.join(
                 json.dumps({"update": {"_id": did}}, ensure_ascii=False) + "\n" +
                 json.dumps({"doc": {}}, ensure_ascii=False)
+                for did in doc_ids
             )
             session.post(f'{es_host}/{dwd_idx}/_bulk', data=body.encode('utf-8'),
                         headers={'Content-Type': 'application/x-ndjson'})

@@ -2277,7 +2277,7 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
                                 note=s.get("note", "ai-batch"),
                                 code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
                                 breed=r.get("breed", ""),
-                                category=r.get("category", ""),
+                                category=cat,  # 用批次级 category（AI 结果不含 category 字段）
                                 skip_duplicate=True,
                             )
                             if ok2:

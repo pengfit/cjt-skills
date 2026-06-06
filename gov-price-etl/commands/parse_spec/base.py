@@ -51,13 +51,21 @@ except Exception:
 
 def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> list:
     """通过向量库召回候选规则，返回 [(pattern, attr, note, code), ...]
-    attr_filter 为空字符串时执行全量召回（不过滤）"""
+    attr_filter 为空字符串时执行全量召回（不过滤）
+
+    规则库的 category 字段为空字符串（''）是常态（1719 条规则均如此），
+    因此 category 精确匹配几乎必然返回 0，需要按 breed 回退。"""
     if get_vec_store is None:
         return []
     try:
         vs = get_vec_store()
+        # 先按 category + breed 查
         results = vs.search(spec="", category=category, breed=breed,
                             top_k=20, attr_filter=attr_filter if attr_filter else None)
+        # category 匹配为 0 时，按 breed 回退（忽略 category）
+        if not results and category:
+            results = vs.search(spec="", category="", breed=breed,
+                                top_k=20, attr_filter=attr_filter if attr_filter else None)
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
     except Exception:
         return []

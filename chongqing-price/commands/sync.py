@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--period", default="2026年01月", help="目标周期")
     parser.add_argument("--run-id", default="", help="指定 run_id")
     parser.add_argument("--tab-id", default="", help="浏览器标签页 ID")
-    parser.add_argument("--source", default="district",
+    parser.add_argument("--source", default="all",
                         help="数据来源: district / mortar / citywide / all")
     args = parser.parse_args()
     cmd_sync(args)

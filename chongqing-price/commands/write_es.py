@@ -63,6 +63,7 @@ SOURCE_CONFIG = {
         "div_id": "zyclDiv",
         "counties": ["主城区"],  # 无区县选择，左侧类目选择
         "counties_key": "ALL_COUNTIES_CITYWIDE",
+        "categories": ["建安工程材料", "园林绿化工程材料", "绿色、节能建筑工程材料", "装配式建筑工程成品构件", "城市轨道交通工程材料"],
         "label": "重庆市材料信息价",
         "item_label": "重庆市材料信息价",
         "onclick": "loadJJ('{div_id}','1')",
@@ -292,12 +293,23 @@ def _focus_tab(tab_id):
 def _eval_js(js_body: str) -> str:
     out, _ = _run_cli(["browser", "evaluate", "--fn", js_body])
     s = out.strip()
-    # CLI returns JSON-stringified string with double-escaped quotes
-    if s.startswith('"') and s.endswith('"'):
-        s = s[1:-1]
-    # Unescape \" -> "
-    s = s.replace('\\"', '"')
-    return s
+    # CLI output may be wrapped in a table box. Find the actual JSON string.
+    # The JSON result is a double-quoted string, possibly with escaped inner quotes.
+    # Look for the first '"' that starts a JSON object/array, and unescape accordingly.
+    # Find the JSON-stringified result between the table border lines.
+    lines = s.split('\n')
+    # The actual result is typically the last non-empty line that starts with a quote
+    result_line = None
+    for line in reversed(lines):
+        stripped = line.strip()
+        if stripped.startswith('"') and stripped.endswith('"'):
+            result_line = stripped
+            break
+    if not result_line:
+        return s  # fallback: return as-is
+    result_line = result_line[1:-1]  # strip outer quotes
+    result_line = result_line.replace('\\"', '"')  # unescape embedded quotes
+    return result_line
 
 
 def _click_material_price_tab():
@@ -342,23 +354,59 @@ return'NOT_FOUND';
     return 'OK' in _eval_js(js)
 
 def _click_county(name: str, source: str = "district"):
-    """点击区县选择器中的目标区县（span.localitySelect 方式）"""
     cfg = SOURCE_CONFIG.get(source, {})
     div_id = cfg.get("div_id", "gqxdfclDiv")
-    js = f'''(function(){{
+    label = cfg.get("item_label", "区县材料价格")
+
+    def _do_click():
+        # 关键：jQuery 的 trigger('click') 才能触发 jQuery 绑定的事件处理器
+        # 原生 span.click() 不会触发 jQuery 的 .click() 事件
+        js = f'''(function(){{
 var spans = document.querySelectorAll('#{div_id} .locality span');
 for(var i=0;i<spans.length;i++){{
-  if(spans[i].innerText.trim()==="{name}"){{
-    var cur = document.querySelector('#{div_id} .localitySelect');
-    if(cur) cur.classList.remove("localitySelect");
-    spans[i].classList.add("localitySelect");
-    spans[i].click();
-    return"OK:{name}";
+  if(spans[i].innerText.trim() === "{name}"){{
+    if(window.$ && $.fn && typeof $.fn.jquery === "string"){{
+      $(spans[i]).trigger("click");
+    }} else {{
+      spans[i].click();
+    }}
+    return "OK:"+'{name}';
   }}
 }}
-return"NOT_FOUND:{name}";
+return "NOT_FOUND:"+'{name}';
 }})()'''
-    return "OK" in _eval_js(js)
+        return _eval_js(js)
+
+    result = _do_click()
+    if not result.startswith("OK:"):
+        return False
+
+    # 验证 heading 中的区县名是否匹配（最多等 10 秒）
+    # district: "2026年01月 重庆市{city}区县材料价格"
+    # mortar: "2026年01月 重庆市{city}预拌砂浆价格"
+    if source == "mortar":
+        heading_pat = '重庆市(.+?)预拌砂浆价格'
+    elif source == "citywide":
+        heading_pat = '重庆市材料信息价'
+    else:
+        heading_pat = '重庆市(.+?)区县材料价格'
+
+    for attempt in range(5):
+        time.sleep(2)
+        js_verify = f'''(function(){{
+  var ps = document.querySelectorAll('#{div_id} p.title');
+  for(var i=0;i<ps.length;i++){{
+    var t = ps[i].innerText.trim();
+    var m = t.match('{heading_pat}');
+    if(m) return m[1];
+    if(t.includes('重庆市')) return t;
+  }}
+  return '';
+}})()'''
+        current = _eval_js(js_verify).strip()
+        if current == name:
+            return True
+    return current == name
 
 def _click_search(source: str = "district"):
     """点击搜索按钮"""
@@ -374,7 +422,7 @@ for(var i=0;i<btns.length;i++){{
 }}
 return'NOT_FOUND';
 }})()'''
-    return 'OK' in _eval_js(js)
+    return 'OK:' in _eval_js(js)
 
 def _select_month(month_num: str, source: str = "district"):
     """选中目标月份，month_num 传入 04（自动拼接"月"）"""
@@ -401,9 +449,33 @@ for(var i=0;i<target.options.length;i++){{
     break;
   }}
 }}
-return found ? 'OK:{month_val}' : 'MONTH_NOT_FOUND:{month_val}';
+var evt = new Event('change', {{bubbles: true}});
+    target.dispatchEvent(evt);
+    // citywide 需要额外触发搜索按钮的 onclick 才发 AJAX
+    var btns = document.querySelectorAll('#{div_id} button');
+    for(var i=0;i<btns.length;i++){{if(btns[i].innerText.trim()==='搜索'){{btns[i].click();break;}}}}
+    return found ? 'OK:{month_val}' : 'MONTH_NOT_FOUND:{month_val}';
 }})()'''
     return 'OK' in _eval_js(js)
+
+def _click_category(name: str, div_id: str = "zyclDiv") -> bool:
+    """点击 citywide 的分类 tab（建安工程材料、园林绿化工程材料 等）"""
+    js = f'''(function(){{
+var spans = document.querySelectorAll('#{div_id} span');
+for(var i=0;i<spans.length;i++){{
+  if(spans[i].innerText.trim() === "{name}"){{
+    if(window.$ && $.fn && typeof $.fn.jquery === "string"){{
+      $(spans[i]).trigger("click");
+    }} else {{
+      spans[i].click();
+    }}
+    return "OK:"+ "{name}";
+  }}
+}}
+return "NOT_FOUND:"+ "{name}";
+}})()'''
+    return 'OK' in _eval_js(js)
+
 
 def _click_next(source: str = "district"):
     """点击下一页（通用，通过 div_id 定位）"""
@@ -435,7 +507,12 @@ tbody.querySelectorAll('tr').forEach(function(tr){{
 var bt = document.body.innerText;
 var tp = bt.match(/共\s*(\d+)\s*页/);
 var cp = bt.match(/第(\d+)\s*页/);
-return JSON.stringify({{rows:rows,totalPages:tp?parseInt(tp[1]):1,currentPage:cp?parseInt(cp[1]):1,hasNext:bt.includes('下一页')}});
+var nextSpans = document.querySelectorAll('#{div_id} span.pageBtn');
+var nextBtn = null;
+for(var i=0;i<nextSpans.length;i++){{if(nextSpans[i].innerText.trim()==='下一页'){{nextBtn=nextSpans[i];break;}}}}
+var isLastPage = tp && cp && parseInt(tp[1]) === parseInt(cp[1]);
+var hasNext = nextBtn && !nextBtn.classList.contains('pageBtnActive');
+return JSON.stringify({{rows:rows,totalPages:tp?parseInt(tp[1]):1,currentPage:cp?parseInt(cp[1]):1,hasNext:hasNext && !isLastPage}});
 }})()'''
     try:
         raw = _eval_js(js)
@@ -497,6 +574,7 @@ def cmd_sync(args):
                 "city":        {"type": "keyword"},
                 "county":      {"type": "keyword"},
                 "area_code":   {"type": "keyword"},
+                "category":    {"type": "keyword"},
                 "source":      {"type": "keyword"},
                 "update_date": {"type": "date", "format": "yyyy-MM-dd"},
                 "create_time": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||strict_date_optional_time"}
@@ -596,29 +674,65 @@ def _run_sync_source(source, tab_id, target_period, run_id, reset, mn):
     start_time = time.time()
     total_docs = 0
 
-    for i, county in enumerate(remaining, len(done_counties) + 1):
+    # citywide 用分类 tab 迭代；其他用区县迭代
+    if source == "citywide":
+        categories = cfg.get("categories", [])
+        remaining_cat = [c for c in categories if c not in done_counties]
+        iter_items = list(enumerate(remaining_cat, len(done_counties) + 1))
+        county_for_write = "主城区"
+    else:
+        iter_items = list(enumerate(remaining, len(done_counties) + 1))
+        county_for_write = None  # 会从循环里取
+
+    for i, item in iter_items:
         if interrupted:
             print("\n[!] 中断，保存进度...")
             prog[done_key] = done_counties
             _save_progress_all(prog, run_id)
             break
 
+        if source == "citywide":
+            county = county_for_write
+            category = item
+            label = category
+        else:
+            county = item
+            category = ""
+            label = county
+
         t0 = time.time()
-        print(f"[{i}/{len(all_counties)}] >>> {county} [{source}]")
+        print(f"[{i}/{len(all_counties)}] >>> {label} [{source}]")
 
         try:
-            _click_search(source)
-            time.sleep(random.randint(3, 5))
+            if source == "citywide":
+                # 点击分类 tab，等 AJAX
+                ok = _click_category(category, div_id)
+                if not ok:
+                    print(f"  [!] 点击分类失败: {category}")
+                    cmd_progress(run_id, label, target_period, 1, 1, 0, "error", "click failed", 0, source)
+                    done_counties.append(category)
+                    prog[done_key] = done_counties
+                    _save_progress_all(prog, run_id)
+                    continue
+                time.sleep(random.randint(3, 5))
+            else:
+                ok = _click_county(county, source)
+                if not ok:
+                    print(f"  [!] 点击区县失败")
+                    cmd_progress(run_id, county, target_period, 1, 1, 0, "error", "click failed", 0, source)
+                    done_counties.append(county)
+                    prog[done_key] = done_counties
+                    _save_progress_all(prog, run_id)
+                    continue
+                time.sleep(random.randint(3, 5))
 
-            ok = _click_county(county, source)
-            if not ok:
-                print(f"  [!] 点击区县失败")
-                cmd_progress(run_id, county, target_period, 1, 1, 0, "error", "click failed", 0, source)
-                done_counties.append(county)
-                prog[done_key] = done_counties
-                _save_progress_all(prog, run_id)
-                continue
-            time.sleep(random.randint(3, 5))
+            # 等 AJAX 响应
+            for _ in range(15):
+                data = _extract_page(source)
+                rows = data.get("rows", [])
+                if rows:
+                    break
+                time.sleep(1)
 
             all_rows = []
             page = 1
@@ -635,26 +749,32 @@ def _run_sync_source(source, tab_id, target_period, run_id, reset, mn):
 
                 if not _click_next(source):
                     break
-                time.sleep(random.randint(2, 4))
-                page += 1
+                # 等 AJAX 完成：页码变成 next_page 才继续
+                next_page = page + 1
+                for _ in range(12):
+                    time.sleep(1)
+                    data2 = _extract_page(source)
+                    if data2.get('currentPage') == next_page:
+                        break
+                page = next_page
 
-            n = cmd_write(run_id, county, target_period, json.dumps({"rows": all_rows}), source=source)
+            n = cmd_write(run_id, county, target_period, json.dumps({"rows": all_rows}), source=source, category=category)
             duration = time.time() - t0
             status = "completed" if n > 0 else "error"
-            cmd_progress(run_id, county, target_period, 1, 1, n, status, "", duration, source)
+            cmd_progress(run_id, label, target_period, 1, 1, n, status, "", duration, source)
             total_docs += n
-            done_counties.append(county)
+            done_counties.append(label)
             prog[done_key] = done_counties
             _save_progress_all(prog, run_id)
 
             icon = "✓" if status == "completed" else "✗"
-            print(f"  [{icon}] {county}: 写入 {n} 条, {duration:.1f}s")
+            print(f"  [{icon}] {label}: 写入 {n} 条, {duration:.1f}s")
 
         except Exception as e:
             duration = time.time() - t0
-            print(f"  [✗] {county}: {e}")
-            cmd_progress(run_id, county, target_period, 1, 1, 0, "error", str(e), duration, source)
-            done_counties.append(county)
+            print(f"  [✗] {label}: {e}")
+            cmd_progress(run_id, label, target_period, 1, 1, 0, "error", str(e), duration, source)
+            done_counties.append(label)
             prog[done_key] = done_counties
             _save_progress_all(prog, run_id)
 
@@ -685,7 +805,7 @@ def cmd_progress(run_id, county, period, page, total_pages, docs_written, status
         pass
 
 
-def cmd_write(run_id, county, period, result_json, source="district"):
+def cmd_write(run_id, county, period, result_json, source="district", category=""):
     """将抓取的 rows 解析并写入 ES"""
     try:
         result = json.loads(result_json)
@@ -718,6 +838,7 @@ def cmd_write(run_id, county, period, result_json, source="district"):
             "city": "重庆市",
             "county": county,
             "area_code": "500000",
+            "category": category,
             "update_date": period_date,
             "source": source,
             "run_id": run_id,
