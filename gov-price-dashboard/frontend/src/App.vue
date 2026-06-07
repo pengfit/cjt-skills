@@ -23,7 +23,7 @@
         <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">🔍 数据清洗</button>
         <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">🧠 品种分类</button>
         <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">⚙️ 规格解析</button>
-        <button class="nav-tab" :class="{ active: curTab === 'market' }" @click="curTab = 'market'; saveTab('market')">🏛️ 虚天殿</button>
+
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
@@ -370,10 +370,6 @@
       <BreedCategoryRulesView v-else />
     </template>
 
-    <template v-if="curTab === 'market'">
-      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <MarketView v-else />
-    </template>
   </div>
 
   <!-- Toast -->
@@ -388,7 +384,6 @@ import CustomSelect from './components/CustomSelect.vue'
 import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
 import DataProvenanceView from './components/DataProvenanceView.vue'
-import MarketView from './components/MarketView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
 

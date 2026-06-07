@@ -299,7 +299,7 @@ def _build_attr(doc: dict) -> dict:
             continue
         s = str(v).strip()
         if s and s.lower() not in ("", "null", "none"):
-            attr[f] = s
+            attr[f[5:]] = s  # strip "attr_" (5 chars) prefix → diameter, grade, ...
     return attr
 
 
@@ -583,7 +583,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     headers={"Content-Type": "application/x-ndjson"},
                 )
             # 从 AI 结果构建 attr，直接用于 DWS 同步（不依赖 DWD 写入后再查）
-            dws_attr = {k: v for k, v in attrs.items() if k.startswith("attr_")}
+            dws_attr = {k[5:]: v for k, v in attrs.items() if k.startswith("attr_")}
             # 从 hits_by_id 找源文档（hit 对象），提取 _source
             h = hits_by_id.get(did)
             if not h:
