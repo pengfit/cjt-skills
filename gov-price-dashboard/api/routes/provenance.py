@@ -874,7 +874,7 @@ def _get_ref_attr_names_from_db() -> list[str]:
         conn = sqlite3.connect(_RULES_DB_SPEC)
         cur = conn.cursor()
         cur.execute("SELECT DISTINCT attr FROM breed_spec_rules")
-        names = [r[0].replace("attr_", "") for r in cur.fetchall() if r[0].startswith("attr_")]
+        names = [r[0] for r in cur.fetchall()]
         conn.close()
         return sorted(names)
     except Exception:

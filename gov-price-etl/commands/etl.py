@@ -74,7 +74,9 @@ def load_config():
 
 
 def get_es_client(host: str):
-    return requests.Session()
+    s = requests.Session()
+    s.trust_env = False  # 禁用系统代理（macOS "Web Proxy" 配置会被 requests 自动读取）
+    return s
 
 
 # ─── 城市配置 ────────────────────────────────────────────────────────────────
@@ -402,7 +404,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         nonlocal ai_batch, synced, failed, ai_parsed, ai_failed
         if not ai_batch:
             return {}, []
-        import urllib.request, urllib.error, json as _json
+        import urllib.request, urllib.error, json as _json, socket
         # 按 (breed, spec) 去重，保留所有 doc_id
         from collections import defaultdict
         spec_groups: dict[tuple, list] = defaultdict(list)
@@ -425,7 +427,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
 
         # 并发调用 AI，所有 sub-batch 同时执行（max_workers=8）
         AI_BATCH = 20
-        TIMEOUT = 3000  # 大批次需要更长 timeout
+        TIMEOUT = 300  # 5min，单批 20 条 AI 解析可能需要等待 OpenClaw gateway 排队
         all_results = []
 
         def _call_ai_sub_batch(sub_items, batch_idx):
@@ -436,9 +438,11 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                 method="POST",
             )
+            # 不走系统代理
+            no_proxy_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             try:
                 print(f"    [AI] sub-batch {batch_idx}: calling API with {len(sub_items)} items, timeout={TIMEOUT}s...", flush=True)
-                with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                with no_proxy_opener.open(req, timeout=TIMEOUT) as r:
                     print(f"    [AI] sub-batch {batch_idx}: response received", flush=True)
                     sub_result = _json.loads(r.read())
                 print(f"    [AI] sub-batch {batch_idx}: parsed, ok={sub_result.get('ok')}", flush=True)
