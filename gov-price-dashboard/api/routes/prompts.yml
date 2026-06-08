@@ -383,15 +383,12 @@ batch_spec_parse:
           - 每个可识别业务属性必须单独 suggestion
           - 相同业务属性仅允许生成一个 suggestion
           - suggestions 数量 = 最终识别出的属性数量
-          - 遇到复合型的内容（非常重要）
-            拆分任何有可能的业务属性
-            相近业务属性仅保留一个
+          - 遇到复合型的内容要拆分任何有可能的业务属性（非常重要）
               例如：Φ20 Q235 
-              错误：
-              → {diameter:20mm, material:Q235, outer_diameter:20mm, grade:Q235}
-              正确：
-              → {diameter:20mm, material:Q235}
-
+              正确：{diameter:20mm, material:Q235}
+              错误：{diameter:20mm, material:Q235, outer_diameter:20mm, grade:Q235}
+          - **值相同时禁止并存**：当 diameter 与 outer_diameter 值相同，只保留 diameter；当 material 与 grade 值相同，只保留 material
+              例如：Φ22 Q235 → {diameter:22mm, material:Q235}（不能同时出现 outer_diameter 和 grade）
         2. 业务属性命名要求
 
           - 优先使用以下名称:
