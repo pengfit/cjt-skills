@@ -66,9 +66,9 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
         if not results and breed:
             results = vs.search(spec="", category=category, breed="",
                                 top_k=20, attr_filter=attr_filter if attr_filter else None)
-        # 3. category + breed 全 0 时，仅按 category 查（category 为空则查全量）
-        if not results and category:
-            results = vs.search(spec="", category=category, breed="",
+        # 3. category + breed 全 0 时，查全量（忽略 category，breed 也为空）
+        if not results:
+            results = vs.search(spec="", category="", breed="",
                                 top_k=20, attr_filter=attr_filter if attr_filter else None)
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
     except Exception:
@@ -164,16 +164,16 @@ class BaseParseSpec:
                     pass
 
             if exec_result:
-                val = exec_result.get(attr_name) or list(exec_result.values())[0]
+                # Multi-output rule: merge all attr results from code
+                for k, v in exec_result.items():
+                    if v and k not in claimed:
+                        resolved[k] = v
+                        claimed.add(k)
             else:
                 groups = m.groups()
-                if len(groups) >= 1:
-                    val = groups[0]
-                else:
-                    val = m.group(0)
-
-            if val:
-                resolved[attr_name] = val
-                claimed.add(attr_name)
+                val = groups[0] if len(groups) >= 1 else m.group(0)
+                if val and attr_name not in claimed:
+                    resolved[attr_name] = val
+                    claimed.add(attr_name)
 
         return resolved
