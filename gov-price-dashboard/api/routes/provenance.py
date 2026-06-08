@@ -2131,7 +2131,6 @@ class ClassifyBreedBatchRequest(BaseModel):
 
 class BatchSpecParseRequest(BaseModel):
     items: list[dict]  # [{spec, breed, category}, ...]
-    batch_size: int = 30
     city: str = "xian"
     write_rules: bool = True  # 是否将成功的解析写回规则库
 
@@ -2212,7 +2211,7 @@ def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
 @router.post("/api/stats/spec-quality/batch-spec-parse")
 def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
     """
-    批量规格解析接口：输入 [{spec, breed, category}, ...]，AI 批量解析为 attr 结构。
+    单条规格解析接口：输入 [{spec, breed, category}, ...]，逐条同步调用 AI 解析为 attr 结构。
     成功后可选写入规则库（write_rules=True）。
     返回 {ok, results: [{spec, ok, attr, failed_reason}], rules_written}
     """
@@ -2221,67 +2220,58 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
     if not items:
         return {"ok": False, "message": "items 不能为空"}
 
-    # 按 category 分批，避免混淆
-    from collections import defaultdict
-    by_cat: dict[str, list] = defaultdict(list)
-    for item in items:
-        by_cat[item["category"]].append(item)
-
     all_results = []
     rules_written = 0
 
-    for cat, cat_items in by_cat.items():
-        for i in range(0, len(cat_items), req.batch_size):
-            batch = cat_items[i:i + req.batch_size]
-            ai_result = _call_batch_spec_parse_llm(batch, req.batch_size)
-            if not ai_result.get("ok"):
-                # 本批失败，标记全部为失败
-                for item in batch:
-                    all_results.append({"spec": item["spec"], "ok": False, "attr": {}, "failed_reason": ai_result.get("message", "")})
+    ai_result = _call_batch_spec_parse_llm(items, len(items))
+    if not ai_result.get("ok"):
+        return {
+            "ok": False,
+            "message": ai_result.get("message", "AI 调用失败"),
+            "results": [],
+            "rules_written": 0,
+        }
+    results = ai_result.get("results", [])
+
+    for i, item in enumerate(items):
+        spec = item["spec"]
+        r = results[i] if i < len(results) else {}
+        suggestions = r.get("suggestions", [])
+        ok = r.get("ok", False)
+        attr = {}
+        for s in suggestions:
+            attr_name = s.get("attr", "")
+            if not attr_name:
                 continue
-            results = ai_result.get("results", [])
-            for r in results:
-                suggestions = r.get("suggestions", [])
-                ok = r.get("ok", False)
-                # 从 suggestions 提取 attr
-                attr = {}
+            code_block = s.get("code_block", "")
+            if code_block:
+                try:
+                    import re as re_mod
+                    exec_globals = {"result": {}, "re": re_mod, "s": spec}
+                    exec(code_block if isinstance(code_block, str) else "\n".join(code_block), exec_globals)
+                    attr.update(exec_globals.get("result", {}))
+                except Exception:
+                    pass
+        all_results.append({
+            "spec": spec,
+            "ok": ok,
+            "suggestions": suggestions,
+        })
+        if req.write_rules and ok and suggestions:
+            if get_vec_store is not None:
+                vs = get_vec_store()
                 for s in suggestions:
-                    attr_name = s.get("attr", "")
-                    if not attr_name:
-                        continue
-                    # 提取 value
-                    code_block = s.get("code_block", "")
-                    pattern = s.get("pattern", "")
-                    # 从 code_block 执行结果取 value（简化）
-                    if code_block:
-                        try:
-                            import re as re_mod
-                            exec_globals = {"result": {}, "re": re_mod, "s": r.get("spec", "")}
-                            exec(code_block if isinstance(code_block, str) else "\n".join(code_block), exec_globals)
-                            attr.update(exec_globals.get("result", {}))
-                        except Exception:
-                            pass
-                all_results.append({
-                    "spec": r.get("spec", ""),
-                    "ok": ok,
-                    "suggestions": suggestions,
-                })
-                # 写入规则库
-                if req.write_rules and ok and suggestions:
-                    if get_vec_store is not None:
-                        vs = get_vec_store()
-                        for s in suggestions:
-                            ok2 = vs.insert(
-                                pattern=s.get("pattern", ""),
-                                attr=s.get("attr", ""),
-                                note=s.get("note", "ai-batch"),
-                                code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
-                                breed=r.get("breed", ""),
-                                category=cat,  # 用批次级 category（AI 结果不含 category 字段）
-                                skip_duplicate=True,
-                            )
-                            if ok2:
-                                rules_written += 1
+                    ok2 = vs.insert(
+                        pattern=s.get("pattern", ""),
+                        attr=s.get("attr", ""),
+                        note=s.get("note", "ai-single"),
+                        code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
+                        breed=item.get("breed", ""),
+                        category=item.get("category", ""),
+                        skip_duplicate=True,
+                    )
+                    if ok2:
+                        rules_written += 1
 
     return {
         "ok": True,
