@@ -399,8 +399,10 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         return 0, 0
     print(f"  [DWS+AI] {city}: {dwd_idx} → {dws_idx} ({total:,} 条)")
 
-    # 所有 doc 直接走 AI，跳过本地 parser（规则库为空）
-    parser = None
+    # 先用本地规则库解析，AI 仅作为补充
+    parser = get_parser(city) if get_parser else None
+    local_parsed = 0
+    local_failed = 0
 
     synced = 0
     failed = 0
@@ -419,7 +421,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
     ai_batch: list[dict] = []  # [{doc_id, spec, breed, category, index}, ...]
 
     def _flush_ai_batch():
-        nonlocal ai_batch, synced, failed, ai_parsed, ai_failed
+        nonlocal ai_batch, synced, failed, ai_parsed, ai_failed, local_parsed, local_failed
         if not ai_batch:
             return {}, []
         import urllib.request, urllib.error, json as _json, socket
@@ -525,7 +527,66 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
             breed = d.get("breed", "")
             cat = d.get("category", "")
             hits_by_id[doc_id] = h
-            ai_batch.append({"doc_id": doc_id, "spec": spec, "breed": breed, "category": cat})
+
+            # 优先用本地规则库解析：
+            # 1. DWD 已有 attr → 直接 sync 到 DWS，跳过 AI
+            # 2. 本地规则库能解析 → 写回 DWD attr，sync 到 DWS
+            # 3. 规则库解析失败 → 送 AI
+            existing_attr = _build_attr(d)
+            if existing_attr:
+                # DWD 已有 attr，直接 sync
+                nested = _flat_attr_to_nested(existing_attr)
+                dws_doc = {**d, "attr": nested}
+                for f in list(dws_doc.keys()):
+                    if f.startswith("attr_"):
+                        dws_doc.pop(f)
+                for f in ("date", "publish_time"):
+                    if not dws_doc.get(f):
+                        dws_doc.pop(f, None)
+                ok_s, err_s = bulk_index(es_host, dws_idx, [dws_doc], [doc_id])
+                synced += ok_s
+                failed += err_s
+                local_parsed += 1
+                continue
+
+            # 本地规则库尝试解析
+            local_attrs: dict = {}
+            if parser and spec:
+                try:
+                    parsed = parser.parse(spec, breed, cat)
+                    if parsed:
+                        local_attrs = {k: v for k, v in parsed.items() if v}
+                except Exception:
+                    pass
+
+            if local_attrs:
+                # 规则库命中：写回 DWD，sync 到 DWS
+                nested = _flat_attr_to_nested(local_attrs)
+                upd_body = (
+                    json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n" +
+                    json.dumps({"doc": {"attr": nested}}, ensure_ascii=False) + "\n"
+                )
+                session.post(
+                    f"{es_host}/{dwd_idx}/_bulk",
+                    data=upd_body.encode("utf-8"),
+                    headers={"Content-Type": "application/x-ndjson"},
+                    timeout=60,
+                )
+                dws_doc = {**d, "attr": nested}
+                for f in list(dws_doc.keys()):
+                    if f.startswith("attr_"):
+                        dws_doc.pop(f)
+                for f in ("date", "publish_time"):
+                    if not dws_doc.get(f):
+                        dws_doc.pop(f, None)
+                ok_s, err_s = bulk_index(es_host, dws_idx, [dws_doc], [doc_id])
+                synced += ok_s
+                failed += err_s
+                local_parsed += 1
+            else:
+                # 规则库未命中，送 AI
+                local_failed += 1
+                ai_batch.append({"doc_id": doc_id, "spec": spec, "breed": breed, "category": cat})
 
         # AI batch 满了则触发解析
         if len(ai_batch) >= ai_batch_size:
@@ -718,7 +779,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
             synced += ok_s
             failed += err_s
 
-    print(f"  [DWS+AI] {city} 完成: synced={synced}, failed={failed}, ai_parsed={ai_parsed}, ai_failed={ai_failed}")
+    print(f"  [DWS+AI] {city} 完成: synced={synced}, failed={failed}, local_parsed={local_parsed}, local_failed={local_failed}, ai_batch_sent={local_failed}")
     return synced, failed
 
 
