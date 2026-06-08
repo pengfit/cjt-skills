@@ -2151,7 +2151,7 @@ def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
         lines.append(f'规格文本: {spec} ，产品提示: {breed} ，分类提示: {cat}')
     specs_str = "\n".join(lines)
     try:
-        return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_attr_names}", ref_attr_names)
+        return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_names}", ref_attr_names)
     except (KeyError, ValueError):
         specs_sample = "\n".join(lines)
         return f"specs:\n{specs_sample}\n\nbatch_size: {batch_size}\n"
@@ -2269,9 +2269,6 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
                 vs = get_vec_store()
                 for s in suggestions:
                     attr_key = s.get("attr", "")
-                    # attr_natural 兜底不写入规则库（pattern 为"严格匹配"，非真实正则）
-                    if attr_key == "attr_natural":
-                        continue
                     ok2 = vs.insert(
                         pattern=s.get("pattern", ""),
                         attr=attr_key,

@@ -26,7 +26,7 @@ fix_case:
 
           - 优先使用以下名称:
 
-            {ref_attr_names}
+            {ref_names}
 
           - 属性名禁止出现中文,驼峰命名格式
 
@@ -34,13 +34,13 @@ fix_case:
 
           - 正确
 
-              attr_属性名
+              属性名
 
               例如：
 
-              attr_diameter
-              attr_thickness
-              attr_rated_load
+              diameter
+              thickness
+              rated_load
 
           - 错误
 
@@ -167,7 +167,7 @@ fix_case:
           3. 等级标识与尺寸单位的区分：
                 - C30 / C35 / C40 等为强度等级，不是尺寸，单位为"级"或不带单位
                 - 42.5级 / 32.5级 为水泥标号，不是尺寸
-                - 这类属性用 attr_grade 或 attr_type 捕获，不需要补全长度单位
+                - 这类属性用 grade 或 type 捕获，不需要补全长度单位
 
           4. 单位符号规范：
                 mm → mm（毫米）
@@ -182,7 +182,7 @@ fix_case:
 
             m = re.search(r'Pattern', s)
             if m:
-                result['attr_xxx'] = value + '单位'
+                result['xxx'] = value + '单位'
 
             要求：
               - Pattern 与 suggestion.pattern 一致
@@ -191,19 +191,19 @@ fix_case:
             示例：
               m = re.search(r'^DN(\\d+)$', s)
               if m:
-                  result['attr_diameter'] = m.group(1) + 'mm'
+                  result['diameter'] = m.group(1) + 'mm'
 
             示例（多维）：
               m = re.search(r'^(\\d+)×(\\d+)×(\\d+)$', s)
               if m:
-                  result['attr_length'] = m.group(1) + 'mm'
-                  result['attr_width'] = m.group(2) + 'mm'
-                  result['attr_thickness'] = m.group(3) + 'mm'
+                  result['length'] = m.group(1) + 'mm'
+                  result['width'] = m.group(2) + 'mm'
+                  result['thickness'] = m.group(3) + 'mm'
 
             示例（等级标识，无单位）：
               m = re.search(r'^C(\\d+)$', s)
               if m:
-                  result['attr_grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
+                  result['grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
 
     兜底规则
 
@@ -214,7 +214,7 @@ fix_case:
           2. Pattern 与  Code_block 内容严格区分 
           
           3. 仅当无有效规格内容（重要，必须强制执行）
-             attr: attr_natural
+             attr: natural
              Pattern: 严格匹配
              note: AI 不确定内容
           
@@ -240,7 +240,7 @@ fix_case:
                 "ok": true,
                 "suggestions": [
                   {{
-                    "attr": "attr_xxx",
+                    "attr": "xxx",
                     "note": "规则说明",
                     "pattern": "Pattern",
                     "code_block": "Code_block"
@@ -375,7 +375,7 @@ batch_spec_parse:
        {specs_str}
 
     属性名参考
-       {ref_attr_names}
+       {ref_names}
 
     核心原则
       
@@ -389,7 +389,7 @@ batch_spec_parse:
 
           - 优先使用以下名称:
 
-            {ref_attr_names}
+            {ref_names}
 
           - 属性名禁止出现中文,驼峰命名格式
 
@@ -397,13 +397,13 @@ batch_spec_parse:
 
           - 正确
 
-              attr_属性名
+              属性名
 
               例如：
 
-              attr_diameter
-              attr_thickness
-              attr_rated_load
+              diameter
+              thickness
+              rated_load
 
           - 错误
 
@@ -530,7 +530,7 @@ batch_spec_parse:
           3. 等级标识与尺寸单位的区分：
                 - C30 / C35 / C40 等为强度等级，不是尺寸，单位为"级"或不带单位
                 - 42.5级 / 32.5级 为水泥标号，不是尺寸
-                - 这类属性用 attr_grade 或 attr_type 捕获，不需要补全长度单位
+                - 这类属性用 grade 或 type 捕获，不需要补全长度单位
 
           4. 单位符号规范：
                 mm → mm（毫米）
@@ -545,7 +545,7 @@ batch_spec_parse:
 
             m = re.search(r'Pattern', s)
             if m:
-                result['attr_xxx'] = value + '单位'
+                result['xxx'] = value + '单位'
 
             要求：
               - Pattern 与 suggestion.pattern 一致
@@ -554,19 +554,19 @@ batch_spec_parse:
             示例：
               m = re.search(r'^DN(\\d+)$', s)
               if m:
-                  result['attr_diameter'] = m.group(1) + 'mm'
+                  result['diameter'] = m.group(1) + 'mm'
 
             示例（多维）：
               m = re.search(r'^(\\d+)×(\\d+)×(\\d+)$', s)
               if m:
-                  result['attr_length'] = m.group(1) + 'mm'
-                  result['attr_width'] = m.group(2) + 'mm'
-                  result['attr_thickness'] = m.group(3) + 'mm'
+                  result['length'] = m.group(1) + 'mm'
+                  result['width'] = m.group(2) + 'mm'
+                  result['thickness'] = m.group(3) + 'mm'
 
             示例（等级标识，无单位）：
               m = re.search(r'^C(\\d+)$', s)
               if m:
-                  result['attr_grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
+                  result['grade'] = m.group(1)  # C30 → grade=C30，无单位，属等级标识
 
     兜底规则
 
@@ -577,7 +577,7 @@ batch_spec_parse:
           2. Pattern 与  Code_block 内容严格区分 
           
           3. 仅当无有效规格内容（重要，必须强制执行）
-             attr: attr_natural
+             attr: natural
              Pattern: 严格匹配
              note: AI 不确定内容
           
@@ -609,7 +609,7 @@ batch_spec_parse:
                     "ok": true,
                     "suggestions": [
                         {{
-                                "attr": "attr_xxx",
+                                "attr": "xxx",
                                 "note": "规则说明",
                                 "pattern": "Pattern",
                                 "code_block": "Code_block"

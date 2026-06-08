@@ -403,8 +403,6 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         if not ai_batch:
             return {}, []
         import urllib.request, urllib.error, json as _json
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
         # 按 (breed, spec) 去重，保留所有 doc_id
         from collections import defaultdict
         spec_groups: dict[tuple, list] = defaultdict(list)
@@ -426,8 +424,8 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
             pass
 
         # 并发调用 AI，所有 sub-batch 同时执行（max_workers=8）
-        AI_BATCH = 50
-        TIMEOUT = 600  # 大批次需要更长 timeout
+        AI_BATCH = 20
+        TIMEOUT = 3000  # 大批次需要更长 timeout
         all_results = []
 
         def _call_ai_sub_batch(sub_items, batch_idx):
@@ -456,12 +454,10 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 return []
 
         sub_batches = [items[i:i + AI_BATCH] for i in range(0, len(items), AI_BATCH)]
-        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，并发执行...", flush=True)
-        with ThreadPoolExecutor(max_workers=min(8, len(sub_batches))) as executor:
-            futures = {executor.submit(_call_ai_sub_batch, sb, i+1): i for i, sb in enumerate(sub_batches)}
-            for future in as_completed(futures):
-                results = future.result()
-                all_results.extend(results)
+        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，串行执行...", flush=True)
+        for i, sb in enumerate(sub_batches):
+            results = _call_ai_sub_batch(sb, i+1)
+            all_results.extend(results)
         print(f"    [AI] 所有 sub-batch 完成，累计 {len(all_results)} 条结果", flush=True)
 
         # 构建 breed+spec → parsed attr 的映射
