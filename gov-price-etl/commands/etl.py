@@ -266,7 +266,7 @@ def ensure_dwd(es_host: str, dwd_index: str):
 def ensure_dws(es_host: str, dws_index: str):
     pass  # now handled by ensure_indices
 
-def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
+def bulk_index(es_host: str, index: str, docs: list, ids: list = None, timeout: int = 60) -> tuple:
     if not docs:
         return 0, 0
     session = get_es_client(es_host)
@@ -279,7 +279,8 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
         body += json.dumps(doc, ensure_ascii=False) + "\n"
 
     resp = session.post(f"{es_host}/{index}/_bulk", data=body.encode("utf-8"),
-                        headers={"Content-Type": "application/x-ndjson"})
+                        headers={"Content-Type": "application/x-ndjson"},
+                        timeout=timeout)
     result = resp.json()
     errors = sum(1 for item in result.get("items", []) if "error" in item.get("index", {}))
     ok = len(docs) - errors
@@ -289,9 +290,10 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None) -> tuple:
 def _build_attr(doc: dict) -> dict:
     """从 DWD 文档中提取 attr nested 字段（仅保留非空值）。
 
-    仅提取 attr_ 前缀字段。
+    优先提取 attr_ 前缀字段（ETL 写入），同时兼容顶层扁平字段（手动修复或历史遗留）。
     """
     attr = {}
+    # 标准路径：attr_* 前缀字段
     for f, v in doc.items():
         if not f.startswith("attr_"):
             continue
@@ -300,10 +302,32 @@ def _build_attr(doc: dict) -> dict:
         s = str(v).strip()
         if s and s.lower() not in ("", "null", "none"):
             attr[f[5:]] = s  # strip "attr_" (5 chars) prefix → diameter, grade, ...
+    # 兼容路径：顶层扁平字段（如 diameter, diameter_range，直接从 parse 结果写入）
+    if not attr:
+        TOPO_FIELDS = (
+            "diameter", "diameter_range",
+            "thickness", "length", "width", "height",
+            "material", "grade", "pressure", "color", "series",
+            "temperature", "voltage", "current", "cores",
+            "form", "surface", "fire_rating", "ip_rating",
+            "ring_stiffness", "cross_section", "inner_diameter",
+            "wall_thickness", "fiber_core", "cable_length",
+            "channels", "doors", "media", "range", "output",
+            "asphalt_type", "cement_content", "temp_range",
+            "humidity_range", "length_range", "height_range",
+            "drain_type", "inlet_type", "installation_type",
+        )
+        for f in TOPO_FIELDS:
+            v = doc.get(f)
+            if v is None:
+                continue
+            s = str(v).strip()
+            if s and s.lower() not in ("", "null", "none"):
+                attr[f] = s
     return attr
 
 
-def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 5, category: str = "") -> tuple:
+def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 100, category: str = "") -> tuple:
     """
     同步 DWD → DWS，附带批量 AI 解析补全 attr。
 
@@ -343,7 +367,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
 
     # 先统计总数
     body_count = {"query": {"bool": {"must": must_clauses}}}
-    count_resp = session.post(f"{es_host}/{dwd_idx}/_count", json=body_count)
+    count_resp = session.post(f"{es_host}/{dwd_idx}/_count", json=body_count, timeout=30)
     total = count_resp.json().get("count", 0) if count_resp.status_code == 200 else 0
     if total == 0:
         print(f"  [DWS+AI] {city}: 无待同步数据")
@@ -359,8 +383,8 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
     ai_failed = 0
     pages = 0
 
-    body = {"query": {"bool": {"must": must_clauses}}, "size": batch_size, "sort": [{"etl_time": "asc"}]}
-    resp = session.post(f"{es_host}/{dwd_idx}/_search", json=body)
+    body = {"query": {"bool": {"must": must_clauses}}, "size": batch_size, "sort": [{"etl_time": "asc"}, {"_id": "asc"}]}
+    resp = session.post(f"{es_host}/{dwd_idx}/_search", json=body, timeout=60)
     if resp.status_code != 200:
         print(f"  [DWS+AI] 查询 DWD 失败: {resp.text[:200]}")
         return 0, 0
@@ -374,6 +398,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         if not ai_batch:
             return {}, []
         import urllib.request, urllib.error, json as _json
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # 按 (breed, spec) 去重，保留所有 doc_id
         from collections import defaultdict
@@ -395,12 +420,13 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         except Exception:
             pass
 
-        # 分批调用 AI，每批最多 5 条
-        AI_BATCH = 5
+        # 并发调用 AI，所有 sub-batch 同时执行（max_workers=8）
+        AI_BATCH = 50
+        TIMEOUT = 600  # 大批次需要更长 timeout
         all_results = []
-        for i in range(0, len(items), AI_BATCH):
-            sub_items = items[i:i + AI_BATCH]
-            body_req = _json.dumps({"items": sub_items, "batch_size": len(sub_items), "write_rules": True}).encode("utf-8")
+
+        def _call_ai_sub_batch(sub_items, batch_idx):
+            body_req = _json.dumps({"items": sub_items, "write_rules": True}).encode("utf-8")
             req = urllib.request.Request(
                 "http://localhost:5200/api/stats/spec-quality/batch-spec-parse",
                 data=body_req,
@@ -408,15 +434,30 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 method="POST",
             )
             try:
-                print(f"    [AI] sub-batch {i//AI_BATCH+1}: calling API with {len(sub_items)} items, timeout=180s...", flush=True)
-                with urllib.request.urlopen(req, timeout=180) as r:
-                    print(f"    [AI] sub-batch {i//AI_BATCH+1}: response received", flush=True)
+                print(f"    [AI] sub-batch {batch_idx}: calling API with {len(sub_items)} items, timeout={TIMEOUT}s...", flush=True)
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                    print(f"    [AI] sub-batch {batch_idx}: response received", flush=True)
                     sub_result = _json.loads(r.read())
-                print(f"    [AI] sub-batch {i//AI_BATCH+1}: parsed, ok={sub_result.get('ok')}", flush=True)
-                if sub_result.get("ok"):
-                    all_results.extend(sub_result.get("results", []))
+                print(f"    [AI] sub-batch {batch_idx}: parsed, ok={sub_result.get('ok')}", flush=True)
+                return sub_result.get("results", []) if sub_result.get("ok") else []
+            except urllib.error.URLError as e:
+                print(f"    [AI] sub-batch {batch_idx} URL error: {e}")
+                return []
+            except socket.timeout:
+                print(f"    [AI] sub-batch {batch_idx} timeout after {TIMEOUT}s")
+                return []
             except Exception as e:
-                print(f"    [AI] sub-batch {i//AI_BATCH+1} 调用失败: {e}")
+                print(f"    [AI] sub-batch {batch_idx} 调用失败: {e}")
+                return []
+
+        sub_batches = [items[i:i + AI_BATCH] for i in range(0, len(items), AI_BATCH)]
+        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，并发执行...", flush=True)
+        with ThreadPoolExecutor(max_workers=min(8, len(sub_batches))) as executor:
+            futures = {executor.submit(_call_ai_sub_batch, sb, i+1): i for i, sb in enumerate(sub_batches)}
+            for future in as_completed(futures):
+                results = future.result()
+                all_results.extend(results)
+        print(f"    [AI] 所有 sub-batch 完成，累计 {len(all_results)} 条结果", flush=True)
 
         # 构建 breed+spec → parsed attr 的映射
         results_map = {}
@@ -443,9 +484,11 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
     # 追踪已处理的 doc_id，避免重复处理（search_after 在所有 doc etl_time 相同时会失效）
     seen_doc_ids = set()
 
+
     # 构建 hits 映射，方便 final flush 时查找（page 切换后 hits 会被覆盖）
     hits_by_id: dict = {h["_id"]: h for h in hits}
 
+    prev_etl_time = None
     while hits:
         pages += 1
 
@@ -490,14 +533,17 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     json.dumps({"doc": attrs}, ensure_ascii=False)
                 )
                 session.post(f"{es_host}/{dwd_idx}/_bulk", data=upd_body.encode("utf-8"),
-                            headers={"Content-Type": "application/x-ndjson"})
+                            headers={"Content-Type": "application/x-ndjson"}, timeout=60)
             # 同步到 DWS
             dws_docs, dws_ids = [], []
+            import re as _re_mod
             for doc in docs_to_sync:
                 did = doc["doc_id"]
                 suggestions = doc["suggestions"]
                 # 重新执行 code_block 获取 attrs（从 suggestions，不依赖 DWD 回写）
                 dws_attrs = {}
+                if not suggestions:
+                    print(f"  [WARN] no suggestions for spec={doc['spec'][:30]}, doc_id={did[:8]}, breed={doc['breed']}", flush=True)
                 for s in suggestions:
                     a = s.get("attr", "")
                     c = s.get("code_block", "")
@@ -512,8 +558,11 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                             dws_attrs[a] = str(_v)
                     except Exception as e:
                         print(f"  [DEBUG] code_block failed for {a}: {e}", flush=True)
-                # 从 hits 找源文档（此时 DWD 尚未 refresh，仍是旧数据，所以用 dws_attrs）
-                src = next((h["_source"] for h in hits if h["_id"] == did), None)
+                # 从 hits_by_id 找源文档（累积了所有页的 hit 对象）
+                h = hits_by_id.get(did)
+                if not h:
+                    continue
+                src = dict(h["_source"])
                 if not src:
                     continue
                 # 将 dws_attrs 放入 src["attr"]（嵌套对象）
@@ -537,17 +586,26 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 failed += err_s
 
         last_hit = hits[-1]
-        search_after = [last_hit["_source"].get("etl_time", ""), last_hit["_id"]]
+        last_etl_time = last_hit["_source"].get("etl_time", "") or ""
+        search_after = [last_etl_time, last_hit["_id"]]
+        print(f"  [PAGE] pages={pages}, last_etl_time={repr(last_etl_time)}, last_id={last_hit['_id'][:8]}, hits_this_page={len(hits)}", flush=True)
         body_page = {"query": {"bool": {"must": must_clauses}}, "size": batch_size, "search_after": search_after, "sort": [{"etl_time": "asc"}, {"_id": "asc"}]}
         try:
-            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page)
-        except Exception:
+            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page, timeout=60)
+        except Exception as e:
+            print(f"  [ERROR] search_after request failed: {e}", flush=True)
             break
         if resp_page.status_code != 200:
+            print(f"  [ERROR] search_after response status={resp_page.status_code}", flush=True)
             break
         hits = resp_page.json()["hits"]["hits"]
         for h in hits:
             hits_by_id[h["_id"]] = h
+        # 检测 search_after 是否卡住（连续两页 last_etl_time 相同 且 hits 非空 = 疑似死循环）
+        if pages > 1 and hits and last_etl_time == prev_etl_time:
+            print(f"  [WARN] search_after 可能死循环: etl_time={repr(last_etl_time)} 连续相同, hits={len(hits)}, 强制退出", flush=True)
+            break
+        prev_etl_time = last_etl_time
 
     # 剩余 AI batch
     if ai_batch:
@@ -581,6 +639,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     f"{es_host}/{dwd_idx}/_bulk",
                     data=upd_body.encode("utf-8"),
                     headers={"Content-Type": "application/x-ndjson"},
+                    timeout=60,
                 )
             # 从 AI 结果构建 attr，直接用于 DWS 同步（不依赖 DWD 写入后再查）
             dws_attr = {k[5:]: v for k, v in attrs.items() if k.startswith("attr_")}
@@ -629,7 +688,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     body = {
         "query": {"bool": {"must": must_clauses}},
         "size": batch_size,
-        "sort": [{"etl_time": "asc"}],
+        "sort": [{"etl_time": "asc"}, {"_id": "asc"}],
     }
 
     ensure_indices(es_host, cfg)
@@ -656,6 +715,7 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
     failed = 0
     pages = 0
 
+    prev_etl_time = None
     while hits:
         pages += 1
         docs, doc_ids = [], []
@@ -686,13 +746,14 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
                 for did in doc_ids
             )
             session.post(f'{es_host}/{dwd_idx}/_bulk', data=body.encode('utf-8'),
-                        headers={'Content-Type': 'application/x-ndjson'})
+                        headers={'Content-Type': 'application/x-ndjson'}, timeout=60)
 
         if pages % 20 == 0:
             print(f"    pages={pages}, synced={synced}/{total}")
 
         last_hit = hits[-1]
-        search_after = [last_hit["_source"].get("etl_time", ""), last_hit["_id"]]
+        last_etl_time = last_hit["_source"].get("etl_time", "") or ""
+        search_after = [last_etl_time, last_hit["_id"]]
         body_page = {
             "query": {"bool": {"must": must_clauses if must_clauses else [{"match_all": {}}]}},
             "size": batch_size,
@@ -700,13 +761,18 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
             "sort": [{"etl_time": "asc"}, {"_id": "asc"}],
         }
         try:
-            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page)
+            resp_page = session.post(f"{es_host}/{dwd_idx}/_search", json=body_page, timeout=60)
         except Exception:
             break
         if resp_page.status_code != 200:
             break
         result = resp_page.json()
         hits = result["hits"]["hits"]
+        # 检测 search_after 死循环
+        if pages > 1 and hits and last_etl_time == prev_etl_time:
+            print(f"  [WARN] flush_to_dws search_after 可能死循环: etl_time={repr(last_etl_time)} 连续相同, hits={len(hits)}, 强制退出", flush=True)
+            break
+        prev_etl_time = last_etl_time
 
     print(f"  [DWS] {city} 完成: synced={synced}, failed={failed}")
     return synced, failed
@@ -890,7 +956,7 @@ def run_etl(es_host: str, cities: list, batch_size: int = 500,
         total_etled += ok
         total_failed += fail
 
-        dws_ok, dws_fail = flush_to_dws_with_ai(es_host, city, cfg, batch_size=batch_size, ai_batch_size=5)
+        dws_ok, dws_fail = flush_to_dws_with_ai(es_host, city, cfg, batch_size=batch_size)
         print(f"  [DWS+AI] {city} 同步结果: ok={dws_ok}, fail={dws_fail}")
 
     print(f"\n[ETL] 全部完成: etled={total_etled}, failed={total_failed}")

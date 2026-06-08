@@ -222,18 +222,21 @@ class VecStore:
 
         with self._lock:
             conn = self._get_conn()
+            # Build SQL dynamically: breed='' means "no breed filter"
             if attr_filter:
-                rows = conn.execute(
-                    "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM breed_spec_rules WHERE attr=? AND category=? AND (breed='' OR breed=?)",
-                    (attr_filter, category, breed)
-                ).fetchall()
+                base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
+                if breed:
+                    sql = base + " AND (breed='' OR breed=?)"
+                    rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
+                else:
+                    rows = conn.execute(base, (attr_filter, category)).fetchall()
             else:
-                rows = conn.execute(
-                    "SELECT pattern, attr, note, code, breed, category, tokens "
-                    "FROM breed_spec_rules WHERE category=? AND (breed='' OR breed=?)",
-                    (category, breed)
-                ).fetchall()
+                base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE category=?"
+                if breed:
+                    sql = base + " AND (breed='' OR breed=?)"
+                    rows = conn.execute(sql, (category, breed)).fetchall()
+                else:
+                    rows = conn.execute(base, (category,)).fetchall()
 
         results = []
         for row in rows:
@@ -252,7 +255,8 @@ class VecStore:
         seen = {}
         deduped = []
         for score, rule in results:
-            key = (rule["attr"], rule["pattern"])
+            # Include breed in dedup key so same (attr, pattern) for different breeds are kept
+            key = (rule["attr"], rule["pattern"], rule["breed"])
             if key not in seen:
                 seen[key] = score
                 deduped.append((score, rule))

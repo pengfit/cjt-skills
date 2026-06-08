@@ -59,12 +59,16 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
         return []
     try:
         vs = get_vec_store()
-        # 先按 category + breed 查
+        # 1. 按 category + breed 查
         results = vs.search(spec="", category=category, breed=breed,
                             top_k=20, attr_filter=attr_filter if attr_filter else None)
-        # category 匹配为 0 时，按 breed 回退（忽略 category）
+        # 2. breed 精确匹配为 0 时，忽略 breed，按 category 回退（breed='' 会命中泛化规则）
+        if not results and breed:
+            results = vs.search(spec="", category=category, breed="",
+                                top_k=20, attr_filter=attr_filter if attr_filter else None)
+        # 3. category + breed 全 0 时，仅按 category 查（category 为空则查全量）
         if not results and category:
-            results = vs.search(spec="", category="", breed=breed,
+            results = vs.search(spec="", category=category, breed="",
                                 top_k=20, attr_filter=attr_filter if attr_filter else None)
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
     except Exception:
@@ -163,9 +167,7 @@ class BaseParseSpec:
                 val = exec_result.get(attr_name) or list(exec_result.values())[0]
             else:
                 groups = m.groups()
-                if len(groups) == 1:
-                    val = groups[0]
-                elif len(groups) > 1:
+                if len(groups) >= 1:
                     val = groups[0]
                 else:
                     val = m.group(0)
