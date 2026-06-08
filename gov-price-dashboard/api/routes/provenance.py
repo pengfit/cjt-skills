@@ -2244,6 +2244,10 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
             if not attr_name:
                 continue
             code_block = s.get("code_block", "")
+            # attr_natural 兜底：code_block 为空时，将原始 spec 值写入 attr_natural
+            if attr_name == "attr_natural" and not code_block:
+                attr["attr_natural"] = spec
+                continue
             if code_block:
                 try:
                     import re as re_mod
@@ -2261,9 +2265,13 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
             if get_vec_store is not None:
                 vs = get_vec_store()
                 for s in suggestions:
+                    attr_key = s.get("attr", "")
+                    # attr_natural 兜底不写入规则库（pattern 为"严格匹配"，非真实正则）
+                    if attr_key == "attr_natural":
+                        continue
                     ok2 = vs.insert(
                         pattern=s.get("pattern", ""),
-                        attr=s.get("attr", ""),
+                        attr=attr_key,
                         note=s.get("note", "ai-single"),
                         code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
                         breed=item.get("breed", ""),
