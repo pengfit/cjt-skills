@@ -251,7 +251,6 @@ def _build_dws_mapping():
         "source_index":      {"type": "keyword"},
         "attr": {
             "type": "nested",
-            "dynamic": True,
             "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
         },
     }
@@ -288,7 +287,7 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, timeout: 
 
 
 def _build_attr(doc: dict) -> dict:
-    """从 DWD 文档中提取 attr nested 字段（仅保留非空值）。
+    """从 DWD 文档中提取 attr 字段（扁平 dict，仅保留非空值）。
 
     优先提取 attr_ 前缀字段（ETL 写入），同时兼容顶层扁平字段（手动修复或历史遗留）。
     """
@@ -303,6 +302,7 @@ def _build_attr(doc: dict) -> dict:
         if s and s.lower() not in ("", "null", "none"):
             attr[f[5:]] = s  # strip "attr_" (5 chars) prefix → diameter, grade, ...
     # 兼容路径：顶层扁平字段（如 diameter, diameter_range，直接从 parse 结果写入）
+    # 当 attr_* 字段全为空（或根本不存在）导致 attr 为空时，fallback 到顶层字段
     if not attr:
         TOPO_FIELDS = (
             "diameter", "diameter_range",
@@ -325,6 +325,11 @@ def _build_attr(doc: dict) -> dict:
             if s and s.lower() not in ("", "null", "none"):
                 attr[f] = s
     return attr
+
+
+def _flat_attr_to_nested(flat: dict) -> list:
+    """将扁平 attr dict 转为 nested [{k, v}] 列表，用于写入 DWS。"""
+    return [{"k": k, "v": v} for k, v in flat.items() if v]
 
 
 def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 500, ai_batch_size: int = 100, category: str = "") -> tuple:
@@ -517,15 +522,21 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     c = s.get("code_block", "")
                     if not a or not c:
                         continue
+                    # 防御性规范 attr 名称：统一去掉 attr_ 前缀
+                    # 规则库已修复，但 API 未来可能返回不一致的 attr 名
+                    norm_a = a[5:] if a.startswith("attr_") else a
                     # 执行 code_block 提取 value
                     try:
                         import re as _re_mod
                         _exec_globals = {"result": {}, "re": _re_mod, "s": doc["spec"]}
                         _code = c if isinstance(c, str) else "\n".join(c)
                         exec(_code, _exec_globals)
-                        _val = _exec_globals.get("result", {}).get(a, "")
+                        # 优先用 norm_a 查 result（已修复规则）；兼容旧 result['attr_grade']
+                        _val = _exec_globals.get("result", {}).get(norm_a, "")
+                        if not _val:
+                            _val = _exec_globals.get("result", {}).get(a, "")
                         if _val:
-                            attrs[a] = str(_val)
+                            attrs[norm_a] = str(_val)
                     except Exception:
                         pass
                 upd_body = '\n'.join(
@@ -549,13 +560,18 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                     c = s.get("code_block", "")
                     if not a or not c:
                         continue
+                    # 防御性规范 attr 名称：统一去掉 attr_ 前缀
+                    norm_a = a[5:] if a.startswith("attr_") else a
                     try:
                         _eg = {"result": {}, "re": _re_mod, "s": doc["spec"]}
                         _cd = c if isinstance(c, str) else "\n".join(c)
                         exec(_cd, _eg)
-                        _v = _eg.get("result", {}).get(a, "")
+                        # 优先用 norm_a 查 result；兼容旧 result['attr_grade']
+                        _v = _eg.get("result", {}).get(norm_a, "")
+                        if not _v:
+                            _v = _eg.get("result", {}).get(a, "")
                         if _v:
-                            dws_attrs[a] = str(_v)
+                            dws_attrs[norm_a] = str(_v)
                     except Exception as e:
                         print(f"  [DEBUG] code_block failed for {a}: {e}", flush=True)
                 # 从 hits_by_id 找源文档（累积了所有页的 hit 对象）
@@ -565,12 +581,15 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 src = dict(h["_source"])
                 if not src:
                     continue
-                # 将 dws_attrs 放入 src["attr"]（嵌套对象）
+                # 将 dws_attrs 放入 src["attr"]（nested {k,v} 列表）
+                # AI 无建议时 fallback：从 DWD 源文档提取 attr_* / 顶层字段
+                if not dws_attrs:
+                    dws_attrs = _build_attr(src)
                 nested_attr = {**dws_attrs}
                 for _ak, _av in (src.get("attr") or {}).items():
                     if _ak not in nested_attr:
                         nested_attr[_ak] = _av
-                src["attr"] = nested_attr
+                src["attr"] = _flat_attr_to_nested(nested_attr)
                 print(f"  [DEBUG] dws_attrs for spec={doc['spec']}: {dws_attrs}", flush=True)
                 for f in list(src.keys()):
                     if f.startswith("attr_"):
@@ -621,12 +640,17 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 c = s.get("code_block", "")
                 if not a or not c:
                     continue
+                # 防御性规范 attr 名称：统一去掉 attr_ 前缀
+                norm_a = a[5:] if a.startswith("attr_") else a
                 try:
                     exec_globals = {"result": {}, "re": __import__("re"), "s": doc["spec"]}
                     exec(c, exec_globals)
-                    _val = exec_globals.get("result", {}).get(a, "")
+                    # 优先用 norm_a 查 result；兼容旧 result['attr_grade']
+                    _val = exec_globals.get("result", {}).get(norm_a, "")
+                    if not _val:
+                        _val = exec_globals.get("result", {}).get(a, "")
                     if _val:
-                        attrs[a] = str(_val)
+                        attrs[norm_a] = str(_val)
                 except Exception as e:
                     pass
             # 更新 DWD（写入实际值，非 code_block）
@@ -643,6 +667,9 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 )
             # 从 AI 结果构建 attr，直接用于 DWS 同步（不依赖 DWD 写入后再查）
             dws_attr = {k[5:]: v for k, v in attrs.items() if k.startswith("attr_")}
+            # AI 无建议时 fallback：从 DWD 源文档提取 attr_* / 顶层字段
+            if not dws_attr:
+                dws_attr = _build_attr(dict(h["_source"]) if h else {})
             # 从 hits_by_id 找源文档（hit 对象），提取 _source
             h = hits_by_id.get(did)
             if not h:
@@ -651,7 +678,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 print(f"  [DEBUG] src not found for {did[:8]}", flush=True)
                 continue
             src = dict(h["_source"])
-            src["attr"] = dws_attr
+            src["attr"] = _flat_attr_to_nested(dws_attr)
             for f in list(src.keys()):
                 if f.startswith("attr_"):
                     src.pop(f)
@@ -721,8 +748,8 @@ def flush_to_dws(es_host: str, city: str, cfg: dict, batch_size: int = 500, cate
         docs, doc_ids = [], []
         for h in hits:
             d = dict(h["_source"])
-            # 构建 DWS 的 attr nested（从 DWD 扁平字段提取）
-            d["attr"] = _build_attr(d)
+            # 构建 DWS 的 attr nested（扁平 dict → nested [{k,v}] 列表）
+            d["attr"] = _flat_attr_to_nested(_build_attr(d))
             # 删除原顶层 attr_* 字段（已迁移到 attr nested，避免字段冲突
             for f in list(d.keys()):
                 if f.startswith("attr_"):

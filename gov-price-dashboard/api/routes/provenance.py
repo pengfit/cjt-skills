@@ -1543,8 +1543,11 @@ def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "
         try:
             vs = get_vec_store()
             if pattern and attr:
+                # 规范 attr 命名：去掉 attr_ 前缀，统一为"干净"名称
+                # 兼容 AI 按 prompts.yml 要求生成的 attr_xxx 格式
+                norm_attr = attr[5:] if attr.startswith("attr_") else attr
                 ok = vs.insert(
-                    pattern=pattern, attr=attr, note=note or "",
+                    pattern=pattern, attr=norm_attr, note=note or "",
                     code=code, breed=breed or "", category=category or "",
                     skip_duplicate=True,
                 )

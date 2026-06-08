@@ -223,20 +223,38 @@ class VecStore:
         with self._lock:
             conn = self._get_conn()
             # Build SQL dynamically: breed='' means "no breed filter"
+            # category='' means "no category filter" (skip the AND clause)
             if attr_filter:
-                base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
-                if breed:
-                    sql = base + " AND (breed='' OR breed=?)"
-                    rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
+                if category:
+                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
+                    if breed:
+                        sql = base + " AND (breed='' OR breed=?)"
+                        rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
+                    else:
+                        rows = conn.execute(base, (attr_filter, category)).fetchall()
                 else:
-                    rows = conn.execute(base, (attr_filter, category)).fetchall()
+                    # No category filter: match all categories
+                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=?"
+                    if breed:
+                        sql = base + " AND (breed='' OR breed=?)"
+                        rows = conn.execute(sql, (attr_filter, breed)).fetchall()
+                    else:
+                        rows = conn.execute(base, (attr_filter,)).fetchall()
             else:
-                base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE category=?"
-                if breed:
-                    sql = base + " AND (breed='' OR breed=?)"
-                    rows = conn.execute(sql, (category, breed)).fetchall()
+                if category:
+                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE category=?"
+                    if breed:
+                        sql = base + " AND (breed='' OR breed=?)"
+                        rows = conn.execute(sql, (category, breed)).fetchall()
+                    else:
+                        rows = conn.execute(base, (category,)).fetchall()
                 else:
-                    rows = conn.execute(base, (category,)).fetchall()
+                    # No category filter: match all categories (skip AND category=? clause)
+                    if breed:
+                        sql = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE breed='' OR breed=?"
+                        rows = conn.execute(sql, (breed,)).fetchall()
+                    else:
+                        rows = conn.execute("SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules").fetchall()
 
         results = []
         for row in rows:
