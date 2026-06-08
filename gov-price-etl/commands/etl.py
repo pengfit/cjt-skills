@@ -142,7 +142,9 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         # 回退：用 clean_breed 再查一次（部分规则可能用 clean 格式录入）
         spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
-    attr = {k: v for k, v in spec_parsed.items() if v}
+    flat_attr = {k: v for k, v in spec_parsed.items() if v}
+    # DWD 统一用 nested attr 格式存储，与 DWS 保持一致
+    nested_attr = [{"k": k, "v": v} for k, v in flat_attr.items()]
 
     return {
         "breed": breed_raw,
@@ -167,7 +169,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "citywide_category": raw.get("category", ""),  # 城市材料分类（建安工程材料等），区别于 classify_breed 的 category
         "source_index": source_index,
         "etl_time": datetime.now().isoformat(),
-        **attr,
+        "attr": nested_attr,
     }
 
 
@@ -221,7 +223,11 @@ def _build_dwd_mapping():
         "code":            {"type": "keyword"},
         "source_index":    {"type": "keyword"},
         "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
-        # dynamic: True 让所有 AI 返回的 attr 字段自动入 mapping
+        # attr nested 字段：统一存储解析后的规格参数，与 DWS 保持一致
+        "attr": {
+            "type": "nested",
+            "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
+        },
     }
     return {"mappings": {"properties": base, "dynamic": True}, "settings": {"number_of_shards": 1, "number_of_replicas": 0}}
 
@@ -291,20 +297,32 @@ def bulk_index(es_host: str, index: str, docs: list, ids: list = None, timeout: 
 def _build_attr(doc: dict) -> dict:
     """从 DWD 文档中提取 attr 字段（扁平 dict，仅保留非空值）。
 
-    优先提取 attr_ 前缀字段（ETL 写入），同时兼容顶层扁平字段（手动修复或历史遗留）。
+    优先提取 nested attr 字段（新格式），同时兼容 attr_* 前缀字段和顶层扁平字段（历史遗留）。
     """
     attr = {}
-    # 标准路径：attr_* 前缀字段
-    for f, v in doc.items():
-        if not f.startswith("attr_"):
-            continue
-        if v is None:
-            continue
-        s = str(v).strip()
-        if s and s.lower() not in ("", "null", "none"):
-            attr[f[5:]] = s  # strip "attr_" (5 chars) prefix → diameter, grade, ...
-    # 兼容路径：顶层扁平字段（如 diameter, diameter_range，直接从 parse 结果写入）
-    # 当 attr_* 字段全为空（或根本不存在）导致 attr 为空时，fallback 到顶层字段
+
+    # 标准路径 1：nested attr 字段（当前 transform_doc 写入的格式）
+    nested = doc.get("attr")
+    if nested and isinstance(nested, list):
+        for item in nested:
+            if isinstance(item, dict):
+                k = item.get("k", "")
+                v = item.get("v", "")
+                if k and v and str(v).lower() not in ("", "null", "none"):
+                    attr[k] = str(v)
+
+    # 标准路径 2：attr_* 前缀字段（旧格式 ETL 写入）
+    if not attr:
+        for f, v in doc.items():
+            if not f.startswith("attr_"):
+                continue
+            if v is None:
+                continue
+            s = str(v).strip()
+            if s and s.lower() not in ("", "null", "none"):
+                attr[f[5:]] = s  # strip "attr_" (5 chars) prefix → diameter, grade, ...
+
+    # 兼容路径：顶层扁平字段（手动修复或历史遗留）
     if not attr:
         TOPO_FIELDS = (
             "diameter", "diameter_range",
@@ -541,7 +559,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                         pass
                 upd_body = '\n'.join(
                     json.dumps({"update": {"_id": did}}, ensure_ascii=False) + '\n' +
-                    json.dumps({"doc": attrs}, ensure_ascii=False)
+                    json.dumps({"doc": {"attr": _flat_attr_to_nested(attrs)}}, ensure_ascii=False)
                 )
                 session.post(f"{es_host}/{dwd_idx}/_bulk", data=upd_body.encode("utf-8"),
                             headers={"Content-Type": "application/x-ndjson"}, timeout=60)
@@ -586,9 +604,19 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 if not dws_attrs:
                     dws_attrs = _build_attr(src)
                 nested_attr = {**dws_attrs}
-                for _ak, _av in (src.get("attr") or {}).items():
-                    if _ak not in nested_attr:
-                        nested_attr[_ak] = _av
+                # 合并 src 中的 nested attr（旧格式 dict 兼容 or 新格式 list）
+                _src_attr = src.get("attr")
+                if isinstance(_src_attr, dict):
+                    for _ak, _av in _src_attr.items():
+                        if _ak not in nested_attr:
+                            nested_attr[_ak] = _av
+                elif isinstance(_src_attr, list):
+                    for _item in _src_attr:
+                        if isinstance(_item, dict):
+                            _ak = _item.get("k", "")
+                            _av = _item.get("v", "")
+                            if _ak and _ak not in nested_attr:
+                                nested_attr[_ak] = str(_av)
                 src["attr"] = _flat_attr_to_nested(nested_attr)
                 print(f"  [DEBUG] dws_attrs for spec={doc['spec']}: {dws_attrs}", flush=True)
                 for f in list(src.keys()):
@@ -679,9 +707,6 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 continue
             src = dict(h["_source"])
             src["attr"] = _flat_attr_to_nested(dws_attr)
-            for f in list(src.keys()):
-                if f.startswith("attr_"):
-                    src.pop(f)
             for f in ("date", "publish_time"):
                 if not src.get(f):
                     src.pop(f, None)
