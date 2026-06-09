@@ -92,9 +92,9 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
         # 跳过 category 和 breed 过滤，纯靠 Jaccard 召回 + regex 最终验证
         results = vs.search(
             spec=spec,
-            category="",        # 跳过 category 过滤
-            breed="",           # 跳过 breed 过滤（Jaccard 已做相似度排序）
-            top_k=300,           # 扩大召回量，确保不漏
+            category=category,        # 跳过 category 过滤
+            breed=breed,           # 跳过 breed 过滤（Jaccard 已做相似度排序）
+            top_k=100,          # 扩大召回量，确保不漏
             attr_filter=attr_filter if attr_filter else None,
         )
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
@@ -184,9 +184,28 @@ class BaseParseSpec:
 
             exec_result = {}
             if code:
+                # 规则库 code 首行无缩进、后续行有缩进，dedent 无效；改用：找首行之后的首个缩进作基准，统一去缩进
+                lines = code.split("\n")
+                base_indent = None
+                for l in lines[1:]:
+                    stripped = l.lstrip(" ")
+                    if stripped:
+                        base_indent = len(l) - len(stripped)
+                        break
+                if base_indent is None:
+                    base_indent = 0
+                clean_lines = []
+                for l in lines:
+                    stripped = l.lstrip(" ")
+                    if stripped:
+                        ws = len(l) - len(stripped)
+                        clean_lines.append(l[base_indent:] if ws >= base_indent else l[ws:])
+                    else:
+                        clean_lines.append("")
+                clean_code = "\n".join(clean_lines)
                 safe_globals = {"re": re, "result": exec_result, "s": spec}
                 try:
-                    exec(code, safe_globals)
+                    exec(clean_code, safe_globals)
                 except Exception:
                     pass
 
@@ -198,13 +217,14 @@ class BaseParseSpec:
                     if v and norm_k not in claimed:
                         resolved[norm_k] = v
                         claimed.add(norm_k)
-            else:
+            elif not code:
+                # 无 code 时用 regex groups 做 fallback（纯正则规则）
                 groups = m.groups()
                 val = groups[0] if len(groups) >= 1 else m.group(0)
-                # 规范命名：attr_diameter → diameter
                 norm_attr = attr_name[5:] if attr_name.startswith("attr_") else attr_name
                 if val and norm_attr not in claimed:
                     resolved[norm_attr] = val
                     claimed.add(norm_attr)
+            # else: code 存在但 exec 失败 → 跳过，不 claim attr，留给其他规则
 
         return resolved

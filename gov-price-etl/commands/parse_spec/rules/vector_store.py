@@ -219,6 +219,10 @@ class VecStore:
         无命中 → 返回空列表（不降级，不复用旧规则）。
         """
         spec_tokens = _build_spec_tokens(spec or "") or set()
+        # _build_spec_tokens 对含字母的 spec（如 Φ14 HRB500E）返回空 set，
+        # 此时用 _tokenize 兜底，避免所有规则 score=1.0 打乱排序。
+        if not spec_tokens:
+            spec_tokens = _tokenize(spec or "") or set()
 
         with self._lock:
             conn = self._get_conn()
@@ -261,8 +265,17 @@ class VecStore:
             rule = self._row_to_rule(row)
             if spec_tokens:
                 score = _keyword_score(spec_tokens, rule["tokens"])
+                # 降级策略：keyword score >= 0.001 正常保留；
+                # score == 0 但 regex 能匹配 spec → 强制加入（解决 Φ HRB 等规则 token 不 overlap 的问题）
                 if score < 0.001:
-                    continue
+                    try:
+                        import re
+                        if not re.search(rule["pattern"], spec or ""):
+                            continue
+                    except re.error:
+                        continue
+                    # regex 能匹配但 score 为 0，给一个低分使其排在后面
+                    score = 0.0001
             else:
                 score = 1.0
             results.append((score, rule))
