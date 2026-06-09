@@ -21,6 +21,10 @@ fix_case:
           - 相同业务属性仅允许生成一个 suggestion
           - suggestions 数量 = 最终识别出的属性数量
           - 遇到复合型的内容要拆分任何有可能的业务属性（重要）
+          - 值相同时禁止并存
+            例如：Φ20 Q235 
+              正确：{diameter:20mm, material:Q235}
+              错误：{diameter:20mm, material:Q235, outer_diameter:20mm, grade:Q235}
 
         2. 业务属性命名要求
 
@@ -61,6 +65,7 @@ fix_case:
             钢板: 2000×1000×10 → length, width, thickness
             矩形管: 200×100×6 → height, width, thickness
             H型钢: 200×200×8×12 → height, width, web_thickness, flange_thickness
+            工字钢: Q235B 10-16# → material=Q235B, grade=10-16#（号-号范围，#表示I-beam尺寸号）
             电缆: 3×2.5 → core_count, cross_section_area
             螺纹钢: Φ25×12m → diameter, length
 
@@ -187,6 +192,7 @@ fix_case:
             要求：
               - Pattern 与 suggestion.pattern 一致
               - result 保存最终值（含单位）
+              - 代码格式必须对齐
 
             示例：
               m = re.search(r'^DN(\\d+)$', s)
@@ -384,11 +390,10 @@ batch_spec_parse:
           - 相同业务属性仅允许生成一个 suggestion
           - suggestions 数量 = 最终识别出的属性数量
           - 遇到复合型的内容要拆分任何有可能的业务属性（非常重要）
-              例如：Φ20 Q235 
+          - 值相同时禁止并存
+            例如：Φ20 Q235 
               正确：{diameter:20mm, material:Q235}
               错误：{diameter:20mm, material:Q235, outer_diameter:20mm, grade:Q235}
-          - **值相同时禁止并存**：当 diameter 与 outer_diameter 值相同，只保留 diameter；当 material 与 grade 值相同，只保留 material
-              例如：Φ22 Q235 → {diameter:22mm, material:Q235}（不能同时出现 outer_diameter 和 grade）
         2. 业务属性命名要求
 
           - 优先使用以下名称:
@@ -428,6 +433,7 @@ batch_spec_parse:
             钢板: 2000×1000×10 → length, width, thickness
             矩形管: 200×100×6 → height, width, thickness
             H型钢: 200×200×8×12 → height, width, web_thickness, flange_thickness
+            工字钢: Q235B 10-16# → material=Q235B, grade=10-16#（号-号范围，#表示I-beam尺寸号）
             电缆: 3×2.5 → core_count, cross_section_area
             螺纹钢: Φ25×12m → diameter, length
 
@@ -554,6 +560,7 @@ batch_spec_parse:
             要求：
               - Pattern 与 suggestion.pattern 一致
               - result 保存最终值（含单位）
+              - 代码格式必须对齐
 
             示例：
               m = re.search(r'^DN(\\d+)$', s)

@@ -2254,8 +2254,27 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
             if code_block:
                 try:
                     import re as re_mod
+                    raw = code_block if isinstance(code_block, str) else "\n".join(code_block)
+                    lines = raw.split("\n")
+                    base_indent = None
+                    for l in lines[1:]:
+                        stripped = l.lstrip(" ")
+                        if stripped:
+                            base_indent = len(l) - len(stripped)
+                            break
+                    if base_indent is None:
+                        base_indent = 0
+                    clean_lines = []
+                    for l in lines:
+                        stripped = l.lstrip(" ")
+                        if stripped:
+                            ws = len(l) - len(stripped)
+                            clean_lines.append(l[base_indent:] if ws >= base_indent else l[ws:])
+                        else:
+                            clean_lines.append("")
+                    cb = "\n".join(clean_lines)
                     exec_globals = {"result": {}, "re": re_mod, "s": spec}
-                    exec(code_block if isinstance(code_block, str) else "\n".join(code_block), exec_globals)
+                    exec(cb, exec_globals)
                     attr.update(exec_globals.get("result", {}))
                 except Exception:
                     pass
