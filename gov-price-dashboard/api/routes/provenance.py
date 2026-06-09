@@ -2144,11 +2144,11 @@ def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
     tmpl = prompts_cfg.get("template", "")
     ref_attr_names = _get_ref_attr_names()
     lines = []
-    for i, item in enumerate(items[:batch_size]):
+    for i, item in enumerate(items[:batch_size], 1):
         spec = item.get("spec", "")
         breed = item.get("breed", "")
         cat = item.get("category", "")
-        lines.append(f'规格文本: {spec} ，产品提示: {breed} ，分类提示: {cat}')
+        lines.append(f'[{i}] 规格: {spec} | 产品: {breed} | 分类: {cat}')
     specs_str = "\n".join(lines)
     try:
         return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_names}", ref_attr_names)
@@ -2177,12 +2177,12 @@ def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
             {"role": "user", "content": prompt},
         ],
         "user": "batch-spec-parse-agent",
-        "max_tokens": 4096,
-        "temperature": 0.1,
+        "max_tokens": 2048,
+        "temperature": 0.0,
     }).encode("utf-8")
 
     try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=300)
+        c = http.client.HTTPConnection("localhost", 18789, timeout=120)
         c.request("POST", "/v1/chat/completions", body=body, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",

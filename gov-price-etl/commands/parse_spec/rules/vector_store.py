@@ -159,14 +159,16 @@ class VecStore:
         self._lock = threading.Lock()
         self._conn = None  # per-process persistent connection
         with self._lock:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(db_path, timeout=30)
+            conn.execute('PRAGMA journal_mode=WAL')
             _ensure_schema(conn)
             conn.close()
 
     def _get_conn(self) -> sqlite3.Connection:
         """Return the persistent connection, creating it if needed."""
         if self._conn is None:
-            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30)
+            self._conn.execute('PRAGMA journal_mode=WAL')
             _ensure_schema(self._conn)
         return self._conn
 
@@ -314,7 +316,8 @@ class VecStore:
 
         count = 0
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30)
+            conn.execute('PRAGMA journal_mode=WAL')
             conn.execute("DELETE FROM breed_spec_rules")
             conn.commit()
 
@@ -391,7 +394,8 @@ class VecStore:
 
     def clear(self) -> None:
         with self._lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30)
+            conn.execute('PRAGMA journal_mode=WAL')
             conn.execute("DELETE FROM breed_spec_rules")
             conn.commit()
             conn.close()
