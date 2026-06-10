@@ -1830,9 +1830,7 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
             {"role": "system", "content": system_msg},
             {"role": "user", "content": prompt},
         ],
-        "user": "spec-fix-agent",
-        "max_tokens": 1024,
-        "temperature": 0.1,
+        "user": "spec-fix-agent"
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -1958,9 +1956,7 @@ def _call_classify_batch_llm(breeds: list[str]) -> dict:
             {"role": "system", "content": system_msg},
             {"role": "user", "content": prompt},
         ],
-        "user": "classify-agent",
-        "max_tokens": 2048,
-        "temperature": 0.1,
+        "user": "classify-agent"
     }).encode("utf-8")
 
     try:
@@ -2177,8 +2173,6 @@ def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
             {"role": "user", "content": prompt},
         ],
         "user": "batch-spec-parse-agent",
-        "max_tokens": 2048,
-        "temperature": 0.0,
     }).encode("utf-8")
 
     try:

@@ -134,22 +134,24 @@
             />
           </div>
           <div class="filter-group">
-            <label class="filter-label">分类</label>
-            <CustomSelect
-              v-model="searchCategory"
-              :options="categoryOptions"
-              placeholder="全部分类"
-              :searchable="true"
-              @change="doSearch"
-            />
-          </div>
-          <div class="filter-group">
             <label class="filter-label">所属系统</label>
             <CustomSelect
               v-model="searchCategorySystem"
               :options="systemOptions"
               placeholder="全部系统"
               :searchable="true"
+              :count-suffix="true"
+              @change="doSearch"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">分类</label>
+            <CustomSelect
+              v-model="searchCategory"
+              :options="categoryGroupedOptions.length ? categoryGroupedOptions : categoryOptions"
+              placeholder="全部分类"
+              :searchable="true"
+              :grouped="categoryGroupedOptions.length > 0"
               @change="doSearch"
             />
           </div>
@@ -402,6 +404,7 @@ const searchCounty = ref('')
 const searchCategory = ref('')
 const searchCategorySystem = ref('')
 const categoryOptions = ref([])
+const categoryGroupedOptions = ref([])
 const systemOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
@@ -838,14 +841,45 @@ async function loadCityOptions() {
 async function loadCategoryOptions() {
   const d = await loadAPI(`${API}/stats/overview`)
   if (d?.by_category) {
-    categoryOptions.value = d.by_category.map(c => ({ key: c.category, count: c.count }))
-    // 构造所属系统选项（去重）
-    const sysSet = new Set()
+    categoryOptions.value = d.by_category.map(c => ({ key: c.category, count: c.count, system: c.category_system || '' }))
+    // 构造所属系统选项（去重 + 排序）
+    const sysMap = new Map()  // system name → total count
     for (const c of d.by_category) {
-      if (c.category_system) sysSet.add(c.category_system)
+      if (!c.category_system) continue
+      sysMap.set(c.category_system, (sysMap.get(c.category_system) || 0) + c.count)
     }
-    systemOptions.value = Array.from(sysSet).sort().map(k => ({ key: k, count: 0 }))
+    systemOptions.value = Array.from(sysMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
+      .map(([k, cnt]) => ({ key: k, count: cnt }))
+    // 构造“分类”下拉按所属系统分组
+    categoryGroupedOptions.value = buildGroupedCategoryOptions(d.by_category)
   }
+}
+
+function buildGroupedCategoryOptions(items) {
+  const groups = new Map()  // system → [categories]
+  const noSystem = []
+  for (const c of items) {
+    const sys = (c.category_system || '').trim()
+    if (sys) {
+      if (!groups.has(sys)) groups.set(sys, [])
+      groups.get(sys).push({ key: c.category, count: c.count })
+    } else {
+      noSystem.push({ key: c.category, count: c.count })
+    }
+  }
+  const result = []
+  // 排序：有系统的按中文名升序；每个组内的分类也按中文名升序
+  const sortedSystems = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  for (const sys of sortedSystems) {
+    const list = groups.get(sys).sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
+    result.push({ group: sys, options: list })
+  }
+  if (noSystem.length) {
+    noSystem.sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
+    result.push({ group: '未分类', options: noSystem })
+  }
+  return result
 }
 
 async function onMount() {

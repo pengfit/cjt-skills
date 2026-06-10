@@ -1,11 +1,11 @@
 <template>
   <span class="attr-tags">
     <span
-      v-for="(val, key) in flatAttrs"
-      :key="key"
+      v-for="item in flatAttrs"
+      :key="item.key"
       class="attr-tag"
-      :class="valTagClass(val)"
-    >{{ val }}</span>
+      :class="valTagClass(item.val)"
+    >{{ item.val }}</span>
   </span>
 </template>
 
@@ -17,28 +17,40 @@ const props = defineProps({
   limit: { type: Number, default: 0 }  // 0 = no limit
 })
 
-// 将嵌套对象拍平为 key:value 字符串数组
+// 将 attr（数组 [{k,v},...] 或对象 {key:value}）拍平为 [{key, val}, ...]
 const flatAttrs = computed(() => {
   const result = []
-  for (const [k, v] of Object.entries(props.attr)) {
-    if (v === null || v === undefined || v === '') continue
-    if (typeof v === 'object') {
-      for (const [sk, sv] of Object.entries(v)) {
-        if (sv === null || sv === undefined || sv === '') continue
-        result.push(`${k}${sk}:${sv}`)
-      }
-    } else {
-      result.push(`${k}:${v}`)
+  const attr = props.attr
+
+  // 1) 数组格式：[{"k": "diameter", "v": "18mm"}, ...]
+  if (Array.isArray(attr)) {
+    for (const item of attr) {
+      if (!item || typeof item !== 'object') continue
+      const k = item.k ?? item.key ?? ''
+      const v = item.v ?? item.val ?? item.value ?? ''
+      if (!k || v === '' || v === null || v === undefined) continue
+      result.push({ key: String(k), val: String(v) })
     }
   }
-  const list = result.map(s => {
-    const idx = s.indexOf(':')
-    return { key: s.slice(0, idx), val: s.slice(idx + 1) }
-  })
-  if (props.limit > 0 && list.length > props.limit) {
-    return list.slice(0, props.limit)
+  // 2) 对象格式：{diameter: "18mm", grade: "HRB400E"}
+  else if (attr && typeof attr === 'object') {
+    for (const [k, v] of Object.entries(attr)) {
+      if (v === null || v === undefined || v === '') continue
+      if (typeof v === 'object') {
+        for (const [sk, sv] of Object.entries(v)) {
+          if (sv === null || sv === undefined || sv === '') continue
+          result.push({ key: `${k}${sk}`, val: String(sv) })
+        }
+      } else {
+        result.push({ key: String(k), val: String(v) })
+      }
+    }
   }
-  return list
+
+  if (props.limit > 0 && result.length > props.limit) {
+    return result.slice(0, props.limit)
+  }
+  return result
 })
 
 function valTagClass(val) {

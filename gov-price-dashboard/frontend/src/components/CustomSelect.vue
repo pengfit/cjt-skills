@@ -13,18 +13,37 @@
           <input class="cs-search" v-model="searchText" :placeholder="'搜索...'" @keydown.escape="close" @keydown.down.prevent="moveFocus(1)" @keydown.up.prevent="moveFocus(-1)" @keydown.enter.prevent="selectFocused" ref="searchInput" />
         </div>
         <div class="cs-options" ref="optionsRef">
-          <div
-            v-for="(opt, idx) in filteredOptions"
-            :key="opt.key"
-            class="cs-option"
-            :class="{ selected: opt.key === modelValue, focused: focusedIdx === idx }"
-            @click="select(opt)"
-            @mouseenter="focusedIdx = idx"
-          >
-            <span class="cs-opt-label">{{ opt.label || opt.key }}</span>
-            <span v-if="opt.count != null" class="cs-opt-count">{{ Number(opt.count).toLocaleString() }}</span>
-          </div>
-          <div v-if="!filteredOptions.length" class="cs-empty">无结果</div>
+          <template v-if="grouped">
+            <template v-for="(group, gIdx) in filteredOptions" :key="group.group">
+              <div class="cs-optgroup-label">{{ group.group }}</div>
+              <div
+                v-for="(opt, idx) in group.options"
+                :key="opt.key"
+                class="cs-option"
+                :class="{ selected: opt.key === modelValue, focused: focusedIdx === flatIdx(gIdx, idx) }"
+                @click="select(opt)"
+                @mouseenter="focusedIdx = flatIdx(gIdx, idx)"
+              >
+                <span class="cs-opt-label">{{ opt.label || opt.key }}</span>
+                <span v-if="opt.count != null" class="cs-opt-count">{{ Number(opt.count).toLocaleString() }}</span>
+              </div>
+            </template>
+            <div v-if="!flatLength" class="cs-empty">无结果</div>
+          </template>
+          <template v-else>
+            <div
+              v-for="(opt, idx) in filteredOptions"
+              :key="opt.key"
+              class="cs-option"
+              :class="{ selected: opt.key === modelValue, focused: focusedIdx === idx }"
+              @click="select(opt)"
+              @mouseenter="focusedIdx = idx"
+            >
+              <span class="cs-opt-label">{{ opt.label || opt.key }}</span>
+              <span v-if="opt.count != null" class="cs-opt-count">{{ Number(opt.count).toLocaleString() }}</span>
+            </div>
+            <div v-if="!filteredOptions.length" class="cs-empty">无结果</div>
+          </template>
         </div>
       </div>
     </Transition>
@@ -36,11 +55,12 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
-  options: { type: Array, default: () => [] }, // [{key, label?, count?}]
+  options: { type: Array, default: () => [] }, // [{key, label?, count?}] 或 grouped=true 时 [{group, options: [{key, label?, count?}]}]
   placeholder: { type: String, default: '请选择' },
   disabled: { type: Boolean, default: false },
   searchable: { type: Boolean, default: false },
   countSuffix: { type: Boolean, default: false },  // show (count) after label
+  grouped: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -61,8 +81,35 @@ const displayText = computed(() => {
 const filteredOptions = computed(() => {
   if (!searchText.value) return props.options
   const q = searchText.value.toLowerCase()
+  if (props.grouped) {
+    // 分组模式：每个 group 内部过滤，再过滤空组
+    return props.options
+      .map(g => ({
+        group: g.group,
+        options: (g.options || []).filter(o =>
+          (o.key || '').toLowerCase().includes(q) ||
+          (o.label || '').toLowerCase().includes(q) ||
+          (g.group || '').toLowerCase().includes(q)
+        )
+      }))
+      .filter(g => g.options.length > 0)
+  }
   return props.options.filter(o => (o.key || '').toLowerCase().includes(q) || (o.label || '').toLowerCase().includes(q))
 })
+
+const flatLength = computed(() => {
+  if (!props.grouped) return filteredOptions.value.length
+  return filteredOptions.value.reduce((sum, g) => sum + (g.options?.length || 0), 0)
+})
+
+// 将 (groupIdx, optIdx) 映射到一维的 focusedIdx 位置
+function flatIdx(gIdx, oIdx) {
+  let idx = 0
+  for (let i = 0; i < gIdx; i++) {
+    idx += filteredOptions.value[i].options.length
+  }
+  return idx + oIdx
+}
 
 function toggle() {
   if (props.disabled) return
@@ -107,24 +154,46 @@ function openAndFocusLast() {
 }
 
 function moveFocus(dir) {
-  if (!filteredOptions.value.length) return
+  const total = flatLength.value
+  if (!total) return
   const start = focusedIdx.value < 0 ? 0 : focusedIdx.value
   let next = start + dir
-  if (next < 0) next = filteredOptions.value.length - 1
-  if (next >= filteredOptions.value.length) next = 0
+  if (next < 0) next = total - 1
+  if (next >= total) next = 0
   focusedIdx.value = next
   scrollToIdx(next)
 }
 
 function selectFocused() {
-  if (focusedIdx.value >= 0 && filteredOptions.value[focusedIdx.value]) {
+  if (props.grouped) {
+    let idx = focusedIdx.value
+    for (const g of filteredOptions.value) {
+      if (idx < g.options.length) {
+        select(g.options[idx])
+        return
+      }
+      idx -= g.options.length
+    }
+  } else if (focusedIdx.value >= 0 && filteredOptions.value[focusedIdx.value]) {
     select(filteredOptions.value[focusedIdx.value])
   }
 }
 
 function scrollToIdx(idx) {
   nextTick(() => {
-    const el = optionsRef.value?.children[idx]
+    const children = optionsRef.value?.children || []
+    let el = null
+    if (props.grouped) {
+      // children 含 optgroup-label + option，跳过 label
+      let realIdx = 0
+      for (const c of children) {
+        if (c.classList.contains('cs-optgroup-label')) continue
+        if (realIdx === idx) { el = c; break }
+        realIdx++
+      }
+    } else {
+      el = children[idx]
+    }
     el?.scrollIntoView({ block: 'nearest' })
   })
 }
@@ -248,6 +317,22 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
 .cs-opt-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-family: 'DIN Alternate', monospace; }
 
 .cs-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
+
+.cs-optgroup-label {
+  padding: 6px 10px 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--surface-3);
+  text-transform: none;
+  letter-spacing: 0.3px;
+  border-top: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.cs-optgroup-label:first-child { border-top: none; }
+.cs-options .cs-option { padding-left: 18px; }
 
 /* Transition */
 .cs-drop-enter-active, .cs-drop-leave-active { transition: opacity 0.15s, transform 0.15s; }
