@@ -15,7 +15,8 @@ import requests
 from datetime import datetime
 from commands.utils import (
     SiteSession, parse_page_date, parse_county, parse_total_records, parse_table_rows,
-    get_last_update_date, get_last_update_date_by_county, spot_check_county, save_sync_time, ensure_index, load_config, COUNTY_CODES
+    get_last_update_date, get_last_update_date_by_county, spot_check_county, save_sync_time, ensure_index, load_config, COUNTY_CODES,
+    list_all_years, normalize_period,
 )
 
 interrupted = False
@@ -38,7 +39,12 @@ def _print_page_line(page, total_pages, rows_len, docs_written, dry_run):
 
 
 class ProgressStore:
-    """本地进度持久化"""
+    """本地进度持久化
+
+    key 格式:
+        - 旧格式: <county>  （不指定 period 时使用）
+        - 新格式: <county>@<period>  （指定 period 时使用）
+    """
 
     def __init__(self, store_dir=None):
         if store_dir is None:
@@ -55,8 +61,16 @@ class ProgressStore:
                 pass
         return {}
 
-    def save(self, county, page, update_date, total_records, docs_written):
-        self.data[county] = {
+    @staticmethod
+    def _key(county, period=''):
+        if period:
+            return f"{county}@{period}"
+        return county
+
+    def save(self, county, page, update_date, total_records, docs_written, period=''):
+        self.data[self._key(county, period)] = {
+            'county': county,
+            'period': period,
             'page': page,
             'update_date': update_date,
             'total_records': total_records,
@@ -69,12 +83,25 @@ class ProgressStore:
         except Exception:
             pass
 
-    def get_page(self, county):
-        return self.data.get(county, {}).get('page', 1)
+    def get_page(self, county, period=''):
+        return self.data.get(self._key(county, period), {}).get('page', 1)
 
-    def clear(self, county):
-        if county in self.data:
-            del self.data[county]
+    def clear(self, county, period=''):
+        key = self._key(county, period)
+        if key in self.data:
+            del self.data[key]
+            try:
+                with open(self.path, 'w', encoding='utf-8') as f:
+                    json.dump(self.data, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+    def clear_county(self, county):
+        """清除该区县所有 period 的进度"""
+        keys = [k for k in self.data if k == county or k.startswith(f"{county}@")]
+        for k in keys:
+            del self.data[k]
+        if keys:
             try:
                 with open(self.path, 'w', encoding='utf-8') as f:
                     json.dump(self.data, f, ensure_ascii=False, indent=2)
@@ -204,17 +231,30 @@ class ProgressLogger:
             pass
 
 
-def _doc_id(breed, code, spec, county, update_date, price="", tax_price=""):
-    raw = f"{breed}_{code}_{spec}_{county}_{update_date}_{price}_{tax_price}"
+def _doc_id(breed, code, spec, county, update_date, price="", tax_price="", period=""):
+    """计算 ES doc _id
+
+    优先用 period（YYYY-MM）作维度粒度，保证同一材料不同月份有不同 _id。
+    无 period 时退化为 update_date（兼容旧版）。
+    """
+    period_key = period or update_date or ''
+    raw = f"{breed}_{code}_{spec}_{county}_{period_key}_{price}_{tax_price}"
     return hashlib.md5(raw.encode('utf-8')).hexdigest()
 
 
-def _make_doc(r, county, update_date):
-    """构建写入 ES 的 doc，_id = MD5(breed+code+spec+county+update_date)，幂等"""
+def _make_doc(r, county, update_date, period="", gkbh="", published_at=""):
+    """构建写入 ES 的 doc
+
+    字段语义:
+        update_date:   页脚"更新时间" YYYY-MM-DD（始终保持原行为，保证 ES date 映射合法）
+        period:        YYYY-MM（所属月份，传了才写入）
+        gkbh:          源站周期 ID（传了才写入）
+        published_at:  与 update_date 同义（传了才写入，查询起来语义更清晰）
+    """
     breed = r.get('breed', '')
     code = r.get('code', '')
     spec = r.get('spec', '')
-    doc_id = _doc_id(breed, code, spec, county, update_date or '', price=r.get('price',''), tax_price=r.get('tax_price',''))
+    doc_id = _doc_id(breed, code, spec, county, update_date or '', price=r.get('price',''), tax_price=r.get('tax_price',''), period=period)
     doc = {
         **r,
         '_id': doc_id,
@@ -224,6 +264,12 @@ def _make_doc(r, county, update_date):
         'update_date': update_date or '',
         'create_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
+    if period:
+        doc['month'] = period  # 用 'month' 避免被 ES dynamic mapping 推断为 date
+    if gkbh:
+        doc['gkbh'] = gkbh
+    if published_at:
+        doc['published_at'] = published_at
     return doc
 
 
@@ -243,6 +289,17 @@ def main():
     parser.add_argument('--reset', action='store_true')
     parser.add_argument('--no-log', action='store_true')
     parser.add_argument('--no-spot-check', action='store_true')
+    # 周期筛选（按区县 X 造价信息表月份 抓取）
+    parser.add_argument('--period', type=str, default=None,
+                        help='指定周期，逗号分隔，如 2026-01,2026-02')
+    parser.add_argument('--periods-year', type=int, default=None,
+                        help='指定整年的所有月份，如 2026')
+    parser.add_argument('--periods-all', action='store_true',
+                        help='抓取所有有数据的年月（源站 2024 至今）')
+    parser.add_argument('--list-periods', action='store_true',
+                        help='只列出可用周期，不抓取')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='预览模式（不写入 ES）')
     args = parser.parse_args()
 
     script_dir = __file__.rsplit('/', 1)[0]
@@ -257,8 +314,29 @@ def main():
 
     logger = ProgressLogger(es_host, progress_index=config['es'].get('progress_index')) if not args.no_log else None
 
+    # ── --list-periods 模式：只列可用周期，不抓取 ──
+    if args.list_periods:
+        print("\n[i] 可用周期列表（按区县×年）：")
+        list_sess = SiteSession(max_retries=2, timeout=15)
+        list_counties = counties
+        if args.counties:
+            list_counties = [c.strip() for c in args.counties.split(',')]
+        years = [args.periods_year] if args.periods_year else list_all_years(list_counties[0], list_sess) if list_counties else list_all_years('阎良区', list_sess)
+        for county in list_counties:
+            print(f"\n  === {county} ===")
+            for y in (years or []):
+                ps = list_sess.list_periods(county, y)
+                if not ps:
+                    continue
+                # 按 period 升序
+                ps_sorted = sorted([p for p in ps if p.get('period')], key=lambda x: x['period'])
+                for p in ps_sorted:
+                    print(f"    {p['period']:8s}  gkbh={p['id']}  {p['name']}")
+        sys.exit(0)
+
     # ── 增量抽检（可跳过）──
-    if not args.no_spot_check:
+    has_period = bool(args.period or args.periods_year or args.periods_all)
+    if not args.no_spot_check and not has_period:
         print("\n[i] 增量抽检：ES入库最早10条 vs 网站首页记录")
         spot_issues = []
         try:
@@ -326,8 +404,16 @@ def main():
 
     if args.reset:
         for county in counties:
-            progress.clear(county)
+            progress.clear_county(county)
         print("[i] 已重置所有进度")
+
+    # ── 构建抓取任务列表（带 period 时返回 jobs，否则返回空走老逻辑）──
+    jobs_sess = SiteSession(max_retries=2, timeout=15)
+    jobs = _build_jobs(counties, args, jobs_sess)
+    if jobs:
+        print(f"[i] 按周期抓取：共 {len(jobs)} 个任务")
+        for j in jobs:
+            print(f"     - {j['county']} {j['period']} (gkbh={j['gkbh']})")
 
 
     print(f"\n{'='*60}")
@@ -342,7 +428,10 @@ def main():
     new_update_date = None
     county_start_time = None
 
-    for county in counties:
+    # 构造循环列表：job = {'county', 'period', 'gkbh'}；period='' 走老逻辑
+    loop_jobs: list = jobs if jobs else [{'county': c, 'period': '', 'gkbh': ''} for c in counties]
+
+    for job in loop_jobs:
         if interrupted:
             if logger:
                 logger.state["status"] = logger.STATUS_INTERRUPTED
@@ -352,18 +441,24 @@ def main():
             print("\n[!] 已中断，进度已保存")
             break
 
-        start_page = progress.get_page(county)
+        county = job['county']
+        period = job.get('period', '')
+        gkbh = job.get('gkbh', '')
+
+        start_page = progress.get_page(county, period)
         if start_page > 1 and not args.reset:
-            print(f"[i] 检测到 {county} 上次同步到第 {start_page} 页，自动续传")
+            label = f"{county} {period}".strip() if period else county
+            print(f"[i] 检测到 {label} 上次同步到第 {start_page} 页，自动续传")
         else:
             start_page = 1
-            progress.clear(county)
+            progress.clear(county, period)
 
         county_start_time = time.time()
-        print(f"\n[▼] 区县: {county}")
+        job_label = f"{county} {period}".strip() if period else county
+        print(f"\n[▼] 任务: {job_label}" + (f"  (gkbh={gkbh})" if gkbh else ""))
         session = SiteSession(max_retries=5, timeout=60)
 
-        html = session.fetch(county, page=start_page)
+        html = session.fetch(county, page=start_page, gkbh=gkbh or None)
         if not html:
             msg = f"第{start_page}页抓取失败"
             print(f"  [!] {msg}")
@@ -372,23 +467,30 @@ def main():
             continue
 
         page_county = parse_county(html)
-        update_date = parse_page_date(html)
+        page_published_at = parse_page_date(html)
         total_records = parse_total_records(html)
         rows = parse_table_rows(html)
         total_pages = (total_records + 9) // 10 if total_records > 0 else 0
 
+        # update_date 始终用页脚 YYYY-MM-DD（ES date 映射要求）
+        # month（YYYY-MM）和 gkbh 是另外两个独立字段，供周期查询用
+        doc_update_date = page_published_at or ''
+        # 无 period 模式：不写 published_at（避免与 update_date 冗余）
+        published_at = page_published_at or '' if period else ''
+
         marker = f"@{start_page}起始" if start_page > 1 else ""
-        print(f"  [{page_county}{marker}] | {update_date} | 共{total_records}条 | 约{total_pages}页")
+        period_label = f" 周期={period}" if period else ""
+        print(f"  [{page_county or county}{marker}{period_label}] | 页脚={page_published_at} | 共{total_records}条 | 约{total_pages}页")
 
         if logger:
-            logger.state["current_county"] = county
+            logger.state["current_county"] = job_label
             logger.state["status"] = logger.STATUS_RUNNING
             logger.state["current_page"] = start_page
             logger.state["total_pages"] = total_pages
             logger.state["total_records"] = total_records
             logger.state["docs_written"] = 0
             logger.state["percent"] = 0.0
-            logger.state["update_date"] = update_date or ""
+            logger.state["update_date"] = doc_update_date or ""
             logger.state["error"] = ""
             logger._upsert()
 
@@ -397,22 +499,23 @@ def main():
         county_docs = 0
 
         if rows:
-            page_docs = _write_docs(es_host, es_index, rows, county, update_date, dry_run)
+            page_docs = _write_docs(es_host, es_index, rows, county, doc_update_date, dry_run,
+                                     period=period, gkbh=gkbh, published_at=published_at)
             _print_page_line(start_page, total_pages, len(rows), page_docs, dry_run)
             county_docs += page_docs
             total_docs += page_docs
 
-        if update_date and (new_update_date is None or update_date > new_update_date):
-            new_update_date = update_date
+        if doc_update_date and (new_update_date is None or doc_update_date > new_update_date):
+            new_update_date = doc_update_date
 
         if total_pages == 0 or total_pages > args.max_pages:
             total_pages = args.max_pages
 
         if not dry_run:
-            progress.save(county, start_page, update_date, total_records, county_docs)
+            progress.save(county, start_page, doc_update_date, total_records, county_docs, period=period)
             if logger:
                 elapsed = time.time() - start_time
-                logger.page_progress(start_page, total_pages, county_docs, total_records, update_date or '', elapsed)
+                logger.page_progress(start_page, total_pages, county_docs, total_records, doc_update_date or '', elapsed)
 
         consecutive_empty = 0
 
@@ -426,7 +529,7 @@ def main():
                     logger._upsert()
                 break
 
-            html = session.fetch(county, page)
+            html = session.fetch(county, page, gkbh=gkbh or None)
             if not html:
                 msg = f"页 {page} 抓取失败"
                 print(f"\n  [!] {msg}")
@@ -434,8 +537,10 @@ def main():
                     logger.state["status"] = logger.STATUS_ERROR; logger.state["error"] = msg; logger._upsert()
                 break
 
-            update_date = parse_page_date(html)
+            page_published_at = parse_page_date(html)
             rows = parse_table_rows(html)
+            doc_update_date = page_published_at or ''
+            published_at = page_published_at or '' if period else ''
 
             _print_page_line(page, total_pages, len(rows), 0, dry_run)
 
@@ -451,22 +556,24 @@ def main():
                 continue
             consecutive_empty = 0
 
-            if update_date and effective_last_date and not force and update_date < effective_last_date:
-                print(f"\n  [✓] 停止：{update_date} < {effective_last_date}")
+            if not period and doc_update_date and effective_last_date and not force and doc_update_date < effective_last_date:
+                # 仅无 period 模式（YYYY-MM-DD 粒度）才做增量判断
+                print(f"\n  [✓] 停止：{doc_update_date} < {effective_last_date}")
                 break
 
-            page_docs = _write_docs(es_host, es_index, rows, county, update_date, dry_run)
+            page_docs = _write_docs(es_host, es_index, rows, county, doc_update_date, dry_run,
+                                     period=period, gkbh=gkbh, published_at=published_at)
             _print_page_line(page, total_pages, len(rows), page_docs, dry_run)
             county_docs += page_docs
             total_docs += page_docs
 
-            if update_date and (new_update_date is None or update_date > new_update_date):
-                new_update_date = update_date
+            if doc_update_date and (new_update_date is None or doc_update_date > new_update_date):
+                new_update_date = doc_update_date
 
-            progress.save(county, page, update_date, total_records, county_docs)
+            progress.save(county, page, doc_update_date, total_records, county_docs, period=period)
             if logger:
                 elapsed = time.time() - start_time
-                logger.page_progress(page, total_pages, county_docs, total_records, update_date or '', elapsed)
+                logger.page_progress(page, total_pages, county_docs, total_records, doc_update_date or '', elapsed)
 
             if interrupted:
                 print(f"\n  [!] 页 {page} 中断，已保存进度")
@@ -481,11 +588,11 @@ def main():
 
         if interrupted:
             # 中断时页码已由上面循环内的 if 处理
-            print(f"\n  [{county}] 中断于页 ~{page}，进度已保存")
+            print(f"\n  [{job_label}] 中断于页 ~{page}，进度已保存")
         else:
-            progress.clear(county)
+            progress.clear(county, period)
             duration = time.time() - county_start_time
-            print(f"\n  [{county}] ✓ 完成 (写入 {county_docs} 条, {duration:.0f}s)")
+            print(f"\n  [{job_label}] ✓ 完成 (写入 {county_docs} 条, {duration:.0f}s)")
             if logger:
                 logger.finish_county(county_docs, duration)
 
@@ -503,10 +610,80 @@ def main():
     print(f"{'='*60}")
 
 
-def _write_docs(es_host, es_index, rows, county, update_date, dry_run):
+def _build_jobs(counties: list, args, session: SiteSession) -> list:
+    """根据 --period/--periods-year/--periods-all 构建抓取任务列表
+
+    Returns:
+        [
+            {'county': '阎良区', 'period': '2026-01', 'gkbh': '0000000595'},
+            {'county': '阎良区', 'period': '2026-02', 'gkbh': '0000000617'},
+            ...
+        ]
+
+        若三个参数都没传，返回空列表，调用方走 "全量页码" 逻辑。
+    """
+    has_period = bool(args.period or args.periods_year or args.periods_all)
+    if not has_period:
+        return []
+
+    wanted_periods: set = set()
+    if args.period:
+        for p in args.period.split(','):
+            p = normalize_period(p)
+            if p:
+                wanted_periods.add(p)
+    if args.periods_year:
+        y = args.periods_year
+        for m in range(1, 13):
+            wanted_periods.add(f"{y}-{m:02d}")
+    # --periods-all: 调用 list_all_years 获取所有有数据的年份
+    years_to_scan = []
+    if args.periods_all or args.periods_year:
+        # 全量扫描：由 list_all_years 决定
+        if args.periods_all:
+            for c in counties:
+                ys = list_all_years(c, session)
+                for y in ys:
+                    if y not in years_to_scan:
+                        years_to_scan.append(y)
+        else:
+            years_to_scan = [args.periods_year]
+
+    jobs = []
+    for county in counties:
+        # 合并：该区县在 wanted_periods 中的 + 该区县在扫描年里的所有 period
+        county_periods = set()
+        if wanted_periods:
+            county_periods |= wanted_periods
+        if years_to_scan:
+            for y in years_to_scan:
+                ps = session.list_periods(county, y)
+                for p in ps:
+                    if p.get('period'):
+                        county_periods.add(p['period'])
+        if not county_periods:
+            print(f"  [!] {county}: 未找到匹配的周期")
+            continue
+        for period in sorted(county_periods):
+            # 拿 gkbh
+            y = int(period.split('-')[0])
+            ps = session.list_periods(county, y)
+            gkbh = ''
+            for p in ps:
+                if p.get('period') == period:
+                    gkbh = p.get('id', '')
+                    break
+            if not gkbh:
+                print(f"  [!] {county} {period}: 未在源站找到 gkbh，跳过")
+                continue
+            jobs.append({'county': county, 'period': period, 'gkbh': gkbh})
+    return jobs
+
+
+def _write_docs(es_host, es_index, rows, county, update_date, dry_run, period="", gkbh="", published_at=""):
     if not rows:
         return 0
-    docs = [_make_doc(r, county, update_date) for r in rows]
+    docs = [_make_doc(r, county, update_date, period=period, gkbh=gkbh, published_at=published_at) for r in rows]
 
     if dry_run:
         return len(docs)

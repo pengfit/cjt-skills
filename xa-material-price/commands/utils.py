@@ -29,6 +29,25 @@ COUNTY_CODES = {
 }
 
 
+def normalize_period(period: str) -> str:
+    """标准化周期字符串为 YYYY-MM 格式
+
+    支持输入:
+        '2026-01' / '2026-1' / '2026年01月' / '2026年1月' / '2026/01'
+    """
+    period = period.strip()
+    m = re.match(r'^(\d{4})[-/年](\d{1,2})月?$', period)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}"
+    return period
+
+
+def period_to_label(period: str) -> str:
+    """把 YYYY-MM 转成源站 name 格式 'YYYY年MM月造价信息表'"""
+    y, m = period.split('-')
+    return f"{y}年{int(m):02d}月造价信息表"
+
+
 class SiteSession:
     """ASP.NET 站点 Session，维护 ViewState 实现翻页"""
 
@@ -66,14 +85,17 @@ class SiteSession:
                 return None
         return None
 
-    def fetch(self, county: str, page: int) -> Optional[str]:
+    def fetch(self, county: str, page: int, gkbh: Optional[str] = None) -> Optional[str]:
         """抓取指定区县+页码的数据
 
         每页都用 GET 初始化，然后 POST 提交 ddl_qdm + rptPager_input
+        gkbh: 周期 ID（来自 Handler.ashx），传了则按月筛选
         支持超时重试
         """
         code = COUNTY_CODES.get(county, county)
         url = f"{self.base_url}?page={page}&qdm={code}"
+        if gkbh:
+            url += f"&gkbh={gkbh}"
 
         for attempt in range(self.max_retries):
             try:
@@ -87,6 +109,8 @@ class SiteSession:
                 form_data = self._extract_form_data(html)
                 form_data['ddl_qdm'] = code
                 form_data['rptPager_input'] = str(page)
+                if gkbh:
+                    form_data['gkbh'] = gkbh
 
                 return self._do_post(url, form_data)
             except Exception:
@@ -96,6 +120,60 @@ class SiteSession:
                     continue
                 return None
         return None
+
+    def list_periods(self, county: str, year: int) -> List[Dict[str, str]]:
+        """拿指定区县某年的所有月份（造价信息表）列表
+
+        Returns:
+            [{'id': '0000000595', 'name': '2026年01月造价信息表', 'period': '2026-01'}, ...]
+        """
+        import json as _json
+        code = COUNTY_CODES.get(county, county)
+        url = "https://zjj.xa.gov.cn/zxcx/gczj/Handler.ashx"
+        params = {'year': str(year), 'qymc': county, 'type': '1', 'version': '2'}
+        for attempt in range(self.max_retries):
+            try:
+                resp = self.session.get(url, params=params, timeout=self.timeout, verify=False)
+                resp.encoding = 'utf-8'
+                data = _json.loads(resp.text)
+                # 解析 name: "2026年01月造价信息表" → period: "2026-01"
+                out = []
+                for item in data:
+                    name = item.get('name', '')
+                    m = re.search(r'(\d{4})年(\d{2})月', name)
+                    if m:
+                        period = f"{m.group(1)}-{m.group(2)}"
+                    else:
+                        period = ''
+                    out.append({
+                        'id': item.get('id', ''),
+                        'name': name,
+                        'period': period,
+                    })
+                return out
+            except Exception:
+                if attempt < self.max_retries - 1:
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                return []
+        return []
+
+
+def list_all_years(county: str, session: Optional['SiteSession'] = None) -> List[int]:
+    """探测指定区县有哪些年有数据，从 2024 往前倒推
+
+    Returns: [2026, 2025, 2024, ...] 有数据的年份（倒序）
+    """
+    sess = session or SiteSession(max_retries=2, timeout=15)
+    years = []
+    # 西安源站 2024 年开始有数据；从当前年往前探测
+    now = datetime.now()
+    for y in range(now.year, 2023, -1):
+        periods = sess.list_periods(county, y)
+        if periods:
+            years.append(y)
+    return years
 
 
 def parse_page_date(html_text: str) -> Optional[str]:
@@ -266,6 +344,21 @@ def ensure_index(es_host: str, es_index: str):
     try:
         resp = requests.head(f"{es_host}/{es_index}", timeout=10, verify=False)
         if resp.status_code == 200:
+            # 索引已存在：补加新字段（已存在字段不动）
+            try:
+                requests.put(
+                    f"{es_host}/{es_index}/_mapping",
+                    json={
+                        "properties": {
+                            "month":        {"type": "keyword"},  # YYYY-MM 所属月份
+                            "gkbh":         {"type": "keyword"},  # 源站周期 ID
+                            "published_at": {"type": "date", "format": "yyyy-MM-dd"},
+                        }
+                    },
+                    timeout=10, verify=False
+                )
+            except Exception:
+                pass
             return
     except Exception:
         pass
@@ -273,17 +366,20 @@ def ensure_index(es_host: str, es_index: str):
     mapping = {
         "mappings": {
             "properties": {
-                "code":        {"type": "keyword"},
-                "breed":       {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "spec":        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "unit":        {"type": "keyword"},
-                "price":       {"type": "float"},
-                "tax_price":   {"type": "float"},
-                "county":      {"type": "keyword"},
-                "province":    {"type": "keyword"},
-                "city":        {"type": "keyword"},
-                "update_date": {"type": "date", "format": "yyyy-MM-dd"},
-                "create_time": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"}
+                "code":         {"type": "keyword"},
+                "breed":        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+                "spec":         {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+                "unit":         {"type": "keyword"},
+                "price":        {"type": "float"},
+                "tax_price":    {"type": "float"},
+                "county":       {"type": "keyword"},
+                "province":     {"type": "keyword"},
+                "city":         {"type": "keyword"},
+                "update_date":  {"type": "date", "format": "yyyy-MM-dd"},
+                "create_time":  {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
+                "month":        {"type": "keyword"},  # YYYY-MM 所属月份（指定 --period 时写入）
+                "gkbh":         {"type": "keyword"},  # 源站周期 ID（指定 --period 时写入）
+                "published_at": {"type": "date", "format": "yyyy-MM-dd"},  # 页脚更新时间（指定 --period 时写入）
             }
         }
     }

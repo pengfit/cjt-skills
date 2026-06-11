@@ -29,6 +29,16 @@ cd skills/xa-material-price
 ./run.sh sync --force          # 强制全量同步
 ./run.sh sync --reset          # 重置进度，从第1页重新开始
 ./run.sh sync --counties "蓝田县,周至县"   # 指定区县
+
+# 按周期抓取（指定造价信息表月份）
+./run.sh sync --period 2026-01 --counties 阎良区
+./run.sh sync --period 2026-01,2026-02 --counties 阎良区,周至县
+./run.sh sync --periods-year 2025          # 抓 2025 整年所有月份
+./run.sh sync --periods-all --counties 阎良区   # 抓该区县所有有数据的周期
+
+./run.sh sync --list-periods               # 列出全部区县可用周期
+./run.sh sync --list-periods --counties 阎良区 --periods-year 2025
+
 ./run.sh check                 # 增量检测
 ./run.sh status                # 查看同步状态
 ./run.sh test                  # 测试 ES 连接
@@ -55,6 +65,11 @@ cd skills/xa-material-price
 | `--no-log` | 不写入 ES 进度索引（纯预览）|
 | `--no-spot-check` | 跳过增量抽检（增量同步专用）|
 | `--resume-from COUNTY` | 从指定区县继续，跳过后续区县 |
+| `--dry-run` | 预览模式（不写入 ES） |
+| `--period YYYY-MM[,YYYY-MM...]` | 指定抓取周期（造价信息表月份） |
+| `--periods-year YYYY` | 抓取整年所有月份 |
+| `--periods-all` | 抓取所有有数据的周期（源站 2024 至今） |
+| `--list-periods` | 只列出可用周期，不抓取 |
 
 ### preview 命令参数
 
@@ -111,16 +126,26 @@ sync:
 | `city` | keyword | 西安 |
 | `update_date` | date | 更新时间（来源页脚解析） |
 | `create_time` | date | 入库时间 |
+| `month` | keyword | 所属月份 YYYY-MM（**仅 --period 模式写入**，供按月查询） |
+| `gkbh` | keyword | 源站周期 ID（**仅 --period 模式写入**） |
+| `published_at` | date | 与 update_date 同义（**仅 --period 模式写入**） |
 
 ## 增量逻辑
 
-基于**更新时间**判断：
+**无 `--period` 模式**（默认）：基于**页脚更新时间**判断
 
 1. 读取 ES 中该区县 `update_date` 最新的一条记录作为 `last_update_date`
 2. 抓取每页后，从页脚解析"更新时间：YYYY-MM-DD"
 3. 若 `更新时间 < last_update_date` → 停止（已无增量）
 4. 若 `更新时间 == last_update_date` → 继续抓取
 5. 新页面更新时间 < 上次记录时间 → 中断（数据回退）
+
+**带 `--period` 模式**（按造价信息表月份抓取）：不使用增量判断，每次都全量抓指定月份
+
+- 源站 `Handler.ashx?year=YYYY&qymc=区县&type=1&version=2` 返回该区县该年所有月份
+- 每个月份有 `gkbh`（周期 ID）加到抓取 URL/表单中，服务端只返回该月数据
+- 进度文件按 `区豍@周期` 维度独立保存，可并发多周期抓取
+- 文档 `_id` 包含 `month` 字段，保证同一材料不同月份的记录 _id 唯一（不覆盖）
 
 ## 增量抽检（Spot Check）
 
@@ -139,10 +164,14 @@ ES 进度索引 `ods_material_xian_price_sync_progress` 实时记录每个区县
 ## 幂等写入
 
 ```
-_id = MD5(breed + code + spec + county + update_date + price + tax_price)
+_id = MD5(breed + code + spec + county + month_or_update_date + price + tax_price)
 ```
 
-同一材料在同一区县、日期、价格下重复同步不会产生重复数据。价格变化时生成新文档，保留价格历史。
+`month_or_update_date`:
+- 带 `--period`：使用 `month`（YYYY-MM），保证同一材料不同月份有不同 _id，保留各月价格历史
+- 无 `--period`：使用 `update_date`（页脚 YYYY-MM-DD），兼容旧版
+
+同一材料在同一区县、月份/日期、价格下重复同步不会产生重复数据。价格变化时生成新文档，保留价格历史。
 
 ## 项目结构
 
