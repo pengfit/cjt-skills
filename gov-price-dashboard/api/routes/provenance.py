@@ -89,6 +89,40 @@ def _ensure_rules_table():
     conn.close()
 
 
+# 写入规则前的 breed→category 反查缓存（避免反复查 DB）
+_BREED_CAT_CACHE = {}
+
+def _resolve_category_for_breed(breed: str) -> str:
+    """根据 breed 反查 category，写入规则前补全。
+
+    优先级：
+      1. breed_category_rules.db（权威映射）
+      2. 缓存（同一进程内复用）
+      3. 返回空字符串（让调用方决定是否再走其他渠道）
+
+    用途：防止 fix-case / batch-spec-parse 写入规则时 category 字段为空。
+    """
+    if not breed:
+        return ""
+    if breed in _BREED_CAT_CACHE:
+        return _BREED_CAT_CACHE[breed]
+    cat = ""
+    try:
+        if os.path.exists(_RULES_DB_CAT):
+            conn = sqlite3.connect(_RULES_DB_CAT)
+            row = conn.execute(
+                "SELECT category FROM breed_category_rules WHERE breed=?",
+                (breed,)
+            ).fetchone()
+            conn.close()
+            if row:
+                cat = row[0]
+    except Exception:
+        cat = ""
+    _BREED_CAT_CACHE[breed] = cat
+    return cat
+
+
 def _index_stats(index: str) -> dict:
     """获取单个索引的统计信息"""
     try:
@@ -992,12 +1026,15 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     must_clauses = []
     if category:
         must_clauses.append({"term": {"category": category}})
+    # 重点：仅查询 spec 非空 且 attr 为空的文档（需要解析的目标）
     query = {
         "bool": {
             "must": must_clauses,
             "must_not": [
                 {"term": {"spec.keyword": "/"}},
                 {"term": {"spec.keyword": ""}},
+                # attr 中没有 attr.k 的文档
+                {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}},
             ]
         }
     }
@@ -1093,13 +1130,26 @@ def _category_coverage(city="xian"):
             "by_category": {
                 "terms": {"field": "category", "size": 60},
                 "aggs": {
-                    "total_spec": {
-                        "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
+                    # 待解析总数：spec 非空 且 attr 为空
+                    "needs_parse": {
+                        "filter": {"bool": {
+                            "must_not": [
+                                {"term": {"spec.keyword": "/"}},
+                                {"term": {"spec.keyword": ""}},
+                                {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}},
+                            ]
+                        }}
                     },
-                    # 解析成功率 = 已解析出字段的 docs / 总 spec docs
+                    # 已解析成功：spec 非空 且 attr 已有字段
                     "parsed_ok": {
                         "filter": {"bool": {
-                            "must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]
+                            "must_not": [
+                                {"term": {"spec.keyword": "/"}},
+                                {"term": {"spec.keyword": ""}}
+                            ],
+                            "must": [
+                                {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}}
+                            ]
                         }}
                     }
                 }
@@ -1116,13 +1166,18 @@ def _category_coverage(city="xian"):
     buckets = result.get("aggregations", {}).get("by_category", {}).get("buckets", [])
     coverage = []
     for b in buckets:
-        total = b.get("total_spec", {}).get("doc_count", 0)
+        needs = b.get("needs_parse", {}).get("doc_count", 0)
         parsed_ok = b.get("parsed_ok", {}).get("doc_count", 0)
+        # 分母 = needs_parse（待解析数） + parsed_ok（已解析数）= spec 有效的文档总数
+        total = needs + parsed_ok
+        # 覆盖率 = 1 - 待解析占比
+        rate = round(parsed_ok / max(1, total) * 100, 1)
         coverage.append({
             "category": b["key"],
             "total": total,
             "with_attr": parsed_ok,
-            "rate": round(parsed_ok / max(1, total) * 100, 1),
+            "needs_parse": needs,
+            "rate": rate,
         })
     coverage.sort(key=lambda x: x["rate"], reverse=True)
     return coverage
@@ -2280,6 +2335,9 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
         if req.write_rules and ok and suggestions:
             if get_vec_store is not None:
                 vs = get_vec_store()
+                # 反查补全 category：请求为空时，从 breed_category_rules.db 反查
+                _breed_for_item = item.get("breed", "")
+                _cat_for_item = item.get("category", "") or _resolve_category_for_breed(_breed_for_item)
                 for s in suggestions:
                     attr_key = s.get("attr", "")
                     ok2 = vs.insert(
@@ -2287,8 +2345,8 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
                         attr=attr_key,
                         note=s.get("note", "ai-single"),
                         code=s.get("code_block", "") if isinstance(s["code_block"], str) else "\n".join(s["code_block"]),
-                        breed=item.get("breed", ""),
-                        category=item.get("category", ""),
+                        breed=_breed_for_item,
+                        category=_cat_for_item,
                         skip_duplicate=True,
                     )
                     if ok2:
@@ -2381,9 +2439,12 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     wrote_new = False
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
+        # 反查补全 category：请求为空时，从 breed_category_rules.db 反查
+        _s_breed = req.breed or s.get("breed", "")
+        _s_category = req.category or s.get("category", "") or _resolve_category_for_breed(_s_breed)
         result = _apply_rule_to_base(
             code_block, s["attr"], s["note"], s.get("pattern", ""),
-            req.breed or s.get("breed", ""), req.category or s.get("category", ""),
+            _s_breed, _s_category,
         )
         if result is False:
             return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}

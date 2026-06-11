@@ -95,10 +95,17 @@
                 <div class="pipe-stage-sub" v-if="pipe.dwd?.count">{{ (pipe.dws?.count || 0).toLocaleString() }}/{{ pipe.dwd.count.toLocaleString() }}</div>
               </div>
               <div class="stage-dwd-right">
-                <button class="scrape-action-btn" title="同步 DWD→DWS" @click.stop="runFlushDws(key)" :disabled="dwsRunning[key]">
-                  <span v-if="dwsRunning[key]" class="spin">↻</span>
-                  <span v-else>⟳</span>
-                </button>
+                <div class="coverage-ring" :class="coverageClass(pipe.coverage)" :title="coverageTooltip(pipe.coverage)" @click.stop="openDwdDrilldown(key, pipe)">
+                  <svg viewBox="0 0 36 36" class="coverage-svg">
+                    <circle class="coverage-track" cx="18" cy="18" r="15.9"/>
+                    <circle class="coverage-fill" cx="18" cy="18" r="15.9"
+                      :stroke-dasharray="`${(pipe.coverage?.rate ?? 0) * 1.004}, 100`"/>
+                  </svg>
+                  <div class="coverage-text">
+                    <span class="coverage-pct">{{ pipe.coverage ? Math.round(pipe.coverage.rate) : '—' }}</span>
+                    <span class="coverage-unit">%</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="pipe-stage-arrow stage-arrow-dws">→</div>
@@ -298,6 +305,7 @@ const data = ref({
 const selectedCityData = ref({})
 const specQuality = ref({})
 const dwdDrilldownCity = ref(null)
+const coverageByCity = ref({})  // { city: { rate, with_attr, needs_parse, total } }
 let chartIns = null
 let pollTimer = null
 let pollingActive = ref(false)
@@ -556,6 +564,7 @@ async function loadData() {
       axios.get(`${API}/stats/provenance`),
     ])
     data.value = provRes.data || {}
+    await loadCoverageForAllCities()
     await nextTick()
     renderChart()
   } catch (e) {
@@ -563,6 +572,48 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+// 拉取每个城市的 spec-quality 覆盖率，并合并到 all_cities
+async function loadCoverageForAllCities() {
+  const cities = Object.keys(data.value.all_cities || {})
+  if (!cities.length) return
+  const results = await Promise.allSettled(
+    cities.map(city =>
+      axios.get(`${API}/stats/spec-quality`, { params: { city, _sample: false } })
+        .then(r => ({ city, data: r.data }))
+    )
+  )
+  const next = {}
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      const { city, data: sq } = r.value
+      const cov = sq.coverage || []
+      const total = cov.reduce((s, c) => s + (c.total || 0), 0)
+      const withAttr = cov.reduce((s, c) => s + (c.with_attr || 0), 0)
+      const rate = total > 0 ? (withAttr / total) * 100 : 0
+      next[city] = { rate, with_attr: withAttr, needs_parse: total - withAttr, total }
+    }
+  }
+  coverageByCity.value = next
+  // 合并到 data.all_cities 的 pipe.coverage
+  for (const [city, cov] of Object.entries(next)) {
+    if (data.value.all_cities[city]) {
+      data.value.all_cities[city].coverage = cov
+    }
+  }
+}
+
+function coverageClass(c) {
+  if (!c || c.rate == null) return 'cov-loading'
+  if (c.rate >= 80) return 'cov-good'
+  if (c.rate >= 30) return 'cov-warn'
+  return 'cov-bad'
+}
+function coverageTooltip(c) {
+  if (!c) return '加载中...'
+  if (c.total === 0) return '该城市 DWD 暂无数据'
+  return `attr 覆盖率: ${c.rate.toFixed(1)}%\n已解析: ${c.with_attr.toLocaleString()}\n待解析: ${c.needs_parse.toLocaleString()}\n总计: ${c.total.toLocaleString()}`
 }
 
 function renderChart() {
@@ -1325,7 +1376,44 @@ onUnmounted(() => {
 
 .stage-dwd      { border-color: rgba(56,189,248,0.25); background: rgba(56,189,248,0.04); position: relative; }
 .stage-dwd-label { color: #38bdf8 !important; }
-.stage-dwd .scrape-action-btn { opacity: 1; }
+
+/* DWD 区域右侧：覆盖率环 + 同步按钮 */
+.stage-dwd-right { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.coverage-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+.coverage-ring:hover { transform: scale(1.08); }
+.coverage-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.coverage-track { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
+.coverage-fill  { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 0.6s ease, stroke 0.3s; }
+
+.coverage-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DIN Alternate', Arial, sans-serif;
+  line-height: 1;
+}
+.coverage-pct { font-size: 12px; font-weight: 800; color: #94a3b8; }
+.coverage-unit { font-size: 8px; font-weight: 600; color: #64748b; margin-left: 0.5px; margin-top: 1px; }
+
+.coverage-ring.cov-good .coverage-fill  { stroke: #34d399; }
+.coverage-ring.cov-good .coverage-pct   { color: #34d399; }
+.coverage-ring.cov-warn .coverage-fill  { stroke: #fbbf24; }
+.coverage-ring.cov-warn .coverage-pct   { color: #fbbf24; }
+.coverage-ring.cov-bad  .coverage-fill  { stroke: #f87171; }
+.coverage-ring.cov-bad  .coverage-pct   { color: #f87171; }
+.coverage-ring.cov-loading .coverage-fill { stroke: #475569; }
 .stage-arrow-dws   { color: #34d399; }
 
 .stage-dws      { border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.04); }
