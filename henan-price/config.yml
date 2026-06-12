@@ -1,0 +1,45 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_henan_price
+  progress_index: ods_material_henan_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: henan-price
+  secure: false
+
+site:
+  base_url: http://www.hncost.com
+  list_path: /jcxx/004001/subpage2.html
+  list_pages: 4
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""   # 增量起点；空=全量
+  last_publish_date: ""  # 增量同步只用比这新的
+
+# 18 个地市（按 PDF 表格横向列顺序固定）
+cities:
+  - 郑州
+  - 濮阳
+  - 周口
+  - 许昌
+  - 新乡
+  - 洛阳
+  - 安阳
+  - 焦作
+  - 平顶山
+  - 信阳
+  - 漯河
+  - 驻马店
+  - 南阳
+  - 鹤壁
+  - 三门峡
+  - 济源
+  - 开封
+  - 商丘
