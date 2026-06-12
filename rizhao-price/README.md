@@ -42,6 +42,7 @@ cd ~/.openclaw/workspace/skills/rizhao-price
 | `./run.sh sync --force` | 全量同步（所有 tab，幂等写入自动补漏）|
 | `./run.sh sync --type N` | 指定 tab 同步（N=1/2/3）|
 | `./run.sh sync --no-check` | 跳过增量检测直接同步 |
+| `./run.sh sync --max-pages N` | 最大页数（默认 2000）|
 | `./run.sh sync --dry-run` | 预览模式，不写入 ES |
 | `./run.sh sync --reset` | 重置进度，从头开始 |
 | `./run.sh preview` | 预览数据（默认前 2 页）|

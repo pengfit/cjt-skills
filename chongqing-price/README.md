@@ -40,6 +40,11 @@ python3 commands/sync.py --tab-id t1 --period "2026年01月"
 # 重新开始（清除进度）
 python3 commands/sync.py --tab-id t1 --reset
 
+# 指定数据来源标签页
+python3 commands/sync.py --tab-id t1 --source mortar
+python3 commands/sync.py --tab-id t1 --source citywide
+python3 commands/sync.py --tab-id t1 --source all
+
 # 增量检测 + 自动触发同步（后台运行）
 python3 commands/check.py
 ```
@@ -103,6 +108,7 @@ es:
   host: http://localhost:59200
   index: ods_material_chongqing_price
   progress_index: ods_chongqing_price_progress
+  sync_log_index: ods_chongqing_price_sync_log
 
 site:
   url: http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx

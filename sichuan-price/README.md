@@ -36,6 +36,14 @@ cd ~/.openclaw/workspace/skills/sichuan-price
 | `--reset` | 重置进度，从头开始 |
 | `--max-pages N` | 每地区最大页数（默认 2000）|
 | `--no-check` | 跳过增量检测，直接同步 |
+| `--dry-run` | 预览模式，不写入 ES |
+
+### preview 额外参数
+
+| 参数 | 说明 |
+|------|------|
+| `--pages N` | 预览页数（默认 2）|
+| `--area 川A` | 指定地区代码 |
 
 ## 增量逻辑
 
@@ -56,8 +64,10 @@ ASP.NET POST 分页，每页 25 条记录。材料数据行为纵向（材料名
 ```yaml
 es:
   host: http://localhost:59200
-  index: material_sichuan_price
-  sync_progress_index: material_sichuan_price_sync_progress
+  index: ods_material_sichuan_price
+  progress_index: ods_material_sichuan_price_sync_progress
+  sync_log_index: ods_material_sichuan_price_sync_log
+  timeout: 30
 
 site:
   url: http://202.61.90.35:8032/pubpages/pricelist.aspx
@@ -74,6 +84,7 @@ sichuan-price/
 ├── SKILL.md
 ├── run.sh              # 入口脚本
 ├── config.yml          # ES/站点配置
+├── .sichuan_sync_progress.json   # 本地进度
 └── commands/
     ├── sync.py         # 同步主程序（ProgressLogger 写入 ES 进度）
     ├── preview.py      # 预览模式（不写入 ES）

@@ -15,11 +15,17 @@ cd skills/sichuan-price
 ./run.sh preview              # 预览（不写入 ES）
 ./run.sh preview --pages 3    # 预览前 3 页
 ./run.sh preview --area 川A   # 指定地区预览
+./run.sh preview --period "2026年03月"  # 指定周期预览
 ./run.sh sync                 # 全量同步到 ES
+./run.sh sync --force         # 强制全量，跳过增量检测
 ./run.sh sync --dry-run       # 预览同步（不写入）
+./run.sh sync --no-check      # 跳过增量检测直接同步
+./run.sh sync --max-pages 500  # 限制每地区页数（默认 2000）
 ./run.sh sync --reset         # 重置进度，从头开始
 ./run.sh sync --period "2026年03月"   # 指定周期
 ./run.sh status               # 查看同步状态
+./run.sh test                 # 测试 ES 连接
+./run.sh check                # 手动增量检测
 ```
 
 ## 数据流
@@ -62,6 +68,7 @@ cd skills/sichuan-price
 |------|------|
 | `ods_material_sichuan_price` | 材料价格数据 |
 | `ods_material_sichuan_price_sync_progress` | 同步进度记录 |
+| `ods_material_sichuan_price_sync_log` | 同步日志 |
 
 ## 幂等写入
 
@@ -81,11 +88,14 @@ sichuan-price/
 ├── config.yml
 ├── .sichuan_sync_progress.json
 └── commands/
-    ├── sync.py     # 同步主程序
-    ├── preview.py
-    ├── status.py
-    ├── test.py
-    └── utils.py
+    ├── sync.py         # 同步主程序
+    ├── preview.py      # 预览
+    ├── check.py        # 增量检测
+    ├── status.py       # 状态
+    ├── test.py         # ES 连接测试
+    ├── test_pages.py   # 分页测试
+    ├── test_types.py   # 类型测试
+    └── utils.py        # SiteSession、parse_page、AREA_CODES
 ```
 
 ## 依赖

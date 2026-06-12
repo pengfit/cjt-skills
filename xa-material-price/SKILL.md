@@ -50,6 +50,7 @@ cd skills/xa-material-price
 |------|------|------|
 | `sync` | `commands/sync.py` | 同步主程序，支持增量/断点续传/进度写入 ES |
 | `check` | `commands/check.py` | 增量检测，发现新增数据后后台触发 sync |
+| `sync_diff` | `commands/sync_diff.py` | 差量同步：仅抓 ES 缺数据的 (county, period) 组合 |
 | `preview` | `commands/preview.py` | 预览数据（不写 ES），默认 1 页 |
 | `status` | `commands/status.py` | 查看同步状态、ES 文档数、各区县统计 |
 | `test` | `commands/test.py` | 测试 ES 连接与索引存在性 |
@@ -70,6 +71,7 @@ cd skills/xa-material-price
 | `--periods-year YYYY` | 抓取整年所有月份 |
 | `--periods-all` | 抓取所有有数据的周期（源站 2024 至今） |
 | `--list-periods` | 只列出可用周期，不抓取 |
+| `--config PATH` | 指定配置文件路径（默认 `config.yml`） |
 
 ### preview 命令参数
 
@@ -77,6 +79,7 @@ cd skills/xa-material-price
 |------|------|
 | `--pages N` | 预览页数（默认 1）|
 | `--county 区县` | 只抓取指定区县 |
+| `--config PATH` | 指定配置文件路径 |
 
 ## 配置文件 config.yml
 
@@ -181,12 +184,13 @@ xa-material-price/
 ├── config.yml                      # ES/站点配置
 ├── .sync_progress.json             # 本地进度文件（自动生成）
 └── commands/
-    ├── sync.py     # 同步主程序（含 ProgressStore/ProgressLogger）
-    ├── check.py    # 增量检测（自动触发后台 sync）
-    ├── preview.py  # 预览模式（不写入 ES）
-    ├── status.py   # 查看同步状态
-    ├── test.py     # 测试 ES 连接
-    └── utils.py    # SiteSession、解析函数、抽检、索引创建
+    ├── sync.py        # 同步主程序（含 ProgressStore/ProgressLogger）
+    ├── check.py       # 增量检测（自动触发后台 sync）
+    ├── sync_diff.py   # 差量同步（仅补缺失周期）
+    ├── preview.py     # 预览模式（不写入 ES）
+    ├── status.py      # 查看同步状态
+    ├── test.py        # 测试 ES 连接
+    └── utils.py       # SiteSession、解析函数、抽检、索引创建
 ```
 
 ## 依赖

@@ -31,6 +31,7 @@ description: "日照工程造价材料信息采集：从 http://58.59.43.227:81 
 | `./run.sh sync --force` | 全量同步（所有 tab）|
 | `./run.sh sync --type 2` | 指定 tab 同步（1/2/3）|
 | `./run.sh sync --no-check` | 跳过增量检测直接同步 |
+| `./run.sh sync --max-pages N` | 最大页数（默认 2000）|
 | `./run.sh sync --dry-run` | 预览模式，不写入 ES |
 | `./run.sh sync --reset` | 重置进度，从头开始 |
 | `./run.sh check` | 手动增量检测（不写入）|

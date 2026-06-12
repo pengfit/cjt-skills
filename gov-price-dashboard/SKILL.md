@@ -11,7 +11,10 @@ description: "政府材料价格数据可视化看板（涌数），基于 FastA
 
 ```bash
 cd skills/gov-price-dashboard
-./start.sh
+./start.sh           # 启动
+./start.sh status    # 查看状态
+./start.sh stop      # 停止
+./start.sh restart   # 重启
 ```
 
 - 前端：http://localhost:5300
@@ -52,13 +55,17 @@ gov-price-dashboard/
         ├── main.js
         ├── style.css
         └── components/
-            ├── CategoryView.vue           # 类别分析视图
-            ├── DataProvenanceView.vue    # 数据溯源视图
-            ├── DistributionChart.vue     # 数据分布图
-            ├── CustomSelect.vue          # 自定义下拉筛选
-            ├── ErrorBoundary.vue         # 错误边界
-            ├── VecRulesView.vue          # 规格规则库视图
-            └── BreedCategoryRulesView.vue # 分类规则库视图
+            ├── AttrTags.vue                # 规格属性标签渲染
+            ├── BreedCategoryRulesView.vue  # 分类规则库视图
+            ├── CategoryView.vue            # 类别分析视图
+            ├── CustomSelect.vue            # 自定义下拉筛选
+            ├── DataHealthView.vue          # 数据健康视图
+            ├── DataProvenanceView.vue      # 数据溯源视图
+            ├── DistributionChart.vue       # 数据分布图
+            ├── ErrorBoundary.vue           # 错误边界
+            ├── SpecQualityPanel.vue        # 规格质量面板
+            ├── SpecSamplePanel.vue         # 规格抽样面板
+            └── VecRulesView.vue            # 规格规则库视图
 ```
 
 ## API 端点总览（FastAPI :5200）

@@ -34,13 +34,14 @@ chongqing-price/
 ### sync.py — 同步入口
 
 ```bash
-python3 commands/sync.py --tab-id <tab-id> [--period <周期>] [--reset] [--run-id <id>]
+python3 commands/sync.py --tab-id <tab-id> [--period <周期>] [--reset] [--run-id <id>] [--source <source>]
 ```
 
 - **--tab-id**：必填，openclaw browser 已打开的标签页 ID（格式如 `t1`）
 - **--period**：目标周期，默认 `2026年01月`（从 URL 提取月份数字，如 `04` 月）
 - **--reset**：清除本地进度文件，重新全量同步
 - **--run-id**：指定本次运行的标识，默认自动生成
+- **--source**：数据来源标签页，默认 `district`；可用 `district` / `mortar` / `citywide` / `all`
 
 流程：
 1. 初始化 ES 索引（若不存在则创建）
@@ -107,6 +108,7 @@ es:
   host: http://localhost:59200        # ES 地址
   index: ods_material_chongqing_price # 数据索引
   progress_index: ods_chongqing_price_progress  # 进度索引
+  sync_log_index: ods_chongqing_price_sync_log  # 同步日志索引
   timeout: 30
 
 site:

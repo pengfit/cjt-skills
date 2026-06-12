@@ -26,6 +26,43 @@
 | 规则库 | SQLite（`rules_vec.db`）+ 向量检索（parse_spec）|
 | AI 集成 | OpenClaw LLM（规格解析规则生成 / 品种批量分类）|
 
+## 项目结构
+
+```
+gov-price-dashboard/
+├── start.sh                  # 一键启动/停止/重启/状态
+├── README.md
+├── SKILL.md
+├── api/
+│   ├── main.py               # FastAPI 后端
+│   ├── requirements.txt
+│   └── routes/
+│       ├── provenance.py     # 数据溯源路由
+│       └── prompts.yml
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.vue
+│       ├── main.js
+│       ├── style.css
+│       └── components/
+│           ├── AttrTags.vue
+│           ├── BreedCategoryRulesView.vue
+│           ├── CategoryView.vue
+│           ├── CustomSelect.vue
+│           ├── DataHealthView.vue
+│           ├── DataProvenanceView.vue
+│           ├── DistributionChart.vue
+│           ├── ErrorBoundary.vue
+│           ├── SpecQualityPanel.vue
+│           ├── SpecSamplePanel.vue
+│           └── VecRulesView.vue
+├── docs/                     # 历史文档
+├── screenshots/              # 截图
+└── .vite/                    # Vite 缓存
+```
+
 ## 快速启动
 
 ```bash

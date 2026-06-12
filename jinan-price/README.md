@@ -47,8 +47,10 @@ cd ~/.openclaw/workspace/skills/jinan-price
 | `./run.sh sync --dry-run` | 预览模式，不写入 ES |
 | `./run.sh sync --reset` | 重置进度，重新开始 |
 | `./run.sh sync --period-id ID` | 指定周期 ID 同步 |
+| `./run.sh sync --size N` | 每页大小（默认 100） |
 | `./run.sh preview` | 预览数据（前 10 个分类各 2 页） |
 | `./run.sh preview --pages 3` | 预览前 3 页 |
+| `./run.sh preview --period-id ID` | 预览指定周期 |
 | `./run.sh status` | 查看同步进度（ES 计数、本地进度） |
 | `./run.sh test` | 测试 ES 和网站连接 |
 | `python3 commands/check.py` | 手动增量检测，输出有变化的分类 |

@@ -108,6 +108,7 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 | `--periods-year YYYY` | 抓取整年所有月份 |
 | `--periods-all` | 抓取所有有数据的周期 |
 | `--list-periods` | 只列出可用周期，不抓取 |
+| `--config PATH` | 指定配置文件路径 |
 
 ## 按周期同步（计价信息表）
 
@@ -253,6 +254,7 @@ xa-material-price/
 └── commands/
     ├── sync.py         # 同步主程序（含 ProgressStore 本地进度 / ProgressLogger ES 进度）
     ├── check.py        # 增量检测（自动触发后台同步）
+    ├── sync_diff.py    # 差量同步（仅补缺失周期）
     ├── preview.py      # 预览模式（不写入 ES）
     ├── status.py       # 查看同步状态
     ├── test.py         # 测试 ES 连接
