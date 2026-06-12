@@ -39,11 +39,11 @@
 
 
 
-    <!-- All Cities Full Pipeline -->
+    <!-- All Cities Pipeline (ODS→DWD→DWS, 抓取模块已拆分到独立 "抓取" 标签页) -->
     <div class="prov-all-pipelines" v-if="data.all_cities">
       <div class="panel-header" style="margin-bottom:12px">
         <span class="panel-dot panel-dot-blue"></span>
-        <span class="panel-title">数据同步链路（全部城市）</span>
+        <span class="panel-title">数据处理链路（ODS → DWD → DWS）</span>
         <button class="poll-toggle" :class="{ active: pollingActive }" @click="togglePolling">
           {{ pollingActive ? '⏸ 暂停轮询' : '▶ 开启轮询' }}
         </button>
@@ -62,26 +62,7 @@
               {{ pipe.sync_ok ? '✓' : '⚠' }}
             </span>
           </div>
-          <div v-if="scrapeExpandedCity === key && pipe.scrape?.counties?.length" class="pipeline-card-counties">
-            <div v-for="c in pipe.scrape.counties" :key="c.county" class="pipeline-county-chip" :class="c.status || 'not-started'">
-              <span class="chip-dot" :class="c.status || 'not-started'"></span>
-              <span class="chip-name">{{ c.county }}</span>
-              <span class="chip-pct" :class="c.status || 'not-started'">{{ (c.percent || 0).toFixed(0) }}%</span>
-            </div>
-          </div>
           <div class="pipeline-card-stages">
-            <div class="pipe-stage scrape-stage stage-scrape" :style="{ '--pct': scrapePct(pipe.scrape) }" :class="{ disabled: !pipe.scrape?.total_counties }">
-              <div class="scrape-inner" @click.stop="toggleScrapeCounties(key, pipe)">
-                <div class="pipe-stage-label stage-scrape-label">抓取</div>
-                <div class="pipe-stage-count">{{ pipe.scrape?.total_counties != null ? (pipe.scrape.completed + '/' + pipe.scrape.total_counties) : "—" }}<span class="pipe-stage-unit">类</span></div>
-                <div class="pipe-stage-date">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : "—" }}</div>
-              </div>
-              <button class="scrape-action-btn" title="检查更新" @click.stop="runScrapeCheck(key)" :disabled="scrapeRunning[key]">
-                <span v-if="scrapeRunning[key]" class="spin">↻</span>
-                <span v-else>⟳</span>
-              </button>
-            </div>
-            <div class="pipe-stage-arrow stage-arrow-ods">→</div>
             <div class="pipe-stage stage-ods">
               <div class="pipe-stage-label stage-ods-label">ODS</div>
               <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>

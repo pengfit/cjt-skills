@@ -20,6 +20,7 @@
         <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
+        <button class="nav-tab" :class="{ active: curTab === 'scrape' }" @click="curTab = 'scrape'; saveTab('scrape')">数据抓取</button>
         <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">数据清洗</button>
         <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
         <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
@@ -357,6 +358,11 @@
       <CategoryView v-else />
     </template>
 
+    <template v-if="curTab === 'scrape'">
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <ScrapeView v-else />
+    </template>
+
     <template v-if="curTab === 'provenance'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <DataProvenanceView v-else />
@@ -386,6 +392,7 @@ import CustomSelect from './components/CustomSelect.vue'
 import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
 import DataProvenanceView from './components/DataProvenanceView.vue'
+import ScrapeView from './components/ScrapeView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
 
