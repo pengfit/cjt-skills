@@ -201,7 +201,7 @@ def api_scrape_check(city: str = Body("...", embed=True)):
 
 
 @router.get("/api/stats/scrape-progress-all")
-def stats_scrape_progress_all():
+def stats_scrape_progress_all(year: int = 2026):
     """
     所有城市 ODS 抓取进度汇总（一次性返回全部城市）
     """
@@ -259,8 +259,12 @@ def stats_scrape_progress_all():
                 run_id = buckets[0]["key"] if buckets else None
             elif use_henan_periods:
                 # Henan: 按 period 跟踪同步进度（created_at 是 keyword 不能 max 聚合）
+                # 按 year 过滤（period 字段格式 YYYY.M月）
                 period_body = {
                     "size": 0,
+                    "query": {
+                        "prefix": {"period": f"{year}."}
+                    },
                     "aggs": {
                         "periods": {
                             "terms": {"field": "period", "size": 20},
@@ -328,7 +332,7 @@ def stats_scrape_progress_all():
                     "completed": comp,
                     "running": run,
                     "error": err,
-                    "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+                    "total_counties": len(counties),
                     "counties": counties,
                 }
                 continue
@@ -566,7 +570,7 @@ def stats_scrape_progress_all():
 
 
 @router.get("/api/stats/scrape-progress")
-def stats_scrape_progress(city: str = Query("xian", description="城市 key")):
+def stats_scrape_progress(city: str = Query("xian", description="城市 key"), year: int = 2026):
     """
     ODS 层抓取进度：最近一次同步 run 的各区县进度
     """
@@ -577,8 +581,12 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key")):
     try:
         if use_henan_periods:
             # Henan: 按 period 跟踪，created_at 是 keyword 不能 max 聚合
+            # 按 year 过滤（period 字段格式 YYYY.M月）
             period_body = {
                 "size": 0,
+                "query": {
+                    "prefix": {"period": f"{year}."}
+                },
                 "aggs": {
                     "periods": {
                         "terms": {"field": "period", "size": 20},
@@ -650,7 +658,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key")):
                 "completed": comp,
                 "running": run,
                 "error": err,
-                "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+                "total_counties": len(counties),
                 "counties": counties,
             }
 

@@ -70,7 +70,7 @@
               <strong>{{ pipe.scrape?.completed ?? 0 }}</strong>
               <span class="meta-sep">/</span>
               <span>{{ pipe.scrape?.total_counties ?? '—' }}</span>
-              <span class="meta-unit">类</span>
+              <span class="meta-unit">{{ pipe.city_label === '河南' ? '期' : '类' }}</span>
             </span>
           </div>
           <div class="scrape-card-meta-item">
@@ -79,7 +79,7 @@
           </div>
         </div>
 
-        <!-- Counties 列表（展开/收起） -->
+        <!-- Counties/Periods 列表（展开/收起） -->
         <div v-if="scrapeExpandedCity === key && pipe.scrape?.counties?.length" class="scrape-card-counties">
           <div
             v-for="c in pipe.scrape.counties"
@@ -99,7 +99,7 @@
             class="scrape-action-btn ghost"
             @click="toggleScrapeCounties(key, pipe)"
           >
-            {{ scrapeExpandedCity === key ? '▴ 收起' : '▾ 区县详情' }}
+            {{ scrapeExpandedCity === key ? '▴ 收起' : expandLabel(pipe) }}
           </button>
           <button
             class="scrape-action-btn primary"
@@ -168,6 +168,19 @@ function scrapePct(scrape) {
 
 function toggleScrapeCounties(city, pipe) {
   scrapeExpandedCity.value = (scrapeExpandedCity.value === city) ? '' : city
+}
+
+// 各城市拓展按钮的文案（按数据维度命名）
+const EXPAND_LABELS = {
+  '西安': '▾ 区县记录',  // 6 区县 × 期数
+  '四川': '▾ 地市详情',  // 21 地级市/自治州
+  '重庆': '▾ 区县详情',  // 35 区县
+  '济南': '▾ 分类详情',  // 41 产品分类
+  '日照': '▾ 分类详情',  // 3 产品分类
+  '河南': '▾ 期数详情',  // 按 PDF 期数
+}
+function expandLabel(pipe) {
+  return EXPAND_LABELS[pipe.city_label] || '▾ 任务详情'
 }
 
 async function runScrapeCheck(city) {
@@ -264,6 +277,8 @@ onUnmounted(() => {
 }
 .panel-dot-blue   { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.6); }
 .panel-dot-purple { background: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.6); }
+/* panel-dot-cyan: 统一表示同步进行中，与主色一致 */
+.panel-dot-cyan { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.6); }
 .panel-title {
   font-size: 14px;
   font-weight: 700;
@@ -356,8 +371,9 @@ onUnmounted(() => {
 }
 .scrape-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #a855f7, #c084fc);
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
   border-radius: 3px;
+  box-shadow: 0 0 12px rgba(56,189,248,0.4);
   transition: width 0.6s ease;
 }
 

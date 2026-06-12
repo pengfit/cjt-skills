@@ -2,6 +2,7 @@
 import argparse
 import os
 import sys
+from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -15,7 +16,7 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--period', default='', help='指定周期')
-    parser.add_argument('--year', type=int, default=0, help='只预览指定年份的期')
+    parser.add_argument('--year', type=int, default=datetime.now().year, help='只预览指定年份的期（默认本年，0=不限制）')
     parser.add_argument('--latest', action='store_true', help='只预览最新一期')
     args = parser.parse_args()
 
