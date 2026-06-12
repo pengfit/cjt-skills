@@ -392,7 +392,7 @@ def main():
                     raise ValueError(f'无法从标题推断周期: {detail["title"]}')
                 print(f'  period: {period}')
 
-                minio_key = f'{cfg["minio"]["prefix"]}/{period}/source.pdf'
+                minio_key = f'{cfg["minio"]["prefix"]}/{detail["pdf_name"]}' if detail['pdf_name'] else f'{cfg["minio"]["prefix"]}/{period}/source.pdf'
                 if not args.dry_run:
                     upload_to_minio(s3, cfg['minio']['bucket'], minio_key, local_pdf)
                 print(f'  minio: {minio_key}')

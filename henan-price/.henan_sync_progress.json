@@ -5,22 +5,22 @@
       "publish_date": "2026-05-27",
       "detail_url": "http://www.hncost.com/jcxx/004001/20260527/770d7323-6dfb-4816-a821-8558680cd4fa.html",
       "pdf_url": "http://www.hncost.com/BigFileUpLoadStorage/temp/2026-05-27/2727e44d-ace4-47bf-bb67-96951dc03acb/2026.2.pdf",
-      "minio_key": "henan-price/2026.3月/source.pdf",
+      "minio_key": "henan-price/2026.2.pdf",
       "docs_written": 1932,
       "status": "ok",
-      "duration_sec": 19.1,
-      "created_at": "2026-06-12T10:22:52"
+      "duration_sec": 18.8,
+      "created_at": "2026-06-12T11:07:10"
     },
     "http://www.hncost.com/jcxx/004001/20260330/f205d09b-6698-43fc-bbcd-1de6ae2cdc82.html": {
       "period": "2026.1月",
       "publish_date": "2026-03-30",
       "detail_url": "http://www.hncost.com/jcxx/004001/20260330/f205d09b-6698-43fc-bbcd-1de6ae2cdc82.html",
       "pdf_url": "http://www.hncost.com/BigFileUpLoadStorage/temp/2026-05-26/0d593385-f953-4295-92cf-b9db90d42c8e/2026.1.pdf",
-      "minio_key": "henan-price/2026.1月/source.pdf",
+      "minio_key": "henan-price/2026.1.pdf",
       "docs_written": 1945,
       "status": "ok",
-      "duration_sec": 18.5,
-      "created_at": "2026-06-12T10:32:11"
+      "duration_sec": 18.8,
+      "created_at": "2026-06-12T11:07:29"
     }
   }
 }
