@@ -34,20 +34,22 @@ CITY_INDEXES = {
     "chongqing": {"dws": "dws_chongqing_price", "ods": "ods_material_chongqing_price", "dwd": "dwd_chongqing_price", "label": "重庆"},
     "jinan":     {"dws": "dws_jinan_price",     "ods": "ods_material_jinan_price",     "dwd": "dwd_jinan_price",     "label": "济南"},
     "rizhao":    {"dws": "dws_rizhao_price",    "ods": "ods_material_rizhao_price",    "dwd": "dwd_rizhao_price",    "label": "日照"},
+    "henan":     {"dws": "dws_henan_price",     "ods": "ods_material_henan_price",     "dwd": "dwd_henan_price",     "label": "河南"},
 }
 
 # 全部城市索引汇总
-ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
-ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price"
-ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price"
+ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price"
+ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price"
 
 # 各城市配置的区县数量（从 config.yml 读取，作为 total_counties 基准）
 CITY_COUNTY_COUNTS = {
-    "xian":      6,   # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
+    "xian":      6,    # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
     "sichuan":   21,   # 四川21个地级市/自治州（川A~川Z缺川G）
-    "chongqing": 35,  # 重庆市区县（材料信息价）
-    "jinan":     41,  # 济南41个分类目录
-    "rizhao":    3,   # 日照3个类别
+    "chongqing": 35,   # 重庆市区县（材料信息价）
+    "jinan":     41,   # 济南41个分类目录
+    "rizhao":    3,    # 日照3个类别
+    "henan":     18,   # 河南18个地级市（郑州/濮阳/.../商丘）
 }
 
 # 进度索引 map
@@ -57,6 +59,7 @@ PROGRESS_INDEXES = {
     "chongqing": "ods_chongqing_price_progress",
     "jinan":     "ods_material_jinan_price_sync_progress",
     "rizhao":    "material_rizhao_price_sync_progress",
+    "henan":     "ods_material_henan_price_sync_progress",
 }
 
 es = Elasticsearch([ES_HOST])
@@ -124,9 +127,9 @@ def _resolve_category_for_breed(breed: str) -> str:
 
 
 def _index_stats(index: str) -> dict:
-    """获取单个索引的统计信息"""
+    """获取单个索引的统计信息（支持逗号分隔的多索引 + ignore_unavailable）"""
     try:
-        count_r = es.count(index=index)
+        count_r = es.count(index=index, ignore_unavailable=True)
         count = count_r["count"]
     except Exception:
         return {"index": index, "count": 0, "status": "error", "msg": "count failed"}
@@ -169,6 +172,7 @@ def api_scrape_check(city: str = Body("...", embed=True)):
         "chongqing": ("chongqing-price",      "check"),
         "jinan":     ("jinan-price",          "check"),
         "rizhao":    ("rizhao-price",         "check"),
+        "henan":     ("henan-price",          "check"),
     }
     if city not in city_script_map:
         raise HTTPException(status_code=400, detail=f"未知城市: {city}")
@@ -205,6 +209,7 @@ def stats_scrape_progress_all():
     for city, idx in PROGRESS_INDEXES.items():
         try:
             use_cq = (city == "chongqing")
+            use_henan_periods = (city == "henan")
             if use_cq:
                 run_body = {
                     "size": 0,
@@ -252,6 +257,81 @@ def stats_scrape_progress_all():
                 else:
                     lu, ch = "", []
                 run_id = buckets[0]["key"] if buckets else None
+            elif use_henan_periods:
+                # Henan: 按 period 跟踪同步进度（created_at 是 keyword 不能 max 聚合）
+                period_body = {
+                    "size": 0,
+                    "aggs": {
+                        "periods": {
+                            "terms": {"field": "period", "size": 20},
+                            "aggs": {
+                                "docs_sum": {"sum": {"field": "docs_written"}},
+                                "latest_doc": {
+                                    "top_hits": {
+                                        "size": 1,
+                                        "sort": [{"created_at": "desc"}],
+                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                period_r = es.search(index=idx, body=period_body)
+                period_buckets = period_r["aggregations"]["periods"]["buckets"]
+                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
+                tr = 0
+                counties = []
+                run_id = None
+                lu = ""
+                lu_str = ""
+                comp = 0
+                run = 0
+                err = 0
+                period_created = {}
+                for b in period_buckets:
+                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                    raw_status = doc.get("status", "ok")
+                    if raw_status == "ok":
+                        primary_status = "completed"
+                        comp += 1
+                    elif raw_status in ("running", "in_progress"):
+                        primary_status = "running"
+                        run += 1
+                    else:
+                        primary_status = raw_status or "completed"
+                        comp += 1
+                    counties.append({
+                        "county": b["key"],
+                        "status": primary_status,
+                        "percent": 100.0 if primary_status == "completed" else 0,
+                        "docs_written": doc.get("docs_written", 0),
+                        "current_page": 0,
+                        "total_pages": 0,
+                    })
+                    created = doc.get("created_at", "")
+                    period_created[b["key"]] = created
+                    if created and created > lu_str:
+                        lu_str = created
+                        lu = created[:19]
+                        run_id = doc.get("period")
+                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+                # 跳过下面通用/rizhao 分支（直接赋值 ch/td/comp...）
+                ch = []
+                results[city] = {
+                    "city": city,
+                    "city_label": CITY_INDEXES[city]["label"],
+                    "latest_run_id": run_id,
+                    "last_updated": lu,
+                    "total_docs": td,
+                    "total_records": tr,
+                    "completed": comp,
+                    "running": run,
+                    "error": err,
+                    "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+                    "counties": counties,
+                }
+                continue
             else:
                 run_body = {
                     "size": 0,
@@ -392,6 +472,68 @@ def stats_scrape_progress_all():
                     "docs_written": h["_source"].get("docs_written", 0),
                 } for h in ch]
 
+            if city == "henan":
+                # Henan: 按 period 跟踪同步进度（每期 PDF 一个记录）
+                # created_at 是 keyword，不能直接 max 聚合。改用 top_hits 取最新一条记录排序。
+                period_body = {
+                    "size": 0,
+                    "aggs": {
+                        "periods": {
+                            "terms": {"field": "period", "size": 20},
+                            "aggs": {
+                                "docs_sum": {"sum": {"field": "docs_written"}},
+                                "latest_doc": {
+                                    "top_hits": {
+                                        "size": 1,
+                                        "sort": [{"created_at": "desc"}],
+                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                period_r = es.search(index=idx, body=period_body)
+                period_buckets = period_r["aggregations"]["periods"]["buckets"]
+                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
+                tr = 0
+                counties = []
+                run_id = None
+                lu = ""
+                lu_str = ""
+                comp = 0
+                run = 0
+                err = 0
+                period_created = {}  # period → created_at，用于排序
+                for b in period_buckets:
+                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                    raw_status = doc.get("status", "ok")
+                    if raw_status == "ok":
+                        primary_status = "completed"
+                        comp += 1
+                    elif raw_status in ("running", "in_progress"):
+                        primary_status = "running"
+                        run += 1
+                    else:
+                        primary_status = raw_status or "completed"
+                        comp += 1
+                    counties.append({
+                        "county": b["key"],
+                        "status": primary_status,
+                        "percent": 100.0 if primary_status == "completed" else 0,
+                        "docs_written": doc.get("docs_written", 0),
+                        "current_page": 0,
+                        "total_pages": 0,
+                    })
+                    created = doc.get("created_at", "")
+                    period_created[b["key"]] = created
+                    if created and created > lu_str:
+                        lu_str = created
+                        lu = created[:19]
+                        run_id = doc.get("period")
+                # 按 created_at 倒序排列 counties（最新期在前）
+                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+
             results[city] = {
                 "city": city,
                 "city_label": CITY_INDEXES[city]["label"],
@@ -430,8 +572,88 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key")):
     """
     PROGRESS_INDEX = PROGRESS_INDEXES.get(city, PROGRESS_INDEXES["xian"])
     use_chongqing_workaround = (city == "chongqing")
+    use_henan_periods = (city == "henan")
 
     try:
+        if use_henan_periods:
+            # Henan: 按 period 跟踪，created_at 是 keyword 不能 max 聚合
+            period_body = {
+                "size": 0,
+                "aggs": {
+                    "periods": {
+                        "terms": {"field": "period", "size": 20},
+                        "aggs": {
+                            "docs_sum": {"sum": {"field": "docs_written"}},
+                            "latest_doc": {
+                                "top_hits": {
+                                    "size": 1,
+                                    "sort": [{"created_at": "desc"}],
+                                    "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            period_r = es.search(index=PROGRESS_INDEX, body=period_body)
+            period_buckets = period_r["aggregations"]["periods"]["buckets"]
+            total_docs = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
+            total_records = 0
+            counties = []
+            run_id = None
+            lu = ""
+            lu_str = ""
+            comp = 0
+            run = 0
+            err = 0
+            period_created = {}
+            for b in period_buckets:
+                doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                raw_status = doc.get("status", "ok")
+                if raw_status == "ok":
+                    primary_status = "completed"
+                    comp += 1
+                elif raw_status in ("running", "in_progress"):
+                    primary_status = "running"
+                    run += 1
+                else:
+                    primary_status = raw_status or "completed"
+                    comp += 1
+                counties.append({
+                    "county": b["key"],
+                    "status": primary_status,
+                    "current_page": 0,
+                    "total_pages": 0,
+                    "total_records": 0,
+                    "docs_written": doc.get("docs_written", 0),
+                    "percent": 100.0 if primary_status == "completed" else 0,
+                    "duration_sec": round(doc.get("duration_sec", 0), 1),
+                    "update_date": doc.get("publish_date", ""),
+                    "last_updated": doc.get("created_at", ""),
+                    "error": "",
+                    "spot_check_ok": None,
+                })
+                created = doc.get("created_at", "")
+                period_created[b["key"]] = created
+                if created and created > lu_str:
+                    lu_str = created
+                    lu = created[:19]
+                    run_id = doc.get("period")
+            counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+            return {
+                "city": city,
+                "city_label": CITY_INDEXES.get(city, {}).get("label", city),
+                "latest_run_id": run_id,
+                "last_updated": lu,
+                "total_docs": total_docs,
+                "total_records": total_records,
+                "completed": comp,
+                "running": run,
+                "error": err,
+                "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+                "counties": counties,
+            }
+
         if use_chongqing_workaround:
             run_body = {
                 "size": 0,
@@ -674,7 +896,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        prov_result = es.search(index=dwd_idx, body=prov_body)
+        prov_result = es.search(index=dwd_idx, body=prov_body, ignore_unavailable=True)
         prov_buckets = prov_result["aggregations"]["by_province"]["buckets"]
 
         # ── 2. 近30天每日入库量 ─────────────────────────────────
@@ -691,7 +913,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        daily_result = es.search(index=dwd_idx, body=daily_body)
+        daily_result = es.search(index=dwd_idx, body=daily_body, ignore_unavailable=True)
         daily_buckets = daily_result["aggregations"]["daily"]["buckets"]
         daily_data = [
             {"date": b["key_as_string"][:10], "count": b["doc_count"]}
@@ -712,7 +934,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        city_result = es.search(index=dwd_idx, body=city_body)
+        city_result = es.search(index=dwd_idx, body=city_body, ignore_unavailable=True)
         city_buckets = city_result["aggregations"]["by_city"]["buckets"]
         city_data = [
             {
@@ -726,11 +948,11 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
 
         # ── 4. 数据总量 ──────────────────────────────────────────
         try:
-            count_resp = es.count(index=dwd_idx)
+            count_resp = es.count(index=dwd_idx, ignore_unavailable=True)
             total_count = count_resp["count"]
         except Exception:
             total_body = {"query": {"match_all": {}}, "size": 0, "track_total": True}
-            total_r = es.search(index=dwd_idx, body=total_body)
+            total_r = es.search(index=dwd_idx, body=total_body, ignore_unavailable=True)
             total_count = total_r["hits"]["total"]["value"]
 
         # ── 5. 新鲜度分析 ────────────────────────────────────────
@@ -768,9 +990,9 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         prev_7d = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             r1 = pool.submit(es.count, index=dwd_idx,
-                body={"query": {"range": {"etl_time": {"gte": "now-7d"}}}})
+                body={"query": {"range": {"etl_time": {"gte": "now-7d"}}}}, ignore_unavailable=True)
             r2 = pool.submit(es.count, index=dwd_idx,
-                body={"query": {"range": {"etl_time": {"gte": "now-14d", "lt": "now-7d"}}}})
+                body={"query": {"range": {"etl_time": {"gte": "now-14d", "lt": "now-7d"}}}}, ignore_unavailable=True)
             recent_7d = r1.result()["count"]
             prev_7d = r2.result()["count"]
 
@@ -1017,6 +1239,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
         "chongqing": "dwd_chongqing_price",
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
+        "henan": "dwd_henan_price",
     }
     idx = city_idx_map.get(city, "dwd_xian_price")
     parser = _get_cached_parser(city)
@@ -1100,6 +1323,7 @@ def _category_coverage(city="xian"):
         "chongqing": "dwd_chongqing_price",
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
+        "henan": "dwd_henan_price",
     }
     idx = city_idx_map.get(city, "dwd_xian_price")
     attr_fields = ATTR_FIELDS
@@ -1338,6 +1562,7 @@ def refresh_category(
         "chongqing": "dwd_chongqing_price",
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
+        "henan": "dwd_henan_price",
     }
     dws_idx_map = {
         "xian": "dws_xian_price",
@@ -1345,6 +1570,7 @@ def refresh_category(
         "chongqing": "dws_chongqing_price",
         "jinan": "dws_jinan_price",
         "rizhao": "dws_rizhao_price",
+        "henan": "dws_henan_price",
     }
     dwd_idx = dwd_idx_map.get(city)
     if not dwd_idx:
@@ -1458,6 +1684,7 @@ def flush_city_dws(
         "chongqing": "dwd_chongqing_price",
         "jinan":     "dwd_jinan_price",
         "rizhao":    "dwd_rizhao_price",
+        "henan":     "dwd_henan_price",
     }
     dws_idx_map = {
         "xian":      "dws_xian_price",

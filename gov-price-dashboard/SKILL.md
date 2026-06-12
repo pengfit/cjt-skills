@@ -113,6 +113,7 @@ gov-price-dashboard/
 | `GET` | `/api/stats/rizhao-sync-progress` | 日照同步进度（3类别） |
 | `GET` | `/api/stats/jinan-sync-progress` | 济南同步进度（41分类目录） |
 | `GET` | `/api/stats/chongqing-sync-progress` | 重庆同步进度（35区县） |
+| `GET` | `/api/stats/henan-sync-progress` | 河南同步进度（按月跟踪 period） |
 
 ### 数据溯源
 
@@ -215,6 +216,7 @@ GET /api/search?keyword=&province=&city=&county=&category=
 | 重庆 | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` | `ods_chongqing_price_progress` |
 | 济南 | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` | `ods_material_jinan_price_sync_progress` |
 | 日照 | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` | `material_rizhao_price_sync_progress` |
+| 河南 | `ods_material_henan_price` | `dwd_henan_price` | `dws_henan_price` | `ods_material_henan_price_sync_progress` |
 
 **默认查询索引**：`dws_xian_price`（可通过 `ES_INDEX` 环境变量切换）
 

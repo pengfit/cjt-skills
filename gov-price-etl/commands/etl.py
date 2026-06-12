@@ -111,6 +111,12 @@ CITY_CONFIGS = {
         "dws": "dws_rizhao_price",
         "city_label": "日照",
     },
+    "henan": {
+        "ods": "ods_material_henan_price",
+        "dwd": "dwd_henan_price",
+        "dws": "dws_henan_price",
+        "city_label": "河南",
+    },
 }
 
 
@@ -1005,7 +1011,7 @@ def etl_city(es_host: str, city: str, cfg: dict,
             cats = _fetch_ai_category_batch(chunk, city)
             breed_cats.update(cats)
             if i + _AI_BATCH_SIZE < len(breeds):
-                import time; time.sleep(10)
+                import time; time.sleep(0.5)  # 加速：原 10s 改为 0.5s
         if breed_cats:
             # 按 doc_id 分组批量更新
             update_body = ""

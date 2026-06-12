@@ -19,5 +19,6 @@ venv/
 *.log
 # 运行时状态/数据
 .sync_progress.json
+.henan_sync_progress.json
 *.db-shm
 *.db-wal

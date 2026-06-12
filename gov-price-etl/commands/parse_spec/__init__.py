@@ -8,6 +8,7 @@
   chongqing.py     # 重庆（预留）
   jinan.py         # 济南（预留）
   rizhao.py        # 日照（预留）
+  henan.py         # 河南（预留）
 
 用法:
   from parse_spec import get_parser
@@ -26,6 +27,7 @@ CITY_PARSERS = {
     "chongqing":("base",     None),   # 暂用通用规则
     "jinan":    ("base",     None),   # 暂用通用规则
     "rizhao":   ("base",     None),   # 暂用通用规则
+    "henan":    ("henan",    "HenanParseSpec"),
 }
 
 
