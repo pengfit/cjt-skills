@@ -15,6 +15,7 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--period', default='', help='指定周期')
+    parser.add_argument('--year', type=int, default=0, help='只预览指定年份的期')
     parser.add_argument('--latest', action='store_true', help='只预览最新一期')
     args = parser.parse_args()
 
@@ -24,6 +25,8 @@ def main():
 
     if args.period:
         items = [it for it in items if args.period in it['title']]
+    if args.year:
+        items = [it for it in items if f'{args.year}年' in it['title']]
     if args.latest:
         items = items[:1]
 

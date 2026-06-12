@@ -324,6 +324,7 @@ def bulk_index(es, index, docs):
 def main():
     parser = argparse.ArgumentParser(description='河南工程造价材料信息同步')
     parser.add_argument('--period', default='', help='指定周期（如 2026.3月）')
+    parser.add_argument('--year', type=int, default=0, help='只入库指定年份的期（按 title 过滤，如 2026）')
     parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
     parser.add_argument('--reset', action='store_true', help='重置进度')
     parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
@@ -354,6 +355,8 @@ def main():
     todo = []
     for it in items:
         if args.period and args.period not in it['title']:
+            continue
+        if args.year and f'{args.year}年' not in it['title']:
             continue
         if it['detail_url'] in progress['done'] and progress['done'][it['detail_url']].get('status') == 'ok':
             continue
