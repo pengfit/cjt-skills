@@ -17,6 +17,7 @@
           <circle cx="47" cy="18" r="4" fill="#38bdf8"/>
         </svg>
         <span class="top-bar-brand">材价通</span>
+        <div class="top-bar-divider"></div>
         <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>

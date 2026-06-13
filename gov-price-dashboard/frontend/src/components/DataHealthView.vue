@@ -931,12 +931,13 @@ onUnmounted(() => {
   padding: 0;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
   position: relative;
 }
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(56,189,248,0.06);
+  border-color: rgba(56,189,248,0.18);
 }
 .stat-card-inner {
   padding: 18px 20px;
@@ -1064,15 +1065,16 @@ onUnmounted(() => {
   padding: 0;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.3s;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
   display: flex;
   flex-direction: row;
   position: relative;
   min-height: 0;
 }
 .sync-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(56,189,248,0.06);
+  border-color: rgba(56,189,248,0.2);
 }
 .sync-card-running {
   border-color: rgba(56,189,248,0.2);
