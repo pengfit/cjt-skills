@@ -451,7 +451,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
         except Exception:
             pass
 
-        # 并发调用 AI，所有 sub-batch 同时执行（max_workers=8）
+        # 串行调用 AI（道友要求：AI 部分不要并行）
         AI_BATCH = 20
         TIMEOUT = 300  # 5min，单批 20 条 AI 解析可能需要等待 OpenClaw gateway 排队
         all_results = []
@@ -484,7 +484,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
                 return []
 
         sub_batches = [items[i:i + AI_BATCH] for i in range(0, len(items), AI_BATCH)]
-        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，串行执行...", flush=True)
+        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，按道友要求串行执行（不开线程池）...", flush=True)
         for i, sb in enumerate(sub_batches):
             results = _call_ai_sub_batch(sb, i+1)
             all_results.extend(results)
