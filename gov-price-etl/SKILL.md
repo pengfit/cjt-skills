@@ -78,7 +78,9 @@ gov-price-etl/
 │           └── dws_sync.py     # DWD→DWS 同步（合一：3 模式）
 ├── cli/                        # 入口脚本
 │   ├── etl.py                  # ODS → DWD → DWS 主入口
-│   └── sync_dws.py             # DWD → DWS 同步（--mode quick|plain|ai）
+│   ├── sync_dws.py             # DWD → DWS 同步（--mode quick|plain|ai）
+│   └── reload_prompts.py       # 重读 prompts.yml
+├── prompts.yml                 # AI Prompt 模板（从 dashboard 迁移，热重载）
 └── commands/                   # ⚠️ 旧入口 shim（已废弃）
     ├── etl.py                  # 转发到 cli/etl.py
     └── sync_dws_quick.py       # 转发到 cli/sync_dws.py --mode quick
@@ -169,7 +171,41 @@ print(classify_breed('铸铁井盖'))
 "
 ```
 
-### 5. 旧入口 shim（兼容，会打 DeprecationWarning）
+### 5. AI Prompt 模板管理
+
+Prompt 模板从 `gov-price-etl/prompts.yml` 加载（不是 hard-coded，也不是读 gov-price-dashboard）。
+
+```bash
+# 重读 prompts.yml（调试场景，yml 改完不需要重启 ETL）
+./cli/reload_prompts.py
+
+# 查看当前加载的所有 prompt 概览
+./cli/reload_prompts.py --show
+
+# 也能在 Python 里调：
+PYTHONPATH=src python3 -c "
+from gov_price_etl.ai import reload_prompts, get_prompt
+reload_prompts()
+print(list(get_prompt('batch_spec_parse').keys()))
+"
+```
+
+**热重载机制**：进程内缓存 prompts.yml 的 mtime + 内容，下次 `get_prompt()` 调用检测到 mtime 变了就自动重读。**不需要重启 ETL**。
+
+**`prompts.yml` 三个 key**（从 gov-price-dashboard 迁移过来）：
+- `fix_case` — 单条 spec → 解析规则
+- `classify_breed_batch` — 批量品种 → 分类
+- `batch_spec_parse` — 批量 spec → 解析规则
+
+**安全格式化**：`format_prompt()` 处理模板中的字面量花括号（`{diameter:20mm, material:Q235}` 之类的举例文本）不会报 KeyError，也不会跟真占位符（`{specs_str}`、`{ref_names}` 等）冲突。
+
+**修改 prompts.yml**：
+1. 直接编辑 `~/.openclaw/workspace/skills/gov-price-etl/prompts.yml`
+2. 跑 `./cli/reload_prompts.py`（或等下次 ETL 自动检测 mtime）
+3. 验证：用 `--show` 看到新内容
+4. 回滚：dashboard 的 `gov-price-dashboard/api/routes/prompts.yml` 仍保留作为只读参考源
+
+### 6. 旧入口 shim（兼容，会打 DeprecationWarning）
 
 ```bash
 python3 commands/etl.py ...        # → cli/etl.py

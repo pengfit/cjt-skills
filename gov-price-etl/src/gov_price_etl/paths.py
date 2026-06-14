@@ -28,5 +28,8 @@ CATEGORY_RULES_DB = DATA_DIR / "breed_category_rules.db"
 CATEGORY_IN_SYSTEM_JSON = DATA_DIR / "category_in_system.json"
 AI_CACHE_DB = DATA_DIR / "ai_cache.db"
 
+# AI Prompt 模板（可手动编辑 + 热重载）
+PROMPTS_YML = PROJECT_ROOT / "prompts.yml"
+
 # 确保 data/ 存在（首次跑时 ai_cache.db 会在这里建）
 DATA_DIR.mkdir(parents=True, exist_ok=True)

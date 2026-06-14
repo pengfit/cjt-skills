@@ -11,8 +11,9 @@
   ETL → ai_service → OpenClaw gateway (localhost:18789/v1/chat/completions)
 
 兼容旧接口：
-  - 仍接受 dashboard prompts.yml 路径（如果存在）作为 prompt 模板源
-  - 若无 dashboard 则用内置简化模板（fallback）
+  - Prompt 模板从 prompts.yml 加载（路径由 paths.PROMPTS_YML 解析）
+  - 修改 prompts.yml 后下次 AI 调用自动重读（mtime 检测）
+  - 缺失时回退到 ai.prompts.BUILTIN_FALLBACK
 """
 
 import hashlib
@@ -24,6 +25,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from gov_price_etl.ai import cache as ai_cache
+from gov_price_etl.ai.prompts import format_prompt, get_prompt
 from gov_price_etl.paths import (
     PROJECT_ROOT,
     SPEC_RULES_DB,
@@ -33,10 +35,6 @@ import requests
 # ── 配置 ──────────────────────────────────────────────────────────────
 GATEWAY_URL = os.environ.get("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
 OPENCLAW_CONFIG = os.path.expanduser("~/.openclaw/openclaw.json")
-# 兼容 dashboard 的 prompts.yml（如 gov-price-dashboard 仓库就在 skills/ 同级）
-DASHBOARD_PROMPTS_YML = str(
-    PROJECT_ROOT.parent / "gov-price-dashboard" / "api" / "routes" / "prompts.yml"
-)
 
 
 def _read_token() -> str:
@@ -48,61 +46,8 @@ def _read_token() -> str:
         return ""
 
 
-def _load_prompts() -> dict:
-    """Load prompt templates.
-
-    注意：dashboard 的 prompts.yml 包含大量未转义的 {xxx} 举例文本（如 "{{diameter:20mm, material:Q235}}")，
-    Python str.format() 会报 KeyError。因此 etl 这边不复用 dashboard 的模板，直接用内置安全模板。
-    Dashboard 仍可独立从其 yaml 加载（用占位符手工拼接，不调 str.format）。
-    """
-    return _BUILTIN_PROMPTS
-
-
-# 内置简化 prompt（dashboard 不可用时兜底）
-_BUILTIN_PROMPTS = {
-    "classify_breed_batch": {
-        "system": "你是一名建筑工程材料分类专家。",
-        "template": "以下品种列表，请逐个分类（限：钢材金属材料/水泥胶凝材料/砂石骨料/混凝土预制构件/砌体墙体材料/防水密封材料/电气材料/给排水材料/园林绿化/其他）：\n{breeds}\n\n输出 JSON: {{\"ok\": true, \"results\": {{\"品种名\": {{\"category\": \"X\", \"confidence\": 0.9, \"note\": \"\"}}}}}}",
-    },
-    "batch_spec_parse": {
-        "system": "你是一个建材规格解析规则生成专家。",
-        "template": """你是一个建材规格解析专家。以下是一批规格文本，请逐一解析并生成规则。
-
-输入规格列表
-   {specs_str}
-
-属性名参考
-   {ref_names}
-
-核心原则
-  - 每个可识别业务属性必须单独 suggestion
-  - suggestions 数量 = 最终识别出的属性数量
-  - 遇到复合型内容要拆分所有可能业务属性
-  - 值相同时禁止并存
-
-属性名要求
-  - 优先使用以上参考名称；驼峰命名；不得中文
-
-输出格式
-  必须返回纯 JSON 数组（不要 markdown、不要 ```json 围栏、不要解释文字）。
-
-  [
-    {{
-      "spec": "...",
-      "breed": "...",
-      "ok": true,
-      "suggestions": [
-        {{
-          "attr": "...",
-          "note": "...",
-          "pattern": "...",
-          "code_block": "..."
-        }}
-      ]
-    }}
-  ]""",
-    },
-}
+# 旧 BUILTIN_PROMPTS 字典已迁移到 ai/prompts.py 的 BUILTIN_FALLBACK。
+# 旧 _load_prompts() 函数已废弃（ai/prompts.py 的 get_prompts/get_prompt 是替代）。
 
 
 def _get_ref_attr_names() -> str:
@@ -206,8 +151,7 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
     """
     if not breeds:
         return {}
-    prompts = _load_prompts()
-    cfg = prompts.get("classify_breed_batch", _BUILTIN_PROMPTS["classify_breed_batch"])
+    cfg = get_prompt("classify_breed_batch")
     system_msg = cfg.get("system", "")
 
     # 1. 查缓存
@@ -226,7 +170,7 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
         _stats["classify_calls"] += 1
         breeds_str = "\n".join(f"{i+1}. {b}" for i, b in enumerate(uncached))
         try:
-            user_prompt = cfg["template"].format(breeds=breeds_str)
+            user_prompt = format_prompt(cfg["template"], breeds=breeds_str)
         except (KeyError, ValueError):
             user_prompt = f"待分类：\n{breeds_str}"
         ok, content = _call_gateway(user_prompt, system_msg, "etl-classify-agent", timeout=180)
@@ -273,8 +217,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
     """
     if not items:
         return []
-    prompts = _load_prompts()
-    cfg = prompts.get("batch_spec_parse", _BUILTIN_PROMPTS["batch_spec_parse"])
+    cfg = get_prompt("batch_spec_parse")
     system_msg = cfg.get("system", "")
 
     # 1. 查缓存
@@ -314,7 +257,8 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
             ]
             specs_str = "\n".join(lines)
             try:
-                user_prompt = cfg["template"].format(
+                user_prompt = format_prompt(
+                    cfg["template"],
                     specs_str=specs_str,
                     batch_size=len(batch_items),
                     ref_names=_get_ref_attr_names(),
