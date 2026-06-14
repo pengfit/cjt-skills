@@ -23,16 +23,19 @@ import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-import ai_cache
+from gov_price_etl.ai import cache as ai_cache
+from gov_price_etl.paths import (
+    PROJECT_ROOT,
+    SPEC_RULES_DB,
+)
 import requests
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ── 配置 ──────────────────────────────────────────────────────────────
 GATEWAY_URL = os.environ.get("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
 OPENCLAW_CONFIG = os.path.expanduser("~/.openclaw/openclaw.json")
-DASHBOARD_PROMPTS_YML = os.path.join(
-    SCRIPT_DIR, "..", "..", "gov-price-dashboard", "api", "routes", "prompts.yml"
+# 兼容 dashboard 的 prompts.yml（如 gov-price-dashboard 仓库就在 skills/ 同级）
+DASHBOARD_PROMPTS_YML = str(
+    PROJECT_ROOT.parent / "gov-price-dashboard" / "api" / "routes" / "prompts.yml"
 )
 
 
@@ -103,8 +106,8 @@ _BUILTIN_PROMPTS = {
 
 
 def _get_ref_attr_names() -> str:
-    """从 etl/parse_spec/rules/breed_spec_rules.db 读取已有属性名（兼容 dashboard 的 ref_names 逻辑）"""
-    db_path = os.path.join(SCRIPT_DIR, "parse_spec", "rules", "breed_spec_rules.db")
+    """从 data/breed_spec_rules.db 读取已有属性名（兼容 dashboard 的 ref_names 逻辑）"""
+    db_path = str(SPEC_RULES_DB)
     if not os.path.exists(db_path):
         return "diameter, length, width, height, thickness, grade, material, pressure, voltage, power"
     try:

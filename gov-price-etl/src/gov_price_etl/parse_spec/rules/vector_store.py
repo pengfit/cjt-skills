@@ -9,8 +9,11 @@ import json, os, re, glob, threading, math
 import numpy as np
 import sqlite3
 
+from gov_price_etl.paths import SPEC_RULES_DB, PROJECT_ROOT
+
+# 向后兼容：旧代码可能 import RULES_DIR / DB_PATH
 RULES_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(RULES_DIR, "breed_spec_rules.db")
+DB_PATH = str(SPEC_RULES_DB)
 
 
 # ── Keyword-set similarity (zero-dep) ────────────────────────────────────────
@@ -310,7 +313,10 @@ class VecStore:
             return self._row_to_rule(rows[0])
         return None
 
-    def rebuild_from_rules_dir(self, rules_dir: str = RULES_DIR) -> int:
+    def rebuild_from_rules_dir(self, rules_dir: str = None) -> int:
+        # 默认从仓库 parse_spec/rules 目录重建（备份规则源）
+        if rules_dir is None:
+            rules_dir = os.path.join(PROJECT_ROOT, "src", "gov_price_etl", "parse_spec", "rules")
         """Rebuild DB from all rules/*.py files. Returns count of rules inserted."""
         import re as _re
 

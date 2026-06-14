@@ -6,7 +6,7 @@
   - 缓存 key = SHA1(spec + breed + category) 避免重复
   - 缓存 value = JSON 序列化的 AI 响应
 
-位置：与 etl.py 同目录（运行时数据，不进 git）
+位置：data/ai_cache.db（运行时数据，不进 git）
 """
 
 import hashlib
@@ -15,8 +15,9 @@ import os
 import sqlite3
 import time
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(SCRIPT_DIR, "ai_cache.db")
+from gov_price_etl.paths import AI_CACHE_DB
+
+DB_PATH = str(AI_CACHE_DB)
 
 
 def _connect():

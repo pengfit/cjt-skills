@@ -19,12 +19,11 @@ try:
 except ImportError:
     _HAS_JIEBA = False
 
+from gov_price_etl.paths import CATEGORY_RULES_DB
+
 # ── 常量 ──────────────────────────────────────────────────────────────────────
 
-RULES_DB = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "classify", "rules", "breed_category_rules.db"
-)
+RULES_DB = str(CATEGORY_RULES_DB)
 DEFAULT_THRESHOLD = 0.45
 
 # 全局停用词（过短无意义词，主体词判定时跳过）
