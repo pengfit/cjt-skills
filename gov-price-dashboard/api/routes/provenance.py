@@ -30,7 +30,7 @@ except Exception as _e:
     _ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
 
 try:
-    from parse_spec.rules.vector_store import get_vec_store
+    from gov_price_etl.parse_spec.rules.vector_store import get_vec_store
 except Exception:
     get_vec_store = None
 
@@ -40,7 +40,7 @@ router = APIRouter()
 ES_HOST = "http://localhost:59200"
 
 # ── ETL classify/jaccard 批量写入接口 ──────────────
-from rules.jaccard import batch_insert_breed_rules
+from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
 
 # 城市配置：city key → (dws_idx, ods_idx, dwd_idx, 标签)
 CITY_INDEXES = {
@@ -83,7 +83,7 @@ PROGRESS_INDEXES = {
 es = Elasticsearch([ES_HOST])
 
 
-from rules.jaccard import batch_insert_breed_rules
+from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
 
 # _RULES_DB / _RULES_DB_CAT / _RULES_DB_SPEC 已在文件头部从 gov_price_etl.paths 导入
 # （避免与旧路径硬编码冲突）
@@ -1324,7 +1324,7 @@ def _run_spec_validation(city="xian"):
     with open(testset_path) as f:
         data = json.load(f)
     try:
-        from parse_spec import get_parser
+        from gov_price_etl.parse_spec import get_parser
         parser = get_parser(city)
     except Exception as e:
         return {"error": f"解析器加载失败: {str(e)}"}
@@ -1362,7 +1362,7 @@ def _get_cached_parser(city: str):
     """返回 city 对应的 parse_spec 实例，带缓存"""
     if city not in _PARSER_CACHE:
         try:
-            from parse_spec import get_parser
+            from gov_price_etl.parse_spec import get_parser
             _PARSER_CACHE[city] = get_parser(city)
         except Exception:
             _PARSER_CACHE[city] = None
@@ -1718,7 +1718,7 @@ def refresh_category(
 
     try:
         sys.path.insert(0, ETL_CMD_DIR)
-        from etl import transform_doc, get_parser, ensure_dwd
+        from gov_price_etl.transform import transform_doc; from gov_price_etl.parse_spec import get_parser; from gov_price_etl.indexer import ensure_dwd
         import concurrent.futures
 
         es = Elasticsearch([ES_HOST])
@@ -1789,7 +1789,7 @@ def refresh_category(
 
         # 清洗完成后自动同步 DWD→DWS
         sys.path.insert(0, ETL_CMD_DIR)
-        from etl import flush_to_dws as _flush_to_dws
+        from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
         flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx}, category=category)
 
 
@@ -1839,7 +1839,7 @@ def flush_city_dws(
 
     try:
         sys.path.insert(0, ETL_CMD_DIR)
-        from etl import transform_doc
+        from gov_price_etl.transform import transform_doc
 
         es = Elasticsearch([ES_HOST])
 
@@ -1921,7 +1921,7 @@ def flush_city_dws(
         # 解析完成后同步 DWD→DWS
         # 先 refresh DWD，确保 flush_to_dws 能读到最新解析结果
         es.indices.refresh(index=dwd_idx)
-        from etl import flush_to_dws as _flush_to_dws
+        from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
         flush_ok, flush_fail = _flush_to_dws(ES_HOST, city, {"dwd": dwd_idx, "dws": dws_idx})
 
         return {
@@ -2532,10 +2532,9 @@ def delete_breed_category_rule(rule_id: int):
 def test_breed_category_rule(req: dict = Body(...)):
     """测试品种名 Jaccard 召回"""
     import sys, os as os_module
-    sys.path.insert(0, ETL_CMD_DIR)
+    sys.path.insert(0, ETL_CMD_DIR)  # noqa
     try:
-        sys.path.insert(0, os.path.join(ETL_CMD_DIR, 'classify', 'rules'))
-        from jaccard import jaccard_breed_classify
+        from gov_price_etl.classify.rules.jaccard import jaccard_breed_classify
         breed = (req.get("breed") or "").strip()
         if not breed:
             return {"hit": False, "score": 0, "category": ""}
