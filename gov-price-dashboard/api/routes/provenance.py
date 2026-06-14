@@ -1379,6 +1379,7 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
         "henan": "dwd_henan_price",
+        "heze": "dwd_heze_price",
     }
     idx = city_idx_map.get(city, "dwd_xian_price")
     parser = _get_cached_parser(city)
@@ -1463,6 +1464,7 @@ def _category_coverage(city="xian"):
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
         "henan": "dwd_henan_price",
+        "heze": "dwd_heze_price",
     }
     idx = city_idx_map.get(city, "dwd_xian_price")
     attr_fields = ATTR_FIELDS
@@ -1702,6 +1704,7 @@ def refresh_category(
         "jinan": "dwd_jinan_price",
         "rizhao": "dwd_rizhao_price",
         "henan": "dwd_henan_price",
+        "heze": "dwd_heze_price",
     }
     dws_idx_map = {
         "xian": "dws_xian_price",
@@ -1824,6 +1827,7 @@ def flush_city_dws(
         "jinan":     "dwd_jinan_price",
         "rizhao":    "dwd_rizhao_price",
         "henan":     "dwd_henan_price",
+        "heze":      "dwd_heze_price",
     }
     dws_idx_map = {
         "xian":      "dws_xian_price",
