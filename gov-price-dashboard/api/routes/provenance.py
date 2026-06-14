@@ -62,7 +62,7 @@ ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jina
 CITY_COUNTY_COUNTS = {
     "xian":      6,    # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
     "sichuan":   21,   # 四川21个地级市/自治州（川A~川Z缺川G）
-    "chongqing": 35,   # 重庆市区县（材料信息价）
+    "chongqing": 35,   # 重庆区县（材料信息价）
     "jinan":     41,   # 济南41个分类目录
     "rizhao":    3,    # 日照3个类别
     "henan":     18,   # 河南18个地级市（郑州/濮阳/.../商丘）
