@@ -11,6 +11,9 @@
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
         <span class="hud-live" :class="{ active: pollingActive }">● LIVE</span>
+        <button class="hud-btn" @click="manualRefresh" :disabled="loading" title="立即拉取最新数据">
+          {{ loading ? '⟳ LOADING' : '↻ REFRESH' }}
+        </button>
         <button class="hud-btn" @click="togglePolling">
           {{ pollingActive ? '⏸ PAUSE' : '▶ RESUME' }}
         </button>
@@ -354,6 +357,11 @@ function togglePolling() {
   }
 }
 
+function manualRefresh() {
+  if (loading.value) return
+  loadData()
+}
+
 function startPolling() {
   stopPolling()
   pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
@@ -466,6 +474,12 @@ onUnmounted(() => {
 .hud-btn:hover {
   background: rgba(0,212,255,0.15);
   box-shadow: 0 0 12px rgba(0,212,255,0.5);
+}
+.hud-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #555;
+  color: #555;
 }
 
 /* ── 加载 / 错误 ─────────────────────────────────── */
