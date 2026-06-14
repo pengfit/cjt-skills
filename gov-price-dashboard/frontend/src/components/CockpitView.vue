@@ -723,7 +723,8 @@ onUnmounted(() => {
   gap: 4px;
   margin-bottom: 12px;
 }
-.city-stage { flex: 1; }
+.city-stage { flex: 1; min-width: 0; }
+.city-arrow { flex-shrink: 0; color: #00d4ff; font-size: 10px; opacity: 0.5; }
 .stage-tag {
   color: #6a7a8a;
   font-size: 9px;
@@ -734,11 +735,15 @@ onUnmounted(() => {
 }
 .stage-num {
   color: #00ff88;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   font-family: 'SF Mono', monospace;
+  font-variant-numeric: tabular-nums;
   text-shadow: 0 0 4px rgba(0,255,136,0.4);
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .stage-bar {
   height: 3px;
@@ -752,11 +757,7 @@ onUnmounted(() => {
   box-shadow: 0 0 6px rgba(0,255,136,0.5);
   transition: width 0.6s;
 }
-.city-arrow {
-  color: #00d4ff;
-  font-size: 10px;
-  opacity: 0.5;
-}
+
 
 .city-scrape { margin-bottom: 10px; }
 .scrape-row {
