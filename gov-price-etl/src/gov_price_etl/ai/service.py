@@ -141,6 +141,11 @@ def _reset_stats():
         _stats[k] = 0
 
 
+def reset_stats() -> None:
+    """公开接口：重置过程内 AI 统计。"""
+    _reset_stats()
+
+
 def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120) -> Tuple[bool, str]:
     """Direct call to OpenClaw gateway chat completions API."""
     token = _read_token()
