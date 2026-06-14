@@ -1,9 +1,9 @@
 ---
 name: gov-price-dashboard
-description: "政府材料价格数据可视化看板（涌数），基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。"
+description: "政府材料价格数据可视化看板（材价通），基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。"
 ---
 
-# 涌数
+# 材价通
 
 政府材料价格数据可视化看板，基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。
 

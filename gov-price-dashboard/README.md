@@ -1,4 +1,4 @@
-# 涌数 - 政府材料价格看板
+# 材价通 - 政府材料价格看板
 
 政务数据材料价格查询与可视化平台，基于 Elasticsearch 数据源，支持多维度筛选、价格趋势分析、规格解析质量监控、数据溯源追踪。
 
@@ -66,7 +66,7 @@ gov-price-dashboard/
 ## 快速启动
 
 ```bash
-cd skills/涌数
+cd skills/gov-price-dashboard
 ./start.sh
 ```
 
