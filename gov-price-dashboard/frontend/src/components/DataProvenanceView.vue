@@ -268,8 +268,8 @@ const scrapeExpandedCity = ref('')
 const scrapeRunning = ref({})
 const dwsRunning = ref({})
 const selectedCity = ref('xian')
-const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南' }
-const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南' }
+const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南', heze: '菏泽' }
+const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南', heze: '菏泽' }
 const data = ref({
   total: 0,
   stale_provinces: 0,
