@@ -42,22 +42,21 @@ gov-price-etl/
 │   ├── breed_category_rules.db # 品种分类规则
 │   ├── category_in_system.json # 分类体系映射
 │   └── ai_cache.db            # AI 调用缓存（.gitignore）
-├── src/
-│   └── gov_price_etl/         # 真正的包
-│       ├── __init__.py
-│       ├── paths.py            # 路径中心
-│       ├── config.py           # 配置 + CITY_CONFIGS
-│       ├── es_client.py        # ES 客户端 + bulk
-│       ├── mappings.py         # DWD/DWS mappings
-│       ├── indexer.py          # 索引模板 / ensure_indices
-│       ├── transform/
-│       │   ├── __init__.py
-│       │   ├── clean.py        # 品种/规格/单位/价格清洗
-│       │   ├── doc.py          # transform_doc ODS→DWD
-│       │   └── attr_utils.py   # attr 字段提取/转换
-│       ├── parse_spec/         # 规格解析引擎
-│       │   ├── __init__.py     # get_parser() 入口
-│       │   ├── base.py         # BaseParseSpec 基类
+├── gov_price_etl/             # 真正的包
+│   ├── __init__.py
+│   ├── paths.py            # 路径中心
+│   ├── config.py           # 配置 + CITY_CONFIGS
+│   ├── es_client.py        # ES 客户端 + bulk
+│   ├── mappings.py         # DWD/DWS mappings
+│   ├── indexer.py          # 索引模板 / ensure_indices
+│   ├── transform/
+│   │   ├── __init__.py
+│   │   ├── clean.py        # 品种/规格/单位/价格清洗
+│   │   ├── doc.py          # transform_doc ODS→DWD
+│   │   └── attr_utils.py   # attr 字段提取/转换
+│   ├── parse_spec/         # 规格解析引擎
+│   │   ├── __init__.py     # get_parser() 入口
+│   │   ├── base.py         # BaseParseSpec 基类
 │       │   ├── xian.py / sichuan.py / henan.py
 │       │   └── rules/
 │       │       ├── _attrs.py   # ATTR_SLOTS
@@ -345,7 +344,7 @@ classify_breed(breed_clean)
 |---|---|---|
 | `commands/etl.py` | 1107 行（22 个函数） | 拆为 7 个模块，每个 < 250 行 |
 | DWS 同步入口 | 3 处独立实现（行为不一致） | 1 核心 + 3 薄壳，行为可参数化 |
-| 包结构 | 散文件 + sys.path 黑魔法 | 标准 `src/gov_price_etl/` 包，0 黑魔法 |
+| 包结构 | 散文件 + sys.path 黑魔法 | 标准 `gov_price_etl/` 包，0 黑魔法 |
 | DB 路径解析 | `os.path.join(__file__, ...)` | `paths.py` 中心化管理 |
 | 硬编码绝对路径 | 1 处（`/Users/pengfit/.../breed_category_rules.db`） | 0 处 |
 | 入口脚本 | `python3 commands/etl.py` | `./cli/etl.py`（旧入口保留为 shim + DeprecationWarning） |

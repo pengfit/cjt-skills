@@ -14,7 +14,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 warnings.warn(
-    "commands/etl.py 已废弃，请使用 cli/etl。新入口自动处理 src/ 路径注入。",
+    "commands/etl.py 已废弃，请使用 cli/etl.py。",
     DeprecationWarning,
     stacklevel=2,
 )
@@ -22,6 +22,6 @@ warnings.warn(
 # 转发到 cli/etl
 sys.argv[0] = str(PROJECT_ROOT / "cli" / "etl")
 sys.path.insert(0, str(PROJECT_ROOT))  # 让 `import cli` 找得到
-sys.path.insert(0, str(PROJECT_ROOT / "src"))  # 让 `import gov_price_etl` 找得到
+sys.path.insert(0, str(PROJECT_ROOT))  # 让 `import gov_price_etl` 找得到
 from cli.etl import main  # noqa: E402
 sys.exit(main())

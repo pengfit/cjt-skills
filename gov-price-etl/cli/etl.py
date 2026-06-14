@@ -17,7 +17,7 @@ from pathlib import Path
 
 # 把 src/ 加入 sys.path，让 `import gov_price_etl` 可用
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from gov_price_etl.config import CITY_CONFIGS, load_config  # noqa: E402
 from gov_price_etl.pipeline import run_etl  # noqa: E402

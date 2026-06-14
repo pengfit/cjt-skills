@@ -48,7 +48,7 @@ gov-price-etl/
 │   ├── breed_category_rules.db
 │   ├── category_in_system.json
 │   └── ai_cache.db
-├── src/gov_price_etl/        # 核心包
+├── gov_price_etl/        # 核心包
 │   ├── paths.py              # 路径中心
 │   ├── config.py             # 配置 + 城市注册
 │   ├── es_client.py          # ES 客户端
@@ -71,7 +71,7 @@ gov-price-etl/
 
 - **拆掉 1107 行的上帝模块** → 7 个独立模块，每个 < 250 行
 - **三合一 DWS 同步** → `cli/sync_dws.py --mode {quick,plain,ai}`
-- **零 `sys.path` 黑魔法** → 标准 `src/` 布局 + `paths.py` 中心化
+- **零 `sys.path` 黑魔法** → 拍平布局 + `paths.py` 中心化
 - **零硬编码绝对路径** → `paths.py` 解析所有 DB/JSON
 - **向后兼容** → 旧 `commands/etl.py` 仍可用（打 DeprecationWarning）
 

@@ -16,9 +16,9 @@
 """
 from pathlib import Path
 
-# src/gov_price_etl/paths.py → 上溯 2 层到 gov-price-etl/
+# gov_price_etl/paths.py → 上溯 1 层到 gov-price-etl/
 PACKAGE_ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = PACKAGE_ROOT.parent.parent
+PROJECT_ROOT = PACKAGE_ROOT.parent
 DATA_DIR = PROJECT_ROOT / "data"
 CONFIG_PATH = PROJECT_ROOT / "config.yml"
 

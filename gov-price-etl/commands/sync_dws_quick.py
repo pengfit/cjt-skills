@@ -22,6 +22,6 @@ warnings.warn(
 # 强制 mode=quick
 sys.argv = [sys.argv[0]] + ["--mode", "quick"] + [a for a in sys.argv[1:] if a not in ("--mode", "quick")]
 sys.path.insert(0, str(PROJECT_ROOT))  # 让 `import cli` 找得到
-sys.path.insert(0, str(PROJECT_ROOT / "src"))  # 让 `import gov_price_etl` 找得到
+sys.path.insert(0, str(PROJECT_ROOT))  # 让 `import gov_price_etl` 找得到
 from cli.sync_dws import main  # noqa: E402
 sys.exit(main())
