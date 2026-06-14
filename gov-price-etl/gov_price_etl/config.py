@@ -41,7 +41,7 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
     "henan": {
         "ods": "ods_material_henan_price",
         "dwd": "dwd_henan_price",
-        "dws": "dwd_henan_price",
+        "dws": "dws_henan_price",
         "city_label": "河南",
     },
     "heze": {
