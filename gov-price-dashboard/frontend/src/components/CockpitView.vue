@@ -204,7 +204,7 @@
         </div>
         <div class="footer-cell">
           <span class="footer-label">POLL</span>
-          <span class="footer-value mono">30s</span>
+          <span class="footer-value mono">30m</span>
         </div>
         <div class="footer-cell">
           <span class="footer-label">CITIES</span>
@@ -244,7 +244,7 @@ const clock = ref('')
 let pollTimer = null
 let clockTimer = null
 
-const POLL_INTERVAL_MS = 30000
+const POLL_INTERVAL_MS = 30 * 60 * 1000  // 30 分钟
 
 const kpi = computed(() => {
   const cities = Object.values(data.all_cities || {})
