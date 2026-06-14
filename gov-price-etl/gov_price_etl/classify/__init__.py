@@ -10,9 +10,16 @@ breed → category 三级召回：
   - data/category_in_system.json（分类体系 code/name 映射）
 """
 from .rules._core import (
+    # 兼容旧接口
     classify_breed,
     _fetch_ai_category_batch,
     _ai_cache,
+    # 三段式显式 API
+    classify_breed_db_exact,      # 阶段 1: DB 精确
+    classify_breed_db_fuzzy,      # 阶段 2: DB 模糊 / Jaccard
+    classify_breed_local,         # 阶段 1+2: 本地规则库
+    classify_breed_ai,            # 阶段 3: AI 串行
+    classify_breed_with_stages,   # 三段合并（pipeline 编排用）
 )
 from .rules.jaccard import (
     jaccard_breed_classify,
@@ -30,12 +37,21 @@ _get_category_system_map = get_category_system_map
 _get_category_system_name_map = get_category_system_name_map
 
 __all__ = [
+    # 兼容旧接口
     "classify_breed",
     "_fetch_ai_category_batch",
     "_ai_cache",
+    # 三段式显式 API
+    "classify_breed_db_exact",
+    "classify_breed_db_fuzzy",
+    "classify_breed_local",
+    "classify_breed_ai",
+    "classify_breed_with_stages",
+    # jaccard 召回引擎
     "jaccard_breed_classify",
     "insert_breed_rule",
     "batch_insert_breed_rules",
+    # 分类体系映射
     "get_category_system_map",
     "get_category_system_name_map",
     "_get_category_system_maps",

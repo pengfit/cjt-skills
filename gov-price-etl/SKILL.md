@@ -1,35 +1,94 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL：将政府材料价格原始数据（ODS 层）清洗为结构化层（DWD），再聚合为展示层（DWS）。"
+description: "政府材料价格数据入仓 ETL（v0.3 三段式重构）：ODS → DWD → DWS 节点明确，每段都先查本地规则库，未命中强制走 AI 串行。"
 ---
 
 # gov-price-etl
 
-将政府材料价格原始数据（ODS 层）清洗为结构化层（DWD），再聚合为展示层（DWS）。
-
-## 数据流
-
-```
-ods_material_xian_price     ─┐
-ods_material_sichuan_price    ─┤
-ods_material_chongqing_price  ─┼─→ ETL (cli/etl) ─→ dwd_{city}_price ─┐
-ods_material_jinan_price       ─┤                              ↓          │
-ods_material_rizhao_price   ─┘       sync_dws (cli/sync_dws) ─→ dws_{city}_price ─┘
-```
-
-**DWD → DWS 同步有三种模式**（合并自旧的 3 个独立入口）：
-
-| 模式 | CLI 标志 | 触发条件 | AI 调 |
-|---|---|---|---|
-| `quick` | `--mode quick` | DWD `attr` 非空 | ❌ |
-| `plain` | `--mode plain` | DWD `spec` 非空 | ❌ |
-| `ai`    | `--mode ai`    | 缺 attr → 走 AI 补全 | ✅ |
-
-默认模式：`quick`（最快、不调 AI）。需要 AI 补全时显式传 `--mode ai`。
+政府材料价格数据入仓 ETL，**v0.3 重构后 ODS → DWD → DWS 节点全部三段化**：每段先查本地规则库（`breed_category_rules.db` / `breed_spec_rules.db`），未命中强制走 AI **串行**分类/解析。
 
 ---
 
-## 目录结构（v0.2 重构后）
+## 数据流（三段式，节点明确）
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ODS 层                                                             │
+│  ods_material_xian_price     ─┐                                     │
+│  ods_material_sichuan_price    ─┤                                   │
+│  ods_material_chongqing_price  ─┤                                  │
+│  ods_material_jinan_price       ─┤                                  │
+│  ods_material_rizhao_price      ─┤                                 │
+│  ods_material_henan_price       ─┤                                 │
+│  ods_material_heze_price        ─┘                                 │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ODS → DWD 阶段（pipeline.etl.etl_city）                          │
+│                                                                       │
+│  ┌─ 阶段 1: 本地 breed_category_rules.db 精确查表 ────────┐        │
+│  │  SQL: SELECT category WHERE breed = ?                       │     │
+│  │  命中 → category_source='db_exact', category_stage='1'      │     │
+│  └───────────────────────────────────────────────────────┘        │
+│                                    ↓ 未命中                          │
+│  ┌─ 阶段 2: 本地 DB + Jaccard 模糊召回 ─────────────────┐        │
+│  │  倒排精确包含 / Dice + 加权 Jaccard (阈值 0.45)         │     │
+│  │  命中 → category_source='db_fuzzy', category_stage='2'  │     │
+│  └───────────────────────────────────────────────────────┘        │
+│                                    ↓ 未命中                          │
+│  ┌─ 阶段 3: AI classify_breed_batch 串行批次分类 ──────┐          │
+│  │  攒批 20 条/批 → 逐批调 AI → 回写 DWD                   │       │
+│  │  命中 → category_source='ai', category_stage='3'        │      │
+│  │  失败兜底 '其他' → category_source='ai_fallback'        │      │
+│  └───────────────────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  DWD 层（带 category_source / category_stage 字段）                 │
+│  dwd_xian_price / dwd_sichuan_price / ...                            │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  DWD → DWS 阶段（pipeline.dws_sync._dwd_to_dws_three_stages）      │
+│                                                                       │
+│  ┌─ 阶段 1: DWD attr 非空 → 直接同步 ─────────────────┐            │
+│  │  ODS→DWD 时已解析过，attr 已有值                       │         │
+│  │  不调本地规则库、不调 AI                                  │        │
+│  │  → attr_source='etl'                                    │         │
+│  └───────────────────────────────────────────────────────┘        │
+│                                    ↓ DWD attr 为空                  │
+│  ┌─ 阶段 2: 本地 breed_spec_rules.db 解析 ────────────┐            │
+│  │  BaseParseSpec.parse()（vector_store 召回）            │         │
+│  │  命中 → 回写 DWD attr + 同步 DWS                       │         │
+│  │  → attr_source='local_db'                              │         │
+│  └───────────────────────────────────────────────────────┘        │
+│                                    ↓ 未命中                          │
+│  ┌─ 阶段 3: AI batch_spec_parse 串行解析 ─────────────┐           │
+│  │  按 (breed, spec) 去重，20 条/批串行调 AI              │        │
+│  │  命中 → 回写 DWD attr + 同步 DWS                       │         │
+│  │  → attr_source='ai'                                    │         │
+│  │  失败兜底空 attr → attr_source='ai_fallback'           │        │
+│  └───────────────────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  DWS 层（带 attr_source 字段）                                       │
+│  dws_xian_price / dws_sichuan_price / ...                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**关键约定**：
+- ODS→DWD 阶段：每条 DWD 文档带 `category_source`（`db_exact` / `db_fuzzy` / `ai` / `ai_fallback`）和 `category_stage`（`1` / `2` / `3` / 空）
+- DWD→DWS 阶段：每条 DWS 文档带 `attr_source`（`etl` / `local_db` / `ai` / `ai_fallback`）
+- AI 调用严格**串行**（默认 20 条/批，逐批调用，批间 sleep 0.5s 限速），不并发
+
+---
+
+## 目录结构（v0.3 重构后）
 
 ```
 gov-price-etl/
@@ -38,8 +97,8 @@ gov-price-etl/
 ├── README.md
 ├── config.yml                # ES 连接配置
 ├── data/                      # 数据文件集中
-│   ├── breed_spec_rules.db    # 规格解析规则（SQLite）
-│   ├── breed_category_rules.db # 品种分类规则
+│   ├── breed_spec_rules.db    # 规格解析规则（SQLite）—— DWD→DWS 阶段 2 使用
+│   ├── breed_category_rules.db # 品种分类规则 —— ODS→DWD 阶段 1+2 使用
 │   ├── category_in_system.json # 分类体系映射
 │   └── ai_cache.db            # AI 调用缓存（.gitignore）
 ├── gov_price_etl/             # 真正的包
@@ -52,57 +111,82 @@ gov-price-etl/
 │   ├── transform/
 │   │   ├── __init__.py
 │   │   ├── clean.py        # 品种/规格/单位/价格清洗
-│   │   ├── doc.py          # transform_doc ODS→DWD
+│   │   ├── doc.py          # transform_doc ODS→DWD（不含 AI）
 │   │   └── attr_utils.py   # attr 字段提取/转换
 │   ├── parse_spec/         # 规格解析引擎
 │   │   ├── __init__.py     # get_parser() 入口
-│   │   ├── base.py         # BaseParseSpec 基类
-│       │   ├── xian.py / sichuan.py / henan.py
-│       │   └── rules/
-│       │       ├── _attrs.py   # ATTR_SLOTS
-│       │       └── vector_store.py  # SQLite 向量规则库
-│       ├── classify/           # 品种分类引擎
-│       │   ├── __init__.py
-│       │   ├── system.py       # 分类体系映射
-│       │   └── rules/
-│       │       ├── _core.py    # classify_breed
-│       │       └── jaccard.py  # Jaccard 召回
-│       ├── ai/                 # AI 服务
-│       │   ├── __init__.py
-│       │   ├── service.py      # parse_spec_batch / classify_breed_batch
-│       │   └── cache.py        # SQLite 缓存
-│       └── pipeline/
-│           ├── __init__.py
-│           ├── etl.py          # ODS→DWD 主循环
-│           └── dws_sync.py     # DWD→DWS 同步（合一：3 模式）
+│   │   ├── base.py         # BaseParseSpec 基类（仅查 breed_spec_rules.db）
+│   │   ├── xian.py / sichuan.py / henan.py
+│   │   └── rules/
+│   │       ├── _attrs.py
+│   │       └── vector_store.py  # SQLite 向量规则库
+│   ├── classify/           # 品种分类引擎（三段式）
+│   │   ├── __init__.py     # 导出 classify_breed_db_exact/db_fuzzy/ai/with_stages
+│   │   ├── system.py       # 分类体系映射
+│   │   └── rules/
+│   │       ├── _core.py    # 阶段 1: DB 精确 / 阶段 2: DB+Jaccard / 阶段 3: AI
+│   │       └── jaccard.py  # Jaccard 召回引擎
+│   ├── ai/                 # AI 服务
+│   │   ├── __init__.py
+│   │   ├── service.py      # parse_spec_batch / classify_breed_batch（20条/批串行）
+│   │   ├── prompts.py
+│   │   └── cache.py        # SQLite 缓存
+│   └── pipeline/
+│       ├── __init__.py
+│       ├── etl.py          # ODS→DWD 三段式（阶段1+2内置 + 阶段3 AI 攒批回写）
+│       └── dws_sync.py     # DWD→DWS 三段式（阶段1 attr+阶段2 local_db+阶段3 ai）
 ├── cli/                        # 入口脚本
 │   ├── etl.py                  # ODS → DWD → DWS 主入口
 │   ├── sync_dws.py             # DWD → DWS 同步（--mode quick|plain|ai）
 │   └── reload_prompts.py       # 重读 prompts.yml
-├── prompts.yml                 # AI Prompt 模板（从 dashboard 迁移，热重载）
+├── prompts.yml                 # AI Prompt 模板
 └── commands/                   # ⚠️ 旧入口 shim（已废弃）
-    ├── etl.py                  # 转发到 cli/etl.py
-    └── sync_dws_quick.py       # 转发到 cli/sync_dws.py --mode quick
 ```
 
-**对比旧结构（v0.1）**：
-- `commands/etl.py` 1107 行 → `pipeline/etl.py` ~250 行 + 4 个独立模块
-- 三套 DWS 同步实现 → 一个核心 `sync_dws()` + 3 个薄壳
-- 散落的 `commands/{parse_spec,classify,ai_*,clean,...}` → 标准包结构
-- 6 处 `sys.path.insert` 黑魔法 → 0 处
-- 1 处硬编码绝对路径 → 0 处
-- `config.yml` / 4 个 DB 文件位置不动（向后兼容）
+---
+
+## 三段式 API 速查
+
+### classify（品种分类，ODS→DWD 用）
+
+```python
+from gov_price_etl.classify import (
+    classify_breed_db_exact,    # 阶段 1: DB 精确查表 → (cat, 'db_exact'|'')
+    classify_breed_db_fuzzy,    # 阶段 2: DB 模糊召回 → (cat, 'db_fuzzy'|'')
+    classify_breed_local,       # 阶段 1+2: 本地规则库 → (cat, 'db_exact'|'db_fuzzy'|'')
+    classify_breed_ai,          # 阶段 3: AI 串行 → (cat, 'ai'|'ai_fallback')
+    classify_breed_with_stages, # 三段合并 → (cat, source, stage)
+)
+```
+
+### pipeline（DWD→DWS 三段式 + 配置常量）
+
+```python
+from gov_price_etl.pipeline import (
+    # ODS → DWD
+    etl_city, run_etl,
+    AI_CATEGORY_BATCH_SIZE,         # 默认 20（AI 串行批次大小）
+    AI_CATEGORY_BATCH_SLEEP_S,      # 默认 0.5（批间限速）
+    # DWD → DWS
+    sync_dws, sync_dws_with_ai, sync_dws_plain, sync_dws_quick,
+    _dwd_to_dws_three_stages,       # 三段式核心
+    _parse_spec_local,              # 阶段 2: 本地规则库解析
+    _ai_parse_specs_serial,         # 阶段 3: AI 串行解析
+    AI_PARSE_BATCH_SIZE,            # 默认 20
+    AI_PARSE_BATCH_SLEEP_S,         # 默认 0.5
+)
+```
 
 ---
 
 ## 命令与用法
 
-### 1. 主 ETL（ODS → DWD + DWS 同步）
+### 1. 主 ETL（ODS → DWD + DWS 同步，**三段式**）
 
 ```bash
 cd ~/.openclaw/workspace/skills/gov-price-etl
 
-# 全量 ETL（所有城市）
+# 全量 ETL（所有城市，跑三段式）
 ./cli/etl.py
 
 # 只处理指定城市
@@ -127,17 +211,26 @@ cd ~/.openclaw/workspace/skills/gov-price-etl
 ./cli/etl.py --batch-size 1000
 ```
 
-### 2. 独立 DWS 同步（仅 DWD → DWS）
+**输出示例**：
+```
+[ETL] xian: ods_material_xian_price (23,404 条) → dwd_xian_price
+  [STG3 AI] xian: 待 AI 分类品种 12 种 (500 条)
+  [STG3 AI] 批量回写: 更新 500/500 条，错误 0
+  [ETL] xian 完成: → dwd_xian_price | etled=22904, failed=0, ai_updated=500
+  [DWS+AI] xian: dwd_xian_price → dws_xian_price (23,404 条)
+  [DWS+AI] xian 完成: s1(etl)=18400, s2(local_db)=4504, s3(ai)=500, failed=0
+```
+
+### 2. 独立 DWS 同步（DWD → DWS，**三段式**）
 
 ```bash
-# Quick 模式：只同步已有 attr 的（默认，不调 AI）
-./cli/sync_dws.py
-./cli/sync_dws.py --city xian
+# Quick 模式：只同步已有 attr 的（默认，不调 AI；等价于阶段 1）
+./cli/sync_dws.py --mode quick
 
 # Plain 模式：spec 非空即同步（不调 AI）
 ./cli/sync_dws.py --mode plain --city xian
 
-# AI 模式：缺 attr 走 AI 补全
+# AI 模式：缺 attr 走阶段 2（本地规则库）→ 阶段 3（AI 串行）
 ./cli/sync_dws.py --mode ai --city xian
 
 # 预览（不写入）
@@ -160,13 +253,14 @@ print(p.parse_spec('D720*8'))
 "
 ```
 
-### 4. 品种分类测试
+### 4. 品种分类测试（**三段式**）
 
 ```bash
 PYTHONPATH=src python3 -c "
-from gov_price_etl.classify import classify_breed
-print(classify_breed('镀锌钢管'))
-print(classify_breed('铸铁井盖'))
+from gov_price_etl.classify import classify_breed_with_stages
+for breed in ['圆钢', '螺纹钢', '矮牵牛', 'xxYYZZ未知']:
+    cat, src, stage = classify_breed_with_stages(breed, city='xian', use_ai=False)
+    print(f'{breed:15s} → {cat:20s} (source={src}, stage={stage})')
 "
 ```
 
@@ -180,29 +274,12 @@ Prompt 模板从 `gov-price-etl/prompts.yml` 加载（不是 hard-coded，也不
 
 # 查看当前加载的所有 prompt 概览
 ./cli/reload_prompts.py --show
-
-# 也能在 Python 里调：
-PYTHONPATH=src python3 -c "
-from gov_price_etl.ai import reload_prompts, get_prompt
-reload_prompts()
-print(list(get_prompt('batch_spec_parse').keys()))
-"
 ```
 
-**热重载机制**：进程内缓存 prompts.yml 的 mtime + 内容，下次 `get_prompt()` 调用检测到 mtime 变了就自动重读。**不需要重启 ETL**。
-
-**`prompts.yml` 三个 key**（从 gov-price-dashboard 迁移过来）：
+**prompts.yml 三个 key**：
 - `fix_case` — 单条 spec → 解析规则
-- `classify_breed_batch` — 批量品种 → 分类
-- `batch_spec_parse` — 批量 spec → 解析规则
-
-**安全格式化**：`format_prompt()` 处理模板中的字面量花括号（`{diameter:20mm, material:Q235}` 之类的举例文本）不会报 KeyError，也不会跟真占位符（`{specs_str}`、`{ref_names}` 等）冲突。
-
-**修改 prompts.yml**：
-1. 直接编辑 `~/.openclaw/workspace/skills/gov-price-etl/prompts.yml`
-2. 跑 `./cli/reload_prompts.py`（或等下次 ETL 自动检测 mtime）
-3. 验证：用 `--show` 看到新内容
-4. 回滚：dashboard 的 `gov-price-dashboard/api/routes/prompts.yml` 仍保留作为只读参考源
+- `classify_breed_batch` — 批量品种 → 分类（阶段 3 使用）
+- `batch_spec_parse` — 批量 spec → 解析规则（阶段 3 使用）
 
 ### 6. 旧入口 shim（兼容，会打 DeprecationWarning）
 
@@ -231,92 +308,66 @@ sync:
 
 ## 关键实现细节
 
-### parse_spec 规格解析（槽位制 + RAG 向量库）
-
-**规则唯一来源**：`data/breed_spec_rules.db`（SQLite），不再从 rules/*.py 读取。
-
-**解析流程（槽位制）**：
-1. 动态加载 `ATTR_SLOTS`（从 `_attrs.py` 提取所有 `"attr" → "描述"` 行）
-2. 对每个 slot 独立调用 `vector_store.search()` 召回候选规则（top_k=10）
-3. 对 spec 字符串生成结构语义 tokens（`_build_spec_tokens`），与规则 tokens 做 Jaccard 相似度过滤（score ≥ 0.001）
-4. 按 score 排序，同 (attr, pattern) 去重保留最高分
-5. 逐条执行 regex match + code，填入对应 slot
-6. 全部未命中 → 调用 fix-case API（`http://localhost:5200`）
-
-**ATTR_SLOTS 全部槽位**：
-```
-diameter, thickness, length, width, height,       # 尺寸
-material, grade, pressure, cores, voltage, current, # 材质/电气
-form, color, series, temperature,                  # 形态/外观
-temp_range, humidity_range, length_range, height_range,  # 范围
-inner_diameter, wall_thickness, fiber_core, cable_length, # 管线
-channels, doors, media, range, output,             # 设备/变送器
-ip_rating, fire_rating, ring_stiffness,            # 等级/安全
-cross_section, drain_type, inlet_type, installation_type, # 电缆/排水
-asphalt_type, cement_content, surface             # 专业属性
-```
-
-**向量库两张表**：
-
-| 表 | 用途 | 关键字段 |
-|----|------|---------|
-| `breed_spec_rules` | spec→属性解析规则 | pattern, attr, note, code, breed, category, tokens |
-| `breed_category_rules` | breed→category 分类查表 | breed, category, source |
-
-### 品种分类流程（3 级召回）
+### ODS→DWD 三段式（pipeline/etl.py）
 
 ```
-classify_breed(breed_clean)
-  ├── 1. Jaccard 相似度召回（rules/jaccard.py，阈值 0.45）
-  ├── 2. DB breed_category_rules 精确查表
-  └── 3. 未命中 → "其他"（AI 批量分类由 etl.py 单独处理）
+etl_city(es_host, city, cfg)
+  │
+  ├─ 滚动拉 ODS（按 update_date asc）
+  │
+  ├─ 每条 → transform_doc() 内部调 classify_breed_with_stages(breed, use_ai=False)
+  │    ├─ 阶段 1: classify_breed_db_exact(breed)     → 'db_exact' / ''
+  │    ├─ 阶段 2: classify_breed_db_fuzzy(breed)     → 'db_fuzzy' / ''
+  │    └─ 兜底: 返回 ('其他', '', '') → 标记待 AI
+  │
+  ├─ 阶段 1+2 命中 → 写入 DWD（带 category_source）
+  │
+  └─ 阶段 1+2 都未命中 → 攒批 → _ai_classify_pending()
+       ├─ 阶段 3: classify_breed_ai(breed, city) 串行批次（20条/批）
+       └─ 回写 DWD category / category_source='ai'/'ai_fallback'
 ```
 
-**Jaccard 召回**：基于字符 bigram（n=2）相似度 + 词级加权 + Dice 系数，默认阈值 0.45。
-
-### ETL 转换逻辑（transform_doc）
+### DWD→DWS 三段式（pipeline/dws_sync.py）
 
 ```
-品种清洗: clean_breed() 去除噪声字符（? 、, （）等）
-       去除: 含税、报价、含税等噪声词
-
-规格清洗: spec 原样保留（写入 spec），由 parse_spec 解析为细分字段
-
-单位清洗: clean_unit() 映射为标准单位（t/kg/m³/m²/m/个/根/卷等）
-
-价格清洗: clean_price() 转为浮点数，无效返 None
-       Crawler bug 修复: price==0 但 tax_price 有值时互换
-
-分类:
-  classify_breed() → 查 DB → 查 Jaccard → "其他"
-  "其他" → 批量 AI 分类 → 回写 DWD category
+_dwd_to_dws_three_stages(es_host, city, cfg)
+  │
+  ├─ search_after 滚动拉 DWD
+  │
+  ├─ 每条 DWD 判断：
+  │    ├─ 阶段 1: build_attr(d) 非空 → 直接同步 DWS（attr_source='etl'）
+  │    ├─ 阶段 2: _parse_spec_local(spec, breed, cat, city) 命中
+  │    │         → 回写 DWD attr + 同步 DWS（attr_source='local_db'）
+  │    └─ 阶段 3: 攒批 → _ai_parse_specs_serial()（20条/批串行）
+  │              → 回写 DWD attr + 同步 DWS（attr_source='ai'/'ai_fallback'）
+  │
+  └─ 输出 (s1, s2, s3, failed) 三段计数
 ```
 
-### DWD 输出字段
+### 关键字段
+
+**DWD 文档（ODS→DWD 产物）**：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `breed` | text+keyword | 原始品种名 |
 | `breed_clean` | keyword | 清洗后品种名 |
 | `spec` | text+keyword | 原始规格 |
-| `thickness/length/width/height/diameter` | keyword | 解析后尺寸 |
-| `ring_stiffness/pressure/material/color/grade` | keyword | 材质/等级属性 |
-| `voltage/current/cross_section/cores/fiber_core` | keyword | 电气属性 |
-| `asphalt_type/cement_content/channels/doors` | keyword | 专业属性 |
-| `length_range/height_range/temp_range/humidity_range` | keyword | 范围字段 |
-| `media/range/output/cable_length` | keyword | 变送器属性 |
-| `surface/series/fire_rating/temperature` | keyword | 扩展字段 |
-| `inner_diameter/wall_thickness` | keyword | 管壁属性 |
-| `installation_type/drain_type/inlet_type/form/ip_rating` | keyword | 安装/排水/形态 |
-| `unit` | keyword | 标准单位 |
-| `price/tax_price` | float | 单价/含税价 |
 | `category` | keyword | 分类名称 |
-| `category_system/category_system_name` | keyword | 分类体系 code/name |
-| `province/city/county` | keyword | 地域信息 |
-| `update_date/publish_time/period/code` | keyword/date | 时间/编码字段 |
-| `source_index` | keyword | ODS 索引名 |
-| `etl_time` | date | ETL 时间戳 |
+| `category_system` | keyword | 分类体系 code |
+| `category_system_name` | keyword | 分类体系 name |
+| **`category_source`** | **keyword** | **分类来源：`db_exact`/`db_fuzzy`/`ai`/`ai_fallback`** |
+| **`category_stage`** | **keyword** | **命中阶段：`1`/`2`/`3`/空** |
 | `attr` | nested | 解析后的规格属性（list of {k, v}） |
+| `etl_time` | date | ETL 时间戳 |
+| `source_index` | keyword | ODS 索引名 |
+
+**DWS 文档（DWD→DWS 产物）**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| (DWD 全部字段) | | |
+| **`attr_source`** | **keyword** | **attr 来源：`etl`/`local_db`/`ai`/`ai_fallback`** |
 
 ### 城市配置
 
@@ -327,7 +378,7 @@ classify_breed(breed_clean)
 | chongqing | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` |
 | jinan | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` |
 | rizhao | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` |
-| henan | `ods_material_henan_price` | `dwd_henan_price` | `dws_henan_price` |
+| henan | `ods_material_henan_price` | `dwd_henan_price` | `dwd_henan_price` |
 | heze | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` |
 
 ---
@@ -338,16 +389,14 @@ classify_breed(breed_clean)
 
 ---
 
-## 重构说明（v0.1 → v0.2）
+## 三段式重构说明（v0.2 → v0.3）
 
-| 项目 | 旧 (v0.1) | 新 (v0.2) |
+| 项目 | 旧 (v0.2) | 新 (v0.3) |
 |---|---|---|
-| `commands/etl.py` | 1107 行（22 个函数） | 拆为 7 个模块，每个 < 250 行 |
-| DWS 同步入口 | 3 处独立实现（行为不一致） | 1 核心 + 3 薄壳，行为可参数化 |
-| 包结构 | 散文件 + sys.path 黑魔法 | 标准 `gov_price_etl/` 包，0 黑魔法 |
-| DB 路径解析 | `os.path.join(__file__, ...)` | `paths.py` 中心化管理 |
-| 硬编码绝对路径 | 1 处（`/Users/pengfit/.../breed_category_rules.db`） | 0 处 |
-| 入口脚本 | `python3 commands/etl.py` | `./cli/etl.py`（旧入口保留为 shim + DeprecationWarning） |
-| `utils/` 目录 | 几乎空 | 删除 |
-| `commands/classify.py` | 12 行重复 `__main__` 块 | 删除（`classify/__init__.py` 已带） |
-| 死代码 | `_query_breed_rules_db`（定义后未调用） | 删除 |
+| ODS→DWD 分类逻辑 | `classify_breed()` 混合（Jaccard + 兜底 "其他"） | 显式三段：`classify_breed_db_exact` / `db_fuzzy` / `ai` |
+| DWD→DWS 解析逻辑 | `sync_dws_with_ai()` 混合（已有 attr + 本地 + AI） | 显式三段：attr / local_db / ai |
+| `_get_db_conn()` | 误用 vec_store 连接（指向 breed_spec_rules.db） | 独立维护 breed_category_rules.db 连接 |
+| AI 批次大小 | 100/批（DWS）+ 20/批（ODS） | 统一 20/批串行（道友要求） |
+| source 字段 | 无 | DWD 加 `category_source` / `category_stage`，DWS 加 `attr_source` |
+| 阶段 1+2 内嵌 | 不明显（混在 transform_doc 中） | 显式拆出 `classify_breed_with_stages()` |
+| 阶段 3 显式触发 | 隐式（凑够批次自动调） | 显式 `_ai_classify_pending()` / `_ai_parse_specs_serial()` |

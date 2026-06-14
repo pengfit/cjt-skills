@@ -69,10 +69,14 @@ def _get_ref_attr_names() -> str:
 _stats = {
     "classify_calls": 0,   # 调 AI 分类次数
     "classify_cached": 0,  # 缓存命中次数
+    "classify_failed": 0,
+    "classify_rules_written": 0,  # AI 响应写入 breed_category_rules.db 条数
+    "classify_rules_failed": 0,
     "parse_calls": 0,
     "parse_cached": 0,
     "parse_failed": 0,
-    "classify_failed": 0,
+    "parse_rules_written": 0,  # AI 响应写入 breed_spec_rules.db 条数
+    "parse_rules_failed": 0,
 }
 
 
@@ -175,6 +179,7 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
             user_prompt = f"待分类：\n{breeds_str}"
         ok, content = _call_gateway(user_prompt, system_msg, "etl-classify-agent", timeout=180)
         ai_results: Dict[str, str] = {}
+        ai_parsed: Dict[str, dict] = {}  # breed → {category, confidence, note}（入规则库用）
         if ok:
             try:
                 parsed = json.loads(content)
@@ -182,9 +187,12 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
                 for b in uncached:
                     r = results_dict.get(b) or {}
                     cat = r.get("category", "其他")
+                    confidence = float(r.get("confidence", 0.9) or 0.9)
+                    note = r.get("note", "") or ""
                     ai_results[b] = cat
+                    ai_parsed[b] = {"category": cat, "confidence": confidence, "note": note}
                     # 写缓存（包含 confidence/note 以便后续查询）
-                    ai_cache.put("classify", {"category": cat, "confidence": r.get("confidence", 0.9), "note": r.get("note", "")}, b, city)
+                    ai_cache.put("classify", {"category": cat, "confidence": confidence, "note": note}, b, city)
             except Exception as e:
                 _stats["classify_failed"] += 1
                 for b in uncached:
@@ -193,6 +201,27 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
             _stats["classify_failed"] += 1
             for b in uncached:
                 ai_results[b] = "其他"
+
+        # 3. AI 响应入规则库（breed_category_rules.db）
+        #    仅在分类有效且非兑底时写入，避免 "其他" 污染 DB
+        if ai_parsed:
+            try:
+                from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
+                pairs = []
+                for b, info in ai_parsed.items():
+                    cat = info.get("category", "其他")
+                    if cat and cat != "其他":
+                        pairs.append((
+                            b, cat, "ai",
+                            info.get("confidence", 0.9),
+                            info.get("note", ""),
+                        ))
+                if pairs:
+                    batch_insert_breed_rules(pairs)
+                    _stats["classify_rules_written"] = _stats.get("classify_rules_written", 0) + len(pairs)
+            except Exception as e:
+                # 入库失败不影响主流程
+                _stats["classify_rules_failed"] = _stats.get("classify_rules_failed", 0) + 1
 
         return {**cached_map, **ai_results}
 
@@ -294,7 +323,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                         "failed_reason": f"AI 返回格式错误: {e}",
                     }
                 continue
-            # 写回 results + 写缓存
+            # 写回 results + 写缓存 + 写规则库
             for k, item in enumerate(batch_items):
                 target_pos = uncached_idx[batch_start + k]
                 spec = item.get("spec", "")
@@ -316,6 +345,35 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                     "suggestions": suggestions,
                     "failed_reason": ai_r.get("failed_reason", ""),
                 }, spec, item.get("breed", ""), item.get("category", ""))
+
+            # AI 响应入规则库（breed_spec_rules.db）
+            #    只有 ok=True 且有有效 suggestions 时写入
+            if write_rules and ai_list:
+                try:
+                    from gov_price_etl.parse_spec.rules.vector_store import get_vec_store
+                    vs = get_vec_store()
+                    written = 0
+                    for k, item in enumerate(batch_items):
+                        ai_r = ai_list[k] if k < len(ai_list) else {}
+                        if not isinstance(ai_r, dict) or not ai_r.get("ok", False):
+                            continue
+                        breed = item.get("breed", "")
+                        category = item.get("category", "")
+                        for s in ai_r.get("suggestions", []) or []:
+                            pattern = s.get("pattern", "") or ""
+                            attr = s.get("attr", "") or ""
+                            note = s.get("note", "") or ""
+                            code = s.get("code_block", "") or ""
+                            if not pattern or not attr:
+                                continue
+                            try:
+                                if vs.insert(pattern, attr, note, code, breed, category, skip_duplicate=True):
+                                    written += 1
+                            except Exception:
+                                pass
+                    _stats["parse_rules_written"] = _stats.get("parse_rules_written", 0) + written
+                except Exception as e:
+                    _stats["parse_rules_failed"] = _stats.get("parse_rules_failed", 0) + 1
 
     return results  # type: ignore
 

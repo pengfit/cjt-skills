@@ -1,14 +1,37 @@
-"""pipeline/etl.py - ODS → DWD 主循环 + AI 分类回写
+"""pipeline/etl.py - ODS → DWD 三段式 ETL（明确节点）
 
-etl.py 的瘦身版：从 1107 行 → ~150 行。
-原文件中的 DWD/DWS mapping、ES 客户端、bulk、indexer、attr 工具都已拆出。
+新数据流（v0.3 重构）：
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ ODS source                                                          │
+  │   │                                                                 │
+  │   ├── 阶段 1：本地库 breed_category_rules.db 精确匹配                │
+  │   │     - transform_doc 内置（不调 AI）                              │
+  │   │     - category_source = 'db_exact'                              │
+  │   │                                                                 │
+  │   ├── 阶段 2：本地库 DB + Jaccard 模糊召回                            │
+  │   │     - transform_doc 内置（不调 AI）                              │
+  │   │     - category_source = 'db_fuzzy'                              │
+  │   │                                                                 │
+  │   └── 阶段 3：未命中 → AI classify_breed_batch 串行批次              │
+  │         - etl_city 攒批（默认 20/批）                                │
+  │         - category_source = 'ai' | 'ai_fallback'                    │
+  │         - 回写 DWD category/category_system/category_system_name      │
+  └─────────────────────────────────────────────────────────────────────┘
+
+每条 DWD 文档带 `category_source` 字段，标识分类来源：
+  'db_exact'    阶段 1 命中
+  'db_fuzzy'    阶段 2 命中
+  'ai'          阶段 3 AI 分类成功
+  'ai_fallback' 阶段 3 AI 失败兜底
+
+etl.py 主体瘦身：从混合 ~150 行拆为显式三段编排。
 """
 import json
 import time
 from typing import Tuple
 
 from gov_price_etl.classify import (
-    _fetch_ai_category_batch,
+    classify_breed_with_stages,
     get_category_system_map,
     get_category_system_name_map,
 )
@@ -17,6 +40,90 @@ from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
 from gov_price_etl.transform import transform_doc
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
+
+
+# ── AI 分类串行批次大小（道友要求"串行"，默认 20/批，逐批调用 AI） ────────
+AI_CATEGORY_BATCH_SIZE = 20
+AI_CATEGORY_BATCH_SLEEP_S = 0.5  # 批间限速，避免压垮 gateway
+
+
+def _ai_classify_pending(
+    es_host: str,
+    dwd_idx: str,
+    ai_pending: list,
+    city: str,
+) -> int:
+    """阶段 3：AI classify_breed_batch 串行批次分类 + 回写 DWD。
+
+    Args:
+        es_host:    ES 地址
+        dwd_idx:    DWD 索引名
+        ai_pending: [(breed_clean, doc_id), ...] —— 阶段 1+2 都未命中的品种
+        city:       城市 key（缓存分区用）
+
+    Returns:
+        成功更新数
+    """
+    if not ai_pending:
+        return 0
+
+    # 去重保留顺序
+    breeds = list(dict.fromkeys(b for b, _ in ai_pending))
+    print(f"  [STG3 AI] {city}: 待 AI 分类品种 {len(breeds)} 种 ({len(ai_pending)} 条)")
+
+    # 串行批次调 AI（每批 AI_CATEGORY_BATCH_SIZE 条，批间 sleep 限速）
+    from gov_price_etl.classify.rules._core import classify_breed_ai
+
+    breed_cats: dict = {}
+    breed_sources: dict = {}
+    t_stage3 = time.time()
+    total_breeds = len(breeds)
+    for i in range(0, len(breeds), AI_CATEGORY_BATCH_SIZE):
+        chunk = breeds[i:i + AI_CATEGORY_BATCH_SIZE]
+        for b in chunk:
+            t0 = time.time()
+            cat, src = classify_breed_ai(b, city)
+            breed_cats[b] = cat
+            breed_sources[b] = src
+            print(f"    [STG3 AI] {i + chunk.index(b) + 1}/{total_breeds}: {b} → {cat} ({src}, {time.time()-t0:.1f}s)")
+        if i + AI_CATEGORY_BATCH_SIZE < len(breeds):
+            time.sleep(AI_CATEGORY_BATCH_SLEEP_S)
+    print(f"  [STG3 AI] 阶段 3 AI 分类总耗时 {time.time()-t_stage3:.1f}s")
+
+    # 回写 DWD（bulk update）
+    code_map = get_category_system_map()
+    name_map = get_category_system_name_map()
+    update_body = ""
+    for breed_clean, doc_id in ai_pending:
+        cat = breed_cats.get(breed_clean, "其他")
+        src = breed_sources.get(breed_clean, "ai_fallback")
+        code = code_map.get(cat, "")
+        update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
+        update_body += json.dumps({
+            "doc": {
+                "category": cat,
+                "category_system": code,
+                "category_system_name": name_map.get(code, ""),
+                "category_source": src,
+            },
+            "doc_as_upsert": True,
+        }, ensure_ascii=False) + "\n"
+
+    session = get_es_client(es_host)
+    r = session.post(
+        f"{es_host}/{dwd_idx}/_bulk",
+        data=update_body.encode("utf-8"),
+        headers={"Content-Type": "application/x-ndjson"},
+    )
+    result = r.json()
+    errors = sum(1 for it in result.get("items", []) if "error" in it.get("update", {}))
+    updated = len(ai_pending) - errors
+    print(f"  [STG3 AI] 批量回写: 更新 {updated}/{len(ai_pending)} 条，错误 {errors}")
+    if errors > 0:
+        for it in result.get("items", [])[:3]:
+            if "error" in it.get("update", {}):
+                print(f"    错误: {it['update']['error']}")
+    return updated
 
 
 def etl_city(
@@ -30,7 +137,13 @@ def etl_city(
     category: str = "",
     mark_done: bool = False,
 ) -> Tuple[int, int]:
-    """单城市 ODS → DWD ETL。返回 (成功, 失败)。"""
+    """单城市 ODS → DWD 三段式 ETL。返回 (成功, 失败)。
+
+    流程：
+      1. ODS 滚动拉取（按 update_date 排序）
+      2. 每条调 transform_doc() → 阶段 1+2 本地匹配（不调 AI）
+      3. 阶段 3：未命中品种攒批，调 AI classify_breed_batch 串行分类 → 回写 DWD
+    """
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
 
@@ -75,8 +188,9 @@ def etl_city(
     scroll_id = data.get("_scroll_id", "")
 
     etled = failed = pages = 0
-    ai_pending: list = []  # [(breed_clean, doc_id), ...]
+    ai_pending: list = []  # [(breed_clean, doc_id), ...] 阶段 1+2 都未命中
 
+    # ── 阶段 1+2: 本地规则库匹配（不调 AI） ─────────────────────────────
     while hits:
         pages += 1
         docs = []
@@ -94,12 +208,33 @@ def etl_city(
                     if not doc.get("breed"):
                         continue
                     doc["spec"] = doc.get("breed_clean") or doc["breed"]
+
+                # ── 阶段 1+2: 本地规则库匹配（覆盖 transform_doc 内的默认分类）──
+                cat, src, stage = classify_breed_with_stages(
+                    doc["breed_clean"], city=city, use_ai=False
+                )
+                if not cat:
+                    cat = "其他"
+                    src = ""
+                    stage = ""
+                doc["category"] = cat
+                doc["category_source"] = src
+                doc["category_stage"] = stage
+                # 同步更新 category_system / name
+                from gov_price_etl.classify import get_category_system_map, get_category_system_name_map
+                code_map = get_category_system_map()
+                name_map = get_category_system_name_map()
+                doc["category_system"] = code_map.get(cat, "")
+                doc["category_system_name"] = name_map.get(doc["category_system"], "")
+
                 if dry_run:
-                    print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
+                    print(f"    [dry-run] {doc['breed_clean']} → {doc['category']} ({src}/stage={stage})")
                     continue
-                if doc["category"] == "其他":
+
+                if stage == "" or src == "ai_fallback":
+                    # 阶段 1+2 都未命中 → 走阶段 3 AI
                     ai_pending.append((doc["breed_clean"], h["_id"]))
-                    # AI 待分类品种：先写入 DWD（不带 category，等 AI 更新时用 update doc_as_upsert 合并）
+                    # 先写入 DWD（不带 category，等 AI 更新时合并）
                     ai_doc = {k: v for k, v in doc.items() if k != "category"}
                     docs.append(ai_doc)
                     doc_ids.append(h["_id"])
@@ -130,52 +265,15 @@ def etl_city(
     if scroll_id:
         session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
 
-    # ── 批量 AI 分类 ──
+    # ── 阶段 3: AI classify_breed_batch 串行批次 ─────────────────────────
     ai_updated = 0
     if ai_pending and not dry_run:
-        breeds = list(dict.fromkeys(b for b, _ in ai_pending))  # 去重保留顺序
-        breed_cats: dict = {}
-        _AI_BATCH_SIZE = 20
-        for i in range(0, len(breeds), _AI_BATCH_SIZE):
-            chunk = breeds[i:i + _AI_BATCH_SIZE]
-            cats = _fetch_ai_category_batch(chunk, city)
-            breed_cats.update(cats)
-            if i + _AI_BATCH_SIZE < len(breeds):
-                time.sleep(0.5)  # 限速
-        if breed_cats:
-            code_map = get_category_system_map()
-            name_map = get_category_system_name_map()
-            update_body = ""
-            for breed_clean, doc_id in ai_pending:
-                cat = breed_cats.get(breed_clean, "其他")
-                code = code_map.get(cat, "")
-                update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
-                update_body += json.dumps({
-                    "doc": {
-                        "category": cat,
-                        "category_system": code,
-                        "category_system_name": name_map.get(code, ""),
-                    },
-                    "doc_as_upsert": True,
-                }, ensure_ascii=False) + "\n"
-            if update_body:
-                _session = get_es_client(es_host)
-                r = _session.post(
-                    f"{es_host}/{dwd_idx}/_bulk",
-                    data=update_body.encode("utf-8"),
-                    headers={"Content-Type": "application/x-ndjson"},
-                )
-                result = r.json()
-                errors = sum(1 for it in result.get("items", []) if "error" in it.get("update", {}))
-                ai_updated = len(ai_pending) - errors
-                print(f"  [AI] 批量更新: 更新 {ai_updated}/{len(ai_pending)} 条，错误 {errors}")
-                if errors > 0:
-                    for it in result.get("items", [])[:3]:
-                        if "error" in it.get("update", {}):
-                            print(f"    错误: {it['update']['error']}")
-        print(f"  [AI] 批量分类 {len(ai_pending)} 条 → 更新 {ai_updated} 条")
+        ai_updated = _ai_classify_pending(es_host, dwd_idx, ai_pending, city)
 
-    print(f"  [ETL] {city} 完成: → {dwd_idx} | etled={etled}, failed={failed}")
+    print(
+        f"  [ETL] {city} 完成: → {dwd_idx} | "
+        f"etled={etled}, failed={failed}, ai_updated={ai_updated}"
+    )
     return etled, failed
 
 
@@ -190,7 +288,7 @@ def run_etl(
     mark_done: bool = False,
     with_dws: bool = True,
 ) -> Tuple[int, int]:
-    """跑全流程：每个城市先 ETL，再 DWS+AI 同步。"""
+    """跑全流程：每个城市先 ODS→DWD 三段式 ETL，再 DWD→DWS 三段式同步。"""
     total_etled = 0
     total_failed = 0
 
