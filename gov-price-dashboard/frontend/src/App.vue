@@ -18,6 +18,7 @@
         </svg>
         <span class="top-bar-brand">材价通</span>
         <div class="top-bar-divider"></div>
+        <button class="nav-tab" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
         <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
@@ -354,6 +355,10 @@
       />
     </template>
 
+    <template v-if="curTab === 'cockpit'">
+      <CockpitView />
+    </template>
+
     <template v-if="curTab === 'category'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <CategoryView v-else />
@@ -394,6 +399,7 @@ import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
 import DataProvenanceView from './components/DataProvenanceView.vue'
 import ScrapeView from './components/ScrapeView.vue'
+import CockpitView from './components/CockpitView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
 
@@ -402,7 +408,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // ============================================================
 // STATE
 // ============================================================
-const curTab = ref(localStorage.getItem('gov_cur_tab') || 'list')
+const curTab = ref(localStorage.getItem('gov_cur_tab') || 'cockpit')
 function saveTab(tab) { localStorage.setItem('gov_cur_tab', tab) }
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
 const searchKeyword = ref('')
