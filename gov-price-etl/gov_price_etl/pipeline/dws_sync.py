@@ -199,6 +199,22 @@ def _dwd_to_dws_three_stages(
     dws_idx = cfg["dws"]
     session = get_es_client(es_host)
 
+    # 防御：DWS == DWD 时（部分城市暂用同索引，如 henan），
+    # 写入 DWS 会同时改 DWD 的 etl_time，导致 search_after 死循环。
+    # 数据本就在同一个索引里，不需要再同步。
+    if dwd_idx == dws_idx:
+        cnt = 0
+        try:
+            cnt = session.post(
+                f"{es_host}/{dwd_idx}/_count",
+                json={"query": {"match_all": {}}},
+                timeout=30,
+            ).json().get("count", 0)
+        except Exception:
+            pass
+        print(f"  [DWS+AI] {city}: DWD == DWS（{dwd_idx}），无需同步（{cnt} 条已是最终态）")
+        return 0, 0, 0, 0
+
     if not dry_run:
         ensure_indices(es_host, cfg)
 
@@ -453,6 +469,12 @@ def sync_dws(es_host: str, city: str, cfg: dict, *,
     """
     dwd_idx = cfg["dwd"]
     dws_idx = cfg["dws"]
+
+    # 防御：DWS == DWD 时跳过（见 _dwd_to_dws_three_stages 注释）
+    if dwd_idx == dws_idx:
+        print(f"  [DWS] {city}: DWD == DWS（{dwd_idx}），无需同步")
+        return 0, 0
+
     session = get_es_client(es_host)
 
     if not dry_run:

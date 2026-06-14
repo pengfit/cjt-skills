@@ -164,7 +164,9 @@ def etl_city(
 
     # 构建查询
     must = [{"match_all": {}}]
-    must_not = [{"terms": {"spec": ["/", ""]}}]
+    # spec 是 text 字段，对空字符串不过滤（term 在 text 字段上不匹配空串）
+    # 必须用 spec.keyword 子字段，term 才会把空串当作有效 token 匹配
+    must_not = [{"terms": {"spec.keyword": ["", "/"]}}]
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
     if incremental and since_date:
