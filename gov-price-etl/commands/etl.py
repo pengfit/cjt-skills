@@ -452,56 +452,24 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
 
         token = ""
         try:
-            with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-                token = _json.load(f).get("gateway", {}).get("auth", {}).get("token", "")
-        except Exception:
-            pass
+            # 透传到 ai_service.parse_spec_batch：自带缓存 + 统一网关调用 + 重试
+            # 重复 spec 文本不再重复送 AI（ai_cache.db 命中跳过）
+            from ai_service import parse_spec_batch, get_stats as _ai_stats
+            before_stats = _ai_stats()
+            print(f"    [AI] 调用 ai_service.parse_spec_batch ({len(items)} 条，去重后)...", flush=True)
+            ai_list = parse_spec_batch(items, write_rules=True)  # write_rules 语义保留
+            after_stats = _ai_stats()
+            parse_calls = after_stats["parse_calls"] - before_stats["parse_calls"]
+            parse_cached = after_stats["parse_cached"] - before_stats["parse_cached"]
+            parse_failed = after_stats["parse_failed"] - before_stats["parse_failed"]
+            print(f"    [AI] ai_service 完成: 调用={parse_calls}, 缓存命中={parse_cached}, 失败={parse_failed}", flush=True)
+        except Exception as e:
+            print(f"    [AI] ai_service 初始化失败: {e}，回退为空结果", flush=True)
+            ai_list = []
 
-        # 串行调用 AI（道友要求：AI 部分不要并行）
-        AI_BATCH = 20
-        TIMEOUT = 300  # 5min，单批 20 条 AI 解析可能需要等待 OpenClaw gateway 排队
-        all_results = []
-
-        def _call_ai_sub_batch(sub_items, batch_idx):
-            body_req = _json.dumps({"items": sub_items, "write_rules": True}).encode("utf-8")
-            req = urllib.request.Request(
-                "http://localhost:5200/api/stats/spec-quality/batch-spec-parse",
-                data=body_req,
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                method="POST",
-            )
-            # 不走系统代理
-            no_proxy_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            try:
-                print(f"    [AI] sub-batch {batch_idx}: calling API with {len(sub_items)} items, timeout={TIMEOUT}s...", flush=True)
-                with no_proxy_opener.open(req, timeout=TIMEOUT) as r:
-                    print(f"    [AI] sub-batch {batch_idx}: response received", flush=True)
-                    sub_result = _json.loads(r.read())
-                print(f"    [AI] sub-batch {batch_idx}: parsed, ok={sub_result.get('ok')}", flush=True)
-                return sub_result.get("results", []) if sub_result.get("ok") else []
-            except urllib.error.URLError as e:
-                print(f"    [AI] sub-batch {batch_idx} URL error: {e}")
-                return []
-            except socket.timeout:
-                print(f"    [AI] sub-batch {batch_idx} timeout after {TIMEOUT}s")
-                return []
-            except Exception as e:
-                print(f"    [AI] sub-batch {batch_idx} 调用失败: {e}")
-                return []
-
-        sub_batches = [items[i:i + AI_BATCH] for i in range(0, len(items), AI_BATCH)]
-        print(f"    [AI] 共 {len(sub_batches)} 个 sub-batch，按道友要求串行执行（不开线程池）...", flush=True)
-        for i, sb in enumerate(sub_batches):
-            results = _call_ai_sub_batch(sb, i+1)
-            all_results.extend(results)
-        print(f"    [AI] 所有 sub-batch 完成，累计 {len(all_results)} 条结果", flush=True)
-
-        # 构建 breed+spec → parsed attr 的映射
+        # 构建 spec → suggestions 映射（ai_service 返回 list 与 items 一一对应）
         results_map = {}
-        for r in all_results:
-            # AI 返回的 breed 全为 null，无法用于匹配；
-            # 统一用 "" + spec 作为 key，确保与 ai_batch lookup 时的 (real_breed, spec) 不匹配；
-            # 改用纯 spec 作为映射 key（同一个 spec 唯一对应一套 suggestions）
+        for r in ai_list:
             results_map[r.get("spec", "")] = r.get("suggestions", [])
 
         skipped = []
@@ -513,10 +481,11 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
             if suggestions:
                 docs_to_sync.append(doc)
             else:
-                docs_to_sync.append(doc)  # AI 失败也同步，只是 attr 为空
+                # P0 优化：AI 解析失败/无 attr 不进 DWS（仅留在 DWD，亢余 attr 会干扰看板）
+                skipped.append(doc)
 
         ai_batch.clear()
-        return results_map, docs_to_sync
+        return results_map, docs_to_sync, skipped
 
     # 追踪已处理的 doc_id，避免重复处理（search_after 在所有 doc etl_time 相同时会失效）
     seen_doc_ids = set()
@@ -602,7 +571,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
 
         # AI batch 满了则触发解析
         if len(ai_batch) >= ai_batch_size:
-            results_map, docs_to_sync = _flush_ai_batch()
+            results_map, docs_to_sync, _skipped = _flush_ai_batch()
             for doc in docs_to_sync:
                 did = doc["doc_id"]
                 suggestions = doc["suggestions"]
@@ -729,7 +698,7 @@ def flush_to_dws_with_ai(es_host: str, city: str, cfg: dict, batch_size: int = 5
 
     # 剩余 AI batch
     if ai_batch:
-        results_map, docs_to_sync = _flush_ai_batch()
+        results_map, docs_to_sync, _skipped = _flush_ai_batch()
         dws_docs, dws_ids = [], []
         for doc in docs_to_sync:
             did = doc["doc_id"]

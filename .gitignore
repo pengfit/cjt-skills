@@ -22,3 +22,5 @@ venv/
 .henan_sync_progress.json
 *.db-shm
 *.db-wal
+# AI 调用结果缓存（运行时累积，重跑可重新生成）
+ai_cache.db

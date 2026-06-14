@@ -39,31 +39,20 @@ def _query_breed_rules_db(breeds: list[str]) -> dict:
 
 
 def _fetch_ai_category_batch(breeds: list[str], city: str) -> dict:
-    """批量查询 AI 分类（仅对未命中品种调 API），返回 {breed: category}"""
+    """批量查询 AI 分类（仅对未命中品种调 API），返回 {breed: category}
+
+    实现：透传到 ai_service.classify_breed_batch（自带缓存 + 统一网关调用）
+    向后兼容：仍返回 {breed: category} 字典
+    """
     if not breeds:
         return {}
-    import http.client, json as _json
-    from classify import _ai_cache
-    # 先从缓存补齐
-    uncached = [b for b in breeds if b not in _ai_cache]
-    if uncached:
-        try:
-            body = _json.dumps({"breeds": uncached, "city": city}).encode("utf-8")
-            conn = http.client.HTTPConnection("localhost", 5200, timeout=60)
-            conn.request("POST", "/api/stats/spec-quality/classify-breed-batch", body=body,
-                      headers={"Content-Type": "application/json"})
-            resp = conn.getresponse()
-            data = _json.loads(resp.read())
-            if data.get("ok"):
-                for breed, r in data.get("results", {}).items():
-                    _ai_cache[breed] = r.get("category", "其他")
-            else:
-                for b in uncached:
-                    _ai_cache.setdefault(b, "其他")
-        except Exception:
-            for b in uncached:
-                _ai_cache.setdefault(b, "其他")
-    return {b: _ai_cache.get(b, "其他") for b in breeds}
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from ai_service import classify_breed_batch
+        return classify_breed_batch(breeds, city)
+    except Exception as e:
+        # 兑底：避免破坏调用方
+        return {b: "其他" for b in breeds}
 
 
 def classify_breed(breed: str, spec: str = "", city: str = "") -> str:
