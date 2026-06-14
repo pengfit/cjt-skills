@@ -6,7 +6,7 @@
       <div class="hud-corner tr"></div>
       <div class="hud-title">
         <span class="hud-prefix">GOV-PRICE</span>
-        <span class="hud-main">材价通 · 采价驾驶舱</span>
+        <span class="hud-main">材价通 · 驾驶舱</span>
       </div>
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
