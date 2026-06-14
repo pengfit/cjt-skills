@@ -10,9 +10,24 @@ from elasticsearch import Elasticsearch
 import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml, sqlite3
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
-sys.path.insert(0, ETL_CMD_DIR)
-sys.path.insert(0, os.path.join(ETL_CMD_DIR, "classify"))
+# etl 项目根（v0.2 重构后不再用 commands/ 路径，全部用 etl 的 paths.py 中心解析）
+ETL_PROJECT_ROOT = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl"
+sys.path.insert(0, ETL_PROJECT_ROOT)  # 让 `import gov_price_etl` 可用
+sys.path.insert(0, os.path.join(ETL_PROJECT_ROOT, "gov_price_etl", "parse_spec", "rules"))  # 保留旧 import 路径
+
+# DB 路径全部从 etl 的 paths.py 读（单一来源）
+try:
+    from gov_price_etl.paths import (
+        CATEGORY_RULES_DB as _RULES_DB_CAT,
+        SPEC_RULES_DB as _RULES_DB_SPEC,
+        PROJECT_ROOT as _ETL_PROJECT_ROOT,
+    )
+    # 旧 _RULES_DB 指向 rules_vec.db，refactor 后已并入 SPEC_RULES_DB
+    _RULES_DB = _RULES_DB_SPEC
+except Exception as _e:
+    print(f"⚠️ etl paths 加载失败: {_e}")
+    _RULES_DB_CAT = _RULES_DB_SPEC = _RULES_DB = None
+    _ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
 
 try:
     from parse_spec.rules.vector_store import get_vec_store
@@ -70,9 +85,8 @@ es = Elasticsearch([ES_HOST])
 
 from rules.jaccard import batch_insert_breed_rules
 
-_RULES_DB = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "rules_vec.db")
-_RULES_DB_CAT = os.path.join(ETL_CMD_DIR, "classify", "rules", "breed_category_rules.db")
-_RULES_DB_SPEC = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "breed_spec_rules.db")
+# _RULES_DB / _RULES_DB_CAT / _RULES_DB_SPEC 已在文件头部从 gov_price_etl.paths 导入
+# （避免与旧路径硬编码冲突）
 
 def _ensure_rules_table():
     """"确保 breed_category_rules 表存在且结构最新（幂等）"""
@@ -1201,12 +1215,13 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Spec 解析质量 ─────────────────────────────────────────────
-ETL_CMD_DIR = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl/commands"
+# ETL_CMD_DIR 别名（仅为了不破坏下面残存的旧代码）
+ETL_CMD_DIR = os.path.join(_ETL_PROJECT_ROOT, "gov_price_etl")
 
-# 从 parse_spec/rules/_attrs.py 动态加载属性描述
+# 从 gov_price_etl/parse_spec/rules/_attrs.py 动态加载属性描述
 try:
     import re as _re
-    _attrs_file = os.path.join(ETL_CMD_DIR, "parse_spec", "rules", "_attrs.py")
+    _attrs_file = os.path.join(_ETL_PROJECT_ROOT, "gov_price_etl", "parse_spec", "rules", "_attrs.py")
     _ATTR_RE = _re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', _re.MULTILINE)
     _ATTR_MAP = {}
     with open(_attrs_file) as _f:
@@ -1303,7 +1318,7 @@ def classify_breed_batch_prompt_fn(breeds: list[str]) -> str:
 def _run_spec_validation(city="xian"):
     import sys, os, json
     sys.path.insert(0, ETL_CMD_DIR)
-    testset_path = os.path.join(ETL_CMD_DIR, "spec_testset.json")
+    testset_path = os.path.join(_ETL_PROJECT_ROOT, "data", "spec_testset.json")
     if not os.path.exists(testset_path):
         return {"error": f"测试集不存在: {testset_path}"}
     with open(testset_path) as f:
@@ -1584,7 +1599,7 @@ def stats_rules_vector(
 
     def _cat_sys_map():
         import json
-        p = os.path.join(ETL_CMD_DIR, "classify", "rules", "category_in_system.json")
+        p = os.path.join(_ETL_PROJECT_ROOT, "data", "category_in_system.json")
         try:
             with open(p) as f:
                 raw = json.load(f) or {}
