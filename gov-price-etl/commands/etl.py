@@ -117,6 +117,12 @@ CITY_CONFIGS = {
         "dws": "dws_henan_price",
         "city_label": "河南",
     },
+    "heze": {
+        "ods": "ods_material_heze_price",
+        "dwd": "dwd_heze_price",
+        "dws": "dws_heze_price",
+        "city_label": "菏泽",
+    },
 }
 
 
@@ -959,8 +965,15 @@ def etl_city(es_host: str, city: str, cfg: dict,
             try:
                 doc = transform_doc(h["_source"], ods_idx, city)
                 spec_val = doc.get("spec", "")
-                if not spec_val or spec_val == "/":
-                    continue
+                # spec 为空时也接受写入 DWD（菏泽 PDF 多种 “名称规格” 合并写法让 spec 拼不出）
+                if spec_val == "/":
+                    doc["spec"] = ""
+                    spec_val = ""
+                if not spec_val:
+                    # spec 为空时以 breed 填充（避免 null，同时保持查询一致性）
+                    if not doc.get("breed"):
+                        continue
+                    doc["spec"] = doc.get("breed_clean") or doc["breed"]
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']}")
                     continue

@@ -1,0 +1,30 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_heze_price
+  progress_index: ods_material_heze_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: heze-price
+  secure: false
+
+site:
+  base_url: http://hzszjj.heze.gov.cn
+  api_url: http://hzszjj.heze.gov.cn/els-service/article
+  dwid: "2c908088819842f701819a1a962f0005"   # 菏泽住建局 subsite
+  catas: "1584708004996059136"               # 栏目 ID（材料价格）
+  dq: "0530"                                  # 菏泽区号
+  timeout_sec: 30
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+
+sync:
+  last_period: ""
+  last_publish_date: ""
+
+# 菏泽全市统一价（PDF 无地市拆分）
+cities:
+  - 菏泽

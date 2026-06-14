@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
-ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_heze_price"
 
 app = FastAPI(title="涌数 API", version="1.0.0")
 
@@ -1732,6 +1732,119 @@ def stats_chongqing_sync_progress():
             "has_incremental": has_incremental,
             "last_sync_period": last_sync_period,
             "es_latest_period": es_latest_period,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats/heze-sync-progress")
+def stats_heze_sync_progress():
+    """菏泽工程造价信息同步进度（按期跟踪，每期 PDF 一条记录）
+
+    菏泽为市级期刊，无区县概念；列表 API 返回的每期在进度索引里写一条 status=ok 的记录。
+    """
+    try:
+        PROGRESS_INDEX = "ods_material_heze_price_sync_progress"
+        DATA_INDEX = "ods_material_heze_price"
+
+        # 进度索引的所有期记录（按 created_at 倒序）
+        all_hits = es.search(index=PROGRESS_INDEX, body={
+            "size": 50,
+            "sort": [{"created_at": "desc"}],
+            "query": {"match_all": {}}
+        }, ignore_unavailable=True)
+        records = all_hits.get("hits", {}).get("hits", [])
+
+        # 构进期详情列表
+        period_details = []
+        total_docs = 0
+        completed = 0
+        running = 0
+        errored = 0
+        latest_period = ""
+        latest_created_at = ""
+        latest_doc = None
+
+        for h in records:
+            src = h["_source"]
+            raw_status = src.get("status", "ok")
+            if raw_status == "ok":
+                status_norm = "completed"
+                completed += 1
+            elif raw_status in ("running", "in_progress"):
+                status_norm = "running"
+                running += 1
+            else:
+                status_norm = raw_status or "completed"
+                completed += 1
+            docs_written = src.get("docs_written", 0) or 0
+            total_docs += docs_written
+            period_details.append({
+                "period": src.get("period", ""),
+                "publish_date": src.get("publish_date", ""),
+                "status": status_norm,
+                "percent": 100.0 if status_norm == "completed" else 0,
+                "docs_written": docs_written,
+                "duration_sec": src.get("duration_sec", 0),
+                "created_at": src.get("created_at", ""),
+                "pdf_url": src.get("pdf_url", ""),
+                "minio_key": src.get("minio_key", ""),
+            })
+            ca = src.get("created_at", "")
+            if ca and ca > latest_created_at:
+                latest_created_at = ca
+                latest_period = src.get("period", "")
+                latest_doc = src
+
+        overall_status = "ok" if running == 0 and errored == 0 else ("running" if running else "error")
+        last_updated = latest_created_at[:19] if latest_created_at else ""
+
+        # 增量检测：配置中上次同步 period 与 ES 最新 period 对比
+        es_latest_period = latest_period
+        last_sync_period = ""
+        has_incremental = False
+        try:
+            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/heze-price/config.yml"
+            if os.path.exists(cfg_path):
+                with open(cfg_path) as f:
+                    cfg = yaml.safe_load(f)
+                last_sync_period = (cfg.get("sync", {}) or {}).get("last_period", "") or ""
+            if last_sync_period and es_latest_period:
+                has_incremental = es_latest_period > last_sync_period
+            elif es_latest_period and not last_sync_period:
+                has_incremental = True
+        except Exception:
+            pass
+
+        # ODS 中各期文档数
+        try:
+            cnt = es.search(index=DATA_INDEX, body={
+                "size": 0,
+                "aggs": {"by_period": {"terms": {"field": "period", "size": 20}}}
+            })
+            period_doc_count = {b["key"]: b["doc_count"] for b in cnt.get("aggregations", {}).get("by_period", {}).get("buckets", [])}
+        except Exception:
+            period_doc_count = {}
+
+        return {
+            "run_id": latest_period,
+            "status": overall_status,
+            "period": latest_period,
+            "duration_sec": (latest_doc or {}).get("duration_sec", 0),
+            "last_updated": last_updated,
+            "error": (latest_doc or {}).get("error", ""),
+            "total_docs": total_docs,
+            "total_written": total_docs,
+            "current_page": 0,
+            "total_pages": 0,
+            "current_period": latest_period,
+            "completed_periods": completed,
+            "total_periods": len(period_details),
+            "period_details": period_details,
+            "has_incremental": has_incremental,
+            "last_sync_period": last_sync_period,
+            "es_latest_period": es_latest_period,
+            "period_doc_count": period_doc_count,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

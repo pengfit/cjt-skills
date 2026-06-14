@@ -35,12 +35,13 @@ CITY_INDEXES = {
     "jinan":     {"dws": "dws_jinan_price",     "ods": "ods_material_jinan_price",     "dwd": "dwd_jinan_price",     "label": "济南"},
     "rizhao":    {"dws": "dws_rizhao_price",    "ods": "ods_material_rizhao_price",    "dwd": "dwd_rizhao_price",    "label": "日照"},
     "henan":     {"dws": "dws_henan_price",     "ods": "ods_material_henan_price",     "dwd": "dwd_henan_price",     "label": "河南"},
+    "heze":      {"dws": "dws_heze_price",      "ods": "ods_material_heze_price",      "dwd": "dwd_heze_price",      "label": "菏泽"},
 }
 
 # 全部城市索引汇总
-ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price"
-ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price"
-ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price"
+ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price,ods_material_heze_price"
+ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price"
 
 # 各城市配置的区县数量（从 config.yml 读取，作为 total_counties 基准）
 CITY_COUNTY_COUNTS = {
@@ -50,6 +51,7 @@ CITY_COUNTY_COUNTS = {
     "jinan":     41,   # 济南41个分类目录
     "rizhao":    3,    # 日照3个类别
     "henan":     18,   # 河南18个地级市（郑州/濮阳/.../商丘）
+    "heze":      1,    # 菏泽为市级期刊，无区县，按期跟踪（默认 1 期）
 }
 
 # 进度索引 map
@@ -60,6 +62,7 @@ PROGRESS_INDEXES = {
     "jinan":     "ods_material_jinan_price_sync_progress",
     "rizhao":    "material_rizhao_price_sync_progress",
     "henan":     "ods_material_henan_price_sync_progress",
+    "heze":      "ods_material_heze_price_sync_progress",
 }
 
 es = Elasticsearch([ES_HOST])
@@ -137,11 +140,17 @@ def _index_stats(index: str) -> dict:
     aggs_body = {
         "size": 0,
         "aggs": {
-            "min_date": {"min": {"field": "update_date"}},
-            "max_date": {"max": {"field": "update_date"}},
             "max_etl": {"max": {"field": "etl_time"}},
         }
     }
+    # 对 update_date 的 min/max 聚合需要 date 类型；某些索引（如 heze）的 update_date 是 keyword，会报错
+    # 先试加上 update_date 聚合，失败时也只损失 min_date/max_date，不影响主流程
+    try:
+        aggs_body["aggs"]["min_date"] = {"min": {"field": "update_date"}}
+        aggs_body["aggs"]["max_date"] = {"max": {"field": "update_date"}}
+    except Exception:
+        pass
+
     try:
         r = es.search(index=index, body=aggs_body)
         aggs = r.get("aggregations", {})
@@ -157,7 +166,22 @@ def _index_stats(index: str) -> dict:
             "status": "ok",
         }
     except Exception as e:
-        return {"index": index, "count": count, "status": "error", "msg": str(e)}
+        # update_date keyword 报错时，回退仅查 etl_time
+        try:
+            fallback_body = {"size": 0, "aggs": {"max_etl": {"max": {"field": "etl_time"}}}}
+            r2 = es.search(index=index, body=fallback_body)
+            max_etl = r2.get("aggregations", {}).get("max_etl", {}).get("value_as_string", "") or ""
+            return {
+                "index": index,
+                "count": count,
+                "min_date": "",
+                "max_date": "",
+                "last_etl": max_etl[:19] if max_etl else "",
+                "status": "ok",
+                "msg": f"update_date aggregation skipped: {str(e)[:100]}",
+            }
+        except Exception as e2:
+            return {"index": index, "count": count, "status": "error", "msg": str(e2)}
 
 
 @router.post("/api/scrape/check")
@@ -210,6 +234,83 @@ def stats_scrape_progress_all(year: int = 2026):
         try:
             use_cq = (city == "chongqing")
             use_henan_periods = (city == "henan")
+            use_heze_periods = (city == "heze")
+            if use_heze_periods:
+                # 菏泽进度索引无 run_id 字段，用专属 heze 块（带 continue 跳过后续通用分支）
+                heze_body = {
+                    "size": 0,
+                    "aggs": {
+                        "periods": {
+                            "terms": {"field": "period", "size": 20},
+                            "aggs": {
+                                "docs_sum": {"sum": {"field": "docs_written"}},
+                                "latest_doc": {
+                                    "top_hits": {
+                                        "size": 1,
+                                        "sort": [{"created_at": "desc"}],
+                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at", "pdf_url", "minio_key"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                heze_r = es.search(index=idx, body=heze_body)
+                heze_buckets = heze_r["aggregations"]["periods"]["buckets"]
+                td = sum(b.get("docs_sum", {}).get("value", 0) for b in heze_buckets)
+                tr = 0
+                counties = []
+                run_id = None
+                lu = ""
+                lu_str = ""
+                comp = 0
+                run = 0
+                err = 0
+                period_created = {}
+                for b in heze_buckets:
+                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                    raw_status = doc.get("status", "ok")
+                    if raw_status == "ok":
+                        primary_status = "completed"
+                        comp += 1
+                    elif raw_status in ("running", "in_progress"):
+                        primary_status = "running"
+                        run += 1
+                    else:
+                        primary_status = raw_status or "completed"
+                        comp += 1
+                    counties.append({
+                        "county": b["key"],
+                        "period": b["key"],
+                        "publish_date": doc.get("publish_date", ""),
+                        "status": primary_status,
+                        "percent": 100.0 if primary_status == "completed" else 0,
+                        "docs_written": doc.get("docs_written", 0),
+                        "current_page": 0,
+                        "total_pages": 0,
+                    })
+                    created = doc.get("created_at", "")
+                    period_created[b["key"]] = created
+                    if created and created > lu_str:
+                        lu_str = created
+                        lu = created[:19]
+                        run_id = doc.get("period")
+                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+                # 填充 results[city] 后跳出本次循环
+                results[city] = {
+                    "city": city,
+                    "city_label": CITY_INDEXES[city]["label"],
+                    "latest_run_id": run_id,
+                    "last_updated": lu,
+                    "total_docs": td,
+                    "total_records": tr,
+                    "completed": comp,
+                    "running": run,
+                    "error": err,
+                    "total_counties": CITY_COUNTY_COUNTS.get(city, 0),
+                    "counties": counties,
+                }
+                continue
             if use_cq:
                 run_body = {
                     "size": 0,
@@ -538,6 +639,10 @@ def stats_scrape_progress_all(year: int = 2026):
                 # 按 created_at 倒序排列 counties（最新期在前）
                 counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
 
+            if city == "heze":
+                # 已在上方 use_heze_periods 分支处理，此处不需重复
+                pass
+
             results[city] = {
                 "city": city,
                 "city_label": CITY_INDEXES[city]["label"],
@@ -551,7 +656,7 @@ def stats_scrape_progress_all(year: int = 2026):
                 "total_counties": CITY_COUNTY_COUNTS.get(city, len(ch)),
                 "counties": counties,
             }
-        except Exception:
+        except Exception as e:
             results[city] = {
                 "city": city,
                 "city_label": CITY_INDEXES[city]["label"],
@@ -1015,7 +1120,13 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
             dwd_stats = f_dwd.result()
             dws_stats = f_dws.result()
 
-        sync_ok = (ods_stats.get("count") == dwd_stats.get("count") == dws_stats.get("count") and ods_stats.get("count", 0) > 0)
+        # sync_ok：ODS 全部入仓（严格相等） 或 DWD/DWS 有数据且 DWD<=ODS（允许 ETL 过滤无 spec 的记录，如菏泽）
+        ods_c = ods_stats.get("count", 0)
+        dwd_c = dwd_stats.get("count", 0)
+        dws_c = dws_stats.get("count", 0)
+        strict_ok = (ods_c == dwd_c == dws_c and ods_c > 0)
+        loose_ok = (dwd_c > 0 and dws_c > 0 and dwd_c <= ods_c and abs(dwd_c - dws_c) <= 1)
+        sync_ok = strict_ok or loose_ok
         pipeline = {
             "city": city,
             "city_label": city_label,
@@ -1041,7 +1152,12 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 ods_s = f["ods"].result()
                 dwd_s = f["dwd"].result()
                 dws_s = f["dws"].result()
-                sync_ok_c = (ods_s.get("count") == dwd_s.get("count") == dws_s.get("count") and ods_s.get("count", 0) > 0)
+                ods_c2 = ods_s.get("count", 0)
+                dwd_c2 = dwd_s.get("count", 0)
+                dws_c2 = dws_s.get("count", 0)
+                strict_ok_c = (ods_c2 == dwd_c2 == dws_c2 and ods_c2 > 0)
+                loose_ok_c = (dwd_c2 > 0 and dws_c2 > 0 and dwd_c2 <= ods_c2 and abs(dwd_c2 - dws_c2) <= 1)
+                sync_ok_c = strict_ok_c or loose_ok_c
                 scrape_k = scrape_all.get(k, {})
                 all_pipelines[k] = {
                     "city": k,

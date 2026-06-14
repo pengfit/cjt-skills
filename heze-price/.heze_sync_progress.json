@@ -1,0 +1,16 @@
+{
+  "done": {
+    "2048667642155425792": {
+      "period": "2026.1期",
+      "publish_date": "2026-04-27",
+      "xxid": "2048667642155425792",
+      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/2048667642155425792.html",
+      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY2048667632374255616.pdf",
+      "minio_key": "heze-price/《工程造价信息》2026年第1期.pdf",
+      "docs_written": 750,
+      "status": "ok",
+      "duration_sec": 3.8,
+      "created_at": "2026-06-14T08:10:58"
+    }
+  }
+}

@@ -28,6 +28,7 @@ CITY_PARSERS = {
     "jinan":    ("base",     None),   # 暂用通用规则
     "rizhao":   ("base",     None),   # 暂用通用规则
     "henan":    ("henan",    "HenanParseSpec"),
+    "heze":     ("base",     None),   # 菏泽期刊规格结构简单，暂用通用规则
 }
 
 
