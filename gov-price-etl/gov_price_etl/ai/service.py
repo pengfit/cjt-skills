@@ -1,30 +1,30 @@
-"""ai_service.py - 统一 AI 服务入口（带缓存）
+"""ai_service.py - 统一 AI 服务入口
 
 设计目标：
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
-  2. 缓存层：重复 spec 文本不再重复送 AI（ai_cache.db）
+  2. 本地规则库前置：调 AI 之前先查 breed_*_rules.db，命中直接返回（无 AI 调用）
+     - 分类：breed_category_rules.db（精确 → 模糊 / Jaccard）
+     - 解析：breed_spec_rules.db（VecStore.search 关键词相似度）
   3. 统一鉴权：读 openclaw.json 拿 token
   4. 统一重试：失败有 fallback
   5. 计量：每次调用都计入 stats
+  6. Prompt 模板从 prompts.yml 加载（路径由 paths.PROMPTS_YML 解析），
+     改 yml 后下次 AI 调用自动重读（mtime 检测）
 
 实际调用路径（不绕道 dashboard）：
   ETL → ai_service → OpenClaw gateway (localhost:18789/v1/chat/completions)
 
 兼容旧接口：
-  - Prompt 模板从 prompts.yml 加载（路径由 paths.PROMPTS_YML 解析）
-  - 修改 prompts.yml 后下次 AI 调用自动重读（mtime 检测）
+  - Prompt 模板从 prompts.yml 加载
   - 缺失时回退到 ai.prompts.BUILTIN_FALLBACK
 """
 
-import hashlib
 import json
 import os
 import sys
 import time
-from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
-from gov_price_etl.ai import cache as ai_cache
 from gov_price_etl.ai.prompts import format_prompt, get_prompt
 from gov_price_etl.paths import (
     PROJECT_ROOT,
@@ -46,10 +46,6 @@ def _read_token() -> str:
         return ""
 
 
-# 旧 BUILTIN_PROMPTS 字典已迁移到 ai/prompts.py 的 BUILTIN_FALLBACK。
-# 旧 _load_prompts() 函数已废弃（ai/prompts.py 的 get_prompts/get_prompt 是替代）。
-
-
 def _get_ref_attr_names() -> str:
     """从 data/breed_spec_rules.db 读取已有属性名（兼容 dashboard 的 ref_names 逻辑）"""
     db_path = str(SPEC_RULES_DB)
@@ -62,27 +58,27 @@ def _get_ref_attr_names() -> str:
         conn.close()
         return ", ".join(names) if names else "diameter, length, width, height, thickness, grade"
     except Exception:
-        return "diameter, length, width, height, thickness, grade"
+        return "diameter, length, width, height, thickness, grade, material, pressure, voltage, power"
 
 
 # ── 计数器（process 内）──────────────────────────────────────────────
 _stats = {
-    "classify_calls": 0,   # 调 AI 分类次数
-    "classify_cached": 0,  # 缓存命中次数
+    "classify_calls": 0,         # 调 AI 分类次数
+    "classify_local_hit": 0,     # 本地规则库命中次数
     "classify_failed": 0,
-    "classify_rules_written": 0,  # AI 响应写入 breed_category_rules.db 条数
+    "classify_rules_written": 0, # AI 响应写入 breed_category_rules.db 条数
     "classify_rules_failed": 0,
     "parse_calls": 0,
-    "parse_cached": 0,
+    "parse_local_hit": 0,        # 本地规则库命中次数
     "parse_failed": 0,
-    "parse_rules_written": 0,  # AI 响应写入 breed_spec_rules.db 条数
+    "parse_rules_written": 0,    # AI 响应写入 breed_spec_rules.db 条数
     "parse_rules_failed": 0,
 }
 
 
 def get_stats() -> dict:
-    """Return process-level AI call stats + cache stats."""
-    return {**_stats, "cache": ai_cache.stats()}
+    """Return process-level AI call stats."""
+    return dict(_stats)
 
 
 def _reset_stats():
@@ -144,32 +140,35 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
     批量品种分类，返回 {breed: category}。
 
     流程：
-      1. 对每个 breed 计算 cache_key, 查询 ai_cache
-      2. 全部命中 → 直接返回（无 AI 调用）
-      3. 未命中 → 批量送 AI，AI 返回后回写缓存
-      4. AI 失败 → 标记为 "其他"（与旧行为兼容）
+      1. 对每个 breed 查 breed_category_rules.db（精确 → 模糊）
+      2. 命中 → 直接返回（无 AI 调用）
+      3. 未命中 → 批量送 AI
+      4. AI 失败 → 标记为 "其他"
+      5. AI 成功 → 写回 breed_category_rules.db
 
     参数:
       breeds: 待分类品种列表
-      city: 城市 key（仅用于缓存 key，避免跨城市污染）
+      city: 城市 key（仅用于日志/AI 上下文，不影响本地查询）
     """
     if not breeds:
         return {}
     cfg = get_prompt("classify_breed_batch")
     system_msg = cfg.get("system", "")
 
-    # 1. 查缓存
-    uncached = []
-    cached_map: Dict[str, str] = {}
+    # 1. 查本地规则库（阶段 1+2：精确 → 模糊）
+    from gov_price_etl.classify.rules._core import classify_breed_local
+
+    local_map: Dict[str, str] = {}
+    uncached: List[str] = []
     for b in breeds:
-        v = ai_cache.get("classify", b, city)
-        if v and v.get("category"):
-            cached_map[b] = v["category"]
-            _stats["classify_cached"] += 1
+        cat, _src = classify_breed_local(b)
+        if cat:
+            local_map[b] = cat
+            _stats["classify_local_hit"] += 1
         else:
             uncached.append(b)
 
-    # 2. 送 AI
+    # 2. 送 AI（仅未命中的）
     if uncached:
         _stats["classify_calls"] += 1
         breeds_str = "\n".join(f"{i+1}. {b}" for i, b in enumerate(uncached))
@@ -191,9 +190,7 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
                     note = r.get("note", "") or ""
                     ai_results[b] = cat
                     ai_parsed[b] = {"category": cat, "confidence": confidence, "note": note}
-                    # 写缓存（包含 confidence/note 以便后续查询）
-                    ai_cache.put("classify", {"category": cat, "confidence": confidence, "note": note}, b, city)
-            except Exception as e:
+            except Exception:
                 _stats["classify_failed"] += 1
                 for b in uncached:
                     ai_results[b] = "其他"
@@ -203,7 +200,7 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
                 ai_results[b] = "其他"
 
         # 3. AI 响应入规则库（breed_category_rules.db）
-        #    仅在分类有效且非兑底时写入，避免 "其他" 污染 DB
+        #    仅在分类有效且非兜底时写入，避免 "其他" 污染 DB
         if ai_parsed:
             try:
                 from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
@@ -219,13 +216,12 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
                 if pairs:
                     batch_insert_breed_rules(pairs)
                     _stats["classify_rules_written"] = _stats.get("classify_rules_written", 0) + len(pairs)
-            except Exception as e:
-                # 入库失败不影响主流程
+            except Exception:
                 _stats["classify_rules_failed"] = _stats.get("classify_rules_failed", 0) + 1
 
-        return {**cached_map, **ai_results}
+        return {**local_map, **ai_results}
 
-    return cached_map
+    return local_map
 
 
 def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]:
@@ -233,23 +229,26 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
     批量规格解析，返回 [{spec, ok, suggestions, failed_reason}]。
 
     流程：
-      1. 对每个 (breed, spec, category) 算 cache_key, 查 ai_cache
-      2. 全部命中 → 直接返回（无 AI 调用）
-      3. 未命中 → 批量送 AI，AI 返回后回写缓存
-      4. AI 失败 → 返回 ok=False（让上游决定是否进 DWS）
+      1. 对每个 item 查 breed_spec_rules.db（VecStore.search 关键词相似度）
+      2. 命中 → 直接返回 suggestions（无 AI 调用）
+      3. 未命中 → 送 AI
+      4. AI 失败 → 返回 ok=False
+      5. AI 成功 → 写回 breed_spec_rules.db（write_rules=True 时）
 
     参数:
       items: [{spec, breed, category}, ...]
-      write_rules: 是否持久化到规则库（Vector store）。当前实现只写缓存；
-                  规则库写回由 dashboard 的 /api/stats/spec-quality/batch-spec-parse
-                  在 write_rules=True 时负责（保留此语义）。
+      write_rules: 是否持久化到 breed_spec_rules.db。
+                  默认 True：让本地规则库持续增长，节省后续 AI 调用。
     """
     if not items:
         return []
     cfg = get_prompt("batch_spec_parse")
     system_msg = cfg.get("system", "")
 
-    # 1. 查缓存
+    # 1. 查本地规则库（VecStore）
+    from gov_price_etl.parse_spec.rules.vector_store import get_vec_store
+    vs = get_vec_store()
+
     results: List[dict] = [None] * len(items)  # type: ignore
     uncached_idx: List[int] = []
     uncached_items: List[dict] = []
@@ -258,28 +257,39 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
         if not spec:
             results[i] = {"spec": spec, "ok": False, "suggestions": [], "failed_reason": "spec 为空"}
             continue
-        cached = ai_cache.get("parse", spec, item.get("breed", ""), item.get("category", ""))
-        if cached is not None:
+        breed = item.get("breed", "")
+        category = item.get("category", "")
+        rules = vs.search(spec=spec, category=category, breed=breed, top_k=8)
+        if rules:
+            # DB 字段是 code，suggestions 规范用 code_block
+            suggestions = [
+                {
+                    "attr": rule["attr"],
+                    "pattern": rule["pattern"],
+                    "note": rule.get("note", ""),
+                    "code_block": rule.get("code", ""),
+                }
+                for _score, rule in rules
+            ]
             results[i] = {
                 "spec": spec,
-                "ok": cached.get("ok", False),
-                "suggestions": cached.get("suggestions", []),
-                "failed_reason": cached.get("failed_reason", ""),
-                "_from_cache": True,
+                "ok": True,
+                "suggestions": suggestions,
+                "failed_reason": "",
+                "_from_local": True,
             }
-            _stats["parse_cached"] += 1
+            _stats["parse_local_hit"] += 1
         else:
             uncached_idx.append(i)
             uncached_items.append(item)
 
-    # 2. 送 AI（串行，20/批，遵守道友要求）
+    # 2. 送 AI（仅未命中的，串行 20/批，遵守道友要求）
     if uncached_items:
         _stats["parse_calls"] += 1
         BATCH = 20
         TIMEOUT = 300
         for batch_start in range(0, len(uncached_items), BATCH):
             batch_items = uncached_items[batch_start:batch_start + BATCH]
-            # 渲染 prompt
             lines = [
                 f'[{i+1}] 规格: {it.get("spec","")} | 产品: {it.get("breed","")} | 分类: {it.get("category","")}'
                 for i, it in enumerate(batch_items)
@@ -305,9 +315,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                         "suggestions": [],
                         "failed_reason": content,
                     }
-                    # 失败不写缓存（避免污染），下次还会重试
                 continue
-            # 解析 AI 返回
             try:
                 ai_list = json.loads(content)
                 if not isinstance(ai_list, list):
@@ -323,7 +331,6 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                         "failed_reason": f"AI 返回格式错误: {e}",
                     }
                 continue
-            # 写回 results + 写缓存 + 写规则库
             for k, item in enumerate(batch_items):
                 target_pos = uncached_idx[batch_start + k]
                 spec = item.get("spec", "")
@@ -332,26 +339,17 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                     ai_r = {}
                 ok_flag = bool(ai_r.get("ok", False))
                 suggestions = ai_r.get("suggestions", []) if ok_flag else []
-                rec = {
+                results[target_pos] = {
                     "spec": spec,
                     "ok": ok_flag,
                     "suggestions": suggestions,
                     "failed_reason": ai_r.get("failed_reason", ""),
                 }
-                results[target_pos] = rec
-                # 写缓存（无论 ok 与否都写，下次同 spec 直接复用结果，跳过 AI）
-                ai_cache.put("parse", {
-                    "ok": ok_flag,
-                    "suggestions": suggestions,
-                    "failed_reason": ai_r.get("failed_reason", ""),
-                }, spec, item.get("breed", ""), item.get("category", ""))
 
             # AI 响应入规则库（breed_spec_rules.db）
             #    只有 ok=True 且有有效 suggestions 时写入
             if write_rules and ai_list:
                 try:
-                    from gov_price_etl.parse_spec.rules.vector_store import get_vec_store
-                    vs = get_vec_store()
                     written = 0
                     for k, item in enumerate(batch_items):
                         ai_r = ai_list[k] if k < len(ai_list) else {}
@@ -372,7 +370,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                             except Exception:
                                 pass
                     _stats["parse_rules_written"] = _stats.get("parse_rules_written", 0) + written
-                except Exception as e:
+                except Exception:
                     _stats["parse_rules_failed"] = _stats.get("parse_rules_failed", 0) + 1
 
     return results  # type: ignore

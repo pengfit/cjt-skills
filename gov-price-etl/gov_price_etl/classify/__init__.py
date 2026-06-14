@@ -13,7 +13,6 @@ from .rules._core import (
     # 兼容旧接口
     classify_breed,
     _fetch_ai_category_batch,
-    _ai_cache,
     # 三段式显式 API
     classify_breed_db_exact,      # 阶段 1: DB 精确
     classify_breed_db_fuzzy,      # 阶段 2: DB 模糊 / Jaccard
@@ -40,7 +39,6 @@ __all__ = [
     # 兼容旧接口
     "classify_breed",
     "_fetch_ai_category_batch",
-    "_ai_cache",
     # 三段式显式 API
     "classify_breed_db_exact",
     "classify_breed_db_fuzzy",

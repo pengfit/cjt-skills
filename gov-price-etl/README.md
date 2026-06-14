@@ -46,8 +46,7 @@ gov-price-etl/
 ├── data/                     # 数据文件
 │   ├── breed_spec_rules.db
 │   ├── breed_category_rules.db
-│   ├── category_in_system.json
-│   └── ai_cache.db
+│   └── category_in_system.json
 ├── gov_price_etl/        # 核心包
 │   ├── paths.py              # 路径中心
 │   ├── config.py             # 配置 + 城市注册

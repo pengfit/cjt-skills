@@ -1,8 +1,9 @@
-"""ai - 统一 AI 服务入口（带缓存）
+"""ai - 统一 AI 服务入口
 
 设计目标：
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
-  2. 缓存层：重复 spec 文本不再重复送 AI（ai_cache.db）
+  2. 本地规则库前置：调 AI 之前先查 breed_*_rules.db（精确+模糊），
+     命中直接返回，不调 AI（这是核心省钱策略）
   3. 统一鉴权：读 openclaw.json 拿 token
   4. 统一重试：失败有 fallback
   5. 计量：每次调用都计入 stats
@@ -26,7 +27,6 @@ from .prompts import (
     format_prompt,
     BUILTIN_FALLBACK,
 )
-from . import cache as _cache
 
 __all__ = [
     # AI 调用
@@ -41,6 +41,4 @@ __all__ = [
     "reload_prompts",
     "format_prompt",
     "BUILTIN_FALLBACK",
-    # 缓存
-    "_cache",
 ]

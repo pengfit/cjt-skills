@@ -220,10 +220,6 @@ def _fetch_ai_category_batch(breeds: list, city: str) -> dict:
         return {b: "其他" for b in breeds}
 
 
-# 进程内缓存（同进程内同 breed 不重复分类）
-_ai_cache: dict = {}
-
-
 # ── 私有：DB 连接 ───────────────────────────────────────────────────────
 # 注：旧的 _get_db_conn() 已替换为 _get_category_db_conn()，
 #     内部连 CATEGORY_RULES_DB（breed_category_rules.db）而非 SPEC_RULES_DB。
