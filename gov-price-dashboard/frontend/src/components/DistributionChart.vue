@@ -455,7 +455,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 .ov-icon { font-size: 22px; line-height: 1; }
 .ov-body { display: flex; flex-direction: column; gap: 2px; }
-.ov-value { font-size: 16px; font-weight: 700; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; }
+.ov-value { font-size: 16px; font-weight: 700; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .ov-label { font-size: 11px; color: #64748b; }
 .ov-divider { width: 1px; height: 36px; background: rgba(255,255,255,0.08); margin: 0 24px; flex-shrink: 0; }
 
@@ -590,7 +590,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .province-count {
   font-size: 15px;
   font-weight: 800;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   color: var(--province-color, #38bdf8);
   text-shadow: 0 0 12px rgba(56,189,248,0.3);
 }

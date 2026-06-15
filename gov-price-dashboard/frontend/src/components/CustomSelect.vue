@@ -314,7 +314,7 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
 .cs-option.selected { color: var(--primary); font-weight: 600; }
 
 .cs-opt-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cs-opt-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-family: 'DIN Alternate', monospace; }
+.cs-opt-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 
 .cs-empty { padding: 12px; text-align: center; color: var(--text-3); font-size: 12px; }
 

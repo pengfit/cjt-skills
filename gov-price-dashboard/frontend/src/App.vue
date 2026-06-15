@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard with-sidebar">
 
     <!-- ========== TOP BAR ========== -->
     <header class="top-bar">
@@ -17,16 +17,6 @@
           <circle cx="47" cy="18" r="4" fill="#38bdf8"/>
         </svg>
         <span class="top-bar-brand">材价通</span>
-        <div class="top-bar-divider"></div>
-        <button class="nav-tab" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
-        <button class="nav-tab" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
-        <button class="nav-tab" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
-        <button class="nav-tab" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
-        <button class="nav-tab" :class="{ active: curTab === 'scrape' }" @click="curTab = 'scrape'; saveTab('scrape')">数据抓取</button>
-        <button class="nav-tab" :class="{ active: curTab === 'provenance' }" @click="curTab = 'provenance'; saveTab('provenance')">数据清洗</button>
-        <button class="nav-tab" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
-        <button class="nav-tab" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
-
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
@@ -47,6 +37,33 @@
 
       </div>
     </header>
+
+    <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
+    <div class="dashboard-body">
+
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">📊 业务查价</div>
+        <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">⚙ 系统监控</div>
+        <button class="sidebar-item" :class="{ active: curTab === 'sync' }" @click="curTab = 'sync'; saveTab('sync')">数据同步</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'health' }" @click="curTab = 'health'; saveTab('health')">数据健康</button>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">📋 规则管理</div>
+        <button class="sidebar-item" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
+      </div>
+    </aside>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
 
     <!-- Filter Bar (full-width, above main content) -->
     <template v-if="curTab === 'list'">
@@ -344,14 +361,13 @@
       <CategoryView v-else />
     </template>
 
-    <template v-if="curTab === 'scrape'">
+    <template v-if="curTab === 'sync'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <ScrapeView v-else />
+      <SyncView v-else />
     </template>
 
-    <template v-if="curTab === 'provenance'">
-      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <DataProvenanceView v-else />
+    <template v-if="curTab === 'health'">
+      <DataHealthView />
     </template>
 
     <template v-if="curTab === 'rules'">
@@ -364,6 +380,8 @@
       <BreedCategoryRulesView v-else />
     </template>
 
+    </main>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -377,8 +395,8 @@ import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
 import DistributionChart from './components/DistributionChart.vue'
 import CategoryView from './components/CategoryView.vue'
-import DataProvenanceView from './components/DataProvenanceView.vue'
-import ScrapeView from './components/ScrapeView.vue'
+import SyncView from './components/SyncView.vue'
+import DataHealthView from './components/DataHealthView.vue'
 import CockpitView from './components/CockpitView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'

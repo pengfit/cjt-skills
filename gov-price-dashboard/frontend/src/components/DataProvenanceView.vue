@@ -805,7 +805,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .stage-name { font-size: 11px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; margin-bottom: 4px; }
-.stage-count { font-size: 20px; font-weight: 800; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
+.stage-count { font-size: 20px; font-weight: 800; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; line-height: 1; }
 .stage-unit { font-size: 11px; font-weight: 500; color: #64748b; margin-left: 2px; }
 .stage-date { font-size: 10px; color: #475569; margin-top: 4px; }
 .stage-etl { font-size: 10px; color: #64748b; margin-top: 2px; }
@@ -858,7 +858,7 @@ onUnmounted(() => {
 .unified-badge.running { background: rgba(56,189,248,0.12); color: #38bdf8; }
 .unified-badge.error { background: rgba(248,113,113,0.12); color: #f87171; }
 .unified-docs { font-size: 11px; color: #475569; }
-.unified-pct { font-size: 11px; color: #64748b; min-width: 36px; text-align: right; font-family: 'DIN Alternate', Arial, sans-serif; }
+.unified-pct { font-size: 11px; color: #64748b; min-width: 36px; text-align: right; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .unified-expand { font-size: 11px; color: #64748b; transition: transform 0.2s, color 0.2s; margin-left: 4px; flex-shrink: 0; }
 .unified-expand.rotated { transform: rotate(90deg); color: #38bdf8; font-size: 12px; }
 .unified-county-strip {
@@ -888,7 +888,7 @@ onUnmounted(() => {
 .chip-dot.running { background: #38bdf8; animation: pulse-dot 1.5s ease-in-out infinite; }
 .chip-dot.not-started { background: #475569; }
 .chip-name { color: #94a3b8; }
-.chip-pct { color: #94a3b8; font-family: 'DIN Alternate', Arial, sans-serif; font-weight: 900; }
+.chip-pct { color: #94a3b8; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; font-weight: 900; }
 .chip-pct.running { color: #38bdf8; }
 .chip-pct.completed { color: #34d399; }
 .chip-pct.not-started { color: #475569; }
@@ -939,7 +939,7 @@ onUnmounted(() => {
   background: rgba(56,189,248,0.08);
 }
 .city-overview-label { font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
-.city-overview-count { font-size: 20px; font-weight: 800; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
+.city-overview-count { font-size: 20px; font-weight: 800; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; line-height: 1; }
 .city-overview-unit { font-size: 11px; color: #64748b; margin-left: 2px; }
 .city-overview-date { font-size: 10px; color: #475569; margin-top: 4px; }
 .city-overview-status { font-size: 11px; margin-top: 2px; }
@@ -1008,7 +1008,7 @@ onUnmounted(() => {
 .pipe-progress-wrap { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 4px 0 2px; overflow: hidden; }
 .pipe-progress-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #34d399); border-radius: 2px; transition: width 0.4s ease; }
 .pipe-stage-label { font-size: 10px; font-weight: 700; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 2px; }
-.pipe-stage-count { font-size: 15px; font-weight: 800; color: #f1f5f9; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
+.pipe-stage-count { font-size: 15px; font-weight: 800; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; line-height: 1; }
 .pipe-stage-unit { font-size: 10px; color: #64748b; margin-left: 1px; }
 .pipe-stage-date { font-size: 9px; color: #475569; margin-top: 3px; }
 .pipe-stage-sub { font-size: 9px; color: #34d399; margin-top: 2px; }
@@ -1319,7 +1319,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DIN Alternate', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   line-height: 1;
 }
 .coverage-pct { font-size: 12px; font-weight: 800; color: #94a3b8; }

@@ -274,7 +274,7 @@ onUnmounted(() => {
   font-size: 24px;
   font-weight: 800;
   color: #c084fc;
-  font-family: 'DIN Alternate', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   line-height: 1;
 }
 

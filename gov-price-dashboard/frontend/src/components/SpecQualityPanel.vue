@@ -209,7 +209,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-cat { font-size: 12px; font-weight: 600; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-pct { font-size: 14px; font-weight: 800; color: #64748b; font-family: 'DIN Alternate', Arial, sans-serif; flex-shrink: 0; }
+.card-pct { font-size: 14px; font-weight: 800; color: #64748b; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; flex-shrink: 0; }
 .card-pct.pct-warn { color: #f87171; }
 
 .card-bar { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
@@ -218,7 +218,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .card-bad .bar-fill { background: #f87171; }
 
 .card-btm { display: flex; align-items: center; justify-content: space-between; }
-.card-count { font-size: 11px; color: #334155; font-family: 'DIN Alternate', Arial, sans-serif; }
+.card-count { font-size: 11px; color: #334155; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .card-actions { display: flex; gap: 4px; }
 
 .btn-icon {

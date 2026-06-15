@@ -1,5 +1,5 @@
 <template>
-  <div class="health-page">
+  <div class="health-page" :class="{ 'show-card-detail': showCardDetail }">
 
     <!-- 顶部标题栏 -->
     <div class="health-header">
@@ -69,6 +69,12 @@
     </div>
 
     <!-- 省份同步卡片网格 -->
+    <div class="sync-grid-tools">
+      <span class="sync-grid-hint">默认只显示概览，点击「展开详情」查看区县进度与环状圈</span>
+      <button class="sync-grid-toggle" @click="showCardDetail = !showCardDetail">
+        {{ showCardDetail ? '▴ 收起详情' : '▾ 展开详情' }}
+      </button>
+    </div>
     <div class="sync-grid">
 
       <!-- 西安 -->
@@ -456,6 +462,7 @@ import * as echarts from 'echarts'
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
 const error = ref('')
+const showCardDetail = ref(false)  // 6 城大卡详情默认收起，仅显示概览
 const currentTime = ref('')
 const data = ref({
   total_docs: 0, province_count: 0, stale_provinces: 0,
@@ -877,7 +884,7 @@ onUnmounted(() => {
   font-weight: 800;
   color: #f1f5f9;
   letter-spacing: 2px;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   text-shadow: 0 2px 12px rgba(56,189,248,0.2);
 }
 .health-subtitle {
@@ -892,7 +899,7 @@ onUnmounted(() => {
 .header-time {
   font-size: 13px;
   color: #475569;
-  font-family: 'DIN Alternate', 'Helvetica Neue', monospace;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   letter-spacing: 1px;
 }
 .btn-refresh {
@@ -975,7 +982,7 @@ onUnmounted(() => {
   font-weight: 800;
   color: #38bdf8;
   line-height: 1;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   text-shadow: 0 0 20px rgba(56,189,248,0.4);
   display: block;
 }
@@ -1053,6 +1060,49 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
+}
+
+/* 6 城大卡详情默认收起：仅显示 header + meta（总览信息） */
+.sync-card-body { display: none; }
+.health-page.show-card-detail .sync-card-body { display: block; }
+.sync-card.show-card-detail,
+.health-page.show-card-detail .sync-card { /* keep existing styles intact */ }
+
+/* 收起状态下，body 隐藏，卡片 height 自动收缩 */
+.sync-card {
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.sync-card-body {
+  transition: max-height 0.3s ease;
+}
+
+/* 全局展开/收起 工具条 */
+.sync-grid-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px 10px;
+  margin-top: 6px;
+}
+.sync-grid-hint {
+  font-size: 11px;
+  color: #64748b;
+}
+.sync-grid-toggle {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(56,189,248,0.25);
+  background: rgba(56,189,248,0.06);
+  color: #38bdf8;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.sync-grid-toggle:hover {
+  background: rgba(56,189,248,0.14);
+  border-color: #38bdf8;
 }
 
 /* ===== 同步卡片 ===== */
@@ -1168,7 +1218,7 @@ onUnmounted(() => {
 .ring-rz { stroke: #10b981; }
 .ring-jn { stroke: #8b5cf6; }
 .ring-cq { stroke: #f59e0b; }
-.ring-pct { font-size: 18px; font-weight: 700; fill: #f1f5f9; font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif; }
+.ring-pct { font-size: 18px; font-weight: 700; fill: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .ring-sub { font-size: 10px; fill: #64748b; }
 .sync-status-row { display: flex; justify-content: center; }
 .sync-doc-count { font-size: 11px; color: #475569; text-align: center; }
@@ -1310,4 +1360,8 @@ onUnmounted(() => {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* 6 城大卡详情默认收起（必须放在最后以覆盖同选择器） */
+.sync-card-body { display: none; }
+.health-page.show-card-detail .sync-card-body { display: flex; }
 </style>

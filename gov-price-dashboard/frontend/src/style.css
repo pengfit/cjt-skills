@@ -19,6 +19,18 @@
   --warning: #f59e0b;
   --purple: #a78bfa;
 
+  /* 语义化状态色（全站统一使用） */
+  --status-ok:        #22c55e;   /* 绿：已同步 / 健康 */
+  --status-ok-bg:     rgba(34,197,94,0.12);
+  --status-warn:      #f59e0b;   /* 黄：滞后 / 中断 / 部分完成 */
+  --status-warn-bg:   rgba(245,158,11,0.12);
+  --status-alert:     #ef4444;   /* 红：出错 / 异常 */
+  --status-alert-bg:  rgba(239,68,68,0.12);
+  --status-info:      #38bdf8;   /* 蓝：进行中 / 同步中 */
+  --status-info-bg:   rgba(56,189,248,0.12);
+  --status-muted:     #64748b;   /* 灰：无记录 */
+  --status-muted-bg:  rgba(100,116,139,0.12);
+
   --primary-grad: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
   --primary-grad-hover: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
 
@@ -37,10 +49,23 @@
 
   --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-fast: 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 数字字体：等宽数字，避免对齐抖动 */
+  --font-mono-num: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
 }
 
 /* === Reset === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 全局：所有数字 / 计量类 class 启用 tabular-nums，对齐不抖动 */
+[class*="-num"], [class*="-value"], [class*="-count"], [class*="-pct"],
+[class*="-price"], [class*="-docs"], .mono, .stat-num, .meta-value,
+.price-main, .price-tax, .stage-num, .pipe-stage-count, .city-overview-count,
+.card-pct, .ov-value, .scrape-card-pct, .unified-pct, .chip-pct,
+.cs-opt-count, .change-pct, .attr-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
 
 html { font-size: 16px; scroll-behavior: smooth; }
 
@@ -74,6 +99,76 @@ body {
   margin: 0 auto;
   padding: 0;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;  /* allow main-content to scroll */
+}
+
+/* ========== SIDEBAR ========== */
+.sidebar {
+  width: 200px;
+  flex: 0 0 200px;
+  background: var(--surface, rgba(15,23,42,0.6));
+  border-right: 1px solid rgba(255,255,255,0.05);
+  padding: 16px 0;
+  position: sticky;
+  top: var(--topbar-h, 60px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--topbar-h, 60px));
+  overflow-y: auto;
+}
+
+.sidebar-group {
+  margin-bottom: 18px;
+}
+
+.sidebar-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 6px 18px 6px;
+  margin-bottom: 2px;
+}
+
+.sidebar-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 18px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.sidebar-item:hover {
+  color: #e2e8f0;
+  background: rgba(56,189,248,0.04);
+}
+
+.sidebar-item.active {
+  color: #38bdf8;
+  background: rgba(56,189,248,0.1);
+  border-left-color: #38bdf8;
+  font-weight: 600;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;  /* prevent overflow from tables */
+  overflow-x: auto;
 }
 
 /* ============================================================
@@ -151,7 +246,7 @@ body {
 /* ========== OVERVIEW STAT VALUES — large dashboard numbers ========== */
 .meta-value {
   font-weight: 800;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   color: #38bdf8;
   font-size: 14px;  /* was 16px — tighter to match label ratio */
   letter-spacing: 0.3px;
@@ -162,7 +257,7 @@ body {
   font-size: 14px;      /* was 18px — reduce for balanced column width */
   font-weight: 700;
   color: #e2e8f0;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   line-height: 1.2;
   text-align: center;
 }
@@ -566,7 +661,7 @@ body {
 .cs-option.selected { color: #38bdf8; font-weight: 600; }
 
 .cs-opt-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cs-opt-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-family: 'DIN Alternate', monospace; }
+.cs-opt-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .cs-empty { padding: 14px; text-align: center; color: var(--text-3); font-size: 12px; }
 
 .cs-drop-enter-active, .cs-drop-leave-active { transition: opacity 0.15s, transform 0.15s; }
@@ -913,7 +1008,7 @@ body {
   color: #38bdf8;
   font-weight: 600;
   margin-top: 1px;
-  font-family: 'DIN Alternate', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   text-align: center;
 }
 
@@ -1263,7 +1358,7 @@ body {
 .change-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border-light); font-size: 12px; }
 .change-item:last-child { border-bottom: none; }
 .change-breed { color: var(--text); font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
-.change-pct { font-weight: 700; font-family: 'DIN Alternate', monospace; font-size: 13px; flex-shrink: 0; }
+.change-pct { font-weight: 700; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; font-size: 13px; flex-shrink: 0; }
 .change-pct.up { color: var(--success); }
 .change-pct.down { color: var(--danger); }
 
