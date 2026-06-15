@@ -1,13 +1,6 @@
 <template>
   <div class="health-page" :class="{ 'show-card-detail': showCardDetail }">
 
-    <!-- 顶部操作栏（页内刷新） -->
-    <div class="health-toolbar">
-      <button class="btn-refresh" @click="loadData()" :class="{ spinning: loading }">
-        <span class="refresh-icon">🔄</span> 刷新数据
-      </button>
-    </div>
-
     <!-- 四个汇总指标卡 -->
     <div class="health-cards">
       <div class="stat-card stat-card-primary">
@@ -974,31 +967,6 @@ onUnmounted(() => {
 }
 
 /* ===== 顶部工具栏 ===== */
-.health-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-.btn-refresh {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  background: rgba(59,130,246,0.15);
-  border: 1px solid rgba(59,130,246,0.3);
-  border-radius: 8px;
-  font-size: 13px;
-  color: #60a5fa;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-refresh:hover {
-  background: rgba(59,130,246,0.25);
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 0 16px rgba(59,130,246,0.2);
-}
-.btn-refresh.spinning { opacity: 0.6; pointer-events: none; }
-.refresh-icon { font-size: 14px; }
 
 /* ===== 四个汇总指标卡 ===== */
 .health-cards {
