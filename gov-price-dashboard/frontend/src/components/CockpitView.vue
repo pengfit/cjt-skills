@@ -128,7 +128,7 @@
         </div>
         <div class="pipeline-grid">
           <div v-for="(pipe, key) in data.all_cities" :key="key" class="city-card"
-            :class="{ alert: !pipe.sync_ok }">
+            :class="{ alert: attrRate(pipe) < 80 }">
             <div class="city-card-corner tl"></div>
             <div class="city-card-corner tr"></div>
             <div class="city-card-corner bl"></div>
@@ -136,8 +136,8 @@
 
             <div class="city-header">
               <span class="city-name">{{ pipe.city_label }}</span>
-              <span class="city-status" :class="pipe.sync_ok ? 'ok' : 'warn'">
-                {{ pipe.sync_ok ? '● ONLINE' : '● ALERT' }}
+              <span class="city-status" :class="attrRate(pipe) >= 80 ? 'ok' : 'warn'">
+                {{ attrRate(pipe) >= 80 ? '● ONLINE' : '● ALERT' }}
               </span>
             </div>
 
@@ -243,7 +243,7 @@
           <span class="footer-value mono">{{ Object.keys(data.all_cities).length }} / 7</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">SYNC OK</span>
+          <span class="footer-label">ATTR OK</span>
           <span class="footer-value mono">{{ syncOkCount }} / 7</span>
         </div>
         <div class="footer-cell">
@@ -298,11 +298,12 @@ const kpi = computed(() => {
 const odsPct = computed(() => Math.min(100, kpi.value.ods / 1000))
 
 const syncOkCount = computed(() => {
-  return Object.values(data.all_cities || {}).filter(c => c.sync_ok).length
+  // 与城市卡片 alert 判断口径一致：attr 覆盖率 ≥ 80% 视为健康
+  return Object.values(data.all_cities || {}).filter(c => attrRate(c) >= 80).length
 })
 
 const alertCount = computed(() => {
-  return Object.values(data.all_cities || {}).filter(c => !c.sync_ok).length
+  return Object.values(data.all_cities || {}).filter(c => attrRate(c) < 80).length
 })
 
 const staleCount = computed(() => {

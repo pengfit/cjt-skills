@@ -20,8 +20,8 @@
         <div class="scrape-card-header">
           <div class="scrape-card-title">
             <span class="scrape-card-city">{{ pipe.city_label }}</span>
-            <span class="scrape-card-status" :class="pipe.sync_ok ? 'ok' : 'warn'">
-              {{ pipe.sync_ok ? '✓ 已同步' : '⚠ 待同步' }}
+            <span class="scrape-card-status" :class="(pipe.scrape_fresh ?? pipe.sync_ok) ? 'ok' : 'warn'">
+              {{ (pipe.scrape_fresh ?? pipe.sync_ok) ? '✓ 已同步' : '⚠ 待同步' }}
             </span>
           </div>
           <div class="scrape-card-pct">{{ scrapePct(pipe.scrape) }}%</div>
