@@ -1599,25 +1599,6 @@ def stats_rules_vector(
     rows = c.fetchall()
     conn.close()
 
-    def _cat_sys_map():
-        import json
-        p = os.path.join(_ETL_PROJECT_ROOT, "data", "category_in_system.json")
-        try:
-            with open(p) as f:
-                raw = json.load(f) or {}
-            result = {}
-            for cat in raw.get("categories", []):
-                sys_name = cat.get("name", "")
-                for child in cat.get("children", []):
-                    cat_name = child.get("name", "")
-                    if cat_name and sys_name:
-                        result[cat_name] = sys_name
-            return result
-        except Exception:
-            return {}
-
-    cat_sys_map = _cat_sys_map()
-
     items = []
     for r in rows:
         cat = r[6] or ""
@@ -1629,7 +1610,6 @@ def stats_rules_vector(
             "code": r[4],
             "breed": r[5] or "",
             "category": cat,
-            "category_system": cat_sys_map.get(cat, ""),
             "tokens": r[7] or "",
             "created_at": r[8],
         })

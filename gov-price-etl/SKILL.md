@@ -354,8 +354,6 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 | `breed_clean` | keyword | 清洗后品种名 |
 | `spec` | text+keyword | 原始规格 |
 | `category` | keyword | 分类名称 |
-| `category_system` | keyword | 分类体系 code |
-| `category_system_name` | keyword | 分类体系 name |
 | **`category_source`** | **keyword** | **分类来源：`db_exact`/`db_fuzzy`/`ai`/`ai_fallback`** |
 | **`category_stage`** | **keyword** | **命中阶段：`1`/`2`/`3`/空** |
 | `attr` | nested | 解析后的规格属性（list of {k, v}） |

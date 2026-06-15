@@ -35,10 +35,6 @@ from typing import Callable, Optional, Tuple
 
 import requests
 
-from gov_price_etl.classify import (
-    get_category_system_map,
-    get_category_system_name_map,
-)
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices

@@ -61,7 +61,7 @@
       <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
 
       <!-- Active Filter Tags (inside filter-bar) -->
-      <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory || searchCategorySystem">
+      <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory">
         <span class="filter-tag" v-if="searchKeyword">
           <strong>产品名称</strong>
           <em>{{ searchKeyword }}</em>
@@ -81,11 +81,6 @@
           <strong>分类</strong>
           <em>{{ searchCategory }}</em>
           <span class="tag-remove" @click="searchCategory = ''; doSearch()">✕</span>
-        </span>
-        <span class="filter-tag" v-if="searchCategorySystem">
-          <strong>系统</strong>
-          <em>{{ searchCategorySystem }}</em>
-          <span class="tag-remove" @click="searchCategorySystem = ''; doSearch()">✕</span>
         </span>
         <span class="filter-tag" v-if="searchCounty">
           <strong>区县</strong>
@@ -137,24 +132,12 @@
             />
           </div>
           <div class="filter-group">
-            <label class="filter-label">所属系统</label>
-            <CustomSelect
-              v-model="searchCategorySystem"
-              :options="systemOptions"
-              placeholder="全部系统"
-              :searchable="true"
-              :count-suffix="true"
-              @change="doSearch"
-            />
-          </div>
-          <div class="filter-group">
             <label class="filter-label">分类</label>
             <CustomSelect
               v-model="searchCategory"
-              :options="categoryGroupedOptions.length ? categoryGroupedOptions : categoryOptions"
+              :options="categoryOptions"
               placeholder="全部分类"
               :searchable="true"
-              :grouped="categoryGroupedOptions.length > 0"
               @change="doSearch"
             />
           </div>
@@ -235,7 +218,7 @@
             可能原因：
             <div>· 该省份暂无此类产品的价格记录</div>
             <div>· 筛选条件过细，请尝试扩大范围</div>
-            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategory = ''; searchCategorySystem = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
+            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategory = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
           </div>
         </div>
 
@@ -302,10 +285,6 @@
                     </template>
                     <template v-else-if="col.key === 'category'">
                       <span class="cat-badge">{{ item.category || '—' }}</span>
-                    </template>
-                    <template v-else-if="col.key === 'category_system'">
-                      <!-- 展示 category_system_name（中文名），fallback 到 code -->
-                      <span class="sys-badge">{{ item.category_system_name || item.category_system || '—' }}</span>
                     </template>
                     <template v-else>{{ item[col.key] ?? '—' }}</template>
                   </td>
@@ -417,10 +396,7 @@ const searchProvince = ref('')
 const searchCity = ref('')
 const searchCounty = ref('')
 const searchCategory = ref('')
-const searchCategorySystem = ref('')
 const categoryOptions = ref([])
-const categoryGroupedOptions = ref([])
-const systemOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
 const searchPage = ref(1)
@@ -450,7 +426,6 @@ const allColumns = ref([
   { key: 'unit',     label: '单位',      sortable: false, visible: true, width: 60  },
   { key: 'date',     label: '日期',      sortable: true,  visible: true, width: 95  },
   { key: 'category', label: '分类',      sortable: true,  visible: true, width: 120 },
-  { key: 'category_system', label: '所属系统', sortable: true, visible: true, width: 110 },
 ])
 
 // Price presets
@@ -616,7 +591,6 @@ async function doSearch(pageOverride) {
     if (searchCity.value) params.city = searchCity.value
     if (searchCounty.value) params.county = searchCounty.value
     if (searchCategory.value) params.category = searchCategory.value
-    if (searchCategorySystem.value) params.category_system = searchCategorySystem.value
     if (priceMin.value) params.price_min = priceMin.value
     if (priceMax.value) params.price_max = priceMax.value
     params.page = Number(pageOverride || searchPage.value)
@@ -648,7 +622,6 @@ function resetSearch() {
   searchCity.value = ''
   searchCounty.value = ''
   searchCategory.value = ''
-  searchCategorySystem.value = ''
   priceMin.value = ''
   priceMax.value = ''
   searchPage.value = '1'
@@ -856,58 +829,10 @@ async function loadCityOptions() {
 async function loadCategoryOptions() {
   const d = await loadAPI(`${API}/stats/overview`)
   if (d?.by_category) {
-    categoryOptions.value = d.by_category.map(c => ({
-      key: c.category,
-      count: c.count,
-      system: c.category_system || '',
-      // label = sys_name 供 CustomSelect 展示中文名（key 仍用 code 用于查询）
-      label: c.category_system_name || c.category_system || '',
-    }))
-    // 构造所属系统选项（去重 + 按 sys_name 排序）
-    const sysMap = new Map()  // code → { count, sysName }
-    for (const c of d.by_category) {
-      if (!c.category_system) continue
-      const prev = sysMap.get(c.category_system) || { count: 0, sysName: '' }
-      sysMap.set(c.category_system, {
-        count: prev.count + c.count,
-        sysName: c.category_system_name || c.category_system || '',
-      })
-    }
-    systemOptions.value = Array.from(sysMap.entries())
-      .sort((a, b) => a[1].sysName.localeCompare(b[1].sysName, 'zh-CN'))
-      .map(([code, { count, sysName }]) => ({ key: code, label: sysName, count }))
-    // 构造“分类”下拉按所属系统分组
-    categoryGroupedOptions.value = buildGroupedCategoryOptions(d.by_category)
+    categoryOptions.value = d.by_category
+      .map(c => ({ key: c.category, count: c.count, label: c.category }))
+      .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
   }
-}
-
-function buildGroupedCategoryOptions(items) {
-  // group key = code（用于查询），group name = sysName（用于展示）
-  const groups = new Map()  // code → { sysName, cats: [categories] }
-  const noSystem = []
-  for (const c of items) {
-    const sys = (c.category_system || '').trim()
-    const sysName = c.category_system_name || c.category_system || ''
-    if (sys) {
-      if (!groups.has(sys)) groups.set(sys, { sysName, cats: [] })
-      groups.get(sys).cats.push({ key: c.category, count: c.count, label: c.category })
-    } else {
-      noSystem.push({ key: c.category, count: c.count, label: c.category })
-    }
-  }
-  const result = []
-  // 排序：按 sysName 中文名升序；每个组内的分类也按中文名升序
-  const sortedEntries = Array.from(groups.entries())
-    .sort((a, b) => a[1].sysName.localeCompare(b[1].sysName, 'zh-CN'))
-  for (const [code, { sysName, cats }] of sortedEntries) {
-    const list = cats.sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
-    result.push({ group: sysName, options: list })
-  }
-  if (noSystem.length) {
-    noSystem.sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
-    result.push({ group: '未分类', options: noSystem })
-  }
-  return result
 }
 
 async function onMount() {

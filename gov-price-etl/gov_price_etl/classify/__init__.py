@@ -7,7 +7,6 @@ breed → category 三级召回：
 
 数据源：
   - data/breed_category_rules.db（SQLite，规则唯一来源）
-  - data/category_in_system.json（分类体系 code/name 映射）
 """
 from .rules._core import (
     # 兼容旧接口
@@ -25,15 +24,6 @@ from .rules.jaccard import (
     insert_breed_rule,
     batch_insert_breed_rules,
 )
-from .system import (
-    _get_category_system_maps,
-    get_category_system_map,
-    get_category_system_name_map,
-)
-
-# 兼容老代码的 import 路径
-_get_category_system_map = get_category_system_map
-_get_category_system_name_map = get_category_system_name_map
 
 __all__ = [
     # 兼容旧接口
@@ -49,12 +39,6 @@ __all__ = [
     "jaccard_breed_classify",
     "insert_breed_rule",
     "batch_insert_breed_rules",
-    # 分类体系映射
-    "get_category_system_map",
-    "get_category_system_name_map",
-    "_get_category_system_maps",
-    "_get_category_system_map",
-    "_get_category_system_name_map",
 ]
 
 if __name__ == "__main__":

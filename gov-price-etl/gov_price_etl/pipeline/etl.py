@@ -15,7 +15,7 @@
   │   └── 阶段 3：未命中 → AI classify_breed_batch 串行批次              │
   │         - etl_city 攒批（默认 20/批）                                │
   │         - category_source = 'ai' | 'ai_fallback'                    │
-  │         - 回写 DWD category/category_system/category_system_name      │
+  │         - 回写 DWD category（category_source 标识来源）              │
   └─────────────────────────────────────────────────────────────────────┘
 
 每条 DWD 文档带 `category_source` 字段，标识分类来源：
@@ -30,11 +30,7 @@ import json
 import time
 from typing import Tuple
 
-from gov_price_etl.classify import (
-    classify_breed_with_stages,
-    get_category_system_map,
-    get_category_system_name_map,
-)
+from gov_price_etl.classify import classify_breed_with_stages
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
@@ -91,19 +87,14 @@ def _ai_classify_pending(
     print(f"  [STG3 AI] 阶段 3 AI 分类总耗时 {time.time()-t_stage3:.1f}s")
 
     # 回写 DWD（bulk update）
-    code_map = get_category_system_map()
-    name_map = get_category_system_name_map()
     update_body = ""
     for breed_clean, doc_id in ai_pending:
         cat = breed_cats.get(breed_clean, "其他")
         src = breed_sources.get(breed_clean, "ai_fallback")
-        code = code_map.get(cat, "")
         update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
         update_body += json.dumps({
             "doc": {
                 "category": cat,
-                "category_system": code,
-                "category_system_name": name_map.get(code, ""),
                 "category_source": src,
             },
             "doc_as_upsert": True,
@@ -229,12 +220,6 @@ def etl_city(
                 doc["category"] = cat
                 doc["category_source"] = src
                 doc["category_stage"] = stage
-                # 同步更新 category_system / name
-                from gov_price_etl.classify import get_category_system_map, get_category_system_name_map
-                code_map = get_category_system_map()
-                name_map = get_category_system_name_map()
-                doc["category_system"] = code_map.get(cat, "")
-                doc["category_system_name"] = name_map.get(doc["category_system"], "")
 
                 if dry_run:
                     print(f"    [dry-run] {doc['breed_clean']} → {doc['category']} ({src}/stage={stage})")
