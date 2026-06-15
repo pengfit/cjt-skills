@@ -141,10 +141,9 @@
               </span>
             </div>
 
-            <!-- 三段式管道 -->
+            <!-- 三段式管道（不展示 ODS/DWD/DWS 分类标签，只留数字） -->
             <div class="city-pipe">
               <div class="city-stage">
-                <div class="stage-tag">ODS</div>
                 <div class="stage-num">{{ (pipe.ods?.count || 0).toLocaleString() }}</div>
                 <div class="stage-bar">
                   <div class="stage-bar-fill" :style="{ width: '100%' }"></div>
@@ -152,7 +151,6 @@
               </div>
               <div class="city-arrow">▶</div>
               <div class="city-stage">
-                <div class="stage-tag">DWD</div>
                 <div class="stage-num">{{ (pipe.dwd?.count || 0).toLocaleString() }}</div>
                 <div class="stage-bar">
                   <div class="stage-bar-fill" :style="{ width: dwdPct(pipe) + '%' }"></div>
@@ -160,7 +158,6 @@
               </div>
               <div class="city-arrow">▶</div>
               <div class="city-stage">
-                <div class="stage-tag">DWS</div>
                 <div class="stage-num">{{ (pipe.dws?.count || 0).toLocaleString() }}</div>
                 <div class="stage-bar">
                   <div class="stage-bar-fill" :style="{ width: dwsPct(pipe) + '%' }"></div>
