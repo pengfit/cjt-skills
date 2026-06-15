@@ -168,15 +168,8 @@
               </div>
             </div>
 
-            <!-- 抓取进度 -->
+            <!-- 抓取进度（不展示百分比和进度条，只留 meta 信息） -->
             <div class="city-scrape">
-              <div class="scrape-row">
-                <span class="scrape-label">SCRAPE</span>
-                <span class="scrape-pct mono">{{ scrapePct(pipe.scrape) }}%</span>
-              </div>
-              <div class="scrape-bar">
-                <div class="scrape-bar-fill" :style="{ width: scrapePct(pipe.scrape) + '%' }"></div>
-              </div>
               <div class="scrape-meta mono">
                 {{ pipe.scrape?.completed || 0 }} / {{ pipe.scrape?.total_counties || '—' }} {{ pipe.city_label === '河南' ? '期' : '类' }}
                 · {{ pipe.scrape?.last_updated?.slice(5,16) || '—' }}
