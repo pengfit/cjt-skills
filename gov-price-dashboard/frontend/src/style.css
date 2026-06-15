@@ -128,12 +128,12 @@ body {
 }
 
 .sidebar-group-label {
-  font-size: 10px;
+  font-size: 12px;   /* 分组标题加大，跟导航项(13px)形成清晰对比 */
   font-weight: 700;
-  color: #64748b;
+  color: #94a3b8;     /* 略提亮，让标题更显眼 */
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 6px 18px 6px;
+  letter-spacing: 0.8px;
+  padding: 8px 12px 6px;
   margin-bottom: 2px;
 }
 
@@ -141,14 +141,14 @@ body {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 7px 18px;
+  padding: 7px 14px 7px 26px;   /* 缩进 8px，形成子项视觉层级 */
   border: none;
   background: transparent;
   color: #94a3b8;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  border-left: 2px solid transparent;
+  border-left: 2px solid rgba(148,163,184,0.15);  /* 默认也有淡色边线 */
   transition: all 0.15s;
   font-family: inherit;
 }
