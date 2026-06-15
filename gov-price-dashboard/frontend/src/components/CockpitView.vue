@@ -165,13 +165,7 @@
               </div>
             </div>
 
-            <!-- 抓取进度（不展示百分比和进度条，只留 meta 信息） -->
-            <div class="city-scrape">
-              <div class="scrape-meta mono">
-                {{ pipe.scrape?.completed || 0 }} / {{ pipe.scrape?.total_counties || '—' }} {{ pipe.city_label === '河南' ? '期' : '类' }}
-                · {{ pipe.scrape?.last_updated?.slice(5,16) || '—' }}
-              </div>
-            </div>
+            <!-- 抓取进度块整体删（道友 11:09：'6/6 类 信息也不需要展示'） -->
 
             <!-- attr 覆盖率迷你环 -->
             <div class="city-attr">
@@ -341,13 +335,6 @@ function dwsPct(pipe) {
   const dwd = pipe.dwd?.count || 0
   const dws = pipe.dws?.count || 0
   return dwd > 0 ? (dws / dwd * 100) : 0
-}
-
-function scrapePct(scrape) {
-  if (!scrape) return 0
-  const done = scrape.completed || 0
-  const total = scrape.total_counties || 0
-  return total > 0 ? Math.round(done / total * 100) : 0
 }
 
 async function loadData() {
@@ -822,30 +809,6 @@ onUnmounted(() => {
 }
 
 
-.city-scrape { margin-bottom: 10px; }
-.scrape-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 9px;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-  font-family: monospace;
-}
-.scrape-label { color: #6a7a8a; }
-.scrape-pct { color: #00d4ff; }
-.scrape-bar {
-  height: 2px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 1px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-.scrape-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #00d4ff, #00ff88);
-  box-shadow: 0 0 4px rgba(0,255,136,0.4);
-}
 .scrape-meta {
   color: #4a5a6a;
   font-size: 9px;
