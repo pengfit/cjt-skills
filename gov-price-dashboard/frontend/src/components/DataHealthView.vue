@@ -1,23 +1,11 @@
 <template>
   <div class="health-page" :class="{ 'show-card-detail': showCardDetail }">
 
-    <!-- 顶部标题栏 -->
-    <div class="health-header">
-      <div class="header-inner">
-        <div class="header-left">
-          <div class="header-icon">📊</div>
-          <div class="header-titles">
-            <div class="health-title">数据监控大屏</div>
-            <div class="health-subtitle">实时追踪各省份数据同步状态</div>
-          </div>
-        </div>
-        <div class="header-right">
-          <div class="header-time">{{ currentTime }}</div>
-          <button class="btn-refresh" @click="loadData()" :class="{ spinning: loading }">
-            <span class="refresh-icon">🔄</span> 刷新数据
-          </button>
-        </div>
-      </div>
+    <!-- 顶部操作栏（页内刷新） -->
+    <div class="health-toolbar">
+      <button class="btn-refresh" @click="loadData()" :class="{ spinning: loading }">
+        <span class="refresh-icon">🔄</span> 刷新数据
+      </button>
     </div>
 
     <!-- 四个汇总指标卡 -->
@@ -562,7 +550,6 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
 const error = ref('')
 const showCardDetail = ref(false)  // 6 城大卡详情默认收起，仅显示概览
-const currentTime = ref('')
 const data = ref({
   total_docs: 0, province_count: 0,
   daily: [], provinces: []
@@ -601,11 +588,7 @@ const CQ_COUNTIES = [
   '荣昌区1','荣昌区2','潼南区','武隆区'
 ]
 
-function updateTime() {
-  const now = new Date()
-  const pad = n => String(n).padStart(2, '0')
-  currentTime.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-}
+
 
 const sichuanRing = computed(() => {
   const details = sichuanSyncData.value.area_details || []
@@ -841,7 +824,6 @@ async function pollHezeSync() {
 async function loadData() {
   loading.value = true
   error.value = ''
-  updateTime()
   try {
     const healthRes = await axios.get(`${API}/stats/data-health`)
     data.value = healthRes.data || {}
@@ -953,11 +935,8 @@ function renderDailyChart() {
 
 const dailyChart = ref(null)
 let dailyResizeHandler = null
-let timeTimer = null
 
 onMounted(async () => {
-  updateTime()
-  timeTimer = setInterval(updateTime, 1000)
   await loadData()
   xaPollTimer.value = setInterval(pollXianSync, 5000)
   scPollTimer.value = setInterval(pollSichuanSync, 7000)
@@ -976,7 +955,6 @@ onUnmounted(() => {
   if (henanPollTimer.value) clearInterval(henanPollTimer.value)
   if (hezePollTimer.value) clearInterval(hezePollTimer.value)
   if (dailyResizeHandler) window.removeEventListener('resize', dailyResizeHandler)
-  if (timeTimer) clearInterval(timeTimer)
 })
 </script>
 
@@ -995,64 +973,11 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-/* ===== 顶部标题栏 ===== */
-.health-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 0;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
-.header-inner {
+/* ===== 顶部工具栏 ===== */
+.health-toolbar {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-}
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.header-icon {
-  font-size: 28px;
-  width: 48px;
-  height: 48px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.header-titles {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.health-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #f1f5f9;
-  letter-spacing: 2px;
-  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  text-shadow: 0 2px 12px rgba(56,189,248,0.2);
-}
-.health-subtitle {
-  font-size: 12px;
-  color: var(--text-3);
-}
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.header-time {
-  font-size: 13px;
-  color: #475569;
-  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  letter-spacing: 1px;
 }
 .btn-refresh {
   display: flex;
