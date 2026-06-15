@@ -1,0 +1,27 @@
+key: henan
+label: 河南
+province: 河南
+ods_index: ods_material_henan_price
+dws_index: dws_henan_price
+progress_index: ods_material_henan_price_sync_progress
+progress_mode: period
+config_path: config.yml
+cities:
+  - 郑州
+  - 濮阳
+  - 周口
+  - 许昌
+  - 新乡
+  - 洛阳
+  - 安阳
+  - 焦作
+  - 平顶山
+  - 信阳
+  - 漯河
+  - 驻马店
+  - 南阳
+  - 鹤壁
+  - 三门峡
+  - 济源
+  - 开封
+  - 商丘

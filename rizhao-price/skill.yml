@@ -1,0 +1,11 @@
+key: rizhao
+label: 日照
+province: 山东
+ods_index: ods_material_rizhao_price
+dws_index: dws_rizhao_price
+# 注意：日照的 progress_index 命名也不一致
+progress_index: material_rizhao_price_sync_progress
+progress_mode: period
+config_path: config.yml
+cities:
+  - 日照市

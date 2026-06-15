@@ -1,0 +1,10 @@
+key: heze
+label: 菏泽
+province: 山东
+ods_index: ods_material_heze_price
+dws_index: dws_heze_price
+progress_index: ods_material_heze_price_sync_progress
+progress_mode: period
+config_path: config.yml
+cities:
+  - 菏泽

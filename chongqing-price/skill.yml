@@ -1,0 +1,45 @@
+key: chongqing
+label: 重庆
+province: 重庆
+ods_index: ods_material_chongqing_price
+dws_index: dws_chongqing_price
+# 注意：重庆的 progress_index 命名跟其他 skill 不一致，registry 会用此字段覆盖默认推断
+progress_index: material_chongqing_price_sync_progress
+progress_mode: county
+config_path: config.yml
+cities:
+  - 主城区
+  - 万州区
+  - 涪陵区
+  - 黔江区
+  - 长寿区
+  - 江津区
+  - 合川区
+  - 永川区
+  - 南川区
+  - 梁平区
+  - 城口县
+  - 丰都县
+  - 垫江县
+  - 忠县
+  - 开州区
+  - 云阳县
+  - 奉节县
+  - 巫山县
+  - 巫溪县
+  - 石柱县
+  - 秀山县
+  - 酉阳县
+  - 大足区
+  - 綦江区
+  - 万盛经开区
+  - 双桥经开区
+  - 铜梁区
+  - 璧山区
+  - 彭水县1
+  - 彭水县2
+  - 彭水县3
+  - 荣昌区1
+  - 荣昌区2
+  - 潼南区
+  - 武隆区

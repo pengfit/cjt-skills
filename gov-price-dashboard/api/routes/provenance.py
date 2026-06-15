@@ -205,7 +205,7 @@ def api_scrape_check(city: str = Body("...", embed=True)):
     实际执行 skill 目录下的 check.py 脚本。
     """
     city_script_map = {
-        "xian":      ("xa-material-price",   "check"),
+        "xian":      ("xian-price",   "check"),
         "sichuan":   ("sichuan-price",        "check"),
         "chongqing": ("chongqing-price",      "check"),
         "jinan":     ("jinan-price",          "check"),

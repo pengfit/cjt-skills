@@ -1,0 +1,11 @@
+key: jinan
+label: 济南
+province: 山东
+ods_index: ods_material_jinan_price
+dws_index: dws_jinan_price
+progress_index: material_jinan_price_sync_progress
+progress_mode: catalogue   # 按分类目录跟踪
+config_path: config.yml
+# 济南无区县概念，按分类目录组织
+cities:
+  - 济南市

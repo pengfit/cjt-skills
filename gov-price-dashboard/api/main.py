@@ -3,11 +3,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch
 from typing import Optional
 import os, sys
+import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
-ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
+
+# 集中引用 skill registry（见 api/skill_registry.py）
+# 新增/修改 skill 只需编辑 skills/<name>/skill.yml，重启后自动生效
+from api.skill_registry import (
+    get_all as _registry_get_all,
+    get as _registry_get,
+    reload as _registry_reload,
+    dws_indices_csv as _registry_dws_csv,
+)
+
+# 启动时预热一次 registry（_registry_get_all 内部懒加载，但显式 reload 更稳）
+try:
+    _registry_reload()
+    ALL_INDICES = _registry_dws_csv()
+    if not ALL_INDICES:
+        # 退路：若 registry 失败则保留旧硬编码，避免启动即崩
+        ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
+except Exception as _e:
+    print(f"[warn] skill_registry 初始化失败: {_e}，使用默认 ALL_INDICES")
+    ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
 
 app = FastAPI(title="材价通 API", version="1.0.0")
 
@@ -1077,12 +1097,17 @@ def _get_county_sync_details(es, es_index="ods_material_xian_price"):
 def stats_xian_sync_progress():
     """西安工程造价信息同步进度（每个区县一条记录）"""
     try:
-        PROGRESS_INDEX = "ods_material_xian_price_sync_progress"
+        # 索引与配置全部从 skill registry 读（避免硬编码，新增 skill 改 skill.yml 即可）
+        _cfg = _registry_get("xian") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "ods_material_xian_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_xian_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/xian-price/config.yml")
+        COUNTY_TOTAL = len(_cfg.get("cities", []))
 
         # 增量检测：ES 最新 update_date
         es_latest = None
         try:
-            es_res = es.search(index="ods_material_xian_price", body={
+            es_res = es.search(index=DATA_INDEX, body={
                 "size": 1, "sort": [{"update_date": "desc"}], "_source": ["update_date"]
             })
             es_hits = es_res.get("hits", {}).get("hits", [])
@@ -1094,9 +1119,8 @@ def stats_xian_sync_progress():
         # 配置中记录的上次同步日期
         last_sync_date = None
         try:
-            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/xa-material-price/config.yml"
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH) as f:
                     cfg = yaml.safe_load(f)
                 last_sync_date = cfg.get("sync", {}).get("last_update_date", "")
         except Exception:
@@ -1126,7 +1150,7 @@ def stats_xian_sync_progress():
                 "current_page": 0, "total_pages": 0, "total_records": 0,
                 "docs_written": 0, "percent": 0, "duration_sec": 0,
                 "update_date": "", "last_updated": "", "error": "",
-                "completed_counties": 0, "total_counties": 6,
+                "completed_counties": 0, "total_counties": COUNTY_TOTAL,
                 "last_sync_date": last_sync_date, "es_latest": es_latest,
                 "has_incremental": has_incremental,
                 "spot_check_ok": None, "spot_check_details": "",
@@ -1201,7 +1225,7 @@ def stats_xian_sync_progress():
             "last_updated": current_src.get("last_updated", ""),
             "error": current_src.get("error", ""),
             "completed_counties": completed,
-            "total_counties": 6,
+            "total_counties": COUNTY_TOTAL,
             "last_sync_date": last_sync_date,
             "es_latest": es_latest,
             "has_incremental": has_incremental,
@@ -1218,7 +1242,10 @@ def stats_xian_sync_progress():
 def stats_sichuan_sync_progress():
     """四川工程造价信息同步进度"""
     try:
-        PROGRESS_INDEX = "material_sichuan_price_sync_progress"
+        _cfg = _registry_get("sichuan") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "material_sichuan_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_sichuan_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/sichuan-price/config.yml")
 
         # 查找最新有实际地区（area不为空）的记录
         latest = es.search(index=PROGRESS_INDEX, body={
@@ -1270,7 +1297,7 @@ def stats_sichuan_sync_progress():
 
         total_docs = 0
         try:
-            count_res = es.count(index="material_sichuan_price")
+            count_res = es.count(index=DATA_INDEX)
             total_docs = count_res.get("count", 0)
         except Exception:
             pass
@@ -1299,15 +1326,14 @@ def stats_sichuan_sync_progress():
         es_latest_period = ""
         has_new_period = False
         try:
-            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/sichuan-price/config.yml"
-            if os.path.exists(cfg_path):
-                with open(cfg_path, 'r', encoding='utf-8') as f:
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH, 'r', encoding='utf-8') as f:
                     cfg = yaml.safe_load(f)
                 last_sync_period = cfg.get('sync', {}).get('last_period', '') or ''
         except Exception:
             pass
         try:
-            es_res = es.search(index="material_sichuan_price", body={
+            es_res = es.search(index=DATA_INDEX, body={
                 "size": 1,
                 "sort": [{"update_date": "desc"}],
                 "_source": ["period"]
@@ -1347,8 +1373,9 @@ def stats_sichuan_sync_progress():
 def stats_rizhao_sync_progress():
     """日照工程造价材料信息同步进度（3个类别：建设工程材料/园林绿化苗木/区县材料）"""
     try:
-        PROGRESS_INDEX = "material_rizhao_price_sync_progress"
-        DATA_INDEX = "material_rizhao_price"
+        _cfg = _registry_get("rizhao") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "material_rizhao_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_rizhao_price")
 
         # 获取总文档数
         total_docs = 0
@@ -1441,8 +1468,9 @@ def stats_rizhao_sync_progress():
 def stats_jinan_sync_progress():
     """济南工程造价材料信息同步进度（41个分类目录）"""
     try:
-        PROGRESS_INDEX = "material_jinan_price_sync_progress"
-        DATA_INDEX = "material_jinan_price"
+        _cfg = _registry_get("jinan") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "material_jinan_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_jinan_price")
 
         total_docs = 0
         try:
@@ -1540,8 +1568,11 @@ def stats_chongqing_sync_progress():
     Dashboard 以最新 run_id 的汇总记录为主状态，county_details 列该 run_id 下各区县明细。
     """
     try:
-        PROGRESS_INDEX = "material_chongqing_price_sync_progress"
-        DATA_INDEX = "material_chongqing_price"
+        _cfg = _registry_get("chongqing") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "material_chongqing_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_chongqing_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/chongqing-price/config.yml")
+        COUNTY_TOTAL = len(_cfg.get("cities", []))
 
         total_docs = 0
         try:
@@ -1569,7 +1600,7 @@ def stats_chongqing_sync_progress():
                 "period": "", "duration_sec": 0,
                 "last_updated": "", "error": "",
                 "total_docs": total_docs,
-                "county_details": [], "completed_counties": 0, "total_counties": len(ALL_COUNTIES_CHONGQING),
+                "county_details": [], "completed_counties": 0, "total_counties": COUNTY_TOTAL,
             }
 
         # 最新记录的 run_id（summary 或某区县，取最新 run_id）
@@ -1643,10 +1674,9 @@ def stats_chongqing_sync_progress():
         es_latest_period = ""
         has_incremental = False
         try:
-            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/chongqing-price/config.yml"
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
-                    cfg = yaml.safe_load(cfg)
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH) as f:
+                    cfg = yaml.safe_load(f)
                 last_sync_period = cfg.get("sync", {}).get("last_period", "") or ""
             if county_details:
                 es_latest_period = next((d.get("period", "") for d in reversed(county_details) if d.get("period")), "") or ""
@@ -1670,7 +1700,7 @@ def stats_chongqing_sync_progress():
             "total_pages": total_pages,
             "current_county": current_county,
             "completed_counties": completed_counties,
-            "total_counties": len(ALL_COUNTIES_CHONGQING),
+            "total_counties": COUNTY_TOTAL,
             "county_details": county_details,
             "has_incremental": has_incremental,
             "last_sync_period": last_sync_period,
@@ -1687,8 +1717,10 @@ def stats_heze_sync_progress():
     菏泽为市级期刊，无区县概念；列表 API 返回的每期在进度索引里写一条 status=ok 的记录。
     """
     try:
-        PROGRESS_INDEX = "ods_material_heze_price_sync_progress"
-        DATA_INDEX = "ods_material_heze_price"
+        _cfg = _registry_get("heze") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "ods_material_heze_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_heze_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/heze-price/config.yml")
 
         # 进度索引的所有期记录（按 created_at 倒序）
         all_hits = es.search(index=PROGRESS_INDEX, body={
@@ -1747,9 +1779,8 @@ def stats_heze_sync_progress():
         last_sync_period = ""
         has_incremental = False
         try:
-            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/heze-price/config.yml"
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH) as f:
                     cfg = yaml.safe_load(f)
                 last_sync_period = (cfg.get("sync", {}) or {}).get("last_period", "") or ""
             if last_sync_period and es_latest_period:
@@ -1801,8 +1832,10 @@ def stats_henan_sync_progress():
     字段语义与 heze 端点对齐，供 /api/skill-updates 统一消费。
     """
     try:
-        PROGRESS_INDEX = "ods_material_henan_price_sync_progress"
-        DATA_INDEX = "ods_material_henan_price"
+        _cfg = _registry_get("henan") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "ods_material_henan_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_henan_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/henan-price/config.yml")
 
         all_hits = es.search(index=PROGRESS_INDEX, body={
             "size": 50,
@@ -1858,9 +1891,8 @@ def stats_henan_sync_progress():
         last_sync_period = ""
         has_incremental = False
         try:
-            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/henan-price/config.yml"
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH) as f:
                     cfg = yaml.safe_load(f)
                 last_sync_period = (cfg.get("sync", {}) or {}).get("last_period", "") or ""
             if last_sync_period and es_latest_period:
@@ -1943,15 +1975,21 @@ def skill_updates():
     import concurrent.futures
     import requests  # 内调 sync-progress 端点需要
 
+    # 城市列表从 skill registry 动态拼（新增 skill 不用改这里）
     cities = [
-        ("xian",       "西安",   "xian"),
-        ("sichuan",    "四川",   "sichuan"),
-        ("chongqing",  "重庆",   "chongqing"),
-        ("jinan",      "济南",   "jinan"),
-        ("rizhao",     "日照",   "rizhao"),
-        ("heze",       "菏泽",   "heze"),
-        ("henan",      "河南",   "henan"),
+        (s["key"], s.get("label", s["key"]), s["key"])
+        for s in _registry_get_all()
     ]
+    if not cities:
+        cities = [
+            ("xian", "西安", "xian"),
+            ("sichuan", "四川", "sichuan"),
+            ("chongqing", "重庆", "chongqing"),
+            ("jinan", "济南", "jinan"),
+            ("rizhao", "日照", "rizhao"),
+            ("heze", "菏泽", "heze"),
+            ("henan", "河南", "henan"),
+        ]
 
     def fetch_one(city_key, path):
         try:
@@ -2043,6 +2081,28 @@ def skill_updates():
     return {
         "now": now.isoformat(timespec="seconds"),
         "updates": updates,
+    }
+
+
+# ── Skill Registry：供前端动态发现（不写死城市清单）───────────
+
+@app.get("/api/skill-registry")
+def skill_registry():
+    """返回所有已注册 skill 的清单（前端 v-for 驱动）"""
+    return {
+        "count": len(_registry_get_all()),
+        "skills": _registry_get_all(),
+    }
+
+
+@app.post("/api/skill-registry/reload")
+def skill_registry_reload():
+    """手动重新扫描 skill.yml（开发调试用）"""
+    skills = _registry_reload()
+    return {
+        "count": len(skills),
+        "skills": skills,
+        "message": f"重载完成，扫描到 {len(skills)} 个 skill",
     }
 
 

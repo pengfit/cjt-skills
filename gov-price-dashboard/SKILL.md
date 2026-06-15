@@ -212,13 +212,95 @@ GET /api/search?keyword=&province=&city=&county=&category=
 | 城市 | ODS 层 | DWD 层 | DWS 层 | 进度索引 |
 |------|--------|--------|--------|---------|
 | 西安 | `ods_material_xian_price` | `dwd_xian_price` | `dws_xian_price` | `ods_material_xian_price_sync_progress` |
-| 四川 | `ods_material_sichuan_price` | `dwd_sichuan_price` | `dws_sichuan_price` | `ods_material_sichuan_price_sync_progress` |
-| 重庆 | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` | `ods_chongqing_price_progress` |
-| 济南 | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` | `ods_material_jinan_price_sync_progress` |
+| 四川 | `ods_material_sichuan_price` | `dwd_sichuan_price` | `dws_sichuan_price` | `material_sichuan_price_sync_progress` |
+| 重庆 | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` | `material_chongqing_price_sync_progress` |
+| 济南 | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` | `material_jinan_price_sync_progress` |
 | 日照 | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` | `material_rizhao_price_sync_progress` |
+| 雸泽 | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` | `ods_material_heze_price_sync_progress` |
 | 河南 | `ods_material_henan_price` | `dwd_henan_price` | `dws_henan_price` | `ods_material_henan_price_sync_progress` |
 
+> 索引名由各 skill 的 `skill.yml` 声明，`api/skill_registry.py` 启动时扫盘生成 `ALL_INDICES`。
+
 **默认查询索引**：`dws_xian_price`（可通过 `ES_INDEX` 环境变量切换）
+
+## 新增 skill 接入规范（v1）
+
+Dashboard 采用“声明式配置 + 自动发现”架构。加新 skill **零 dashboard 代码改动**，只需两步：
+
+### 1. 在 skill 目录下加 `skill.yml`
+
+```yaml
+# ~/.openclaw/workspace/skills/<skill_dir>/skill.yml
+key: mycity                  # URL slug，出现在 /api/stats/mycity-sync-progress
+label: 我的城市                # 卡片显示名
+province: 省名                 # 用于省市区筛选
+ods_index: ods_material_mycity_price
+dws_index: dws_mycity_price    # 若 ETL 未启动可留空
+progress_index: ods_material_mycity_price_sync_progress
+progress_mode: county         # county | period | catalogue
+config_path: skills/mycity-price/config.yml
+cities:                       # 可选：静态城市/区县列表
+  - 区A
+  - 区B
+```
+
+**字段说明**：
+- `key` / `label` / `province`：必填，用于 URL 和显示
+- `ods_index` / `dws_index`：ES 索引名；`ALL_INDICES` 会自动拼入
+- `progress_index`：进度记录索引。命名不统一也无所谓，registry 会用此字段
+- `progress_mode`：决定 `<SyncCard>` 怎么渲染
+  - `county`：按区县分组，期望 county_details 字段
+  - `period`：按期期刊，期望 period_details 字段
+  - `catalogue`：按分类目录，期望 catalogue_details 字段
+- `config_path`：用于读 `sync.last_period` / `last_update_date` 做增量检测
+
+### 2. （可选）写一个 sync-progress 端点
+
+`progress_mode` 决定了 `sync-progress` 端点应返回什么字段。
+
+**county 模式**（如 xian / chongqing）：
+```python
+@app.get("/api/stats/mycity-sync-progress")
+def mycity_sync_progress():
+    # 查 progress_index，取最新 run_id 的所有 county 记录
+    return {
+        "status": "running", "completed_counties": 3, "total_counties": 6,
+        "current_county": "区A", "current_page": 5, "total_pages": 23,
+        "last_updated": "...", "duration_sec": 120,
+        "total_docs": 1234,
+        "county_details": [{"county": "区A", "status": "completed",
+                           "docs_written": 200, "last_updated": "..."}],
+    }
+```
+
+**period 模式**（如 heze / henan）：
+```python
+@app.get("/api/stats/mycity-sync-progress")
+def mycity_sync_progress():
+    return {
+        "status": "ok", "completed_periods": 2, "total_periods": 5,
+        "latest_period": "2026.1", "last_updated": "...",
+        "total_docs": 5000,
+        "period_details": [{"period": "2026.1", "publish_date": "...",
+                            "status": "completed", "docs_written": 2500}],
+    }
+```
+
+### 3. 重启 dashboard
+
+```bash
+cd skills/gov-price-dashboard
+./start.sh restart
+```
+
+刷新页面，新 skill 卡片自动出现。“+”接入完成。
+
+## API 端点补充（registry 相关）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/skill-registry` | 返回所有已注册 skill 清单（skill.yml 扫盘结果） |
+| `POST` | `/api/skill-registry/reload` | 手动重新扫盘（加新 skill 后无重启生效） |
 
 ## 停止
 

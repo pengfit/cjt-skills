@@ -123,4 +123,4 @@ print(len(parse_pdf_tables('/path/to/source.pdf', [])))
 
 - 上游：`http://www.hncost.com/jcxx/004001/subpage2.html`
 - 下游：政府材料价格 Dashboard（消费 ES 数据）
-- 同类：`sichuan-price` / `chongqing-price` / `jinan-price` / `rizhao-price` / `xa-material-price`
+- 同类：`sichuan-price` / `chongqing-price` / `jinan-price` / `rizhao-price` / `xian-price`

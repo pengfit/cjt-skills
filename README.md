@@ -39,7 +39,7 @@ cjt-skills/
 │   ├── api/                # FastAPI 后端 :5200
 │   └── frontend/           # Vue3 前端 :5300
 │
-├── xa-material-price/      # 西安数据同步
+├── xian-price/      # 西安数据同步
 ├── sichuan-price/          # 四川数据同步
 ├── chongqing-price/        # 重庆数据同步
 ├── jinan-price/            # 济南数据同步
@@ -51,7 +51,7 @@ cjt-skills/
 
 ### 数据同步（单个城市）
 ```bash
-cd skills/xa-material-price
+cd skills/xian-price
 ./run.sh sync
 ```
 
@@ -112,7 +112,7 @@ parse_spec.py 将复合规格解析为结构化字段：
 |-------|------|
 | [gov-price-etl](./gov-price-etl/SKILL.md) | ETL 清洗、规格解析、分类规则 |
 | [gov-price-dashboard](./gov-price-dashboard/SKILL.md) | 数据可视化看板 API 与前端 |
-| [xa-material-price](./xa-material-price/SKILL.md) | 西安数据同步 |
+| [xian-price](./xian-price/SKILL.md) | 西安数据同步 |
 | [sichuan-price](./sichuan-price/SKILL.md) | 四川数据同步 |
 | [chongqing-price](./chongqing-price/SKILL.md) | 重庆数据同步 |
 | [jinan-price](./jinan-price/SKILL.md) | 济南数据同步 |

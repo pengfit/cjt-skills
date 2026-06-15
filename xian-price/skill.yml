@@ -1,0 +1,19 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: xian                 # URL slug，用于 sync-progress 端点路径
+label: 西安                # 卡片显示名
+province: 陕西              # 省（用于筛选下拉）
+ods_index: ods_material_xian_price
+dws_index: dws_xian_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_xian_price_sync_progress
+progress_mode: county       # county | period | catalogue
+config_path: config.yml
+# 静态城市/区县列表（若 config.yml 已有 site.counties 可省略，registry 自动从 config 读）
+cities:
+  - 阎良区
+  - 临潼区
+  - 高陵区
+  - 鄠邑区
+  - 蓝田县
+  - 周至县
