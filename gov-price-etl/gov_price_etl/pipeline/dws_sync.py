@@ -430,7 +430,13 @@ def _flush_ai_batch_to_dws(
                 json.dumps({"doc": {"attr": attrs}}, ensure_ascii=False) + "\n"
             )
 
-        # 同步 DWS
+        # 同步 DWS - 阶段 3 必须在 attrs 非空时才入 DWS
+        # 背景：AI 未命中时 attrs 是空 dict；如果不挡，attr=[] 文档会进 DWS 制造孤儿
+        # （菏泽 2026-06-15 发现 87 条 DWS > DWD 的 _id 都是 attr=[]）
+        # 阶段 1/2 不会到这里（line 280/294 已有 if existing_attr/if local_attrs 短路）
+        if not attrs:
+            # AI 未命中且 DWD 也没 attr → 不进 DWS
+            continue
         src_doc["attr"] = nested
         src_doc["attr_source"] = src
         for f in ("date", "publish_time"):
