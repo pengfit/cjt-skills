@@ -83,9 +83,10 @@
     </div>
 
     <div v-if="loading" class="prov-loading">
-      <div class="loading-spinner"></div>
-      <span>加载中...</span>
+      <SkeletonCard :lines="3" :hide-footer="true" />
     </div>
+    <EmptyState v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0"
+      icon="📭" title="暂无抓取任务记录" message="该页面需要先运行过一次同步任务" />
     <div v-if="error" class="prov-error">{{ error }}</div>
   </div>
 </template>
@@ -93,6 +94,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import SkeletonCard from './SkeletonCard.vue'
+import EmptyState from './EmptyState.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -192,10 +195,10 @@ onUnmounted(() => {
   border-radius: 50%;
   display: inline-block;
 }
-.panel-dot-blue   { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.6); }
+.panel-dot-blue   { background: var(--primary); box-shadow: 0 0 8px rgba(56,189,248,0.6); }
 .panel-dot-purple { background: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.6); }
 /* panel-dot-cyan: 统一表示同步进行中，与主色一致 */
-.panel-dot-cyan { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.6); }
+.panel-dot-cyan { background: var(--primary); box-shadow: 0 0 8px rgba(56,189,248,0.6); }
 .panel-title {
   font-size: 14px;
   font-weight: 700;
@@ -209,15 +212,15 @@ onUnmounted(() => {
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.02);
-  color: #94a3b8;
+  color: var(--text-3);
   cursor: pointer;
   transition: all 0.2s;
 }
 .poll-toggle:hover { border-color: rgba(56,189,248,0.3); color: #e2e8f0; }
 .poll-toggle.active {
   background: rgba(56,189,248,0.12);
-  border-color: #38bdf8;
-  color: #38bdf8;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* === Scrape grid + cards === */
@@ -268,8 +271,8 @@ onUnmounted(() => {
   font-weight: 600;
   width: max-content;
 }
-.scrape-card-status.ok   { background: rgba(16,185,129,0.12); color: #34d399; }
-.scrape-card-status.warn { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.scrape-card-status.ok   { background: rgba(16,185,129,0.12); color: var(--status-ok); }
+.scrape-card-status.warn { background: rgba(245,158,11,0.12); color: var(--status-warn); }
 .scrape-card-pct {
   font-size: 24px;
   font-weight: 800;
@@ -288,7 +291,7 @@ onUnmounted(() => {
 }
 .scrape-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #0284c7);
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
   border-radius: 3px;
   box-shadow: 0 0 12px rgba(56,189,248,0.4);
   transition: width 0.6s ease;
@@ -310,7 +313,7 @@ onUnmounted(() => {
 }
 .meta-label {
   font-size: 9px;
-  color: #64748b;
+  color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -322,7 +325,7 @@ onUnmounted(() => {
 .meta-value strong { color: #f1f5f9; font-weight: 800; }
 .meta-value.mono { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
 .meta-sep { color: #475569; margin: 0 2px; }
-.meta-unit { font-size: 10px; color: #64748b; margin-left: 2px; }
+.meta-unit { font-size: 10px; color: var(--text-3); margin-left: 2px; }
 
 /* === Counties chips === */
 .scrape-card-counties {
@@ -342,19 +345,19 @@ onUnmounted(() => {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.05);
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--text-3);
 }
 .scrape-county-chip.completed {
   border-color: rgba(16,185,129,0.2);
-  color: #34d399;
+  color: var(--status-ok);
 }
 .scrape-county-chip.running {
   border-color: rgba(56,189,248,0.3);
-  color: #38bdf8;
+  color: var(--primary);
 }
 .scrape-county-chip.error {
   border-color: rgba(239,68,68,0.3);
-  color: #f87171;
+  color: var(--status-alert);
 }
 .scrape-county-chip.not-started {
   opacity: 0.5;
@@ -365,9 +368,9 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #475569;
 }
-.chip-dot.completed   { background: #34d399; }
-.chip-dot.running     { background: #38bdf8; animation: dot-pulse 1.5s ease-in-out infinite; }
-.chip-dot.error       { background: #f87171; }
+.chip-dot.completed   { background: var(--status-ok); }
+.chip-dot.running     { background: var(--primary); animation: dot-pulse 1.5s ease-in-out infinite; }
+.chip-dot.error       { background: var(--status-alert); }
 .chip-dot.not-started { background: #475569; }
 .chip-pct {
   font-weight: 700;
@@ -401,7 +404,7 @@ onUnmounted(() => {
 .scrape-action-btn.ghost {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.08);
-  color: #94a3b8;
+  color: var(--text-3);
 }
 .scrape-action-btn.ghost:hover {
   background: rgba(255,255,255,0.05);
@@ -431,7 +434,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: var(--text-3);
   padding: 16px;
   font-size: 13px;
 }
@@ -439,7 +442,7 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(56,189,248,0.2);
-  border-top-color: #38bdf8;
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -451,7 +454,7 @@ onUnmounted(() => {
   background: rgba(239,68,68,0.08);
   border: 1px solid rgba(239,68,68,0.2);
   border-radius: 8px;
-  color: #f87171;
+  color: var(--status-alert);
   font-size: 13px;
 }
 

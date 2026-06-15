@@ -159,12 +159,12 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
   gap: 12px;
 }
 .sq-hdr-left { display: flex; align-items: center; gap: 10px; }
-.dot-green { width: 8px; height: 8px; border-radius: 50%; background: #34d399; flex-shrink: 0; }
+.dot-green { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); flex-shrink: 0; }
 .hdr-title { font-size: 13px; font-weight: 700; color: #e2e8f0; }
 .hdr-stats { display: flex; gap: 8px; }
 .stat-item { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
-.stat-ok { background: rgba(52,211,153,0.12); color: #34d399; }
-.stat-warn { background: rgba(248,113,113,0.12); color: #f87171; }
+.stat-ok { background: rgba(52,211,153,0.12); color: var(--status-ok); }
+.stat-warn { background: rgba(248,113,113,0.12); color: var(--status-alert); }
 
 .btn-refresh {
   display: inline-flex;
@@ -173,7 +173,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
   background: rgba(56,189,248,0.08);
   border: 1px solid rgba(56,189,248,0.2);
   border-radius: 6px;
-  color: #38bdf8;
+  color: var(--primary);
   font-size: 12px;
   padding: 5px 12px;
   cursor: pointer;
@@ -205,17 +205,17 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .sq-card.card-good { border-left: 3px solid currentColor; }
 .sq-card.card-warn { border-left: 3px solid currentColor; }
 .sq-card.card-bad { border-left: 3px solid currentColor; }
-.sq-card { color: var(--cat-clr, #38bdf8); }
+.sq-card { color: var(--cat-clr, var(--primary)); }
 
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.card-cat { font-size: 12px; font-weight: 600; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-pct { font-size: 14px; font-weight: 800; color: #64748b; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; flex-shrink: 0; }
-.card-pct.pct-warn { color: #f87171; }
+.card-cat { font-size: 12px; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-pct { font-size: 14px; font-weight: 800; color: var(--text-3); font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; flex-shrink: 0; }
+.card-pct.pct-warn { color: var(--status-alert); }
 
 .card-bar { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 2px; background: #34d399; transition: width 0.5s ease; }
-.card-warn .bar-fill { background: #fbbf24; }
-.card-bad .bar-fill { background: #f87171; }
+.bar-fill { height: 100%; border-radius: 2px; background: var(--status-ok); transition: width 0.5s ease; }
+.card-warn .bar-fill { background: var(--status-warn); }
+.card-bad .bar-fill { background: var(--status-alert); }
 
 .card-btm { display: flex; align-items: center; justify-content: space-between; }
 .card-count { font-size: 11px; color: #334155; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
@@ -237,7 +237,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .btn-sample {
   background: rgba(56,189,248,0.07);
   border-color: rgba(56,189,248,0.15);
-  color: #38bdf8;
+  color: var(--primary);
 }
 .btn-sample:hover:not(:disabled) { background: rgba(56,189,248,0.16); }
 .btn-sample.active { background: rgba(56,189,248,0.2); border-color: rgba(56,189,248,0.5); }
@@ -245,14 +245,14 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .btn-clean {
   background: rgba(52,211,153,0.06);
   border-color: rgba(52,211,153,0.15);
-  color: #34d399;
+  color: var(--status-ok);
 }
 .btn-clean:hover:not(:disabled) { background: rgba(52,211,153,0.16); }
-.btn-clean.done { color: #34d399; }
+.btn-clean.done { color: var(--status-ok); }
 .btn-clean:disabled { opacity: 0.4; }
 
 /* Spinners */
-.spinner { display: inline-block; width: 11px; height: 11px; border: 1.5px solid rgba(56,189,248,0.3); border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.65s linear infinite; }
+.spinner { display: inline-block; width: 11px; height: 11px; border: 1.5px solid rgba(56,189,248,0.3); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.65s linear infinite; }
 .sp-xs { display: inline-block; width: 8px; height: 8px; border: 1.5px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.65s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -265,7 +265,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .sk-bar { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-bottom: 6px; }
 
 /* Toast */
-.sq-toast { margin-top: 10px; padding: 8px 12px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); border-radius: 6px; color: #38bdf8; font-size: 12px; }
+.sq-toast { margin-top: 10px; padding: 8px 12px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); border-radius: 6px; color: var(--primary); font-size: 12px; }
 .fade-enter-active, .fade-leave-active { transition: all 0.18s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-3px); }
 
@@ -275,10 +275,10 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .confirm-icon { font-size: 26px; flex-shrink: 0; }
 .confirm-body { flex: 1; }
 .confirm-title { font-size: 15px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
-.confirm-msg { font-size: 12px; color: #64748b; line-height: 1.6; }
+.confirm-msg { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 .confirm-btns { display: flex; gap: 8px; flex-shrink: 0; }
 .btn-cancel { background: transparent; color: #475569; border: 1px solid #334155; border-radius: 7px; padding: 7px 16px; font-size: 12px; cursor: pointer; transition: all 0.12s; }
-.btn-cancel:hover { background: #263347; color: #94a3b8; }
-.btn-ok { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #fff; border: none; border-radius: 7px; padding: 7px 20px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(56,189,248,0.3); transition: opacity 0.12s; }
+.btn-cancel:hover { background: #263347; color: var(--text-3); }
+.btn-ok { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; border: none; border-radius: 7px; padding: 7px 20px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(56,189,248,0.3); transition: opacity 0.12s; }
 .btn-ok:hover { opacity: 0.88; }
 </style>

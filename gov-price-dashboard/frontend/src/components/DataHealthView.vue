@@ -446,9 +446,10 @@
     </div>
 
     <div v-if="loading" class="health-loading">
-      <div class="loading-spinner"></div>
-      <span>数据加载中...</span>
+      <SkeletonCard :lines="5" :hide-footer="true" />
     </div>
+    <EmptyState v-else-if="!Object.keys(data || {}).length"
+      icon="📊" title="暂无数据" message="请稍后再试或检查上游接口" />
     <div v-if="error" class="health-error">{{ error }}</div>
   </div>
 </template>
@@ -458,6 +459,8 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import axios from 'axios'
 import { markRaw } from 'vue'
 import * as echarts from 'echarts'
+import SkeletonCard from './SkeletonCard.vue'
+import EmptyState from './EmptyState.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -889,7 +892,7 @@ onUnmounted(() => {
 }
 .health-subtitle {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
 }
 .header-right {
   display: flex;
@@ -971,7 +974,7 @@ onUnmounted(() => {
 .stat-content { flex: 1; min-width: 0; }
 .stat-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -980,7 +983,7 @@ onUnmounted(() => {
 .stat-num {
   font-size: 36px;
   font-weight: 800;
-  color: #38bdf8;
+  color: var(--primary);
   line-height: 1;
   font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   text-shadow: 0 0 20px rgba(56,189,248,0.4);
@@ -1013,12 +1016,12 @@ onUnmounted(() => {
 .stat-card-magenta .stat-glow { background: radial-gradient(ellipse at top right, rgba(168,85,247,0.12), transparent 70%); }
 
 .stat-card-warning.stat-alert { border-color: rgba(245,158,11,0.3); }
-.stat-card-warning.stat-alert .stat-value { color: #fbbf24; }
+.stat-card-warning.stat-alert .stat-value { color: var(--status-warn); }
 .stat-card-magenta.stat-alert { border-color: rgba(168,85,247,0.3); }
 .stat-card-magenta.stat-alert .stat-value { color: #c084fc; }
 
-.text-up { color: #34d399 !important; }
-.text-down { color: #f87171 !important; }
+.text-up { color: var(--status-ok) !important; }
+.text-down { color: var(--status-alert) !important; }
 
 /* ===== 图表面板 ===== */
 .chart-panel {
@@ -1048,11 +1051,11 @@ onUnmounted(() => {
   border-radius: 50%;
   display: inline-block;
 }
-.panel-dot-blue { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.5); }
+.panel-dot-blue { background: var(--primary); box-shadow: 0 0 8px rgba(56,189,248,0.5); }
 .panel-title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
 .chart-legend { display: flex; gap: 16px; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
-.legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, #38bdf8, #6366f1); }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--primary), #6366f1); }
 .chart-area { width: 100%; height: 320px; }
 
 /* ===== 省份同步卡片网格 ===== */
@@ -1086,7 +1089,7 @@ onUnmounted(() => {
 }
 .sync-grid-hint {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
 }
 .sync-grid-toggle {
   font-size: 12px;
@@ -1094,7 +1097,7 @@ onUnmounted(() => {
   border-radius: 6px;
   border: 1px solid rgba(56,189,248,0.25);
   background: rgba(56,189,248,0.06);
-  color: #38bdf8;
+  color: var(--primary);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.15s;
@@ -1102,7 +1105,7 @@ onUnmounted(() => {
 }
 .sync-grid-toggle:hover {
   background: rgba(56,189,248,0.14);
-  border-color: #38bdf8;
+  border-color: var(--primary);
 }
 
 /* ===== 同步卡片 ===== */
@@ -1141,7 +1144,7 @@ onUnmounted(() => {
 .sync-bar-sc { background: linear-gradient(180deg, #06b6d4, #0891b2); }
 .sync-bar-rz { background: linear-gradient(180deg, #10b981, #059669); }
 .sync-bar-jn { background: linear-gradient(180deg, #8b5cf6, #7c3aed); }
-.sync-bar-cq { background: linear-gradient(180deg, #f59e0b, #d97706); }
+.sync-bar-cq { background: linear-gradient(180deg, var(--status-warn), #d97706); }
 
 .sync-card-content {
   flex: 1;
@@ -1177,7 +1180,7 @@ onUnmounted(() => {
 .tag-sc { background: linear-gradient(135deg, #06b6d4, #0891b2); }
 .tag-rz { background: linear-gradient(135deg, #10b981, #059669); }
 .tag-jn { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-.tag-cq { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.tag-cq { background: linear-gradient(135deg, var(--status-warn), #d97706); }
 
 .sync-card-title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
 .sync-badges { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -1217,9 +1220,9 @@ onUnmounted(() => {
 .ring-sc { stroke: #06b6d4; }
 .ring-rz { stroke: #10b981; }
 .ring-jn { stroke: #8b5cf6; }
-.ring-cq { stroke: #f59e0b; }
+.ring-cq { stroke: var(--status-warn); }
 .ring-pct { font-size: 18px; font-weight: 700; fill: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
-.ring-sub { font-size: 10px; fill: #64748b; }
+.ring-sub { font-size: 10px; fill: var(--text-3); }
 .sync-status-row { display: flex; justify-content: center; }
 .sync-doc-count { font-size: 11px; color: #475569; text-align: center; }
 
@@ -1288,7 +1291,7 @@ onUnmounted(() => {
   border-radius: 4px;
   padding: 2px 8px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-3);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -1306,9 +1309,9 @@ onUnmounted(() => {
 }
 .progress-fill-xa { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
 .progress-fill-sc { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
-.progress-fill-rz { background: linear-gradient(90deg, #10b981, #34d399); }
-.progress-fill-jn { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-.progress-fill-cq { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.progress-fill-rz { background: linear-gradient(90deg, #10b981, var(--status-ok)); }
+.progress-fill-jn { background: linear-gradient(90deg, #8b5cf6, var(--purple)); }
+.progress-fill-cq { background: linear-gradient(90deg, var(--status-warn), var(--status-warn)); }
 .progress-info {
   display: flex;
   gap: 10px;
@@ -1328,9 +1331,9 @@ onUnmounted(() => {
   letter-spacing: 0.2px;
 }
 .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
-.badge-green { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
-.badge-yellow { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
-.badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+.badge-green { background: rgba(16,185,129,0.15); color: var(--status-ok); border: 1px solid rgba(16,185,129,0.2); }
+.badge-yellow { background: rgba(245,158,11,0.15); color: var(--status-warn); border: 1px solid rgba(245,158,11,0.2); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--status-alert); border: 1px solid rgba(239,68,68,0.2); }
 .badge-gray { background: rgba(255,255,255,0.05); color: #475569; border: 1px solid rgba(255,255,255,0.06); }
 
 /* ===== 加载/错误 ===== */
@@ -1346,7 +1349,7 @@ onUnmounted(() => {
 .health-error {
   text-align: center;
   padding: 20px;
-  color: #f87171;
+  color: var(--status-alert);
   font-size: 13px;
 }
 .loading-spinner {

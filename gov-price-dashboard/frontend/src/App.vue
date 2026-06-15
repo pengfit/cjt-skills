@@ -1,9 +1,12 @@
 <template>
-  <div class="dashboard with-sidebar">
+  <div class="dashboard with-sidebar" :class="{ 'mobile-sidebar-open': mobileSidebarOpen }">
 
     <!-- ========== TOP BAR ========== -->
     <header class="top-bar">
       <div class="top-bar-left">
+        <button class="mobile-menu-btn" @click="mobileSidebarOpen = !mobileSidebarOpen" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
         <svg class="top-bar-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
           <rect width="64" height="64" rx="14" fill="rgba(15,23,42,0.9)"/>
           <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(56,189,248,0.2)" stroke-width="5"/>
@@ -42,6 +45,7 @@
     <div class="dashboard-body">
 
     <!-- ========== SIDEBAR ========== -->
+    <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
     <aside class="sidebar">
       <div class="sidebar-group">
         <div class="sidebar-group-label">📊 业务查价</div>
@@ -408,6 +412,8 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // ============================================================
 const curTab = ref(localStorage.getItem('gov_cur_tab') || 'cockpit')
 function saveTab(tab) { localStorage.setItem('gov_cur_tab', tab) }
+const mobileSidebarOpen = ref(false)
+watch(curTab, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
 const searchKeyword = ref('')
 const searchProvince = ref('')

@@ -77,17 +77,17 @@ defineEmits(['close', 'fix'])
   gap: 10px;
 }
 .ss-hdr-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dot-cyan { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; flex-shrink: 0; }
+.dot-cyan { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
 .hdr-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
 .ss-badge {
   font-size: 11px;
   background: rgba(56,189,248,0.12);
-  color: #38bdf8;
+  color: var(--primary);
   border-radius: 8px;
   padding: 1px 8px;
   font-weight: 600;
 }
-.ss-cat { font-size: 13px; font-weight: 700; color: #38bdf8; }
+.ss-cat { font-size: 13px; font-weight: 700; color: var(--primary); }
 .ss-tip { font-size: 11px; color: #475569; }
 
 .btn-close {
@@ -101,7 +101,7 @@ defineEmits(['close', 'fix'])
   transition: color 0.12s;
   flex-shrink: 0;
 }
-.btn-close:hover { color: #94a3b8; }
+.btn-close:hover { color: var(--text-3); }
 
 /* Grid */
 .ss-grid {
@@ -122,7 +122,7 @@ defineEmits(['close', 'fix'])
   transition: background 0.12s;
 }
 .ss-card:hover { background: rgba(255,255,255,0.07); }
-.ss-card.ss-ok { border-left: 3px solid #22c55e; }
+.ss-card.ss-ok { border-left: 3px solid var(--status-ok); }
 .ss-card.ss-empty { border-left: 3px solid rgba(248,113,113,0.5); }
 
 .ss-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 5px; }
@@ -135,22 +135,22 @@ defineEmits(['close', 'fix'])
   line-height: 1.45;
 }
 .ss-status { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; flex-shrink: 0; }
-.s-ok { background: rgba(34,197,94,0.15); color: #22c55e; }
-.s-empty { background: rgba(248,113,113,0.12); color: #f87171; }
+.s-ok { background: rgba(34,197,94,0.15); color: var(--status-ok); }
+.s-empty { background: rgba(248,113,113,0.12); color: var(--status-alert); }
 
 .ss-meta {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
 }
-.ss-breed { color: #94a3b8; flex-shrink: 0; }
+.ss-breed { color: var(--text-3); flex-shrink: 0; }
 .ss-attrs { display: flex; gap: 3px; flex-wrap: wrap; }
 .ss-attr {
   background: rgba(56,189,248,0.08);
-  color: #7dd3fc;
+  color: var(--primary-light, var(--primary));
   border: 1px solid rgba(56,189,248,0.15);
   border-radius: 3px;
   padding: 0 5px;

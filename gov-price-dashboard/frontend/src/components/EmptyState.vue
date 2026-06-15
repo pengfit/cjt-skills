@@ -25,7 +25,7 @@ defineProps({
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #64748b;
+  color: var(--text-3);
   text-align: center;
   gap: 8px;
 }
@@ -42,11 +42,11 @@ defineProps({
 .empty-title {
   font-size: 14px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-3);
 }
 .empty-message {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
   max-width: 320px;
   line-height: 1.5;
 }

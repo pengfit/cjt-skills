@@ -22,8 +22,10 @@
 
     <!-- 加载 / 错误状态 -->
     <div v-if="loading && !data.all_cities" class="cockpit-loading">
-      <div class="loading-spinner"></div>
-      <span>LOADING TELEMETRY...</span>
+      <SkeletonCard :lines="6" :hide-footer="true" />
+    </div>
+    <div v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0">
+      <EmptyState icon="📡" title="暂无数据" message="驾驶舱数据加载中或上游接口不可用" />
     </div>
     <div v-if="error" class="cockpit-error">⚠ {{ error }}</div>
 
@@ -266,6 +268,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
+import SkeletonCard from './SkeletonCard.vue'
+import EmptyState from './EmptyState.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)

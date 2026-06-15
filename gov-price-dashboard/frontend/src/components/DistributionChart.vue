@@ -431,7 +431,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 
 .dist-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-3);
   margin-top: 4px;
 }
 
@@ -456,7 +456,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .ov-icon { font-size: 22px; line-height: 1; }
 .ov-body { display: flex; flex-direction: column; gap: 2px; }
 .ov-value { font-size: 16px; font-weight: 700; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
-.ov-label { font-size: 11px; color: #64748b; }
+.ov-label { font-size: 11px; color: var(--text-3); }
 .ov-divider { width: 1px; height: 36px; background: rgba(255,255,255,0.08); margin: 0 24px; flex-shrink: 0; }
 
 .dist-cards {
@@ -482,7 +482,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-3);
   margin-bottom: 12px;
 }
 
@@ -496,7 +496,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   text-align: left;
   padding: 8px 12px;
   background: #1a2332;
-  color: #94a3b8;
+  color: var(--text-3);
   font-weight: 500;
   font-size: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -518,7 +518,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   display: inline-block;
   padding: 2px 8px;
   background: rgba(56,189,248,0.12);
-  color: #38bdf8;
+  color: var(--primary);
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
@@ -539,7 +539,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 
 .pct-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
   white-space: nowrap;
 }
 
@@ -553,7 +553,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .province-chart-cell {
   background: rgba(15,23,42,0.85);
   border: 1px solid rgba(255,255,255,0.08);
-  border-left: 3px solid var(--province-color, #38bdf8);
+  border-left: 3px solid var(--province-color, var(--primary));
   border-radius: 10px;
   padding: 10px;
   display: flex;
@@ -567,7 +567,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 
 .province-chart-cell:hover {
   transform: translateY(-2px);
-  border-color: var(--province-color, #38bdf8);
+  border-color: var(--province-color, var(--primary));
   box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 20px rgba(56,189,248,0.1);
 }
 
@@ -591,13 +591,13 @@ onMounted(() => { mountedRef.value = true; loadData() })
   font-size: 15px;
   font-weight: 800;
   font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  color: var(--province-color, #38bdf8);
+  color: var(--province-color, var(--primary));
   text-shadow: 0 0 12px rgba(56,189,248,0.3);
 }
 
 .province-avg {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
   font-weight: 400;
 }
 
@@ -610,11 +610,11 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .dist-loading, .dist-error {
   text-align: center;
   padding: 24px;
-  color: #64748b;
+  color: var(--text-3);
   font-size: 13px;
 }
 
 .dist-error {
-  color: #f87171;
+  color: var(--status-alert);
 }
 </style>

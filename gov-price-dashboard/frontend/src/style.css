@@ -1542,12 +1542,75 @@ body {
   .top-bar-meta { display: none; }   /* 隐藏meta统计，释放空间 */
   .top-bar-brand { font-size: 13px; margin-right: 8px; }
   .top-bar-icon { width: 22px; height: 22px; margin-right: 6px; }
-  .nav-tab {
-    height: 50px;
-    font-size: 12px;
-    padding: 5px 8px;
-    letter-spacing: 0;
+
+  /* ── Mobile hamburger ── */
+  .mobile-menu-btn { display: inline-flex; }
+
+  /* ── Sidebar 移动端：默认隐藏，菜单按钮触发为 drawer ── */
+  .sidebar {
+    position: fixed;
+    top: 50px;
+    left: 0;
+    width: 240px;
+    max-height: calc(100vh - 50px);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 100;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
   }
+  .dashboard.mobile-sidebar-open .sidebar { transform: translateX(0); }
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+  }
+
+  /* Hamburger button (mobile only) */
+  .mobile-menu-btn {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin-right: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .mobile-menu-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--text, #e2e8f0);
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .mobile-menu-btn:hover span { background: var(--primary, #38bdf8); }
+
+  /* ── Main content 移动端：占满 ── */
+  .main-content { width: 100%; }
+
+  /* SyncView sub-tab 移动端 */
+  .sync-subtabs { padding: 10px 12px 0; gap: 4px; }
+  .sync-subtab { font-size: 12px; padding: 6px 10px; }
+  .sync-subtab-hint { display: none; }
+
+  /* Cockpit KPI 4 卡 移动端：2x2 grid */
+  .cockpit-kpi-row,
+  [class*="-kpi-grid"] { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* 7 城 / 6 卡 移动端：单列 */
+  .pipeline-grid,
+  .pipelines-grid,
+  .scrape-grid,
+  .sync-grid { grid-template-columns: 1fr !important; }
+  .skill-updates-grid { grid-template-columns: 1fr !important; }
 
   /* ── Filter bar ── */
   .filter-bar {

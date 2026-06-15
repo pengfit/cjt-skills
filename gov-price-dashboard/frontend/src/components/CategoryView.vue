@@ -603,7 +603,7 @@ onMounted(() => loadCategories())
 
 .cat-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-3);
   margin-top: 4px;
 }
 
@@ -634,7 +634,7 @@ onMounted(() => loadCategories())
   left: 0;
   width: 4px;
   height: 100%;
-  background: var(--accent, #38bdf8);
+  background: var(--accent, var(--primary));
 }
 
 .cat-card:hover {
@@ -676,13 +676,13 @@ onMounted(() => loadCategories())
 .cat-count {
   font-size: 22px;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--primary);
   line-height: 1.2;
 }
 
 .cat-pct {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
   margin-top: -2px;
 }
 
@@ -696,7 +696,7 @@ onMounted(() => loadCategories())
 
 .cat-bar {
   height: 100%;
-  background: #38bdf8;
+  background: var(--primary);
   border-radius: 2px;
   transition: width 0.4s ease;
 }
@@ -712,7 +712,7 @@ onMounted(() => loadCategories())
   font-size: 11px;
   padding: 1px 6px;
   background: rgba(56,189,248,0.1);
-  color: #38bdf8;
+  color: var(--primary);
   border-radius: 3px;
 }
 
@@ -731,7 +731,7 @@ onMounted(() => loadCategories())
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-3);
   transition: background 0.2s, border-color 0.2s;
   min-height: 44px;
   display: inline-flex;
@@ -741,7 +741,7 @@ onMounted(() => loadCategories())
 .btn-back:hover {
   background: rgba(56,189,248,0.1);
   border-color: rgba(56,189,248,0.3);
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .cat-detail-title {
@@ -763,7 +763,7 @@ onMounted(() => loadCategories())
 .detail-count {
   font-size: 13px;
   font-weight: 400;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .detail-stats {
@@ -787,12 +787,12 @@ onMounted(() => loadCategories())
 .stat-value {
   font-size: 20px;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .stat-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-3);
   margin-top: 4px;
 }
 
@@ -810,7 +810,7 @@ onMounted(() => loadCategories())
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-3);
   margin-bottom: 12px;
 }
 
@@ -843,7 +843,7 @@ onMounted(() => loadCategories())
 
 .province-count {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .province-bar-track {
@@ -861,7 +861,7 @@ onMounted(() => loadCategories())
 
 .province-pct {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
   text-align: right;
 }
 
@@ -884,7 +884,7 @@ onMounted(() => loadCategories())
 .breed-th {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .breed-row {
@@ -909,22 +909,22 @@ onMounted(() => loadCategories())
 
 .breed-td.rank {
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-3);
   text-align: center;
 }
 
 .breed-td.breed-name {
   font-weight: 500;
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .breed-td.spec, .breed-td.spec {
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 11px;
 }
 
 .breed-td.unit-tag {
-  color: #a78bfa;
+  color: var(--purple);
   font-size: 11px;
   font-weight: 700;
   background: rgba(167,139,250,0.12);
@@ -936,31 +936,31 @@ onMounted(() => loadCategories())
 }
 
 .breed-td.province {
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .breed-td.price {
   font-weight: 600;
-  color: #34d399;
+  color: var(--status-ok);
 }
 
 .breed-td.price-low {
   font-weight: 600;
-  color: #f87171;
+  color: var(--status-alert);
 }
 
 .breed-td.price-high {
   font-weight: 600;
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .breed-td.range {
-  color: #a78bfa;
+  color: var(--purple);
   font-size: 11px;
 }
 
 .breed-td.count {
-  color: #64748b;
+  color: var(--text-3);
 }
 
 /* Product list table */
@@ -969,13 +969,13 @@ onMounted(() => loadCategories())
   border-radius: 8px;
 }
 
-.spec-cell { color: #64748b !important; }
-.text-2-cell { color: #64748b !important; }
+.spec-cell { color: var(--text-3) !important; }
+.text-2-cell { color: var(--text-3) !important; }
 
 .cat-list-loading {
   text-align: center;
   padding: 12px;
-  color: #64748b;
+  color: var(--text-3);
   font-size: 12px;
 }
 
@@ -989,7 +989,7 @@ onMounted(() => loadCategories())
 
 .page-info {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
   margin-left: 8px;
   white-space: nowrap;
 }
@@ -1000,7 +1000,7 @@ onMounted(() => loadCategories())
   justify-content: center;
   gap: 10px;
   padding: 40px;
-  color: #64748b;
+  color: var(--text-3);
   font-size: 14px;
 }
 
@@ -1008,7 +1008,7 @@ onMounted(() => loadCategories())
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255,255,255,0.1);
-  border-top-color: #38bdf8;
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1022,7 +1022,7 @@ onMounted(() => loadCategories())
   background: rgba(248,113,113,0.1);
   border: 1px solid rgba(248,113,113,0.3);
   border-radius: 8px;
-  color: #f87171;
+  color: var(--status-alert);
   font-size: 13px;
 }
 
@@ -1033,7 +1033,7 @@ onMounted(() => loadCategories())
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
-  color: #38bdf8;
+  color: var(--primary);
   transition: all 0.2s;
 }
 
@@ -1071,18 +1071,18 @@ onMounted(() => loadCategories())
 .breed-detail-title > span:first-child {
   font-size: 14px;
   font-weight: 600;
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .breed-detail-sub {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-3);
 }
 
 .breed-detail-header > .btn-back {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  color: #94a3b8;
+  color: var(--text-3);
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -1093,7 +1093,7 @@ onMounted(() => loadCategories())
 .breed-detail-header > .btn-back:hover {
   background: rgba(248,113,113,0.12);
   border-color: rgba(248,113,113,0.3);
-  color: #f87171;
+  color: var(--status-alert);
 }
 
 /* Unit tabs */
@@ -1110,7 +1110,7 @@ onMounted(() => loadCategories())
   border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.04);
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1118,13 +1118,13 @@ onMounted(() => loadCategories())
 
 .unit-tab:hover {
   border-color: rgba(56,189,248,0.4);
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .unit-tab.active {
   background: rgba(56,189,248,0.15);
   border-color: rgba(56,189,248,0.5);
-  color: #38bdf8;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -1165,7 +1165,7 @@ onMounted(() => loadCategories())
   padding: 5px 10px;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1193,13 +1193,13 @@ onMounted(() => loadCategories())
 }
 
 .spec-key {
-  color: #94a3b8;
+  color: var(--text-3);
 }
 
 .spec-loading {
   padding: 8px;
   text-align: center;
-  color: #64748b;
+  color: var(--text-3);
   font-size: 12px;
 }
 
@@ -1227,7 +1227,7 @@ onMounted(() => loadCategories())
 
 .page-info {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .page-btn {
@@ -1239,14 +1239,14 @@ onMounted(() => loadCategories())
   cursor: pointer;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.04);
-  color: #94a3b8;
+  color: var(--text-3);
   transition: all 0.2s;
 }
 
 .page-btn:hover:not(:disabled) {
   background: rgba(56,189,248,0.15);
   border-color: rgba(56,189,248,0.4);
-  color: #38bdf8;
+  color: var(--primary);
 }
 
 .page-btn:disabled {
@@ -1266,7 +1266,7 @@ onMounted(() => loadCategories())
 
 .breed-row.active {
   background: rgba(56,189,248,0.12);
-  border-left: 2px solid #38bdf8;
+  border-left: 2px solid var(--primary);
 }
 
 /* Simplified breed name list */
@@ -1306,7 +1306,7 @@ onMounted(() => loadCategories())
 
 .breed-count-badge {
   font-size: 11px;
-  color: #38bdf8;
+  color: var(--primary);
   background: rgba(56,189,248,0.1);
   padding: 2px 8px;
   border-radius: 10px;
@@ -1363,6 +1363,6 @@ onMounted(() => loadCategories())
 
 .breed-grid-count {
   font-size: 11px;
-  color: #38bdf8;
+  color: var(--primary);
 }
 </style>

@@ -249,7 +249,7 @@ onMounted(() => {
 .vec-total-badge {
   font-size: 11px;
   background: rgba(56,189,248,0.1);
-  color: #38bdf8;
+  color: var(--primary);
   border: 1px solid rgba(56,189,248,0.2);
   border-radius: 10px;
   padding: 3px 10px;
@@ -283,12 +283,12 @@ onMounted(() => {
   box-sizing: border-box;
   font-family: inherit;
 }
-.vec-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
+.vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
 .vec-toolbar-right { display: flex; align-items: center; gap: 8px; }
 .vec-order-btn {
   display: inline-flex; align-items: center; gap: 5px;
   background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25);
-  border-radius: 20px; color: #38bdf8; font-size: 11.5px;
+  border-radius: 20px; color: var(--primary); font-size: 11.5px;
   font-weight: 500; padding: 5px 12px; cursor: pointer; transition: all 0.18s;
 }
 .vec-order-btn:hover { background: rgba(56,189,248,0.16); border-color: rgba(56,189,248,0.4); }
@@ -300,7 +300,7 @@ onMounted(() => {
   background: rgba(56,189,248,0.06);
   border: 1px solid rgba(56,189,248,0.15);
   border-radius: 20px;
-  color: #38bdf8;
+  color: var(--primary);
   font-size: 11.5px;
   font-weight: 500;
   padding: 5px 12px;
@@ -340,8 +340,8 @@ onMounted(() => {
   gap: 12px 24px;
 }
 .vec-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
-.vec-help-key { color: #38bdf8; font-weight: 600; white-space: nowrap; min-width: 56px; }
-.vec-help-val { color: #94a3b8; }
+.vec-help-key { color: var(--primary); font-weight: 600; white-space: nowrap; min-width: 56px; }
+.vec-help-val { color: var(--text-3); }
 .vec-help-val code {
   font-family: 'Courier New', monospace;
   font-size: 10px;
@@ -408,14 +408,14 @@ onMounted(() => {
 .vec-attr-tag {
   display: inline-block;
   background: rgba(56,189,248,0.1);
-  color: #38bdf8;
+  color: var(--primary);
   border: 1px solid rgba(56,189,248,0.15);
   border-radius: 5px;
   padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
 }
-.vec-cat { color: #64748b; font-size: 11px; }
+.vec-cat { color: var(--text-3); font-size: 11px; }
 .vec-pattern, .vec-code {
   font-family: 'Courier New', monospace;
   font-size: 11px;
@@ -448,7 +448,7 @@ onMounted(() => {
 .vec-code-cell { width: 350px; overflow: hidden; }
 .vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-pattern-cell { width: 160px; }
-.vec-breed { color: #64748b; font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vec-breed { color: var(--text-3); font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
 .vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }
 
@@ -464,13 +464,13 @@ onMounted(() => {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 7px;
-  color: #94a3b8;
+  color: var(--text-3);
   padding: 5px 14px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.15s;
 }
-.page-btn:hover:not(:disabled) { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.4); color: #38bdf8; }
+.page-btn:hover:not(:disabled) { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.4); color: var(--primary); }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .vec-page-info { display: flex; align-items: center; gap: 4px; font-size: 12px; }
 .vec-page-current { color: #e2e8f0; font-weight: 600; }

@@ -50,7 +50,7 @@ const subTab = ref('scrape')
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   background: rgba(15, 23, 42, 0.4);
-  color: #94a3b8;
+  color: var(--text-3);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -64,7 +64,7 @@ const subTab = ref('scrape')
 }
 
 .sync-subtab.active {
-  color: #38bdf8;
+  color: var(--primary);
   background: rgba(56, 189, 248, 0.1);
   border-color: rgba(56, 189, 248, 0.35);
   border-bottom-color: rgba(56, 189, 248, 0.1);
@@ -78,17 +78,17 @@ const subTab = ref('scrape')
   transition: all 0.2s;
 }
 .sync-subtab.active .sync-subtab-dot {
-  background: #38bdf8;
+  background: var(--primary);
   box-shadow: 0 0 6px rgba(56, 189, 248, 0.7);
 }
 
 .sync-subtab-hint {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-3);
   font-weight: 400;
   margin-left: 4px;
 }
 .sync-subtab.active .sync-subtab-hint {
-  color: #7dd3fc;
+  color: var(--primary-light, var(--primary));
 }
 </style>
