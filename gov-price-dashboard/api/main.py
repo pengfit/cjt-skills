@@ -490,7 +490,11 @@ def stats_categories(size: int = Query(100, ge=1, le=500)):
             "size": 0,
             "aggs": {
                 "categories": {
-                    "terms": {"field": "category", "size": size}
+                    "terms": {"field": "category", "size": size},
+                    "aggs": {
+                        # sub-agg 拿 ES 存的 category_system_name
+                        "sys_name": {"terms": {"field": "category_system_name", "size": 1}}
+                    }
                 }
             }
         }
@@ -498,7 +502,14 @@ def stats_categories(size: int = Query(100, ge=1, le=500)):
         buckets = result["aggregations"]["categories"]["buckets"]
         return {
             "data": [
-                {"key": b["key"], "count": b["doc_count"]}
+                {
+                    "key": b["key"],
+                    "count": b["doc_count"],
+                    "category_system_name": (
+                        b.get("sys_name", {}).get("buckets", [{}])[0].get("key", "")
+                        if b.get("sys_name", {}).get("buckets") else ""
+                    ),
+                }
                 for b in buckets
             ]
         }
@@ -597,6 +608,14 @@ def stats_category_detail(
         result = es.search(index=ALL_INDICES, body=body)
         aggs = result["aggregations"]
 
+        # 查一条文档拿 category_system_name（query 过滤了 category，直接读 sys_name）
+        sys_name_resp = es.search(
+            index=ALL_INDICES,
+            body={"query": {"term": {"category": category}}, "size": 1, "_source": ["category_system_name"]}
+        )
+        sys_name_hits = sys_name_resp.get("hits", {}).get("hits", [])
+        category_system_name = sys_name_hits[0]["_source"].get("category_system_name", "") if sys_name_hits else ""
+
         provinces = [
             {"key": b["key"], "count": b["doc_count"]}
             for b in aggs["provinces"]["buckets"]
@@ -627,6 +646,9 @@ def stats_category_detail(
 
         return {
             "data": {
+                "category": category,
+                # 外层加 category_system_name（从 ES 直接读 ETL 填好的中文名）
+                "category_system_name": category_system_name,
                 "avg_price": round(aggs["avg_price"]["value"], 2) if aggs["avg_price"]["value"] else 0,
                 "max_price": round(aggs["max_price"]["value"], 2) if aggs["max_price"]["value"] else 0,
                 "provinces": provinces,
@@ -810,6 +832,14 @@ def stats_category_breeds(
         aggs = result["aggregations"]
         all_buckets = aggs["all_breeds"]["buckets"]
 
+        # 查一条文档拿 category_system_name
+        sys_name_resp = es.search(
+            index=ALL_INDICES,
+            body={"query": {"term": {"category": category}}, "size": 1, "_source": ["category_system_name"]}
+        )
+        sys_name_hits = sys_name_resp.get("hits", {}).get("hits", [])
+        category_system_name = sys_name_hits[0]["_source"].get("category_system_name", "") if sys_name_hits else ""
+
         start = (page - 1) * page_size
         end = start + page_size
         page_buckets = all_buckets[start:end]
@@ -840,7 +870,11 @@ def stats_category_breeds(
             })
 
         return {
-            "data": breeds,
+            "data": {
+                "category": category,
+                "category_system_name": category_system_name,
+                "breeds": breeds,
+            },
             "total": len(all_buckets),
             "page": page,
             "page_size": page_size,
@@ -895,6 +929,13 @@ def stats_breed_detail(
         }
         result = es.search(index=ALL_INDICES, body=body)
         aggs = result["aggregations"]
+        # 查一条文档拿 category_system_name
+        sys_name_resp = es.search(
+            index=ALL_INDICES,
+            body={"query": {"term": {"category": category}}, "size": 1, "_source": ["category_system_name"]}
+        )
+        sys_name_hits = sys_name_resp.get("hits", {}).get("hits", [])
+        category_system_name = sys_name_hits[0]["_source"].get("category_system_name", "") if sys_name_hits else ""
         units_data = []
         for ub in aggs["by_unit"]["buckets"]:
             unit_key = ub["key"]
@@ -937,6 +978,7 @@ def stats_breed_detail(
             "data": {
                 "breed": breed,
                 "category": category,
+                "category_system_name": category_system_name,
                 "total_records": result["hits"]["total"]["value"],
                 "units": units_data
             }
@@ -1028,14 +1070,24 @@ def stats_data_health():
                 es.count, index=ALL_INDICES,
                 body={"query": {"range": {"update_date": {"gte": "now-14d", "lt": "now-7d"}}}}
             )
-            cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category", "size": 20}, "aggs": {"count": {"value_count": {"field": "price"}}}}}}
+            cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category", "size": 20}, "aggs": {"count": {"value_count": {"field": "price"}}, "sys_name": {"terms": {"field": "category_system_name", "size": 1}}}}}}
             cat_future = pool.submit(es.search, index=ALL_INDICES, body=cat_body)
         recent_count = recent_future.result()["count"]
         prev_count = prev_future.result()["count"]
         cat_result = cat_future.result()
         inc_ratio = round((recent_count / prev_count * 100) - 100, 1) if prev_count else 0
         cat_buckets = cat_result["aggregations"]["by_category"]["buckets"]
-        cat_data = [{"category": b["key"], "count": b["doc_count"]} for b in cat_buckets]
+        cat_data = [
+            {
+                "category": b["key"],
+                "count": b["doc_count"],
+                "category_system_name": (
+                    b.get("sys_name", {}).get("buckets", [{}])[0].get("key", "")
+                    if b.get("sys_name", {}).get("buckets") else ""
+                ),
+            }
+            for b in cat_buckets
+        ]
 
         return {
             "total_docs": total_count,
