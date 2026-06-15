@@ -48,8 +48,11 @@
     <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
     <aside class="sidebar">
       <div class="sidebar-group">
-        <div class="sidebar-group-label">业务查价</div>
+        <div class="sidebar-group-label">总览</div>
         <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">业务查价</div>
         <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
