@@ -3,6 +3,7 @@
     <!-- Page header -->
     <div class="dist-header">
       <div class="dist-title">数据分布</div>
+      <div class="dist-subtitle">按价格区间与省份维度分析全国 <strong>{{ overview.total_provinces }}</strong> 省 / <strong>{{ overview.total_cities }}</strong> 城 共 <strong>{{ overview.total_docs.toLocaleString() }}</strong> 条价格数据</div>
     </div>
 
     <!-- 统计概览 -->
@@ -152,7 +153,7 @@ watch(() => [props.province, props.city], () => {
   if (mountedRef.value) loadData()
 }, { deep: true })
 
-const RANGE_COLORS = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#a78bfa','#f59e0b','#f97316','#ef4444','#e11d48','#06b6d4']
+const RANGE_COLORS = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#7c3aed','#b45309','#f97316','#dc2626','#e11d48','#06b6d4']
 
 const PROVINCE_COLORS = {
   '辽宁': '#4a90d9', '江苏': '#50c5a8', '新疆': '#f5a623', '陕西': '#e85555',
@@ -172,7 +173,7 @@ function getProvinceColor(p) {
 
 function getRangeColor(range) {
   const idx = rangeData.value.findIndex(r => r.range === range)
-  return idx >= 0 ? RANGE_COLORS[idx] : '#94a3b8'
+  return idx >= 0 ? RANGE_COLORS[idx] : '#475569'
 }
 
 const totalCount = ref(0)
@@ -192,7 +193,7 @@ function exportChart(chartId) {
   if (!el) return
   const chart = echarts.getInstanceByDom(el)
   if (!chart) return
-  const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#0c1222' })
+  const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#f8fafc' })
   const a = document.createElement('a')
   a.href = url
   a.download = `${chartId}_${new Date().toISOString().slice(0, 10)}.png`
@@ -279,26 +280,26 @@ function renderRangeBar() {
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0d1117',
-      borderColor: '#1e3a5f',
-      textStyle: { color: '#e2e8f0', fontSize: 12 },
+      backgroundColor: 'rgba(255,255,255,0.98)',
+      borderColor: '#cbd5e1',
+      textStyle: { color: '#0f172a', fontSize: 12 },
       formatter: params => {
         const p = params[0]
-        return `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${p.value.toLocaleString()}</b> 条<br/>占比: <b>${getPct(p.value)}%</b>`
+        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${p.value.toLocaleString()}</b> 条<br/>占比: <b>${getPct(p.value)}%</b>`
       }
     },
     grid: { left: '8%', right: '4%', bottom: '12%', top: '12%', containLabel: true },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 40, interval: 0 },
-      axisLine: { lineStyle: { color: '#1e3a5f' } },
+      axisLabel: { color: '#475569', fontSize: 10, rotate: 40, interval: 0 },
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
       axisTick: { show: false }
     },
     yAxis: {
       name: '产品数量', nameTextStyle: { color: '#64748b', fontSize: 11, padding: [0, 0, 0, 8] },
       type: 'value',
       axisLabel: { color: '#64748b', fontSize: 10, overflow: 'truncate', width: 50 },
-      splitLine: { lineStyle: { color: '#1e3a5f', type: 'dashed' } }
+      splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } }
     },
     series: [{
       type: 'bar', data: counts, colorBy: 'data',
@@ -306,7 +307,7 @@ function renderRangeBar() {
       barMaxWidth: 50,
       label: {
         show: true, position: 'top',
-        color: '#f1f5f9', fontSize: 11, fontWeight: '700',
+        color: '#0f172a', fontSize: 11, fontWeight: '700',
         formatter: p => p.value >= 1000 ? (p.value/1000).toFixed(0)+'k' : p.value
       }
     }],
@@ -361,22 +362,22 @@ function renderOneProvince(province) {
   const values = validRanges.map(r => r.count)
   const colors = validRanges.map(r => {
     const idx = rangeData.value.findIndex(rng => rng.range === r.range)
-    return RANGE_COLORS[idx] || '#94a3b8'
+    return RANGE_COLORS[idx] || '#475569'
   })
 
   chart.setOption({
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '3%', bottom: '16%', top: '4%', containLabel: true },
     tooltip: {
-      backgroundColor: '#0d1117', borderColor: '#1e3a5f',
-      textStyle: { color: '#e2e8f0', fontSize: 10 },
-      formatter: p => `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${Number(p.value).toLocaleString()}</b>`
+      backgroundColor: 'rgba(255,255,255,0.98)', borderColor: '#cbd5e1',
+      textStyle: { color: '#0f172a', fontSize: 10 },
+      formatter: p => `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${Number(p.value).toLocaleString()}</b>`
     },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: { color: '#94a3b8', fontSize: 8, rotate: 30, interval: 0 },
-      axisLine: { lineStyle: { color: '#1e3a5f' } },
+      axisLabel: { color: '#475569', fontSize: 8, rotate: 30, interval: 0 },
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
       axisTick: { show: false },
     },
     yAxis: {
@@ -391,7 +392,7 @@ function renderOneProvince(province) {
       barMaxWidth: 18,
       label: {
         show: true, position: 'top',
-        color: '#f1f5f9', fontSize: 8, fontWeight: '700',
+        color: '#0f172a', fontSize: 8, fontWeight: '700',
         formatter: p => p.value >= 1000 ? (p.value/1000).toFixed(0)+'k' : p.value
       }
     }],
@@ -409,30 +410,31 @@ onMounted(() => { mountedRef.value = true; loadData() })
   gap: 16px;
   padding: 16px 20px 60px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #0c1222 0%, #111827 100%);
+  background: var(--bg);
   box-sizing: border-box;
   padding-top: 16px;
 }
 
 .dist-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 16px 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
 }
 
 .dist-title {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
-  text-shadow: 0 2px 12px rgba(56,189,248,0.2);
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 .dist-subtitle {
   font-size: 13px;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-top: 4px;
+  line-height: 1.5;
 }
 
 
@@ -441,11 +443,10 @@ onMounted(() => { mountedRef.value = true; loadData() })
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(15,23,42,0.85);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px 28px;
-  backdrop-filter: blur(12px);
 }
 .ov-stat {
   display: flex;
@@ -455,9 +456,9 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 .ov-icon { font-size: 22px; line-height: 1; }
 .ov-body { display: flex; flex-direction: column; gap: 2px; }
-.ov-value { font-size: 16px; font-weight: 700; color: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
+.ov-value { font-size: 16px; font-weight: 700; color: #0f172a; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .ov-label { font-size: 11px; color: var(--text-3); }
-.ov-divider { width: 1px; height: 36px; background: rgba(255,255,255,0.08); margin: 0 24px; flex-shrink: 0; }
+.ov-divider { width: 1px; height: 36px; background: var(--border); margin: 0 24px; flex-shrink: 0; }
 
 .dist-cards {
   display: grid;
@@ -466,13 +467,11 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 
 .dist-card {
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow);
 }
 
 .dist-card.wide {
@@ -494,30 +493,32 @@ onMounted(() => { mountedRef.value = true; loadData() })
 
 .dist-table th {
   text-align: left;
-  padding: 8px 12px;
-  background: #1a2332;
+  padding: 11px 14px;
+  background: rgba(15, 23, 42, 0.04);
   color: var(--text-3);
-  font-weight: 500;
-  font-size: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
 }
 
 .dist-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  color: #e2e8f0;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(15,23,42,0.04);
+  color: #1e293b;
 }
 
 .dist-table tr:last-child td {
   border-bottom: none;
 }
 
-.dist-table tr:hover td { background: rgba(56,189,248,0.04); }
+.dist-table tr:hover td { background: rgba(37,99,235,0.04); }
 
 .range-badge {
   display: inline-block;
   padding: 2px 8px;
-  background: rgba(56,189,248,0.12);
+  background: rgba(37,99,235,0.12);
   color: var(--primary);
   border-radius: 4px;
   font-size: 12px;
@@ -551,8 +552,8 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 
 .province-chart-cell {
-  background: rgba(15,23,42,0.85);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-left: 3px solid var(--province-color, var(--primary));
   border-radius: 10px;
   padding: 10px;
@@ -560,7 +561,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   flex-direction: column;
   gap: 4px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-sm);
   overflow: visible;
   height: 260px;
 }
@@ -568,7 +569,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 .province-chart-cell:hover {
   transform: translateY(-2px);
   border-color: var(--province-color, var(--primary));
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 20px rgba(56,189,248,0.1);
+  box-shadow: var(--shadow-lg);
 }
 
 .province-chart-header {
@@ -584,7 +585,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   gap: 10px;
   flex-shrink: 0;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .province-count {
@@ -592,7 +593,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   font-weight: 800;
   font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   color: var(--province-color, var(--primary));
-  text-shadow: 0 0 12px rgba(56,189,248,0.3);
+  text-shadow: none;
 }
 
 .province-avg {

@@ -1,23 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f172a"/>
-      <stop offset="100%" style="stop-color:#1e3a5f"/>
+      <stop offset="0%" style="stop-color:#eff6ff"/>
+      <stop offset="100%" style="stop-color:#dbeafe"/>
     </linearGradient>
     <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#38bdf8"/>
-      <stop offset="100%" style="stop-color:#6366f1"/>
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(56,189,248,0.15)" stroke-width="5"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(37,99,235,0.15)" stroke-width="5"/>
   <circle cx="32" cy="32" r="27" fill="none" stroke="url(#ring)" stroke-width="5" stroke-linecap="round"
     stroke-dasharray="110 60" transform="rotate(-90 32 32)"/>
-  <rect x="17" y="17" width="30" height="30" rx="5" fill="rgba(56,189,248,0.04)" stroke="rgba(56,189,248,0.25)" stroke-width="1.5"/>
-  <rect x="21" y="36" width="4" height="11" rx="2" fill="#38bdf8" opacity="0.6"/>
-  <rect x="27" y="30" width="4" height="17" rx="2" fill="#38bdf8" opacity="0.75"/>
-  <rect x="33" y="23" width="4" height="24" rx="2" fill="#38bdf8" opacity="0.9"/>
-  <rect x="39" y="17" width="4" height="30" rx="2" fill="#6366f1"/>
-  <polyline points="19,38 24,34 29,31 34,27 39,22 44,18" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="44" cy="18" r="3" fill="#38bdf8"/>
+  <rect x="17" y="17" width="30" height="30" rx="5" fill="#ffffff" stroke="rgba(37,99,235,0.25)" stroke-width="1.5"/>
+  <rect x="21" y="36" width="4" height="11" rx="2" fill="url(#bar)" opacity="0.55"/>
+  <rect x="27" y="30" width="4" height="17" rx="2" fill="url(#bar)" opacity="0.75"/>
+  <rect x="33" y="23" width="4" height="24" rx="2" fill="url(#bar)" opacity="0.9"/>
+  <rect x="39" y="17" width="4" height="30" rx="2" fill="#2563eb"/>
+  <polyline points="19,38 24,34 29,31 34,27 39,22 44,18" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="18" r="3" fill="#2563eb"/>
 </svg>

@@ -1,10 +1,10 @@
 <template>
   <div class="cat-page">
     <!-- Page header -->
-    <div class="cat-header">
-      <div class="cat-title">产品类别分析</div>
-      <div class="cat-subtitle">共 <strong>{{ totalDocs.toLocaleString() }}</strong> 条数据，<strong>{{ catCount }}</strong> 个产品类别｜<strong>{{ topCategory?.key }}</strong> 占比最高（<strong>{{ topCategoryPct }}</strong>%）｜覆盖 <strong>{{ overview.total_provinces }}</strong> 省/<strong>{{ overview.total_cities }}</strong> 城</div>
-    </div>
+    <PageHeader
+      title="产品类别分析"
+      :subtitle="`共 <strong>${totalDocs.toLocaleString()}</strong> 条数据，<strong>${catCount}</strong> 个产品类别｜<strong>${topCategory?.key || '—'}</strong> 占比最高（<strong>${topCategoryPct}</strong>%）｜覆盖 <strong>${overview.total_provinces}</strong> 省/<strong>${overview.total_cities}</strong> 城`"
+    />
 
     <!-- Category grid -->
     <div class="cat-grid" v-if="!selectedCategory">
@@ -134,6 +134,7 @@ import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import axios from 'axios'
 import { markRaw } from 'vue'
 import * as echarts from 'echarts'
+import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -510,14 +511,14 @@ function renderPriceChart(ranges, stats) {
   const chart = markRaw(echarts.init(el))
   priceChartIns.value = chart
 
-  const colors = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#a78bfa','#f59e0b','#f97316','#ef4444','#e11d48','#06b6d4','#84cc16']
+  const colors = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#7c3aed','#b45309','#f97316','#dc2626','#e11d48','#06b6d4','#84cc16']
 
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#1a2332',
-      borderColor: '#1e3a5f',
-      textStyle: { color: '#e2e8f0', fontSize: 12 },
+      backgroundColor: '#1e293b',
+      borderColor: '#334155',
+      textStyle: { color: '#1e293b', fontSize: 12 },
       formatter: params => {
         const p = params[0]
         return `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${p.value.toLocaleString()}</b>`
@@ -527,8 +528,8 @@ function renderPriceChart(ranges, stats) {
     xAxis: {
       type: 'category',
       data: ranges.map(r => r.range),
-      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 30, interval: 0 },
-      axisLine: { lineStyle: { color: '#1e3a5f' } },
+      axisLabel: { color: '#475569', fontSize: 10, rotate: 30, interval: 0 },
+      axisLine: { lineStyle: { color: '#334155' } },
       axisTick: { show: false }
     },
     yAxis: {
@@ -536,7 +537,7 @@ function renderPriceChart(ranges, stats) {
       nameTextStyle: { color: '#64748b', fontSize: 10 },
       type: 'value',
       axisLabel: { color: '#64748b', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e3a5f', type: 'dashed' } }
+      splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }
     },
     series: [{
       type: 'bar',
@@ -544,7 +545,7 @@ function renderPriceChart(ranges, stats) {
       barMaxWidth: 50,
       label: {
         show: true, position: 'top',
-        color: '#94a3b8', fontSize: 9,
+        color: '#475569', fontSize: 9,
         formatter: p => p.value >= 1000 ? (p.value/1000).toFixed(0)+'k' : p.value
       }
     }],
@@ -581,29 +582,28 @@ onMounted(() => loadCategories())
   gap: 16px;
   padding: 16px 20px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #0c1222 0%, #111827 100%);
+  background: var(--bg);
   box-sizing: border-box;
   padding-top: 16px;
 }
 
 .cat-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow);
 }
 
 .cat-title {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
-  text-shadow: 0 2px 12px rgba(56,189,248,0.2);
+  color: var(--text);
 }
 
 .cat-subtitle {
   font-size: 13px;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-top: 4px;
 }
 
@@ -614,15 +614,13 @@ onMounted(() => loadCategories())
 }
 
 .cat-card {
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
 }
@@ -639,8 +637,8 @@ onMounted(() => loadCategories())
 
 .cat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-  border-color: rgba(56,189,248,0.3);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
 }
 
 .cat-emoji {
@@ -650,7 +648,6 @@ onMounted(() => loadCategories())
   right: 12px;
   line-height: 1;
   z-index: 1;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
 }
 
 
@@ -664,13 +661,12 @@ onMounted(() => loadCategories())
 .cat-name {
   font-size: 14px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
-  text-shadow: 0 2px 12px rgba(56,189,248,0.2);
 }
 
 .cat-count {
@@ -688,7 +684,7 @@ onMounted(() => loadCategories())
 
 .cat-bar-wrap {
   height: 4px;
-  background: rgba(255,255,255,0.06);
+  background: #e2e8f0;
   border-radius: 2px;
   margin-top: 6px;
   overflow: hidden;
@@ -711,7 +707,7 @@ onMounted(() => loadCategories())
 .province-chip {
   font-size: 11px;
   padding: 1px 6px;
-  background: rgba(56,189,248,0.1);
+  background: rgba(37,99,235,0.1);
   color: var(--primary);
   border-radius: 3px;
 }
@@ -726,8 +722,8 @@ onMounted(() => loadCategories())
 
 .btn-back {
   padding: 8px 18px;
-  background: rgba(30,41,59,0.8);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #ffffff;
+  border: 1px solid rgba(241,245,249,0.6);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
@@ -739,15 +735,15 @@ onMounted(() => loadCategories())
 }
 
 .btn-back:hover {
-  background: rgba(56,189,248,0.1);
-  border-color: rgba(56,189,248,0.3);
+  background: rgba(37,99,235,0.1);
+  border-color: rgba(37,99,235,0.3);
   color: var(--primary);
 }
 
 .cat-detail-title {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -763,7 +759,7 @@ onMounted(() => loadCategories())
 .detail-count {
   font-size: 13px;
   font-weight: 400;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .detail-stats {
@@ -774,14 +770,12 @@ onMounted(() => loadCategories())
 }
 
 .stat-card {
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
   text-align: center;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow);
 }
 
 .stat-value {
@@ -792,18 +786,16 @@ onMounted(() => loadCategories())
 
 .stat-label {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-top: 4px;
 }
 
 .detail-section {
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow);
   margin-bottom: 16px;
 }
 
@@ -837,7 +829,7 @@ onMounted(() => loadCategories())
 
 .province-name {
   font-size: 12px;
-  color: #e2e8f0;
+  color: #1e293b;
   font-weight: 500;
 }
 
@@ -848,7 +840,7 @@ onMounted(() => loadCategories())
 
 .province-bar-track {
   height: 8px;
-  background: rgba(255,255,255,0.06);
+  background: #e2e8f0;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -876,7 +868,7 @@ onMounted(() => loadCategories())
   grid-template-columns: 40px 1fr 120px 50px 60px 70px 70px 70px 70px 60px;
   gap: 8px;
   padding: 8px 10px;
-  background: rgba(26,35,50,0.8);
+  background: #ffffff;
   border-radius: 6px;
   margin-bottom: 4px;
 }
@@ -892,7 +884,7 @@ onMounted(() => loadCategories())
   grid-template-columns: 40px 1fr 120px 50px 60px 70px 70px 70px 70px 60px;
   gap: 8px;
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid #e2e8f0;
   align-items: center;
 }
 
@@ -901,7 +893,7 @@ onMounted(() => loadCategories())
 }
 
 .breed-td {
-  color: #e2e8f0;
+  color: #1e293b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1007,7 +999,7 @@ onMounted(() => loadCategories())
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255,255,255,0.1);
+  border: 2px solid rgba(241,245,249,0.6);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1028,8 +1020,8 @@ onMounted(() => loadCategories())
 
 .btn-show-breeds {
   padding: 4px 12px;
-  background: rgba(56,189,248,0.1);
-  border: 1px solid rgba(56,189,248,0.3);
+  background: rgba(37,99,235,0.1);
+  border: 1px solid rgba(37,99,235,0.3);
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
@@ -1039,14 +1031,14 @@ onMounted(() => loadCategories())
 
 .btn-show-breeds:hover,
 .btn-show-breeds.active {
-  background: rgba(56,189,248,0.2);
-  border-color: rgba(56,189,248,0.5);
+  background: rgba(37,99,235,0.2);
+  border-color: rgba(37,99,235,0.5);
 }
 
 /* Breed detail expand panel */
 .breed-detail-panel {
-  background: rgba(15,23,42,0.6);
-  border: 1px solid rgba(56,189,248,0.2);
+  background: rgba(241,245,249,0.8);
+  border: 1px solid rgba(37,99,235,0.2);
   border-radius: 6px;
   margin: 4px 0;
   overflow-y: auto;
@@ -1058,8 +1050,8 @@ onMounted(() => loadCategories())
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(56,189,248,0.06);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(37,99,235,0.06);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .breed-detail-title {
@@ -1080,8 +1072,8 @@ onMounted(() => loadCategories())
 }
 
 .breed-detail-header > .btn-back {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #e2e8f0;
+  border: 1px solid rgba(241,245,249,0.6);
   color: var(--text-3);
   padding: 4px 12px;
   border-radius: 4px;
@@ -1101,15 +1093,15 @@ onMounted(() => loadCategories())
   display: flex;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid #e2e8f0;
   flex-wrap: wrap;
 }
 
 .unit-tab {
   padding: 4px 12px;
   border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(241,245,249,0.6);
+  background: rgba(15,23,42,0.04);
   color: var(--text-3);
   font-size: 12px;
   cursor: pointer;
@@ -1117,13 +1109,13 @@ onMounted(() => loadCategories())
 }
 
 .unit-tab:hover {
-  border-color: rgba(56,189,248,0.4);
+  border-color: rgba(37,99,235,0.4);
   color: var(--primary);
 }
 
 .unit-tab.active {
-  background: rgba(56,189,248,0.15);
-  border-color: rgba(56,189,248,0.5);
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(37,99,235,0.5);
   color: var(--primary);
   font-weight: 600;
 }
@@ -1155,8 +1147,8 @@ onMounted(() => loadCategories())
 }
 
 .spec-table-header {
-  background: rgba(255,255,255,0.03);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(15, 23, 42, 0.04);
+  border-bottom: 1px solid #e2e8f0;
   position: sticky;
   top: 0;
 }
@@ -1171,22 +1163,22 @@ onMounted(() => loadCategories())
 }
 
 .spec-row {
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.04);
   transition: background 0.15s;
 }
 
 .spec-row:hover {
-  background: rgba(56,189,248,0.04);
+  background: rgba(37,99,235,0.04);
 }
 
 .spec-row.striped {
-  background: rgba(255,255,255,0.015);
+  background: rgba(15, 23, 42, 0.025);
 }
 
 .spec-td {
   padding: 4px 10px;
   font-size: 12px;
-  color: #e2e8f0;
+  color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1216,9 +1208,9 @@ onMounted(() => loadCategories())
   justify-content: center;
   gap: 5px;
   padding: 6px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -1237,15 +1229,15 @@ onMounted(() => loadCategories())
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(241,245,249,0.6);
+  background: rgba(15,23,42,0.04);
   color: var(--text-3);
   transition: all 0.2s;
 }
 
 .page-btn:hover:not(:disabled) {
-  background: rgba(56,189,248,0.15);
-  border-color: rgba(56,189,248,0.4);
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(37,99,235,0.4);
   color: var(--primary);
 }
 
@@ -1261,11 +1253,11 @@ onMounted(() => loadCategories())
 }
 
 .breed-row:hover {
-  background: rgba(56,189,248,0.06);
+  background: rgba(37,99,235,0.06);
 }
 
 .breed-row.active {
-  background: rgba(56,189,248,0.12);
+  background: rgba(37,99,235,0.12);
   border-left: 2px solid var(--primary);
 }
 
@@ -1289,33 +1281,33 @@ onMounted(() => loadCategories())
 }
 
 .breed-name-item:hover {
-  background: rgba(56,189,248,0.08);
-  border-color: rgba(56,189,248,0.2);
+  background: rgba(37,99,235,0.08);
+  border-color: rgba(37,99,235,0.2);
 }
 
 .breed-name-item.active {
-  background: rgba(56,189,248,0.15);
-  border-color: rgba(56,189,248,0.4);
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(37,99,235,0.4);
 }
 
 .breed-name-text {
   font-size: 13px;
-  color: #e2e8f0;
+  color: #1e293b;
   font-weight: 500;
 }
 
 .breed-count-badge {
   font-size: 11px;
   color: var(--primary);
-  background: rgba(56,189,248,0.1);
+  background: rgba(37,99,235,0.1);
   padding: 2px 8px;
   border-radius: 10px;
-  border: 1px solid rgba(56,189,248,0.2);
+  border: 1px solid rgba(37,99,235,0.2);
 }
 
 .breed-name-item.active .breed-count-badge {
-  background: rgba(56,189,248,0.2);
-  border-color: rgba(56,189,248,0.4);
+  background: rgba(37,99,235,0.2);
+  border-color: rgba(37,99,235,0.4);
 }
 
 /* Grid layout for breed list */
@@ -1334,26 +1326,26 @@ onMounted(() => loadCategories())
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid #e2e8f0;
+  background: rgba(15, 23, 42, 0.04);
   min-height: 56px;
 }
 
 .breed-grid-item:hover {
-  background: rgba(56,189,248,0.08);
-  border-color: rgba(56,189,248,0.3);
+  background: rgba(37,99,235,0.08);
+  border-color: rgba(37,99,235,0.3);
   transform: translateY(-1px);
 }
 
 .breed-grid-item.active {
-  background: rgba(56,189,248,0.15);
-  border-color: rgba(56,189,248,0.5);
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(37,99,235,0.5);
 }
 
 .breed-grid-name {
   font-size: 13px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: #1e293b;
   line-height: 1.4;
   margin-bottom: 4px;
   overflow: hidden;

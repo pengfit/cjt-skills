@@ -42,14 +42,14 @@
         <div class="sync-list-col">
           <!-- 子项目视图（county / catalogue / tab） -->
           <template v-if="viewMode === 'subitem'">
-            <div class="list-header">
+            <div class="list-header mode-subitem">
               <span>{{ subitemHeader }}</span>
               <span>状态</span>
               <span>文档数</span>
               <span>更新时间</span>
             </div>
             <div class="list-scroll">
-              <div class="list-row" v-for="(item, idx) in pagedDetails" :key="idx"
+              <div class="list-row mode-subitem" v-for="(item, idx) in pagedDetails" :key="idx"
                 :class="{ 'row-active': data.current_county === item.county || data.current_area === item.area || data.current_tab === item.tab_name || data.current_catalogue_name === item.catalogue_name }">
                 <span class="list-name">{{ subitemName(item) }}</span>
                 <span>
@@ -59,7 +59,7 @@
                   <span v-else class="badge badge-gray">—</span>
                 </span>
                 <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
-                <span class="list-date">{{ (item.last_updated || '').slice(0, 16) || '—' }}</span>
+                <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
               </div>
             </div>
             <div class="list-pagination" v-if="totalDetailPages > 1">
@@ -82,14 +82,14 @@
 
           <!-- 期期刊视图（heze / henan） -->
           <template v-else-if="viewMode === 'period_log'">
-            <div class="list-header">
+            <div class="list-header mode-period">
               <span>周期</span>
               <span>发布日期</span>
               <span>状态</span>
               <span>文档数</span>
             </div>
             <div class="list-scroll">
-              <div class="list-row" v-for="(p, idx) in (data.period_details || []).slice(0, 20)" :key="idx">
+              <div class="list-row mode-period" v-for="(p, idx) in (data.period_details || []).slice(0, 20)" :key="idx">
                 <span class="list-name">{{ p.period || '—' }}</span>
                 <span class="list-date">{{ p.publish_date || '—' }}</span>
                 <span>
@@ -200,7 +200,12 @@ const subitemHeader = computed(() => {
 })
 
 function subitemName(item) {
-  return item.county || item.area || item.tab_name || item.catalogue_name || item.catalogue || '—'
+  // 优先取语义字段；如果带空格后缀（如 "鄠邑区 2026-01"），截掉后缀
+  let name = item.county || item.area || item.tab_name || item.catalogue_name || item.catalogue || '—'
+  // 处理 "区县名 YYYY-MM" 或 "区县名 YYYY.MM" 这类后缀
+  const m = String(name).match(/^(.+?)\s+\d{4}[\.\-/年]?\d{0,2}/)
+  if (m) name = m[1]
+  return name
 }
 
 const pagedDetails = computed(() => {
@@ -245,35 +250,37 @@ function formatDur(sec) {
 </script>
 
 <style scoped>
-/* 与原 DataHealthView 卡片样式一致 */
+/* === 亮色版（与 DataHealthView 页面整体明亮主题一致） === */
 .sync-card {
   position: relative;
-  background: #1e293b;
+  background: #ffffff;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid #1e293b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.03);
   transition: all 0.2s;
 }
 .sync-card:hover {
-  border-color: rgba(96, 165, 250, 0.3);
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
   transform: translateY(-1px);
 }
 .sync-card-running {
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10), 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .sync-card-bar {
   height: 3px;
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  background: linear-gradient(90deg, #2563eb, #818cf8);
   width: 100%;
 }
-.sync-bar-xa { background: linear-gradient(90deg, #f59e0b, #f97316); }
+.sync-bar-xa { background: linear-gradient(90deg, #b45309, #f97316); }
 .sync-bar-cq { background: linear-gradient(90deg, #ec4899, #be185d); }
 .sync-bar-sc { background: linear-gradient(90deg, #10b981, #059669); }
 .sync-bar-jn { background: linear-gradient(90deg, #6366f1, #4f46e5); }
-.sync-bar-rz { background: linear-gradient(90deg, #14b8a6, #0d9488); }
+.sync-bar-rz { background: linear-gradient(90deg, #0d9488, #0d9488); }
 .sync-bar-hz { background: linear-gradient(90deg, #a855f7, #7e22ce); }
-.sync-bar-hn { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+.sync-bar-hn { background: linear-gradient(90deg, #dc2626, #b91c1c); }
 .sync-card-content { padding: 16px 20px; }
 .sync-card-header {
   display: flex;
@@ -294,20 +301,20 @@ function formatDur(sec) {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
-  background: rgba(96, 165, 250, 0.15);
-  color: #60a5fa;
+  background: #eff6ff;
+  color: #1e40af;
 }
-.tag-xa { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.tag-cq { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
-.tag-sc { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-.tag-jn { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
-.tag-rz { background: rgba(20, 184, 166, 0.15); color: #14b8a6; }
-.tag-hz { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
-.tag-hn { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.tag-xa { background: #fff7ed; color: #c2410c; }
+.tag-cq { background: #fdf2f8; color: #be185d; }
+.tag-sc { background: #ecfdf5; color: #047857; }
+.tag-jn { background: #eef2ff; color: #4338ca; }
+.tag-rz { background: #f0fdfa; color: #0f766e; }
+.tag-hz { background: #faf5ff; color: #7e22ce; }
+.tag-hn { background: #fef2f2; color: #b91c1c; }
 .sync-card-title {
   font-size: 14px;
-  font-weight: 500;
-  color: #cbd5e1;
+  font-weight: 600;
+  color: #ffffff;
 }
 .sync-badges {
   display: flex;
@@ -322,85 +329,108 @@ function formatDur(sec) {
   font-weight: 500;
   white-space: nowrap;
 }
-.badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-.badge-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.badge-yellow { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.badge-gray { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+.badge-green { background: #d1fae5; color: #047857; }
+.badge-red   { background: #fee2e2; color: #b91c1c; }
+.badge-blue  { background: #dbeafe; color: #1e40af; }
+.badge-yellow{ background: #fef3c7; color: #b45309; }
+.badge-gray  { background: #0f172a; color: #64748b; }
 .sync-card-meta {
   font-size: 12px;
   color: #64748b;
   margin-bottom: 12px;
 }
 .sync-card-body {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 20px;
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 .sync-info-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  width: 84px;
 }
 .ring {
-  width: 100px;
-  height: 100px;
+  width: 76px;
+  height: 76px;
   transform: rotate(-90deg);
 }
 .ring-bg {
   fill: none;
-  stroke: rgba(148, 163, 184, 0.15);
+  stroke: #1e293b;
   stroke-width: 8;
 }
 .ring-fill {
   fill: none;
-  stroke: #38bdf8;
+  stroke: #2563eb;
   stroke-width: 8;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
 }
-.ring-xa { stroke: #f59e0b; }
+.ring-xa { stroke: #b45309; }
 .ring-cq { stroke: #ec4899; }
 .ring-sc { stroke: #10b981; }
 .ring-jn { stroke: #6366f1; }
-.ring-rz { stroke: #14b8a6; }
+.ring-rz { stroke: #0d9488; }
 .ring-hz { stroke: #a855f7; }
-.ring-hn { stroke: #ef4444; }
+.ring-hn { stroke: #dc2626; }
 .ring-pct, .ring-sub { transform: rotate(90deg); transform-origin: center; }
+.ring-pct { fill: #ffffff; }
+.ring-sub { fill: #475569; }
 .sync-status-row { display: flex; gap: 4px; }
 .sync-doc-count {
   font-size: 12px;
-  color: #94a3b8;
+  color: #475569;
 }
 .sync-list-col {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
+  min-height: 0;
 }
 .list-header, .list-row {
   display: grid;
-  grid-template-columns: 1fr 80px 80px 110px;
-  gap: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
+  gap: 4px;
+  padding: 6px 6px;
+  font-size: 10.5px;
+  align-items: center;
+}
+.list-header.mode-subitem,
+.list-row.mode-subitem {
+  /* 区县/地区/分类/类别：名称 1fr，状态 30，文档数 52，更新时间 70
+     总宽 = 60+30+52+70+12gap = 224，留 buffer */
+  grid-template-columns: minmax(60px, 1fr) 30px 52px 70px;
+}
+.list-header.mode-period,
+.list-row.mode-period {
+  /* 周期期刊：周期 1fr，发布日期 70，状态 60，文档数 50
+     总宽 = 50+70+60+50+12gap = 242 */
+  grid-template-columns: minmax(50px, 1fr) 70px 60px 50px;
 }
 .list-header {
   color: #64748b;
   font-weight: 500;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid #1e293b;
+  font-size: 10px;
+  letter-spacing: 0.2px;
 }
 .list-row {
-  color: #cbd5e1;
+  color: #0f172a;
   border-radius: 4px;
   transition: background 0.15s;
 }
-.list-row:hover { background: rgba(148, 163, 184, 0.05); }
-.row-active { background: rgba(59, 130, 246, 0.1); }
-.list-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list-num { text-align: right; color: #94a3b8; }
-.list-date { color: #64748b; font-family: monospace; font-size: 11px; }
+.list-row:hover { background: #f8fafc; }
+.row-active { background: #eff6ff; }
+.list-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.list-num { text-align: right; color: #475569; white-space: nowrap; }
+.list-date { color: #64748b; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; white-space: nowrap; }
 .list-scroll {
   max-height: 180px;
   overflow-y: auto;
@@ -412,19 +442,22 @@ function formatDur(sec) {
   gap: 12px;
   padding: 4px 0;
   font-size: 12px;
-  color: #94a3b8;
+  color: #64748b;
+  flex-shrink: 0;
 }
 .pg-btn {
-  background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
   padding: 2px 10px;
   cursor: pointer;
   font-size: 14px;
+  transition: all 0.15s;
 }
+.pg-btn:hover:not(:disabled) { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
 .pg-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.pg-info { font-family: monospace; }
+.pg-info { font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
 .progress-wrap {
   display: flex;
   flex-direction: column;
@@ -433,33 +466,33 @@ function formatDur(sec) {
 }
 .progress-bar {
   height: 6px;
-  background: rgba(148, 163, 184, 0.1);
+  background: #e2e8f0;
   border-radius: 3px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  background: linear-gradient(90deg, #2563eb, #818cf8);
   transition: width 0.5s ease;
 }
-.progress-fill-xa { background: linear-gradient(90deg, #f59e0b, #f97316); }
+.progress-fill-xa { background: linear-gradient(90deg, #b45309, #f97316); }
 .progress-fill-cq { background: linear-gradient(90deg, #ec4899, #be185d); }
 .progress-fill-sc { background: linear-gradient(90deg, #10b981, #059669); }
 .progress-fill-jn { background: linear-gradient(90deg, #6366f1, #4f46e5); }
-.progress-fill-rz { background: linear-gradient(90deg, #14b8a6, #0d9488); }
+.progress-fill-rz { background: linear-gradient(90deg, #0d9488, #0d9488); }
 .progress-fill-hz { background: linear-gradient(90deg, #a855f7, #7e22ce); }
-.progress-fill-hn { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+.progress-fill-hn { background: linear-gradient(90deg, #dc2626, #b91c1c); }
 .progress-info {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
 }
-.pct-active { color: #60a5fa; font-weight: 600; }
+.pct-active { color: #1e40af; font-weight: 600; }
 .empty-hint {
   padding: 20px;
   text-align: center;
-  color: #64748b;
+  color: #475569;
   font-size: 12px;
 }
 </style>

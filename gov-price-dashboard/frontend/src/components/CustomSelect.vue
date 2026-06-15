@@ -273,7 +273,7 @@ watch(() => props.options, () => { focusedIdx.value = -1 })
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px #e2e8f0;
   z-index: 1000;
   overflow: hidden;
   width: 100%;

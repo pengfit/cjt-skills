@@ -4,21 +4,6 @@
     <!-- ========== TOP BAR ========== -->
     <header class="top-bar">
       <div class="top-bar-left">
-        <button class="mobile-menu-btn" @click="mobileSidebarOpen = !mobileSidebarOpen" aria-label="菜单">
-          <span></span><span></span><span></span>
-        </button>
-        <svg class="top-bar-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect width="64" height="64" rx="14" fill="rgba(15,23,42,0.9)"/>
-          <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(56,189,248,0.2)" stroke-width="5"/>
-          <circle cx="32" cy="32" r="26" fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-dasharray="110 53" transform="rotate(-90 32 32)"/>
-          <rect x="16" y="16" width="32" height="32" rx="5" fill="rgba(56,189,248,0.05)" stroke="rgba(56,189,248,0.3)" stroke-width="2"/>
-          <rect x="20" y="40" width="5" height="8" rx="2" fill="#38bdf8" opacity="0.6"/>
-          <rect x="27" y="34" width="5" height="14" rx="2" fill="#38bdf8" opacity="0.75"/>
-          <rect x="34" y="26" width="5" height="22" rx="2" fill="#38bdf8" opacity="0.9"/>
-          <rect x="41" y="18" width="5" height="30" rx="2" fill="#6366f1"/>
-          <polyline points="17,43 23,38 29,34 35,29 41,23 47,18" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="47" cy="18" r="4" fill="#38bdf8"/>
-        </svg>
         <span class="top-bar-brand">材价通</span>
       </div>
       <div class="top-bar-meta">
@@ -296,7 +281,7 @@
                     <template v-else-if="col.key === 'unit'">{{ item.unit }}</template>
                     <template v-else-if="col.key === 'price'">
                       <div class="price-main">{{ fmtCell(item.price) }}</div>
-                      <div class="price-tax">{{ fmtCell(item.tax_price) }}</div>
+                      <div class="price-tax" v-if="item.tax_price && Number(item.tax_price) > 0">含税 {{ fmtCell(item.tax_price) }}</div>
                       <div class="price-change" v-if="getPriceChange(item)" :class="getPriceChange(item).cls" style="pointer-events:none">{{ getPriceChange(item).text }}</div>
                     </template>
                     <template v-else-if="col.key === 'attr'">
@@ -393,6 +378,15 @@
 
   <!-- Toast -->
   <div v-if="toast.show" class="toast">{{ toast.msg }}</div>
+
+  <!-- 命令面板 ⌘K -->
+  <CmdPalette
+    :show="showCmdPalette"
+    :items="cmdItems"
+    placeholder="搜索页面、命令… （⌘K）"
+    @close="showCmdPalette = false"
+    @select="onCmdSelect"
+  />
 </template>
 
 <script setup>
@@ -407,16 +401,76 @@ import DataHealthView from './components/DataHealthView.vue'
 import CockpitView from './components/CockpitView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
+import CmdPalette from './components/CmdPalette.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ============================================================
 // STATE
 // ============================================================
-const curTab = ref(localStorage.getItem('gov_cur_tab') || 'cockpit')
-function saveTab(tab) { localStorage.setItem('gov_cur_tab', tab) }
+// Tab list（顺序与侧栏保持一致，数字键 1-7 快橡跳跳）
+const TAB_LIST = [
+  { key: 'cockpit', label: '驾驶舱' },
+  { key: 'list',    label: '全部数据' },
+  { key: 'category',label: '全部类别' },
+  { key: 'dist',    label: '数据统计' },
+  { key: 'sync',    label: '数据同步' },
+  { key: 'health',  label: '数据健康' },
+  { key: 'breedcat',label: '品种分类' },
+  { key: 'rules',   label: '规格解析' },
+]
+
+// URL ?tab= 同步，未指定时 localStorage 回退
+function readTabFromUrl() {
+  const p = new URLSearchParams(location.search).get('tab')
+  if (p && TAB_LIST.some(t => t.key === p)) return p
+  return localStorage.getItem('gov_cur_tab') || 'cockpit'
+}
+const curTab = ref(readTabFromUrl())
+function saveTab(tab) {
+  localStorage.setItem('gov_cur_tab', tab)
+  // 同步到 URL（不刷新）
+  const url = new URL(location.href)
+  url.searchParams.set('tab', tab)
+  history.replaceState(null, '', url.toString())
+}
 const mobileSidebarOpen = ref(false)
+const showCmdPalette = ref(false)  // ⌘K 命令面板
 watch(curTab, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
+
+// ⌘K 命令面板项
+const cmdItems = computed(() => [
+  ...TAB_LIST.map((t, i) => ({
+    id: 'tab:' + t.key,
+    label: t.label,
+    icon: ['🛩️', '📋', '📊', '📈', '🔄', '💚', '🏷️', '🧩'][i] || '·',
+    hint: '跳转到' + t.label,
+    shortcut: String(i + 1),
+    action: () => { curTab.value = t.key; saveTab(t.key) },
+  })),
+  {
+    id: 'search:open',
+    label: '聚焦产品搜索',
+    icon: '🔍',
+    hint: '跳到“全部数据”页并聚焦搜索框',
+    shortcut: '/',
+    action: () => {
+      curTab.value = 'list'; saveTab('list')
+      nextTick(() => document.querySelector('.filter-bar-input')?.focus())
+    },
+  },
+  {
+    id: 'drawer:open',
+    label: '打开更多筛选',
+    icon: '⚙️',
+    hint: '弹出筛选抽屉（仅在“全部数据”生效）',
+    action: () => { if (curTab.value === 'list') showDrawer.value = true },
+  },
+])
+
+function onCmdSelect(item) {
+  // 由组件内部调用 action，这里只处理额外逻辑
+}
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
 const searchKeyword = ref('')
 const searchProvince = ref('')
@@ -875,13 +929,31 @@ onMounted(onMount)
 // Keyboard shortcuts
 onMounted(() => {
   document.addEventListener('keydown', e => {
+    // Esc 关闭所有层
     if (e.key === 'Escape') {
       showColConfig.value = false
       if (showDrawer.value) showDrawer.value = false
+      showCmdPalette.value = false
     }
-    if ((e.key === '/' || (e.ctrlKey && e.key === 'k')) && !e.target.matches('input, textarea')) {
+    // ⌘K / Ctrl+K / / 打开命令面板
+    const isInputFocused = e.target.matches && e.target.matches('input, textarea, select, [contenteditable]')
+    if ((e.ctrlKey && e.key === 'k') || (e.metaKey && e.key === 'k')) {
       e.preventDefault()
-      document.querySelector('.filter-input')?.focus()
+      showCmdPalette.value = !showCmdPalette.value
+      return
+    }
+    if (e.key === '/' && !isInputFocused) {
+      e.preventDefault()
+      showCmdPalette.value = true
+      return
+    }
+    // 数字键 1-8 快速切换 tab（在非输入框中）
+    if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-8]$/.test(e.key)) {
+      const tab = TAB_LIST[Number(e.key) - 1]
+      if (tab) {
+        curTab.value = tab.key
+        saveTab(tab.key)
+      }
     }
   })
 })

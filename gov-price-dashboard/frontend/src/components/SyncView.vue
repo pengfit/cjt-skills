@@ -30,14 +30,14 @@ const subTab = ref('scrape')
 .sync-page {
   padding: 0;
   min-height: 100vh;
-  color: #e2e8f0;
+  color: var(--text);
 }
 
 .sync-subtabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding: 14px 20px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
 }
 
 .sync-subtab {
@@ -45,12 +45,12 @@ const subTab = ref('scrape')
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 9px 18px;
+  border: 1px solid transparent;
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  background: rgba(15, 23, 42, 0.4);
-  color: var(--text-3);
+  background: transparent;
+  color: var(--text-2);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -58,28 +58,29 @@ const subTab = ref('scrape')
 }
 
 .sync-subtab:hover {
-  color: #e2e8f0;
-  background: rgba(56, 189, 248, 0.06);
-  border-color: rgba(56, 189, 248, 0.15);
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border);
 }
 
 .sync-subtab.active {
   color: var(--primary);
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.35);
-  border-bottom-color: rgba(56, 189, 248, 0.1);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  margin-bottom: -1px;
 }
 
 .sync-subtab-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #475569;
+  background: var(--text-3);
   transition: all 0.2s;
 }
 .sync-subtab.active .sync-subtab-dot {
   background: var(--primary);
-  box-shadow: 0 0 6px rgba(56, 189, 248, 0.7);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
 }
 
 .sync-subtab-hint {

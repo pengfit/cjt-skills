@@ -2,11 +2,16 @@
   <div class="vec-page">
     <!-- Header -->
     <div class="vec-header">
-      <div>
+      <div class="vec-header-left">
         <div class="vec-title">📦 规格规则库</div>
         <div class="vec-subtitle">存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索</div>
       </div>
-      <span class="vec-total-badge">{{ vecRules.total }} 条规则</span>
+      <div class="vec-header-stats">
+        <div class="vec-stat">
+          <span class="vec-stat-val">{{ vecRules.total.toLocaleString() }}</span>
+          <span class="vec-stat-key">规则总数</span>
+        </div>
+      </div>
     </div>
 
     <!-- Toolbar -->
@@ -223,39 +228,23 @@ onMounted(() => {
 .vec-page {
   padding: 16px 20px 80px;
   min-height: 100vh;
-  color: #e2e8f0;
+  color: #1e293b;
   font-size: 13px;
 }
 
 /* Header */
 .vec-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 22px 0 16px;
+  border-bottom: 1px solid #e2e8f0;
   margin-bottom: 16px;
 }
-.vec-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #f1f5f9;
-  letter-spacing: 0.3px;
-}
-.vec-subtitle {
-  font-size: 11px;
-  color: #475569;
-  margin-top: 3px;
-}
-.vec-total-badge {
-  font-size: 11px;
-  background: rgba(56,189,248,0.1);
-  color: var(--primary);
-  border: 1px solid rgba(56,189,248,0.2);
-  border-radius: 10px;
-  padding: 3px 10px;
-  white-space: nowrap;
-  margin-top: 2px;
-}
+.vec-title { font-size: 18px; font-weight: 700; color: #1e293b; }
+.vec-subtitle { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+.vec-header-stats { display: flex; gap: 20px; }
+.vec-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.vec-stat-val { font-size: 18px; font-weight: 700; color: var(--primary); }
+.vec-stat-key { font-size: 11px; color: var(--text-3); }
 
 /* Toolbar */
 .vec-toolbar {
@@ -271,9 +260,9 @@ onMounted(() => {
   gap: 8px;
 }
 .vec-input {
-  background: rgba(30,41,59,0.8);
-  color: #e2e8f0;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid rgba(241,245,249,0.6);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 13px;
@@ -283,22 +272,22 @@ onMounted(() => {
   box-sizing: border-box;
   font-family: inherit;
 }
-.vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56,189,248,0.4); }
+.vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.4); }
 .vec-toolbar-right { display: flex; align-items: center; gap: 8px; }
 .vec-order-btn {
   display: inline-flex; align-items: center; gap: 5px;
-  background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25);
+  background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.25);
   border-radius: 20px; color: var(--primary); font-size: 11.5px;
   font-weight: 500; padding: 5px 12px; cursor: pointer; transition: all 0.18s;
 }
-.vec-order-btn:hover { background: rgba(56,189,248,0.16); border-color: rgba(56,189,248,0.4); }
+.vec-order-btn:hover { background: rgba(37,99,235,0.16); border-color: rgba(37,99,235,0.4); }
 .vec-input::placeholder { color: #475569; }
 .vec-help-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(56,189,248,0.06);
-  border: 1px solid rgba(56,189,248,0.15);
+  background: rgba(37,99,235,0.06);
+  border: 1px solid rgba(37,99,235,0.15);
   border-radius: 20px;
   color: var(--primary);
   font-size: 11.5px;
@@ -309,30 +298,22 @@ onMounted(() => {
   white-space: nowrap;
 }
 .vec-help-btn:hover {
-  background: rgba(56,189,248,0.12);
-  border-color: rgba(56,189,248,0.3);
+  background: rgba(37,99,235,0.12);
+  border-color: rgba(37,99,235,0.3);
 }
 .vec-help-btn.active {
-  background: rgba(56,189,248,0.15);
-  border-color: rgba(56,189,248,0.35);
-  box-shadow: 0 0 10px rgba(56,189,248,0.1);
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(37,99,235,0.35);
+  box-shadow: 0 0 10px rgba(37,99,235,0.1);
 }
 
 /* Help */
 .vec-help {
-  background: rgba(255,255,255,0.025);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 12px;
+  background: rgba(241,245,249,0.8); border: 1px solid rgba(37,99,235,0.12);
+  border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
 }
 .vec-help-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin-bottom: 10px;
+  font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 14px;
 }
 .vec-help-grid {
   display: grid;
@@ -345,12 +326,13 @@ onMounted(() => {
 .vec-help-val code {
   font-family: 'Courier New', monospace;
   font-size: 10px;
-  color: #a5f3fc;
-  background: rgba(56,189,248,0.06);
+  color: var(--primary);
+  background: rgba(37,99,235,0.08);
   border-radius: 3px;
   padding: 1px 4px;
+  font-weight: 500;
 }
-.vec-help-val strong { color: #e2e8f0; font-weight: 600; }
+.vec-help-val strong { color: #1e293b; font-weight: 600; }
 
 /* Slide transition */
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; overflow: hidden; }
@@ -359,29 +341,30 @@ onMounted(() => {
 /* Table */
 .vec-table-wrap {
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(15,23,42,0.07);
   overflow: hidden;
-  background: rgba(15,23,42,0.6);
+  background: rgba(241,245,249,0.8);
 }
 .vec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .vec-table th {
-  background: rgba(255,255,255,0.03);
-  color: #475569;
+  background: var(--surface-2);
+  color: var(--text-2);
   font-size: 11px;
   font-weight: 600;
   padding: 9px 12px;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--border);
   letter-spacing: 0.3px;
 }
 .vec-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
   vertical-align: top;
 }
 .vec-table tr:last-child td { border-bottom: none; }
-.vec-table tr:hover td { background: rgba(255,255,255,0.025); }
+.vec-table tr:hover td { background: var(--surface-2); }
 
 /* Loading */
 .vec-loading {
@@ -396,8 +379,8 @@ onMounted(() => {
 .vec-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255,255,255,0.08);
-  border-top-color: rgba(56,189,248,0.6);
+  border: 2px solid rgba(15,23,42,0.08);
+  border-top-color: rgba(37,99,235,0.6);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -407,9 +390,9 @@ onMounted(() => {
 .vec-id { color: #334155; font-family: 'Courier New', monospace; font-size: 11px; }
 .vec-attr-tag {
   display: inline-block;
-  background: rgba(56,189,248,0.1);
+  background: rgba(37,99,235,0.1);
   color: var(--primary);
-  border: 1px solid rgba(56,189,248,0.15);
+  border: 1px solid rgba(37,99,235,0.15);
   border-radius: 5px;
   padding: 2px 7px;
   font-size: 11px;
@@ -419,14 +402,15 @@ onMounted(() => {
 .vec-pattern, .vec-code {
   font-family: 'Courier New', monospace;
   font-size: 11px;
-  background: rgba(56,189,248,0.05);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 3px 6px;
   word-break: break-all;
   display: inline-block;
   max-width: 300px;
 }
-.vec-pattern { color: #a5f3fc; }
+.vec-pattern { color: var(--primary); font-weight: 600; }
 .vec-code-block {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -461,8 +445,8 @@ onMounted(() => {
   margin-top: 14px;
 }
 .page-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #e2e8f0;
+  border: 1px solid rgba(241,245,249,0.6);
   border-radius: 7px;
   color: var(--text-3);
   padding: 5px 14px;
@@ -470,10 +454,10 @@ onMounted(() => {
   font-size: 14px;
   transition: all 0.15s;
 }
-.page-btn:hover:not(:disabled) { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.4); color: var(--primary); }
+.page-btn:hover:not(:disabled) { background: rgba(37,99,235,0.1); border-color: rgba(37,99,235,0.4); color: var(--primary); }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .vec-page-info { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-.vec-page-current { color: #e2e8f0; font-weight: 600; }
+.vec-page-current { color: #1e293b; font-weight: 600; }
 .vec-page-sep { color: #334155; }
 .vec-page-total { color: #475569; }
 </style>
