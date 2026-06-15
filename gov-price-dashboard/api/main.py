@@ -150,6 +150,8 @@ def search(
                 # 直接读 ES 存储的 category_system 字段（不转 cat_sys_map 反向映射）
                 # 背景：cat_sys_map 是 cat_name→sys_name 反向映射，"其他" 文档会返空字符串
                 "category_system": h["_source"].get("category_system", ""),
+                # 同上：直接读 ES category_system_name（ETL 阶段已填中文名）
+                "category_system_name": h["_source"].get("category_system_name", ""),
                 "spec": h["_source"].get("spec", ""),
                 "attr": h["_source"].get("attr", {}),
                 "unit": h["_source"].get("unit", ""),
@@ -261,7 +263,9 @@ def overview(
                     "avg_price": {"avg": {"field": "price"}},
                     "count": {"value_count": {"field": "price"}},
                     # sub-agg 拿 category_system（ES 存的 code）让 /api/stats/overview 返 ES 实际值
-                    "sys": {"terms": {"field": "category_system", "size": 1}}
+                    "sys": {"terms": {"field": "category_system", "size": 1}},
+                    # 同上：拿 category_system_name（ETL 阶段已填中文名）
+                    "sys_name": {"terms": {"field": "category_system_name", "size": 1}}
                 }
             }
         }
@@ -293,7 +297,9 @@ def overview(
                 {"category": b["key"], "count": b["count"]["value"],
                  "avg_price": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
                  # 直接读 sub-agg 拿 ES 存的 category_system（不转 cat_sys_map）
-                 "category_system": b.get("sys", {}).get("buckets", [{}])[0].get("key", "") if b.get("sys", {}).get("buckets") else ""}
+                 "category_system": b.get("sys", {}).get("buckets", [{}])[0].get("key", "") if b.get("sys", {}).get("buckets") else "",
+                 # 同上：直接读 sub-agg 拿 ES 存的 category_system_name
+                 "category_system_name": b.get("sys_name", {}).get("buckets", [{}])[0].get("key", "") if b.get("sys_name", {}).get("buckets") else ""}
                 for b in aggs.get("by_category", {}).get("buckets", [])
             ],
             "categories": [b["key"] for b in aggs.get("by_category", {}).get("buckets", [])]
