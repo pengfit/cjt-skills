@@ -167,7 +167,13 @@ def etl_city(
     # spec 是 text 字段，对空字符串不过滤（term 在 text 字段上不匹配空串）
     # 必须用 spec.keyword 子字段，term 才会把空串当作有效 token 匹配
     # 所有城市统一过滤 spec='' 或 spec='/' 的脏数据文档（包括菏泽 229 条）
-    must_not = [{"terms": {"spec.keyword": ["", "/"]}}]
+    # 2026-06-15 扩展：breed='' 也作为脏数据过滤（河南 single_price_cont 续表 948 条 breed 字段丢失）
+    # 与 spec='' 规则同源：数据不完整 = 不进 DWD
+    # ODS 保留这 948 条作为原料，未来 sync 阶段修了 breed 后可重 ETL 恢复
+    must_not = [
+        {"terms": {"spec.keyword": ["", "/"]}},
+        {"terms": {"breed.keyword": ["", "/"]}},
+    ]
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
     if incremental and since_date:
