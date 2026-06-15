@@ -48,19 +48,19 @@
     <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
     <aside class="sidebar">
       <div class="sidebar-group">
-        <div class="sidebar-group-label">📊 业务查价</div>
+        <div class="sidebar-group-label">业务查价</div>
         <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
         <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
         <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
       </div>
       <div class="sidebar-group">
-        <div class="sidebar-group-label">⚙ 系统监控</div>
+        <div class="sidebar-group-label">系统监控</div>
         <button class="sidebar-item" :class="{ active: curTab === 'sync' }" @click="curTab = 'sync'; saveTab('sync')">数据同步</button>
         <button class="sidebar-item" :class="{ active: curTab === 'health' }" @click="curTab = 'health'; saveTab('health')">数据健康</button>
       </div>
       <div class="sidebar-group">
-        <div class="sidebar-group-label">📋 规则管理</div>
+        <div class="sidebar-group-label">规则管理</div>
         <button class="sidebar-item" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
         <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
       </div>
