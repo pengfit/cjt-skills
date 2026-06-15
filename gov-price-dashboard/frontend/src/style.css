@@ -168,7 +168,9 @@ body {
 .main-content {
   flex: 1;
   min-width: 0;  /* prevent overflow from tables */
-  overflow-x: auto;
+  /* overflow-x 不再放这里 — 表格横向滚动由 .table-scroll 内部处理。
+     否则 main-content 变成 sticky 滚动容器，会把 .filter-bar 多钉 60px。 */
+  overflow: visible;
 }
 
 /* ============================================================
@@ -673,7 +675,7 @@ body {
 .content-area {
   flex: 1;
   min-width: 0;
-  width: 100vw;
+  width: 100%;
   padding: 16px 20px 20px;
   box-sizing: border-box;
 }
