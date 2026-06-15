@@ -243,8 +243,6 @@ const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', ji
 const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南', heze: '菏泽' }
 const data = ref({
   total: 0,
-  stale_provinces: 0,
-  fresh_provinces: 0,
   recent_7d: 0,
   prev_7d: 0,
   inc_pct: 0,

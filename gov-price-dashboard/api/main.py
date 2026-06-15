@@ -985,27 +985,13 @@ def stats_data_health():
         province_result = es.search(index=ALL_INDICES, body=province_body)
         province_buckets = province_result["aggregations"]["by_province"]["buckets"]
 
-        # 计算数据新鲜度阈值（7天）
-        import datetime
-        threshold = datetime.datetime.now() - datetime.timedelta(days=7)
         provinces_data = []
-        stale_count = 0
         for b in province_buckets:
             max_date_str = b.get("max_date", {}).get("value_as_string", "")[:10]
-            is_stale = False
-            if max_date_str:
-                try:
-                    max_date = datetime.datetime.strptime(max_date_str, "%Y-%m-%d")
-                    is_stale = max_date < threshold
-                    if is_stale:
-                        stale_count += 1
-                except Exception:
-                    pass
             provinces_data.append({
                 "province": b["key"],
                 "latest_date": max_date_str,
                 "count": b["doc_count"],
-                "is_stale": is_stale,
             })
         provinces_data.sort(key=lambda x: x["latest_date"], reverse=True)
 
@@ -1038,7 +1024,6 @@ def stats_data_health():
         return {
             "total_docs": total_count,
             "province_count": len(provinces_data),
-            "stale_provinces": stale_count,
             "daily": daily_data,
             "provinces": provinces_data,
             "categories": cat_data,

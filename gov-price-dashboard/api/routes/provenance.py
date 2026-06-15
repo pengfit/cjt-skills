@@ -1204,8 +1204,6 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
             "city": city,
             "city_label": city_label,
             "total": total_count,
-            "stale_provinces": stale_count,
-            "fresh_provinces": len(province_list) - stale_count,
             "recent_7d": recent_7d,
             "prev_7d": prev_7d,
             "inc_pct": inc_pct,

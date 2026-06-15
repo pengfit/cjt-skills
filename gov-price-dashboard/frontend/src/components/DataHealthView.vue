@@ -42,16 +42,6 @@
           <div class="stat-glow"></div>
         </div>
       </div>
-      <div class="stat-card stat-card-warning" :class="{ 'stat-alert': data.stale_provinces > 0 }">
-        <div class="stat-card-inner">
-          <div class="stat-icon">⚠️</div>
-          <div class="stat-content">
-            <div class="stat-label">数据滞后省份</div>
-            <div class="stat-value"><span class="stat-num">{{ data.stale_provinces }}</span><span class="stat-unit">个</span></div>
-          </div>
-          <div class="stat-glow"></div>
-        </div>
-      </div>
     </div>
 
     <!-- 图表区域 -->
@@ -574,7 +564,7 @@ const error = ref('')
 const showCardDetail = ref(false)  // 6 城大卡详情默认收起，仅显示概览
 const currentTime = ref('')
 const data = ref({
-  total_docs: 0, province_count: 0, stale_provinces: 0,
+  total_docs: 0, province_count: 0,
   daily: [], provinces: []
 })
 const syncData = ref({})
