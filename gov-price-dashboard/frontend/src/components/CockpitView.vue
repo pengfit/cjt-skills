@@ -6,7 +6,6 @@
       <div class="hud-corner tr"></div>
       <div class="hud-title">
         <span class="hud-prefix">GOV-PRICE</span>
-        <span class="hud-main">材价通 · 驾驶舱</span>
       </div>
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
@@ -480,13 +479,6 @@ onUnmounted(() => {
   font-size: 12px;
   letter-spacing: 4px;
   text-shadow: 0 0 8px #00d4ff;
-}
-.hud-main {
-  color: #00ff88;
-  font-size: 22px;
-  font-weight: 700;
-  text-shadow: 0 0 12px rgba(0,255,136,0.6);
-  letter-spacing: 2px;
 }
 .hud-status { display: flex; align-items: center; gap: 16px; }
 .hud-clock {
