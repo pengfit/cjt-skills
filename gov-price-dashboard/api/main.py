@@ -120,9 +120,10 @@ def search(
         filter_clauses.append({"range": {"price": {"lte": price_max}}})
 
     if category_system:
-        # 先转成 ES 存储的 code 值
-        cs_val = cat_sys_map.get(category_system, category_system)
-        filter_clauses.append({"term": {"category_system": cs_val}})
+        # 直接用 ES 存储的 code 值（不转 cat_sys_map 映射）
+        # 背景：cat_sys_map 是 cat_name→sys_name 反向映射，不适用于 ES code 字段
+        # ES 存的就是 STEEL_METAL/PLUMBING 等 code，前端传也是 code
+        filter_clauses.append({"term": {"category_system": category_system}})
 
     query = _build_bool_query(must_clauses, filter_clauses)
     from_idx = (page - 1) * page_size
@@ -146,7 +147,9 @@ def search(
                 "id": h["_id"],
                 "breed": h["_source"].get("breed", ""),
                 "category": h["_source"].get("category", ""),
-                "category_system": cat_sys_map.get(h["_source"].get("category", ""), ""),
+                # 直接读 ES 存储的 category_system 字段（不转 cat_sys_map 反向映射）
+                # 背景：cat_sys_map 是 cat_name→sys_name 反向映射，"其他" 文档会返空字符串
+                "category_system": h["_source"].get("category_system", ""),
                 "spec": h["_source"].get("spec", ""),
                 "attr": h["_source"].get("attr", {}),
                 "unit": h["_source"].get("unit", ""),
@@ -256,7 +259,9 @@ def overview(
                 "terms": {"field": "category", "size": 30, "order": {"_count": "desc"}},
                 "aggs": {
                     "avg_price": {"avg": {"field": "price"}},
-                    "count": {"value_count": {"field": "price"}}
+                    "count": {"value_count": {"field": "price"}},
+                    # sub-agg 拿 category_system（ES 存的 code）让 /api/stats/overview 返 ES 实际值
+                    "sys": {"terms": {"field": "category_system", "size": 1}}
                 }
             }
         }
@@ -287,7 +292,8 @@ def overview(
             "by_category": [
                 {"category": b["key"], "count": b["count"]["value"],
                  "avg_price": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
-                 "category_system": cat_sys_map.get(b["key"], "")}
+                 # 直接读 sub-agg 拿 ES 存的 category_system（不转 cat_sys_map）
+                 "category_system": b.get("sys", {}).get("buckets", [{}])[0].get("key", "") if b.get("sys", {}).get("buckets") else ""}
                 for b in aggs.get("by_category", {}).get("buckets", [])
             ],
             "categories": [b["key"] for b in aggs.get("by_category", {}).get("buckets", [])]
