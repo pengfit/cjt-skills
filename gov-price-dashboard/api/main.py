@@ -52,31 +52,6 @@ def search(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    from pathlib import Path
-    def _cat_sys_map():
-        try:
-            import json
-            p = Path(__file__).parent / ".." / ".." / "gov-price-etl" / "commands" / "classify" / "rules" / "category_in_system.json"
-            with open(p) as f:
-                raw = json.load(f) or {}
-            result = {}
-            for cat in raw.get("categories", []):
-                sys_name = cat.get("name", "")
-                for child in cat.get("children", []):
-                    cat_name = child.get("name", "")
-                    code = child.get("code", "")
-                    if cat_name and sys_name:
-                        result[cat_name] = sys_name
-                    if cat_name and code:
-                        result[code] = code
-                    if code:
-                        result[sys_name] = code
-            return result
-        except Exception:
-            return {}
-
-    cat_sys_map = _cat_sys_map()
-
     must_clauses = []
     filter_clauses = []
 
@@ -186,30 +161,6 @@ def overview(
     city: Optional[str] = Query(None),
     unit: Optional[str] = Query(None),
 ):
-    from pathlib import Path
-    def _cat_sys_map():
-        try:
-            import json
-            p = Path(__file__).parent / ".." / ".." / "gov-price-etl" / "commands" / "classify" / "rules" / "category_in_system.json"
-            with open(p) as f:
-                raw = json.load(f) or {}
-            result = {}
-            for cat in raw.get("categories", []):
-                sys_name = cat.get("name", "")
-                for child in cat.get("children", []):
-                    cat_name = child.get("name", "")
-                    code = child.get("code", "")
-                    if cat_name and sys_name:
-                        result[cat_name] = sys_name
-                    if cat_name and code:
-                        result[code] = code
-                    if code:
-                        result[sys_name] = code
-            return result
-        except Exception:
-            return {}
-    cat_sys_map = _cat_sys_map()
-
     must_clauses = []
     filter_clauses = []
 
