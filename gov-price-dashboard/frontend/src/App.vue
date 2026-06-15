@@ -304,7 +304,8 @@
                       <span class="cat-badge">{{ item.category || '—' }}</span>
                     </template>
                     <template v-else-if="col.key === 'category_system'">
-                      <span class="sys-badge">{{ item.category_system || '—' }}</span>
+                      <!-- 展示 category_system_name（中文名），fallback 到 code -->
+                      <span class="sys-badge">{{ item.category_system_name || item.category_system || '—' }}</span>
                     </template>
                     <template v-else>{{ item[col.key] ?? '—' }}</template>
                   </td>
@@ -855,39 +856,52 @@ async function loadCityOptions() {
 async function loadCategoryOptions() {
   const d = await loadAPI(`${API}/stats/overview`)
   if (d?.by_category) {
-    categoryOptions.value = d.by_category.map(c => ({ key: c.category, count: c.count, system: c.category_system || '' }))
-    // 构造所属系统选项（去重 + 排序）
-    const sysMap = new Map()  // system name → total count
+    categoryOptions.value = d.by_category.map(c => ({
+      key: c.category,
+      count: c.count,
+      system: c.category_system || '',
+      // label = sys_name 供 CustomSelect 展示中文名（key 仍用 code 用于查询）
+      label: c.category_system_name || c.category_system || '',
+    }))
+    // 构造所属系统选项（去重 + 按 sys_name 排序）
+    const sysMap = new Map()  // code → { count, sysName }
     for (const c of d.by_category) {
       if (!c.category_system) continue
-      sysMap.set(c.category_system, (sysMap.get(c.category_system) || 0) + c.count)
+      const prev = sysMap.get(c.category_system) || { count: 0, sysName: '' }
+      sysMap.set(c.category_system, {
+        count: prev.count + c.count,
+        sysName: c.category_system_name || c.category_system || '',
+      })
     }
     systemOptions.value = Array.from(sysMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
-      .map(([k, cnt]) => ({ key: k, count: cnt }))
+      .sort((a, b) => a[1].sysName.localeCompare(b[1].sysName, 'zh-CN'))
+      .map(([code, { count, sysName }]) => ({ key: code, label: sysName, count }))
     // 构造“分类”下拉按所属系统分组
     categoryGroupedOptions.value = buildGroupedCategoryOptions(d.by_category)
   }
 }
 
 function buildGroupedCategoryOptions(items) {
-  const groups = new Map()  // system → [categories]
+  // group key = code（用于查询），group name = sysName（用于展示）
+  const groups = new Map()  // code → { sysName, cats: [categories] }
   const noSystem = []
   for (const c of items) {
     const sys = (c.category_system || '').trim()
+    const sysName = c.category_system_name || c.category_system || ''
     if (sys) {
-      if (!groups.has(sys)) groups.set(sys, [])
-      groups.get(sys).push({ key: c.category, count: c.count })
+      if (!groups.has(sys)) groups.set(sys, { sysName, cats: [] })
+      groups.get(sys).cats.push({ key: c.category, count: c.count, label: c.category })
     } else {
-      noSystem.push({ key: c.category, count: c.count })
+      noSystem.push({ key: c.category, count: c.count, label: c.category })
     }
   }
   const result = []
-  // 排序：有系统的按中文名升序；每个组内的分类也按中文名升序
-  const sortedSystems = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  for (const sys of sortedSystems) {
-    const list = groups.get(sys).sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
-    result.push({ group: sys, options: list })
+  // 排序：按 sysName 中文名升序；每个组内的分类也按中文名升序
+  const sortedEntries = Array.from(groups.entries())
+    .sort((a, b) => a[1].sysName.localeCompare(b[1].sysName, 'zh-CN'))
+  for (const [code, { sysName, cats }] of sortedEntries) {
+    const list = cats.sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
+    result.push({ group: sysName, options: list })
   }
   if (noSystem.length) {
     noSystem.sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
