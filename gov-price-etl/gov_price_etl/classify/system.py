@@ -39,12 +39,24 @@ def _get_category_system_maps() -> Tuple[dict, dict]:
 
 
 def get_category_system_map() -> dict:
-    """name → code"""
+    """name → code
+
+    兑底：未在 category_in_system.json 里的分类名称（典型的如 "其他"），
+    返回占位 code "OTHER"，避免下游字段为空。
+    """
     code_map, _ = _get_category_system_maps()
+    # 兑底：未知分类名给一个占位 code，让字段永不为空
+    code_map.setdefault("其他", "OTHER")
+    code_map.setdefault("", "OTHER")
     return code_map
 
 
 def get_category_system_name_map() -> dict:
-    """code → name"""
+    """code → name
+
+    兑底：未在 category_in_system.json 里的 code（如 "OTHER"），名称给 "其他"。
+    """
     _, name_map = _get_category_system_maps()
+    # 兑底：未知 code 给 "其他" 作为展示名
+    name_map.setdefault("OTHER", "其他")
     return name_map

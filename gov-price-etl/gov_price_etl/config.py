@@ -29,7 +29,7 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
     "jinan": {
         "ods": "ods_material_jinan_price",
         "dwd": "dwd_jinan_price",
-        "dws": "dwd_jinan_price",
+        "dws": "dws_jinan_price",  # 独立 dws 索引（2026-06-15 从 dwd_jinan_price 拆分）
         "city_label": "济南",
     },
     "rizhao": {
