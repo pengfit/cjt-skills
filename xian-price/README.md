@@ -9,7 +9,7 @@
 ## 快速开始
 
 ```bash
-cd ~/.openclaw/workspace/skills/xa-material-price
+cd ~/.openclaw/workspace/skills/xian-price
 
 # 增量同步（自动判断是否有新数据）
 ./run.sh sync
@@ -51,7 +51,7 @@ cd ~/.openclaw/workspace/skills/xa-material-price
 ./run.sh check --legacy         # 用老逻辑：按区县总记录数对比（不区分周期）
 
 # 建议每小时一次定时增量检测
-0 * * * * cd ~/.openclaw/workspace/skills/xa-material-price && ./run.sh check
+0 * * * * cd ~/.openclaw/workspace/skills/xian-price && ./run.sh check
 ```
 
 **检测流程**（新逻辑）：
@@ -245,7 +245,7 @@ sync:
 ## 项目结构
 
 ```
-xa-material-price/
+xian-price/
 ├── README.md
 ├── SKILL.md
 ├── run.sh              # 入口脚本

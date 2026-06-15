@@ -1,9 +1,9 @@
 ---
-name: xa-material-price
+name: xian-price
 description: "西安工程造价材料信息采集：从 zjj.xa.gov.cn 抓取西安 6 个区县材料价格数据。"
 ---
 
-# xa-material-price
+# xian-price
 
 西安工程造价材料信息采集。从 `zjj.xa.gov.cn` 抓取西安 6 个区县材料价格数据，按更新日期增量同步至本地 ES。
 
@@ -22,7 +22,7 @@ dws_xian_price
 ## 快速启动
 
 ```bash
-cd skills/xa-material-price
+cd skills/xian-price
 
 ./run.sh preview --pages 3    # 预览前3页（不写ES）
 ./run.sh sync                  # 增量同步（自动断点续传）
@@ -179,7 +179,7 @@ _id = MD5(breed + code + spec + county + month_or_update_date + price + tax_pric
 ## 项目结构
 
 ```
-xa-material-price/
+xian-price/
 ├── run.sh                          # 入口脚本
 ├── config.yml                      # ES/站点配置
 ├── .sync_progress.json             # 本地进度文件（自动生成）
