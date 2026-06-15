@@ -166,6 +166,7 @@ def etl_city(
     must = [{"match_all": {}}]
     # spec 是 text 字段，对空字符串不过滤（term 在 text 字段上不匹配空串）
     # 必须用 spec.keyword 子字段，term 才会把空串当作有效 token 匹配
+    # 所有城市统一过滤 spec='' 或 spec='/' 的脏数据文档（包括菏泽 229 条）
     must_not = [{"terms": {"spec.keyword": ["", "/"]}}]
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
