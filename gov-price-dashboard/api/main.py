@@ -936,12 +936,28 @@ def stats_data_health():
     """数据健康度监控：每日数据量、各省份最新日期、增量异常检测"""
     try:
         # 1. 每日数据量（最近30天）
+        # DWS 索引里没 date 字段（只有 update_date 是 keyword），
+        # 用 runtime_mappings 转成 date，再做 date_histogram + range 过滤。
         daily_body = {
             "size": 0,
-            "query": {"range": {"update_date": {"gte": "now-30d"}}},
+            "runtime_mappings": {
+                "date_dt": {
+                    "type": "date",
+                    "script": {
+                        "lang": "painless",
+                        "source": "if (doc['update_date'].size() > 0) { def s = doc['update_date'].value; def zdt = ZonedDateTime.parse(s + 'T00:00:00Z'); emit(zdt.toInstant().toEpochMilli()); }"
+                    }
+                }
+            },
+            "query": {"range": {"date_dt": {"gte": "now-30d/d", "lte": "now/d"}}},
             "aggs": {
                 "daily": {
-                    "date_histogram": {"field": "date", "calendar_interval": "day"},
+                    "date_histogram": {
+                        "field": "date_dt",
+                        "calendar_interval": "day",
+                        "min_doc_count": 0,
+                        "extended_bounds": {"min": "now-30d/d", "max": "now/d"},
+                    },
                     "aggs": {"count": {"value_count": {"field": "price"}}}
                 }
             }
