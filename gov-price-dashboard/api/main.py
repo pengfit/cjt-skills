@@ -1020,23 +1020,12 @@ def stats_data_health():
             total_result = es.search(index=ALL_INDICES, body=total_body)
             total_count = total_result["hits"]["total"]["value"]
 
-        # 4. 增量异常检测：最近7天 vs 前7天（改为并发请求）
+        # 4. 分类分布（并发）
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-            recent_future = pool.submit(
-                es.count, index=ALL_INDICES,
-                body={"query": {"range": {"update_date": {"gte": "now-7d"}}}}
-            )
-            prev_future = pool.submit(
-                es.count, index=ALL_INDICES,
-                body={"query": {"range": {"update_date": {"gte": "now-14d", "lt": "now-7d"}}}}
-            )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category", "size": 20}, "aggs": {"count": {"value_count": {"field": "price"}}}}}}
             cat_future = pool.submit(es.search, index=ALL_INDICES, body=cat_body)
-        recent_count = recent_future.result()["count"]
-        prev_count = prev_future.result()["count"]
         cat_result = cat_future.result()
-        inc_ratio = round((recent_count / prev_count * 100) - 100, 1) if prev_count else 0
         cat_buckets = cat_result["aggregations"]["by_category"]["buckets"]
         cat_data = [
             {
@@ -1050,9 +1039,6 @@ def stats_data_health():
             "total_docs": total_count,
             "province_count": len(provinces_data),
             "stale_provinces": stale_count,
-            "recent_7d_vs_prev_7d_pct": inc_ratio,
-            "recent_7d_count": recent_count,
-            "prev_7d_count": prev_count,
             "daily": daily_data,
             "provinces": provinces_data,
             "categories": cat_data,

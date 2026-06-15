@@ -443,6 +443,112 @@
         </div>
       </div>
 
+      <!-- 河南（按期期刊同步） -->
+      <div class="sync-card" :class="{ 'sync-card-running': henanSyncData.status === 'running' }">
+        <div class="sync-card-bar sync-bar-hn"></div>
+        <div class="sync-card-content">
+          <div class="sync-card-header">
+            <div class="sync-card-title-row">
+              <span class="sync-province-tag tag-hn">河南</span>
+              <span class="sync-card-title">工程造价材料信息</span>
+            </div>
+            <div class="sync-badges">
+              <span v-if="henanSyncData.has_incremental === true" class="badge badge-green">有新数据</span>
+              <span v-else-if="henanSyncData.es_latest_period" class="badge badge-blue">{{ henanSyncData.es_latest_period }}</span>
+            </div>
+          </div>
+          <div class="sync-card-meta">{{ formatDur(henanSyncData.duration_sec) }} · {{ henanSyncData.last_updated || '—' }}</div>
+
+          <div class="sync-card-body">
+            <div class="sync-info-col">
+              <svg class="ring" viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="40" />
+                <circle class="ring-fill ring-hn" cx="50" cy="50" r="40"
+                  :stroke-dasharray="251.327"
+                  :stroke-dashoffset="251.327 * (1 - henanRing.pct / 100)" />
+                <text class="ring-pct" x="50" y="46" text-anchor="middle" font-size="18" font-weight="700">{{ henanRing.done }}/{{ henanRing.total }}</text>
+                <text class="ring-sub" x="50" y="64" text-anchor="middle" font-size="10">期数</text>
+              </svg>
+              <div class="sync-status-row">
+                <span v-if="henanSyncData.status === 'running'" class="badge badge-blue">● 同步中</span>
+                <span v-else-if="henanSyncData.status === 'error'" class="badge badge-red">✗ 出错</span>
+                <span v-else class="badge badge-green">✓ 全部完成</span>
+              </div>
+              <div class="sync-doc-count">{{ (henanSyncData.total_docs || 0).toLocaleString() }} 条文档</div>
+            </div>
+
+            <div class="sync-list-col">
+              <div class="list-header"><span>期数</span><span>状态</span><span>文档数</span><span>发布日期</span></div>
+              <div class="list-scroll">
+                <div class="list-row" v-for="p in henanSyncData.period_details || []" :key="p.period">
+                  <span class="list-name">{{ p.period }}</span>
+                  <span>
+                    <span v-if="p.status === 'completed'" class="badge badge-green">✓</span>
+                    <span v-else-if="p.status === 'running'" class="badge badge-blue">●</span>
+                    <span v-else class="badge badge-gray">—</span>
+                  </span>
+                  <span class="list-num">{{ (p.docs_written || 0).toLocaleString() }}</span>
+                  <span class="list-date">{{ p.publish_date || '—' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 菏泽（按期期刊同步） -->
+      <div class="sync-card" :class="{ 'sync-card-running': hezeSyncData.status === 'running' }">
+        <div class="sync-card-bar sync-bar-hz"></div>
+        <div class="sync-card-content">
+          <div class="sync-card-header">
+            <div class="sync-card-title-row">
+              <span class="sync-province-tag tag-hz">菏泽</span>
+              <span class="sync-card-title">工程造价材料信息</span>
+            </div>
+            <div class="sync-badges">
+              <span v-if="hezeSyncData.has_incremental === true" class="badge badge-green">有新数据</span>
+              <span v-else-if="hezeSyncData.es_latest_period" class="badge badge-blue">{{ hezeSyncData.es_latest_period }}</span>
+            </div>
+          </div>
+          <div class="sync-card-meta">{{ formatDur(hezeSyncData.duration_sec) }} · {{ hezeSyncData.last_updated || '—' }}</div>
+
+          <div class="sync-card-body">
+            <div class="sync-info-col">
+              <svg class="ring" viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="40" />
+                <circle class="ring-fill ring-hz" cx="50" cy="50" r="40"
+                  :stroke-dasharray="251.327"
+                  :stroke-dashoffset="251.327 * (1 - hezeRing.pct / 100)" />
+                <text class="ring-pct" x="50" y="46" text-anchor="middle" font-size="18" font-weight="700">{{ hezeRing.done }}/{{ hezeRing.total }}</text>
+                <text class="ring-sub" x="50" y="64" text-anchor="middle" font-size="10">期数</text>
+              </svg>
+              <div class="sync-status-row">
+                <span v-if="hezeSyncData.status === 'running'" class="badge badge-blue">● 同步中</span>
+                <span v-else-if="hezeSyncData.status === 'error'" class="badge badge-red">✗ 出错</span>
+                <span v-else class="badge badge-green">✓ 全部完成</span>
+              </div>
+              <div class="sync-doc-count">{{ (hezeSyncData.total_docs || 0).toLocaleString() }} 条文档</div>
+            </div>
+
+            <div class="sync-list-col">
+              <div class="list-header"><span>期数</span><span>状态</span><span>文档数</span><span>发布日期</span></div>
+              <div class="list-scroll">
+                <div class="list-row" v-for="p in hezeSyncData.period_details || []" :key="p.period">
+                  <span class="list-name">{{ p.period }}</span>
+                  <span>
+                    <span v-if="p.status === 'completed'" class="badge badge-green">✓</span>
+                    <span v-else-if="p.status === 'running'" class="badge badge-blue">●</span>
+                    <span v-else class="badge badge-gray">—</span>
+                  </span>
+                  <span class="list-num">{{ (p.docs_written || 0).toLocaleString() }}</span>
+                  <span class="list-date">{{ p.publish_date || '—' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div v-if="loading" class="health-loading">
@@ -469,7 +575,6 @@ const showCardDetail = ref(false)  // 6 城大卡详情默认收起，仅显示�
 const currentTime = ref('')
 const data = ref({
   total_docs: 0, province_count: 0, stale_provinces: 0,
-  recent_7d_vs_prev_7d_pct: 0, recent_7d_count: 0, prev_7d_count: 0,
   daily: [], provinces: []
 })
 const syncData = ref({})
@@ -477,11 +582,15 @@ const sichuanSyncData = ref({})
 const rizhaoSyncData = ref({})
 const jinanSyncData = ref({})
 const chongqingSyncData = ref({})
+const henanSyncData = ref({})
+const hezeSyncData = ref({})
 const xaPollTimer = ref(null)
 const scPollTimer = ref(null)
 const rzPollTimer = ref(null)
 const jinanPollTimer = ref(null)
 const chongqingPollTimer = ref(null)
+const henanPollTimer = ref(null)
+const hezePollTimer = ref(null)
 const jinanPage = ref(1)
 const countyPage = ref(1)
 const sichuanPage = ref(1)
@@ -527,6 +636,20 @@ const chongqingRing = computed(() => {
     return { done, total, pct: total > 0 ? Math.round(done / total * 100) : 0 }
   }
   return { done, total, pct: total > 0 ? Math.round(done / total * 100) : 0 }
+})
+
+// 河南/菏泽是按期期刊同步，用 period_details 计算环状圈
+const henanRing = computed(() => {
+  const total = henanSyncData.value.total_periods || 0
+  const done = henanSyncData.value.completed_periods || 0
+  const pct = total > 0 ? Math.round(done / total * 100) : 0
+  return { done, total, pct }
+})
+const hezeRing = computed(() => {
+  const total = hezeSyncData.value.total_periods || 0
+  const done = hezeSyncData.value.completed_periods || 0
+  const pct = total > 0 ? Math.round(done / total * 100) : 0
+  return { done, total, pct }
 })
 
 function getCountyPercent() {
@@ -705,6 +828,26 @@ async function pollJinanSync() {
   }
 }
 
+async function pollHenanSync() {
+  try {
+    const res = await axios.get(`${API}/stats/henan-sync-progress`)
+    if (res.data) henanSyncData.value = res.data
+  } catch (e) { /* silent */ }
+  if (henanSyncData.value.status === 'ok' && henanPollTimer.value) {
+    clearInterval(henanPollTimer.value); henanPollTimer.value = null
+  }
+}
+
+async function pollHezeSync() {
+  try {
+    const res = await axios.get(`${API}/stats/heze-sync-progress`)
+    if (res.data) hezeSyncData.value = res.data
+  } catch (e) { /* silent */ }
+  if (hezeSyncData.value.status === 'ok' && hezePollTimer.value) {
+    clearInterval(hezePollTimer.value); hezePollTimer.value = null
+  }
+}
+
 async function loadData() {
   loading.value = true
   error.value = ''
@@ -744,6 +887,18 @@ async function loadData() {
     if (cqRes.data) chongqingSyncData.value = cqRes.data
   } catch (e) {
     console.warn('chongqing-sync-progress 加载失败:', e.message)
+  }
+  try {
+    const hnRes = await axios.get(`${API}/stats/henan-sync-progress`)
+    if (hnRes.data) henanSyncData.value = hnRes.data
+  } catch (e) {
+    console.warn('henan-sync-progress 加载失败:', e.message)
+  }
+  try {
+    const hzRes = await axios.get(`${API}/stats/heze-sync-progress`)
+    if (hzRes.data) hezeSyncData.value = hzRes.data
+  } catch (e) {
+    console.warn('heze-sync-progress 加载失败:', e.message)
   }
   error.value = ''
   loading.value = false
@@ -819,6 +974,8 @@ onMounted(async () => {
   rzPollTimer.value = setInterval(pollRizhaoSync, 9000)
   jinanPollTimer.value = setInterval(pollJinanSync, 11000)
   chongqingPollTimer.value = setInterval(pollChongqingSync, 6000)
+  henanPollTimer.value = setInterval(pollHenanSync, 13000)
+  hezePollTimer.value = setInterval(pollHezeSync, 13000)
 })
 onUnmounted(() => {
   if (xaPollTimer.value) clearInterval(xaPollTimer.value)
@@ -826,6 +983,8 @@ onUnmounted(() => {
   if (rzPollTimer.value) clearInterval(rzPollTimer.value)
   if (jinanPollTimer.value) clearInterval(jinanPollTimer.value)
   if (chongqingPollTimer.value) clearInterval(chongqingPollTimer.value)
+  if (henanPollTimer.value) clearInterval(henanPollTimer.value)
+  if (hezePollTimer.value) clearInterval(hezePollTimer.value)
   if (dailyResizeHandler) window.removeEventListener('resize', dailyResizeHandler)
   if (timeTimer) clearInterval(timeTimer)
 })
@@ -1145,6 +1304,8 @@ onUnmounted(() => {
 .sync-bar-rz { background: linear-gradient(180deg, #10b981, #059669); }
 .sync-bar-jn { background: linear-gradient(180deg, #8b5cf6, #7c3aed); }
 .sync-bar-cq { background: linear-gradient(180deg, var(--status-warn), #d97706); }
+.sync-bar-hn { background: linear-gradient(180deg, #ec4899, #be185d); }   /* 河南：玫红 */
+.sync-bar-hz { background: linear-gradient(180deg, #f59e0b, #d97706); }   /* 菏泽：琥珀 */
 
 .sync-card-content {
   flex: 1;
@@ -1181,6 +1342,8 @@ onUnmounted(() => {
 .tag-rz { background: linear-gradient(135deg, #10b981, #059669); }
 .tag-jn { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 .tag-cq { background: linear-gradient(135deg, var(--status-warn), #d97706); }
+.tag-hn { background: linear-gradient(135deg, #ec4899, #be185d); }
+.tag-hz { background: linear-gradient(135deg, #f59e0b, #d97706); }
 
 .sync-card-title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
 .sync-badges { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -1221,6 +1384,8 @@ onUnmounted(() => {
 .ring-rz { stroke: #10b981; }
 .ring-jn { stroke: #8b5cf6; }
 .ring-cq { stroke: var(--status-warn); }
+.ring-hn { stroke: #ec4899; }
+.ring-hz { stroke: #f59e0b; }
 .ring-pct { font-size: 18px; font-weight: 700; fill: #f1f5f9; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .ring-sub { font-size: 10px; fill: var(--text-3); }
 .sync-status-row { display: flex; justify-content: center; }
