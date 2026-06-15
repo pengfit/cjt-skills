@@ -5,38 +5,6 @@
     <div class="prov-header">
     </div>
 
-    <!-- Summary Cards -->
-    <div class="prov-stats">
-      <div class="stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-body">
-          <div class="stat-value primary">{{ data.total?.toLocaleString() }}</div>
-          <div class="stat-unit">条价格数据</div>
-        </div>
-      </div>
-      <div class="stat-card" :class="{ alert: data.stale_provinces > 0 }">
-        <div class="stat-icon">⏰</div>
-        <div class="stat-body">
-          <div class="stat-value" :class="data.stale_provinces > 0 ? 'danger' : 'success'">{{ data.stale_provinces }}</div>
-          <div class="stat-unit">数据滞后省份</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🆕</div>
-        <div class="stat-body">
-          <div class="stat-value primary">{{ data.recent_7d?.toLocaleString() }}</div>
-          <div class="stat-unit">近7天入库</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🌍</div>
-        <div class="stat-body">
-          <div class="stat-value primary">{{ data.fresh_provinces }}/{{ data.provinces?.length || 0 }}</div>
-          <div class="stat-unit">覆盖省份</div>
-        </div>
-      </div>
-    </div>
-
 
 
     <!-- All Cities Pipeline (ODS→DWD→DWS, 抓取模块已拆分到独立 "抓取" 标签页) -->
@@ -693,37 +661,6 @@ onUnmounted(() => {
   text-shadow: 0 2px 12px rgba(56,189,248,0.2);
 }
 
-
-/* Summary Cards */
-.prov-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.stat-card {
-  background: rgba(15,23,42,0.85);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  backdrop-filter: blur(12px);
-}
-.stat-card.alert { border-color: rgba(248,113,113,0.3); }
-.stat-icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
-.stat-body { display: flex; flex-direction: column; gap: 3px; }
-.stat-value {
-  font-size: 20px;
-  font-weight: 800;
-  font-family: 'DIN Alternate', Arial, sans-serif;
-  line-height: 1.1;
-}
-.stat-value.primary { color: #38bdf8; }
-.stat-value.success { color: #34d399; }
-.stat-value.danger { color: #f87171; }
-.stat-unit { font-size: 11px; color: #64748b; }
 
 /* Main layout */
 .prov-main {

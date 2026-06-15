@@ -1865,6 +1865,116 @@ def stats_heze_sync_progress():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/stats/henan-sync-progress")
+def stats_henan_sync_progress():
+    """河南工程造价信息同步进度（按月跟踪，每期 PDF 一条记录）
+
+    河南为省级期刊（18 个地市横向列），按月发布 PDF；进度索引里每期一条 status=ok 的记录。
+    字段语义与 heze 端点对齐，供 /api/skill-updates 统一消费。
+    """
+    try:
+        PROGRESS_INDEX = "ods_material_henan_price_sync_progress"
+        DATA_INDEX = "ods_material_henan_price"
+
+        all_hits = es.search(index=PROGRESS_INDEX, body={
+            "size": 50,
+            "sort": [{"created_at": "desc"}],
+            "query": {"match_all": {}}
+        }, ignore_unavailable=True)
+        records = all_hits.get("hits", {}).get("hits", [])
+
+        period_details = []
+        total_docs = 0
+        completed = 0
+        running = 0
+        errored = 0
+        latest_period = ""
+        latest_created_at = ""
+        latest_doc = None
+
+        for h in records:
+            src = h["_source"]
+            raw_status = src.get("status", "ok")
+            if raw_status == "ok":
+                status_norm = "completed"
+                completed += 1
+            elif raw_status in ("running", "in_progress"):
+                status_norm = "running"
+                running += 1
+            else:
+                status_norm = raw_status or "completed"
+                completed += 1
+            docs_written = src.get("docs_written", 0) or 0
+            total_docs += docs_written
+            period_details.append({
+                "period": src.get("period", ""),
+                "publish_date": src.get("publish_date", ""),
+                "status": status_norm,
+                "percent": 100.0 if status_norm == "completed" else 0,
+                "docs_written": docs_written,
+                "duration_sec": src.get("duration_sec", 0),
+                "created_at": src.get("created_at", ""),
+                "pdf_url": src.get("pdf_url", ""),
+                "minio_key": src.get("minio_key", ""),
+            })
+            ca = src.get("created_at", "")
+            if ca and ca > latest_created_at:
+                latest_created_at = ca
+                latest_period = src.get("period", "")
+                latest_doc = src
+
+        overall_status = "ok" if running == 0 and errored == 0 else ("running" if running else "error")
+        last_updated = latest_created_at[:19] if latest_created_at else ""
+
+        es_latest_period = latest_period
+        last_sync_period = ""
+        has_incremental = False
+        try:
+            cfg_path = "/Users/pengfit/.openclaw/workspace/skills/henan-price/config.yml"
+            if os.path.exists(cfg_path):
+                with open(cfg_path) as f:
+                    cfg = yaml.safe_load(f)
+                last_sync_period = (cfg.get("sync", {}) or {}).get("last_period", "") or ""
+            if last_sync_period and es_latest_period:
+                has_incremental = es_latest_period > last_sync_period
+            elif es_latest_period and not last_sync_period:
+                has_incremental = True
+        except Exception:
+            pass
+
+        try:
+            cnt = es.search(index=DATA_INDEX, body={
+                "size": 0,
+                "aggs": {"by_period": {"terms": {"field": "period", "size": 20}}}
+            })
+            period_doc_count = {b["key"]: b["doc_count"] for b in cnt.get("aggregations", {}).get("by_period", {}).get("buckets", [])}
+        except Exception:
+            period_doc_count = {}
+
+        return {
+            "run_id": latest_period,
+            "status": overall_status,
+            "period": latest_period,
+            "duration_sec": (latest_doc or {}).get("duration_sec", 0),
+            "last_updated": last_updated,
+            "error": (latest_doc or {}).get("error", ""),
+            "total_docs": total_docs,
+            "total_written": total_docs,
+            "current_page": 0,
+            "total_pages": 0,
+            "current_period": latest_period,
+            "completed_periods": completed,
+            "total_periods": len(period_details),
+            "period_details": period_details,
+            "has_incremental": has_incremental,
+            "last_sync_period": last_sync_period,
+            "es_latest_period": es_latest_period,
+            "period_doc_count": period_doc_count,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── 常量（各 skill 区县列表，供 Dashboard API 使用）───────────
 
 ALL_COUNTIES_CHONGQING = [
@@ -1967,16 +2077,36 @@ def skill_updates():
                 else:
                     status = "very_stale"
 
+        # latest_period 容错：
+        # - 按期城市（sichuan/rizhao/jinan/heze）有 period 字段
+        # - 按区县城市（xian/chongqing）有 update_date 字段但无 period
+        # - henan 没 sync-progress 端点 → 留空
+        latest_period = (
+            data.get("es_latest_period")
+            or data.get("period")
+            or data.get("update_date")
+            or ""
+        )
+        # 进度数：优先 period 期数（heze 等），fallback 到 区县数（xian/chongqing）
+        completed_periods = data.get("completed_periods")
+        if completed_periods is None:
+            completed_periods = data.get("completed_counties") or 0
+        total_periods = data.get("total_periods")
+        if total_periods is None:
+            total_periods = data.get("total_counties") or 0
+        has_incremental = bool(data.get("has_incremental", False))
+
+        # 重复添加，删掉
         updates.append({
             "city": city_key,
             "city_label": city_label,
             "last_updated": last_updated,
             "hours_since": round(hours_since, 1) if hours_since is not None else None,
             "status": status,
-            "latest_period": data.get("es_latest_period") or data.get("period", ""),
-            "completed_periods": data.get("completed_periods", 0),
-            "total_periods": data.get("total_periods", 0),
-            "has_incremental": data.get("has_incremental", False),
+            "latest_period": latest_period,
+            "completed_periods": completed_periods,
+            "total_periods": total_periods,
+            "has_incremental": has_incremental,
         })
 
     # 按 last_updated 倒序（最近更新的在前）

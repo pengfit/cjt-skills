@@ -1,38 +1,6 @@
 <template>
   <div class="scrape-page">
 
-    <!-- Summary Cards -->
-    <div class="scrape-stats">
-      <div class="stat-card">
-        <div class="stat-icon">🌍</div>
-        <div class="stat-body">
-          <div class="stat-value primary">{{ cityCount }}</div>
-          <div class="stat-unit">个城市</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">📦</div>
-        <div class="stat-body">
-          <div class="stat-value primary">{{ totalCounties }}</div>
-          <div class="stat-unit">总任务数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">✓</div>
-        <div class="stat-body">
-          <div class="stat-value success">{{ totalCompleted }}</div>
-          <div class="stat-unit">已完成</div>
-        </div>
-      </div>
-      <div class="stat-card" :class="{ alert: staleCount > 0 }">
-        <div class="stat-icon">⏰</div>
-        <div class="stat-body">
-          <div class="stat-value" :class="staleCount > 0 ? 'danger' : 'success'">{{ staleCount }}</div>
-          <div class="stat-unit">超过7天未更新</div>
-        </div>
-      </div>
-    </div>
-
     <!-- All Cities Scrape Cards -->
     <div class="panel-header" style="margin-bottom:12px">
       <span class="panel-dot panel-dot-purple"></span>
@@ -137,30 +105,6 @@ let pollTimer = null
 const pollingActive = ref(false)
 const POLL_INTERVAL_MS = 15000
 
-const cityCount = computed(() => Object.keys(data.value.all_cities || {}).length)
-
-const totalCounties = computed(() => {
-  return Object.values(data.value.all_cities || {}).reduce((s, p) => {
-    return s + (p.scrape?.total_counties || 0)
-  }, 0)
-})
-
-const totalCompleted = computed(() => {
-  return Object.values(data.value.all_cities || {}).reduce((s, p) => {
-    return s + (p.scrape?.completed || 0)
-  }, 0)
-})
-
-const staleCount = computed(() => {
-  const now = Date.now()
-  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
-  return Object.values(data.value.all_cities || {}).filter(p => {
-    if (!p.scrape?.last_updated) return true
-    const t = new Date(p.scrape.last_updated).getTime()
-    return isNaN(t) || (now - t) > sevenDaysMs
-  }).length
-})
-
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0'
   return ((scrape.completed / scrape.total_counties) * 100).toFixed(0)
@@ -235,33 +179,6 @@ onUnmounted(() => {
   min-height: 100vh;
   color: #e2e8f0;
 }
-
-/* === Summary cards === */
-.scrape-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(15,23,42,0.6);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 10px;
-  padding: 14px 16px;
-  transition: border-color 0.2s;
-}
-.stat-card:hover { border-color: rgba(56,189,248,0.25); }
-.stat-card.alert { border-color: rgba(245,158,11,0.3); }
-.stat-icon { font-size: 24px; line-height: 1; }
-.stat-body { display: flex; flex-direction: column; gap: 2px; }
-.stat-value { font-size: 22px; font-weight: 800; font-family: 'DIN Alternate', Arial, sans-serif; line-height: 1; }
-.stat-value.primary { color: #38bdf8; }
-.stat-value.success { color: #34d399; }
-.stat-value.danger { color: #fbbf24; }
-.stat-unit { font-size: 11px; color: #64748b; }
 
 /* === Panel header === */
 .panel-header {

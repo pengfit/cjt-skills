@@ -220,10 +220,6 @@
                 <span class="update-label">LATEST PERIOD</span>
                 <span class="update-value mono">{{ u.latest_period || '—' }}</span>
               </div>
-              <div class="update-row">
-                <span class="update-label">PROGRESS</span>
-                <span class="update-value mono">{{ u.completed_periods }}/{{ u.total_periods }} 期</span>
-              </div>
               <div v-if="u.has_incremental" class="update-badge">
                 <span class="badge-incremental">+ INCREMENTAL</span>
               </div>
