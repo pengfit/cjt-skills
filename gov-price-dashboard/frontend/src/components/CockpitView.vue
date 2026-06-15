@@ -199,6 +199,55 @@
         </div>
       </div>
 
+      <!-- SKILL UPDATES 检块：各城市 skill 是否有更新记录 -->
+      <div class="skill-updates-section">
+        <div class="section-title">
+          <span class="section-dot"></span>
+          SKILL UPDATES · 7 CITIES · 各 skill 最近检查/更新记录
+          <span class="section-sub mono">SCAN AT: {{ updatesNow || '—' }}</span>
+        </div>
+        <div class="skill-updates-grid">
+          <div v-for="u in skillUpdates" :key="u.city" class="skill-update-card"
+            :class="['status-' + u.status]">
+            <div class="update-card-corner tl"></div>
+            <div class="update-card-corner tr"></div>
+            <div class="update-card-corner bl"></div>
+            <div class="update-card-corner br"></div>
+
+            <div class="update-header">
+              <span class="update-city">{{ u.city_label }}</span>
+              <span class="update-status" :class="u.status">
+                <span v-if="u.status === 'fresh'">● FRESH</span>
+                <span v-else-if="u.status === 'stale'">● STALE</span>
+                <span v-else-if="u.status === 'very_stale'">● VERY STALE</span>
+                <span v-else>● NO DATA</span>
+              </span>
+            </div>
+            <div class="update-body">
+              <div class="update-row">
+                <span class="update-label">LAST UPDATED</span>
+                <span class="update-value mono">{{ formatUpdateTime(u.last_updated) }}</span>
+              </div>
+              <div class="update-row">
+                <span class="update-label">SINCE</span>
+                <span class="update-value mono">{{ u.hours_since != null ? hoursAgo(u.hours_since) : '—' }}</span>
+              </div>
+              <div class="update-row">
+                <span class="update-label">LATEST PERIOD</span>
+                <span class="update-value mono">{{ u.latest_period || '—' }}</span>
+              </div>
+              <div class="update-row">
+                <span class="update-label">PROGRESS</span>
+                <span class="update-value mono">{{ u.completed_periods }}/{{ u.total_periods }} 期</span>
+              </div>
+              <div v-if="u.has_incremental" class="update-badge">
+                <span class="badge-incremental">+ INCREMENTAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 底部状态条 -->
       <div class="hud-footer">
         <div class="footer-cell">
@@ -244,6 +293,8 @@ const error = ref('')
 const data = reactive({})
 const pollingActive = ref(true)
 const clock = ref('')
+const skillUpdates = ref([])   // /api/skill-updates 返回
+const updatesNow = ref('')     // skill-updates 扫描时间
 let pollTimer = null
 let clockTimer = null
 
@@ -335,11 +386,33 @@ async function loadData() {
         }
       }
     }
+    // 并行拉 skill-updates（不阻塞主流程）
+    axios.get(`${API}/skill-updates`).then(su => {
+      skillUpdates.value = su.data?.updates || []
+      updatesNow.value = (su.data?.now || '').replace('T', ' ').slice(0, 19)
+    }).catch(() => {
+      // 静默失败
+    })
   } catch (e) {
     error.value = '加载失败：' + (e.message || '网络错误')
   } finally {
     loading.value = false
   }
+}
+
+function hoursAgo(h) {
+  if (h == null) return '—'
+  if (h < 1) return `${Math.round(h * 60)}m ago`
+  if (h < 24) return `${h.toFixed(1)}h ago`
+  const d = h / 24
+  if (d < 30) return `${d.toFixed(1)}d ago`
+  return `${Math.round(d)}d ago`
+}
+
+function formatUpdateTime(t) {
+  if (!t) return '—'
+  // 处理 'YYYY-MM-DD HH:MM:SS' 和 'YYYY-MM-DDTHH:MM:SS' 两种
+  return t.replace('T', ' ').slice(0, 19)
 }
 
 function updateClock() {
@@ -859,5 +932,106 @@ onUnmounted(() => {
 @media (max-width: 1200px) {
   .gauge-row { grid-template-columns: repeat(2, 1fr); }
   .pipeline-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+/* ── SKILL UPDATES 模块 ─────────────────────────── */
+.skill-updates-section {
+  background: linear-gradient(180deg, rgba(10,25,40,0.5) 0%, rgba(5,10,20,0.3) 100%);
+  border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.skill-updates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.skill-update-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(0,30,50,0.6) 0%, rgba(0,15,25,0.4) 100%);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 4px;
+  padding: 12px 14px;
+  transition: all 0.2s;
+}
+.skill-update-card:hover {
+  border-color: rgba(0,255,136,0.5);
+  box-shadow: 0 0 12px rgba(0,255,136,0.2);
+}
+.skill-update-card.status-fresh { border-left: 3px solid #00ff88; }
+.skill-update-card.status-stale { border-left: 3px solid #ff9500; }
+.skill-update-card.status-very_stale {
+  border-left: 3px solid #ff3838;
+  animation: alertPulse 2s ease-in-out infinite;
+}
+.skill-update-card.status-no_data { border-left: 3px solid #6a7a8a; opacity: 0.7; }
+.update-card-corner {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #00d4ff;
+  opacity: 0.4;
+}
+.update-card-corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.update-card-corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.update-card-corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.update-card-corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.update-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.update-city {
+  color: #00d4ff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 0 4px rgba(0,212,255,0.5);
+}
+.update-status {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-family: monospace;
+  font-weight: 700;
+}
+.update-status.fresh { color: #00ff88; text-shadow: 0 0 4px #00ff88; }
+.update-status.stale { color: #ff9500; text-shadow: 0 0 4px #ff9500; }
+.update-status.very_stale { color: #ff3838; text-shadow: 0 0 4px #ff3838; }
+.update-status.no_data { color: #6a7a8a; }
+.update-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.update-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-family: monospace;
+}
+.update-label {
+  color: #6a7a8a;
+  letter-spacing: 1px;
+}
+.update-value {
+  color: #e0e8f0;
+  font-weight: 600;
+}
+.update-badge {
+  margin-top: 6px;
+}
+.badge-incremental {
+  background: rgba(0,255,136,0.15);
+  color: #00ff88;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  border: 1px solid rgba(0,255,136,0.4);
 }
 </style>

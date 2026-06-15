@@ -1878,6 +1878,116 @@ ALL_COUNTIES_CHONGQING = [
 
 
 
+@app.get("/api/skill-updates")
+def skill_updates():
+    """各城市 skill 同步检查：调用 7 城 *_sync-progress 端点，返回 last_updated + 距今时长。
+
+    返回：
+      {
+        "now": "2026-06-15T10:55:00",
+        "updates": [
+          {
+            "city": "xian",
+            "city_label": "西安",
+            "last_updated": "2026-06-15T06:00:00",
+            "hours_since": 4.5,
+            "status": "fresh"  // fresh(<24h) / stale(1-7d) / very_stale(>7d) / no_data
+            "latest_period": "2026.3月",
+            "completed_periods": 1,
+            "total_periods": 1,
+            "has_incremental": false,
+          },
+          ...
+        ]
+      }
+    """
+    from datetime import datetime
+    import concurrent.futures
+    import requests  # 内调 sync-progress 端点需要
+
+    cities = [
+        ("xian",       "西安",   "xian"),
+        ("sichuan",    "四川",   "sichuan"),
+        ("chongqing",  "重庆",   "chongqing"),
+        ("jinan",      "济南",   "jinan"),
+        ("rizhao",     "日照",   "rizhao"),
+        ("heze",       "菏泽",   "heze"),
+        ("henan",      "河南",   "henan"),
+    ]
+
+    def fetch_one(city_key, path):
+        try:
+            r = requests.get(f"http://localhost:5200/api/stats/{path}-sync-progress", timeout=10)
+            if r.status_code == 200:
+                return city_key, r.json()
+        except Exception:
+            pass
+        return city_key, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
+        futures = {pool.submit(fetch_one, ck, p): ck for ck, _, p in cities}
+        results = {}
+        for f in concurrent.futures.as_completed(futures):
+            city_key, payload = f.result()
+            results[city_key] = payload
+
+    now = datetime.now()
+    updates = []
+    for city_key, city_label, _ in cities:
+        data = results.get(city_key) or {}
+        last_updated = data.get("last_updated", "")
+        hours_since = None
+        status = "no_data"
+        if last_updated:
+            dt = None
+            # 尝试 ISO 8601（含 T）
+            try:
+                lu = last_updated.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(lu)
+            except Exception:
+                pass
+            # 尝试 YYYY-MM-DD HH:MM:SS 空格分隔
+            if dt is None:
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d", "%Y/%m/%d"):
+                    try:
+                        dt = datetime.strptime(last_updated, fmt)
+                        break
+                    except Exception:
+                        continue
+            if dt is not None:
+                if dt.tzinfo:
+                    dt = dt.astimezone().replace(tzinfo=None)
+                hours_since = (now - dt).total_seconds() / 3600
+                if hours_since < 0:
+                    hours_since = 0
+                if hours_since < 24:
+                    status = "fresh"
+                elif hours_since < 24 * 7:
+                    status = "stale"
+                else:
+                    status = "very_stale"
+
+        updates.append({
+            "city": city_key,
+            "city_label": city_label,
+            "last_updated": last_updated,
+            "hours_since": round(hours_since, 1) if hours_since is not None else None,
+            "status": status,
+            "latest_period": data.get("es_latest_period") or data.get("period", ""),
+            "completed_periods": data.get("completed_periods", 0),
+            "total_periods": data.get("total_periods", 0),
+            "has_incremental": data.get("has_incremental", False),
+        })
+
+    # 按 last_updated 倒序（最近更新的在前）
+    updates.sort(key=lambda x: x.get("last_updated") or "", reverse=True)
+
+    return {
+        "now": now.isoformat(timespec="seconds"),
+        "updates": updates,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5200)
