@@ -224,6 +224,307 @@ def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
     return local_map
 
 
+# ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
+V2_AI_BATCH_SIZE = 10  # v2 prompt 更大，每批 10 条（v1 是 20）
+V2_AI_BATCH_SLEEP_S = 0.5
+
+
+_V2_NAMES_CACHE: dict = {}  # {(l1, l2, l3): (name_l1, name_l2, name_l3)}
+
+
+_V2_L3_CACHE: set = set()
+
+
+def _validate_l3(l3: str) -> bool:
+    """严格校验 L3 是否在 v2 字典里（防 AI 编造）。"""
+    if not l3 or l3 == "UNCLASSIFIED":
+        return True  # 空 / UNCLASSIFIED 视为合法
+    if l3 in _V2_L3_CACHE:
+        return True
+    try:
+        from gov_price_etl.paths import PROJECT_ROOT
+        import sqlite3
+        v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+        conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
+        row = conn.execute(
+            "SELECT 1 FROM category_v2 WHERE l3 = ? LIMIT 1", (l3,),
+        ).fetchone()
+        conn.close()
+        if row:
+            _V2_L3_CACHE.add(l3)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _auto_extend_dict(l1: str, l2: str, l3: str, name_l3: str,
+                      gb_50500: str = "", ifc_class: str = "") -> bool:
+    """动态扩展 v2 字典：AI 输出字典外 L3 时（结构合法）自动加入字典。
+
+    触发条件：
+      - L1/L2/L3 形如 "XX.XX.XX"（2-2-2 形式）
+      - L1 和 L2 已在字典里
+      - L3 不在字典里（要新加）
+      - name_l3 非空
+
+    返回 True 成功加入字典，False 结构不合法。
+
+    同时写回 JSON 文件 (data/category_v2.json) 和 SQLite (data/category_v2_rules.db)。
+    """
+    import re
+    from gov_price_etl.paths import PROJECT_ROOT
+    import sqlite3, json
+
+    # 结构校验：XX.XX.XX
+    if not re.match(r"^\d{2}\.\d{2}\.\d{2}$", l3) or not l1 or not l2 or not name_l3:
+        return False
+    if l1 != l3[:2] or l2 != l3[:5]:
+        return False  # L1/L2/L3 必须一致
+
+    v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+    json_path = PROJECT_ROOT / "data" / "category_v2.json"
+
+    # 1. 写 SQLite
+    try:
+        conn = sqlite3.connect(str(v2_db_path))
+        # 查 L1/L2 中文名
+        l1_name = l2_name = ""
+        row = conn.execute(
+            "SELECT name_l1, name_l2 FROM category_v2 WHERE l1 = ? AND l2 = ? LIMIT 1",
+            (l1, l2),
+        ).fetchone()
+        if row:
+            l1_name, l2_name = row[0] or "", row[1] or ""
+        conn.execute(
+            """INSERT OR IGNORE INTO category_v2
+               (l1, l2, l3, l4, gb_50500, ifc_class, eng_part, main_or_aux,
+                unit, billing_unit, cost_method, name_l1, name_l2, name_l3, name_l4)
+               VALUES (?, ?, ?, 'UNCLASSIFIED', ?, ?, '主体', '主材',
+                       '', '', '清单+定额', ?, ?, ?, '')""",
+            (l1, l2, l3, gb_50500 or "", ifc_class or "IfcBuildingElementProxy",
+             l1_name, l2_name, name_l3),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        return False
+
+    # 2. 写 JSON（同步）
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        # 找 L1 节点
+        l1_node = next((n for n in data["tree"]["l1"] if n["code"] == l1), None)
+        if l1_node:
+            l2_node = next((n for n in l1_node["l2"] if n["code"] == l2), None)
+            if l2_node and not any(n["code"] == l3 for n in l2_node["l3"]):
+                l2_node["l3"].append({"code": l3, "name": name_l3})
+        # 更新 l3_index
+        if l3 not in data["l3_index"]:
+            data["l3_index"][l3] = {"l1": l1, "l2": l2, "name": name_l3}
+        json_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass  # SQLite 已写成功，JSON 写失败不影响主流程
+
+    # 3. 更新缓存
+    _V2_L3_CACHE.add(l3)
+    _stats["classify_v2_auto_extend"] = _stats.get("classify_v2_auto_extend", 0) + 1
+    return True
+
+
+def _lookup_names(l1: str, l2: str, l3: str) -> tuple:
+    """从 v2 字典查询 L1/L2/L3 的中文名（带进程级缓存）。"""
+    key = (l1, l2, l3)
+    if key in _V2_NAMES_CACHE:
+        return _V2_NAMES_CACHE[key]
+    if not l1 and not l2 and not l3:
+        return ("", "", "")
+    try:
+        from gov_price_etl.paths import PROJECT_ROOT
+        import sqlite3
+        v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+        conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
+        row = conn.execute(
+            "SELECT name_l1, name_l2, name_l3 FROM category_v2 WHERE l3 = ? LIMIT 1",
+            (l3,),
+        ).fetchone()
+        conn.close()
+        if row:
+            result = (row[0] or "", row[1] or "", row[2] or "")
+            _V2_NAMES_CACHE[key] = result
+            return result
+    except Exception:
+        pass
+    return ("", "", "")
+
+
+def classify_v2_batch(
+    items: List[dict],
+    city: str = "",
+    write_rules: bool = True,
+) -> Dict[str, dict]:
+    """
+    批量 v2 4 层分类，返回 {breed_clean: v2_dict}。
+
+    输入:
+      items: [{"breed": ..., "spec": ..., "unit": ..., "breed_clean": ...}, ...]
+      city:  城市 key（仅用于日志/AI 上下文）
+      write_rules: 是否持久化到 breed_l3_map。默认 True。
+
+    v2_dict 字段（14 个）：
+      l1 / l2 / l3 / l4 + name_l1/l2/l3（7 个 code + name）
+      + eng_part / eng_stage / main_or_aux（3 工程属性）
+      + gb_50500 / quota_ref / ifc_class / uniclass_ss（4 标准码）
+      + material_code（1 物料码）
+
+    流程：
+      1. 对每个 item 查 v2 breed_l3_map（精确 → 模糊 / Jaccard）
+      2. 命中 → 直接返回（无 AI 调用）
+      3. 未命中 → 攒批送 AI
+      4. AI 失败 → 标记 no_match_v2
+      5. AI 成功 → 写回 breed_l3_map
+    """
+    if not items:
+        return {}
+
+    cfg = get_prompt("classify_v2_batch")
+    system_msg = cfg.get("system", "")
+
+    # 1. 查 v2 breed_l3_map（阶段 1+2 复用现有本地匹配）
+    from gov_price_etl.classify.category_v2 import classify_v2, close_singleton
+    close_singleton()  # 重置单例（处理可能的 stale 状态）
+
+    local_map: Dict[str, dict] = {}
+    uncached_idx: List[int] = []
+    uncached_items: List[dict] = []
+
+    for i, item in enumerate(items):
+        breed_clean = item.get("breed_clean", "")
+        if not breed_clean:
+            continue
+        # 复用 classify_v2（v0.5 段式: db_exact + db_fuzzy + pattern + ai + fallback）
+        v2 = classify_v2(
+            breed=item.get("breed", ""),
+            spec=item.get("spec", ""),
+            unit=item.get("unit", ""),
+            breed_clean=breed_clean,
+        )
+        if v2.get("category_v2_source") in ("db_exact_v2", "db_fuzzy_v2"):
+            local_map[breed_clean] = v2
+            _stats["classify_local_hit"] = _stats.get("classify_local_hit", 0) + 1
+        else:
+            # 阶段 3/5 也未命中 → 留给 AI
+            uncached_idx.append(i)
+            uncached_items.append(item)
+
+    # 2. 送 AI（仅未命中的）
+    ai_results: Dict[str, dict] = {}
+    if uncached_items:
+        _stats["classify_v2_calls"] = _stats.get("classify_v2_calls", 0) + 1
+        # 攒批：每批 V2_AI_BATCH_SIZE 条
+        for batch_start in range(0, len(uncached_items), V2_AI_BATCH_SIZE):
+            batch = uncached_items[batch_start:batch_start + V2_AI_BATCH_SIZE]
+            # 序列化为 prompt items
+            items_str = "\n".join(
+                f"  {i+1}. breed={it.get('breed','')} | spec={it.get('spec','')} | unit={it.get('unit','')}"
+                for i, it in enumerate(batch)
+            )
+            try:
+                user_prompt = format_prompt(cfg["template"], items=items_str)
+            except (KeyError, ValueError):
+                user_prompt = f"待分类：\n{items_str}"
+            ok, content = _call_gateway(
+                user_prompt, system_msg, "etl-classify-v2-agent", timeout=180,
+            )
+            if not ok:
+                _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
+                for it in batch:
+                    ai_results[it.get("breed_clean", "")] = None
+                time.sleep(V2_AI_BATCH_SLEEP_S)
+                continue
+            try:
+                parsed = json.loads(content)
+                results_dict = parsed.get("results", {}) if isinstance(parsed, dict) else {}
+            except Exception:
+                _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
+                for it in batch:
+                    ai_results[it.get("breed_clean", "")] = None
+                time.sleep(V2_AI_BATCH_SLEEP_S)
+                continue
+
+            for it in batch:
+                breed_clean = it.get("breed_clean", "")
+                r = results_dict.get(breed_clean) or {}
+                conf = float(r.get("confidence", 0.7) or 0.7)
+                if conf < 0.70:
+                    _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
+                    ai_results[breed_clean] = None
+                    continue
+                l1, l2, l3, l4 = (
+                    r.get("l1", ""), r.get("l2", ""), r.get("l3", ""),
+                    r.get("l4", "UNCLASSIFIED"),
+                )
+                # 严格校验：L3 必须在 v2 字典里（否则 AI 可能在编造）
+                if not _validate_l3(l3):
+                    # 字典外 L3：尝试动态扩展字典
+                    name_l3_ai = r.get("name_l3", "") or r.get("l4", "") or breed_clean
+                    if _auto_extend_dict(l1, l2, l3, name_l3_ai,
+                                         gb_50500=r.get("gb_50500", ""),
+                                         ifc_class=r.get("ifc_class", "")):
+                        # 动态扩展成功，合法化
+                        pass
+                    else:
+                        _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
+                        _stats["classify_v2_invalid_l3"] = _stats.get("classify_v2_invalid_l3", 0) + 1
+                        ai_results[breed_clean] = None
+                        continue
+                # 强制 l4 = "UNCLASSIFIED"（除非是字典中真实存在的 L4）
+                l4 = "UNCLASSIFIED" if l4 in ("", breed_clean) else l4
+                # 从 v2 字典反查中文名（以字典为准，不信 AI 输出）
+                name_l1, name_l2, name_l3 = _lookup_names(l1, l2, l3)
+                v2_dict = {
+                    "l1": l1, "l2": l2, "l3": l3, "l4": l4,
+                    "name_l1": name_l1, "name_l2": name_l2, "name_l3": name_l3,
+                    "eng_part": r.get("eng_part", ""), "eng_stage": r.get("eng_stage", ""),
+                    "main_or_aux": r.get("main_or_aux", ""),
+                    "gb_50500": r.get("gb_50500", ""), "quota_ref": r.get("quota_ref", ""),
+                    "ifc_class": r.get("ifc_class", ""), "uniclass_ss": r.get("uniclass_ss", ""),
+                    "material_code": r.get("material_code", ""),
+                    "category_v2_source": "ai_v2",
+                    "category_v2_confidence": conf,
+                }
+                ai_results[breed_clean] = v2_dict
+
+            time.sleep(V2_AI_BATCH_SLEEP_S)
+
+        # 3. AI 响应入 v2 breed_l3_map
+        if write_rules and ai_results:
+            try:
+                import sqlite3
+                from gov_price_etl.paths import PROJECT_ROOT
+                v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+                conn = sqlite3.connect(str(v2_db_path))
+                conn.executemany(
+                    """INSERT OR REPLACE INTO breed_l3_map
+                       (breed_clean, l3, source, confidence)
+                       VALUES (?, ?, ?, ?)""",
+                    [
+                        (bc, v["l3"], "ai_v2", v["category_v2_confidence"])
+                        for bc, v in ai_results.items()
+                        if v and v.get("l3")
+                    ],
+                )
+                conn.commit()
+                conn.close()
+                _stats["classify_v2_rules_written"] = _stats.get("classify_v2_rules_written", 0) + len([
+                    1 for v in ai_results.values() if v and v.get("l3")
+                ])
+            except Exception:
+                _stats["classify_v2_rules_failed"] = _stats.get("classify_v2_rules_failed", 0) + 1
+
+    return {**local_map, **ai_results}
+
+
 def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]:
     """
     批量规格解析，返回 [{spec, ok, suggestions, failed_reason}]。

@@ -7,7 +7,8 @@
     ├── config.yml
     ├── data/
     │   ├── breed_spec_rules.db           # 规格解析规则
-    │   └── breed_category_rules.db       # 品种分类规则
+    │   ├── breed_category_rules.db       # 品种分类规则（v1）
+    │   └── category_v2_rules.db          # 分类体系 v2（4 级 L1-L4 + breed→L3 映射）
     └── src/gov_price_etl/                # PACKAGE_ROOT
         ├── paths.py                      # ← 本文件
         ├── ...
@@ -23,6 +24,7 @@ CONFIG_PATH = PROJECT_ROOT / "config.yml"
 # 数据文件
 SPEC_RULES_DB = DATA_DIR / "breed_spec_rules.db"
 CATEGORY_RULES_DB = DATA_DIR / "breed_category_rules.db"
+CATEGORY_V2_RULES_DB = DATA_DIR / "category_v2_rules.db"
 
 # AI Prompt 模板（可手动编辑 + 热重载）
 PROMPTS_YML = PROJECT_ROOT / "prompts.yml"

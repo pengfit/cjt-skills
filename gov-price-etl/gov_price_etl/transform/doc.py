@@ -77,9 +77,6 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "category_l2":     v2.get("l2", ""),
         "category_l3":     v2.get("l3", ""),
         "category_l4":     v2.get("l4", "UNCLASSIFIED"),
-        "name_l1":         v2.get("name_l1", ""),           # 兼容字段（同 category_name_l1）
-        "name_l2":         v2.get("name_l2", ""),           # 兼容字段（同 category_name_l2）
-        "name_l3":         v2.get("name_l3", ""),           # 兼容字段（同 category_name_l3）
         "category_name_l1": v2.get("name_l1", ""),          # L1 中文名（如"建筑工程"）—— 前缀统一 category_
         "category_name_l2": v2.get("name_l2", ""),          # L2 中文名
         "category_name_l3": v2.get("name_l3", ""),          # L3 中文名

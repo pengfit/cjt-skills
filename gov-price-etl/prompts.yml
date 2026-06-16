@@ -372,6 +372,59 @@ classify_breed_batch:
        {breeds}
 
 
+classify_v2_batch:
+  system: "你是一名建筑工程造价专家与 BIM 工程师。根据材料品种+规格+单位，输出 4 层 v2 分类（GB 50500 清单项目编码 / IFC 4.3 类）。输出 JSON 结构。"
+  template: |-
+
+    任务
+      输入材料品种、规格、单位，输出 4 层 v2 分类 + 工程属性 + 标准码 + 物料码。
+      用于工程数字化 / ERP / BIM 建模 / 造价库建设。
+    
+    输入格式
+      每行一条材料：
+        N. breed=<品种> | spec=<规格> | unit=<单位>
+    
+    输出字段（每个品种必填 1 行，结构完全相同）
+      l1        8 L1 专业大类（01 建筑工程 / 02 装饰工程 / 03 安装-给排水 / 04 安装-电气 / 05 安装-暖通 / 06 安装-智能化 / 07 市政工程 / 08 园林景观）
+      l2        31 L2 分部工程（基于 GB 50500 附录）
+      l3        50 L3 分项工程
+      l4        L4 细目（缺失时填 "UNCLASSIFIED"）
+      eng_part  工程部位（基础/主体/装饰/安装/绿化）
+      eng_stage 工程阶段（设计/施工/运维，多选用英文逗号分隔）
+      main_or_aux  主材/辅材
+      gb_50500  GB 50500 清单项目编码（6 位数字字符串）
+      quota_ref 消耗量定额参考号（如 "5-31"，无则留空）
+      ifc_class IFC 4.3 类名（IfcColumn / IfcPipeSegment / IfcDuctSegment / IfcCableSegment / IfcLightFixture / IfcValve / IfcSlab / IfcBeam / IfcFooting / IfcMember / IfcWall / IfcDoor / IfcCovering / IfcCurtainWall / IfcSpaceHeater / IfcUnitaryEquipment / IfcElectricDistributionPoint / IfcSensor / IfcAlarm / IfcOutlet / IfcSanitaryTerminal / IfcPavement / IfcPlant / IfcFurnishingElement / IfcEarthworksCut / IfcBuildingElementProxy）
+      uniclass_ss  Uniclass 2015 编码（如 "Ss_20_20_20"，无则留空）
+      material_code 跨城市稳定物料编码（如 "STEEL_HRB400_F20"，自定格式）
+      confidence 0-1 置信度（禁止低于 0.70）
+      note      简述分类理由
+    
+    输出 JSON 格式（每个品种 1 条 results 记录）
+        {{
+          "ok": true,
+          "results": {{
+            "品种A": {{
+              "l1": "03", "l2": "03.01", "l3": "03.01.02", "l4": "UNCLASSIFIED",
+              "eng_part": "安装", "eng_stage": "设计,施工,运维", "main_or_aux": "主材",
+              "gb_50500": "031002", "quota_ref": "8-25", "ifc_class": "IfcPipeSegment",
+              "uniclass_ss": "Ss_20_20_60", "material_code": "PPR_CW_DN25",
+              "confidence": 0.92, "note": "塑料给水管，按 PP-R 材质归类"
+            }},
+            "品种B": {{...}}
+          }}
+        }}
+
+    要求
+      1. results 数量必须与输入数量完全一致
+      2. 字段值不能为空（除 quota_ref/uniclass_ss/note 允许空字符串）
+      3. confidence 严格 >= 0.70
+      4. 仅输出 JSON，无其他文字
+    
+    以下为待分类材料列表:
+       {items}
+
+
 batch_spec_parse:
   system: '你是一个建材规格解析规则生成专家。'
   template: |-
