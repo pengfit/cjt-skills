@@ -166,11 +166,25 @@ const isCompleted = computed(() => {
 const isRunning = computed(() => props.data.status === 'running')
 
 const ringDone = computed(() => {
-  return props.data.completed_counties || props.data.completed_periods || 0
+  // 优先使用后端 summary 字段，否则从 details 数组中实时统计 completed
+  if (props.data.completed_counties) return props.data.completed_counties
+  if (props.data.completed_periods) return props.data.completed_periods
+  const details = props.data.county_details
+    || props.data.area_details
+    || props.data.tab_details
+    || props.data.catalogue_details
+    || []
+  return details.filter(d => d.status === 'completed').length
 })
 
 const ringTotal = computed(() => {
-  return props.data.total_counties || props.data.total_periods || 0
+  if (props.data.total_counties) return props.data.total_counties
+  if (props.data.total_periods) return props.data.total_periods
+  return (props.data.county_details
+    || props.data.area_details
+    || props.data.tab_details
+    || props.data.catalogue_details
+    || []).length
 })
 
 const ringPct = computed(() => {
@@ -379,9 +393,14 @@ function formatDur(sec) {
 .ring-rz { stroke: #0d9488; }
 .ring-hz { stroke: #a855f7; }
 .ring-hn { stroke: #dc2626; }
-.ring-pct, .ring-sub { transform: rotate(90deg); transform-origin: center; }
-.ring-pct { fill: var(--surface); }
-.ring-sub { fill: var(--text-2); }
+.ring-pct, .ring-sub { transform: rotate(90deg); transform-origin: 50px 50px; }
+.ring-pct {
+  fill: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono-num);
+}
+.ring-sub { fill: var(--text-3); font-size: 9px; letter-spacing: 0.5px; }
 .sync-status-row { display: flex; gap: 4px; }
 .sync-doc-count {
   font-size: 12px;
