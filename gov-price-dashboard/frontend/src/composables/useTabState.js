@@ -10,7 +10,6 @@ const TAB_LIST = [
   { key: 'dist',      label: '价格分布', group: '业务查价' },
   { key: 'sync',      label: '数据同步', group: '系统监控' },
   { key: 'health',    label: '数据健康', group: '系统监控' },
-  { key: 'breedcat',  label: '品种分类', group: '规则管理' },
   { key: 'rules',     label: '规格解析', group: '规则管理' },
 ]
 

@@ -42,12 +42,11 @@ const TAB_GROUPS = [
     { key: 'health',   label: '数据健康', icon: '💚' },
   ]},
   { label: '规则管理', items: [
-    { key: 'breedcat', label: '品种分类', icon: '🧬' },
     { key: 'rules',    label: '规格解析', icon: '🧩' },
   ]},
 ]
 
-const TAB_KEY_ORDER = ['cockpit', 'list', 'category', 'dist', 'sync', 'health', 'breedcat', 'rules']
+const TAB_KEY_ORDER = ['cockpit', 'list', 'category', 'dist', 'sync', 'health', 'rules']
 
 const groupedTabs = computed(() => {
   let num = 0

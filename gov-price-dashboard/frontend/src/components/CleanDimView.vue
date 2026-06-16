@@ -170,7 +170,7 @@ onMounted(() => {
   color: #1e293b;
 }
 
-/* === Page header (与 breedcat 风格统一) === */
+/* === Page header === */
 .cleandim-header {
   padding: 22px 0 16px;
   border-bottom: 1px solid #e2e8f0;

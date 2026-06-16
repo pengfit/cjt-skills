@@ -2,10 +2,15 @@
 
 职责：
   - transform_doc()  把一条 ODS 原始文档清洗为 DWD 格式
+
+v1 清理（2026-06-16）：
+  - 不再调 v1 AI（classify_breed_batch 已删除）
+  - DWD.category 字段值 = v2 L1 中文名（如"建筑工程"）
+    —— 用于 spec 规则库过滤（v1 大类已迁移到 v2 L1 名）
+  - DWD 14 个 v2 字段保留完整（l1/l2/l3/l4 + name + 7 属性 + 4 标准码）
 """
 from datetime import datetime
 
-from gov_price_etl.classify import classify_breed
 from gov_price_etl.classify.category_v2 import classify_v2
 from gov_price_etl.parse_spec import get_parser
 from gov_price_etl.transform.clean import clean_breed, clean_unit, clean_price
@@ -16,7 +21,7 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
 
     字段：
       - breed / breed_clean / spec / unit / price / tax_price
-      - category（v1 一级分类，保留兼容）
+      - category = v2 L1 中文名（如"建筑工程"），用于 spec 规则库过滤
       - 4 层 v2 分类：category_l1 / l2 / l3 / l4
       - 工程属性：eng_part / eng_stage / main_or_aux
       - 标准码：gb_50500 / quota_ref / ifc_class / uniclass_ss
@@ -34,19 +39,18 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     breed_clean = clean_breed(breed_raw)
     spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
-    # v1 category：仅查 breed_category_rules.db，不再调 AI（v1 AI 入口 2026-06-16 删除）
-    # 命中返回 v1 大类名（用于 spec 规则库过滤），未命中返回 '其他'
-    category = classify_breed(breed_clean, spec_clean)
 
-    # ── v2 4 层分类（2026-06-16 阶段 3 接入）──
+    # ── v2 4 层分类（唯一分类源）──
     # 走模块级单例 SQLite 连接，性能 ~0.05ms/次。
-    # fail-safe：库文件不存在/异常时返回空 v2 字段，不影响 v1 流程。
+    # fail-safe：库文件不存在/异常时返回空 v2 字段。
     v2 = classify_v2(
         breed=breed_raw,
         spec=spec_clean,
         unit=unit_clean,
         breed_clean=breed_clean,
     )
+    # DWD.category = v2 L1 中文名（spec 规则库按此过滤，11,061 条规则已迁到 v2 L1 名）
+    category = v2.get("name_l1") or ""
 
     price = clean_price(raw.get("price")) or 0.0
     tax_price = clean_price(raw.get("tax_price")) or 0.0

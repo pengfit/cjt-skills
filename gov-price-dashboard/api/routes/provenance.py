@@ -18,16 +18,14 @@ sys.path.insert(0, os.path.join(ETL_PROJECT_ROOT, "gov_price_etl", "parse_spec",
 # DB 路径全部从 etl 的 paths.py 读（单一来源）
 try:
     from gov_price_etl.paths import (
-        CATEGORY_RULES_DB as _RULES_DB_CAT,
         SPEC_RULES_DB as _RULES_DB_SPEC,
         CATEGORY_V2_RULES_DB as _RULES_DB_CAT_V2,
         PROJECT_ROOT as _ETL_PROJECT_ROOT,
     )
-    # 旧 _RULES_DB 指向 rules_vec.db，refactor 后已并入 SPEC_RULES_DB
-    _RULES_DB = _RULES_DB_SPEC
+    # 旧 _RULES_DB_CAT 指向 breed_category_rules.db，v1 已废（2026-06-16）
 except Exception as _e:
     print(f"⚠️ etl paths 加载失败: {_e}")
-    _RULES_DB_CAT = _RULES_DB_SPEC = _RULES_DB = _RULES_DB_CAT_V2 = None
+    _RULES_DB_SPEC = _RULES_DB_CAT_V2 = None
     _ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
 
 try:
@@ -41,7 +39,6 @@ router = APIRouter()
 ES_HOST = "http://localhost:59200"
 
 # ── ETL classify/jaccard 批量写入接口 ──────────────
-from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
 
 # 城市配置：city key → (dws_idx, ods_idx, dwd_idx, 标签)
 CITY_INDEXES = {
@@ -87,65 +84,9 @@ PROGRESS_INDEXES = {
 es = Elasticsearch([ES_HOST])
 
 
-from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
 
 # _RULES_DB / _RULES_DB_CAT / _RULES_DB_SPEC 已在文件头部从 gov_price_etl.paths 导入
 # （避免与旧路径硬编码冲突）
-
-def _ensure_rules_table():
-    """"确保 breed_category_rules 表存在且结构最新（幂等）"""
-    if not os.path.exists(_RULES_DB_CAT):
-        return
-    conn = sqlite3.connect(_RULES_DB_CAT)
-    c = conn.cursor()
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS breed_category_rules ("
-        "  id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "  breed TEXT UNIQUE NOT NULL, "
-        "  category TEXT NOT NULL, "
-        "  source TEXT DEFAULT 'ai', "
-        "  confidence REAL DEFAULT 1.0, "
-        "  note TEXT DEFAULT '', "
-        "  created_at TEXT DEFAULT (date('now'))"
-        ")"
-    )
-    conn.commit()
-    conn.close()
-
-
-# 写入规则前的 breed→category 反查缓存（避免反复查 DB）
-_BREED_CAT_CACHE = {}
-
-def _resolve_category_for_breed(breed: str) -> str:
-    """根据 breed 反查 category，写入规则前补全。
-
-    优先级：
-      1. breed_category_rules.db（权威映射）
-      2. 缓存（同一进程内复用）
-      3. 返回空字符串（让调用方决定是否再走其他渠道）
-
-    用途：防止 fix-case / batch-spec-parse 写入规则时 category 字段为空。
-    """
-    if not breed:
-        return ""
-    if breed in _BREED_CAT_CACHE:
-        return _BREED_CAT_CACHE[breed]
-    cat = ""
-    try:
-        if os.path.exists(_RULES_DB_CAT):
-            conn = sqlite3.connect(_RULES_DB_CAT)
-            row = conn.execute(
-                "SELECT category FROM breed_category_rules WHERE breed=?",
-                (breed,)
-            ).fetchone()
-            conn.close()
-            if row:
-                cat = row[0]
-    except Exception:
-        cat = ""
-    _BREED_CAT_CACHE[breed] = cat
-    return cat
-
 
 def _index_stats(index: str) -> dict:
     """获取单个索引的统计信息（支持逗号分隔的多索引 + ignore_unavailable）"""
@@ -2426,340 +2367,6 @@ def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str
         return {"ok": False, "message": f"AI 分析异常: {e}"}
 
 
-@router.post("/api/stats/spec-quality/classify-breed-batch")
-def classify_breed_batch_ai(req: ClassifyBreedBatchRequest = Body(...)):
-    """
-    批量品种分类接口：输入品种列表，AI 批量推断分类，批量写入 rules_vec.db。
-    返回 {ok, results: {breed: {category, confidence, note}}}
-    """
-    import re, sqlite3
-    breeds = [b.strip() for b in req.breeds if b.strip()]
-    if not breeds:
-        return {"ok": False, "message": "breeds 不能为空"}
-
-    _ensure_rules_table()
-    _rule_re = re.compile(r'^\s*"([^"]+)"\s*→\s*"([^"]+)"', re.MULTILINE)
-
-    # 1. 批量从 breed_category_rules.db 读取已有规则
-    db_results = {}
-    unmatched = []
-    if os.path.exists(_RULES_DB_CAT):
-        conn = sqlite3.connect(_RULES_DB_CAT)
-        c = conn.cursor()
-        placeholders = ",".join("?" for _ in breeds)
-        c.execute(f"SELECT breed, category, source, confidence FROM breed_category_rules WHERE breed IN ({placeholders})", breeds)
-        for row in c.fetchall():
-            db_results[row[0]] = {"category": row[1], "source": f"db({row[2]})", "confidence": row[3] if row[3] is not None else 1.0, "note": ""}
-        conn.close()
-
-    # 2. 未命中品种调 AI
-    unmatched = [b for b in breeds if b not in db_results]
-    ai_results = {}
-    if unmatched:
-        ai_results = _call_classify_batch_llm(unmatched)
-        if not ai_results.get("ok"):
-            return ai_results
-
-        # 3. 批量写入 breed_category_rules.db
-        results_map = ai_results.get("results", {})
-        to_insert = [(b, r["category"], "ai", r.get("confidence", 1.0), r.get("note", ""))
-                     for b, r in results_map.items() if r.get("category")]
-        if to_insert:
-            batch_insert_breed_rules(to_insert)
-
-    # 4. 合并结果
-    final_results = {}
-    for b in breeds:
-        if b in db_results:
-            final_results[b] = db_results[b]
-        elif b in ai_results.get("results", {}):
-            ai_r = ai_results["results"][b]
-            final_results[b] = {
-                "category": ai_r.get("category", "其他"),
-                "confidence": ai_r.get("confidence", 0),
-                "note": ai_r.get("note", ""),
-                "source": "ai",
-            }
-        else:
-            final_results[b] = {"category": "其他", "confidence": 0, "note": "", "source": "unknown"}
-
-    return {
-        "ok": True,
-        "total": len(breeds),
-        "matched": len(breeds) - len(unmatched),
-        "unmatched": len(unmatched),
-        "results": final_results,
-    }
-
-
-def _call_classify_batch_llm(breeds: list[str]) -> dict:
-    """调用 OpenClaw LLM 批量推断品种分类"""
-    import urllib.request, urllib.error, http.client
-    token = ""
-    try:
-        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-            d = json.load(f)
-            token = d.get("gateway", {}).get("auth", {}).get("token", "")
-    except Exception:
-        return {"ok": False, "message": "无法读取 OpenClaw token"}
-
-    prompt = classify_breed_batch_prompt_fn(breeds)
-    system_msg = PROMPTS.get("classify_breed_batch", {}).get("system", "")
-
-    body = json.dumps({
-        "model": "openclaw",
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": prompt},
-        ],
-        "user": "classify-agent"
-    }).encode("utf-8")
-
-    try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=120)
-        c.request("POST", "/v1/chat/completions", body=body, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Content-Length": str(len(body)),
-        })
-        resp = c.getresponse()
-        data = json.loads(resp.read())
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not content:
-            return {"ok": False, "message": "AI 返回空内容"}
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
-                content = content[4:]
-        result = json.loads(content)
-        return result
-    except urllib.error.URLError as e:
-        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
-    except json.JSONDecodeError as e:
-        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
-    except Exception as e:
-        return {"ok": False, "message": f"AI 分析异常: {e}"}
-
-
-@router.delete("/api/stats/breed-category-rules")
-def delete_breed_category_rules():
-    """清空 breed_category_rules 全部规则"""
-    import sqlite3
-    _ensure_rules_table()
-    if not os.path.exists(_RULES_DB_CAT):
-        return {"ok": True, "deleted": 0}
-    conn = sqlite3.connect(_RULES_DB_CAT)
-    c = conn.cursor()
-    c.execute("DELETE FROM breed_category_rules")
-    deleted = c.rowcount
-    conn.commit()
-    conn.close()
-    return {"ok": True, "deleted": deleted}
-
-@router.get("/api/stats/breed-category-rules")
-def list_breed_category_rules(
-    keyword: str = "",
-    source: str = "",
-    category_filter: str = "",
-    distinct_categories: int = 0,
-    page: int = 1,
-    page_size: int = 50,
-):
-    """分页查看 breed_category_rules
-    - distinct_categories=1: 返回所有分类列表（用于下拉）
-    """
-    import sqlite3
-    _ensure_rules_table()
-    if not os.path.exists(_RULES_DB_CAT):
-        return {"rules": [], "total": 0, "page": page, "page_size": page_size}
-
-    conn = sqlite3.connect(_RULES_DB_CAT)
-    c = conn.cursor()
-
-    where = []
-    params = []
-    if keyword:
-        where.append("breed LIKE ?")
-        params.append(f"%{keyword}%")
-    if source:
-        where.append("source = ?")
-        params.append(source)
-    if category_filter:
-        where.append("category = ?")
-        params.append(category_filter)
-
-    where_sql = " AND ".join(where) if where else "1=1"
-    if distinct_categories:
-        c.execute("SELECT DISTINCT category FROM breed_category_rules WHERE category != '' ORDER BY category")
-        rows = c.fetchall()
-        conn.close()
-        return {"categories": [r[0] for r in rows]}
-
-
-    c.execute(f"SELECT COUNT(*) FROM breed_category_rules WHERE {where_sql}", params)
-    total = c.fetchone()[0]
-
-    offset = (page - 1) * page_size
-    c.execute(
-        f"SELECT id, breed, category, source, confidence, note, created_at FROM breed_category_rules WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
-        params + [page_size, offset]
-    )
-    rows = c.fetchall()
-    conn.close()
-
-    rules = [
-        {
-            "id": r[0], "breed": r[1], "category": r[2], "source": r[3],
-            "confidence": r[4], "note": r[5] or "", "created_at": r[6],
-        }
-        for r in rows
-    ]
-    return {"rules": rules, "total": total, "page": page, "page_size": page_size}
-
-
-@router.post("/api/stats/breed-category-rules")
-def create_breed_category_rule(req: dict = Body(...)):
-    """手动添加 breed→category 规则"""
-    import sqlite3
-    breed = (req.get("breed") or "").strip()
-    category = (req.get("category") or "").strip()
-    note = (req.get("note") or "").strip()
-    source = req.get("source", "manual") or "manual"
-
-    if not breed or not category:
-        return {"ok": False, "message": "breed 和 category 不能为空"}
-
-    _ensure_rules_table()
-    try:
-        conn = sqlite3.connect(_RULES_DB_CAT)
-        c = conn.cursor()
-        c.execute(
-            "INSERT OR REPLACE INTO breed_category_rules (breed, category, source, note) VALUES (?, ?, ?, ?)",
-            (breed, category, source, note)
-        )
-        conn.commit()
-        rule_id = c.lastrowid
-        conn.close()
-        return {"ok": True, "id": rule_id, "message": "规则已保存"}
-    except Exception as e:
-        return {"ok": False, "message": str(e)}
-
-
-@router.delete("/api/stats/breed-category-rules/{rule_id}")
-def delete_breed_category_rule(rule_id: int):
-    """删除指定规则"""
-    import sqlite3
-    _ensure_rules_table()
-    try:
-        conn = sqlite3.connect(_RULES_DB_CAT)
-        c = conn.cursor()
-        c.execute("DELETE FROM breed_category_rules WHERE id=?", (rule_id,))
-        conn.commit()
-        affected = c.rowcount
-        conn.close()
-        return {"ok": affected > 0, "message": "已删除" if affected else "未找到"}
-    except Exception as e:
-        return {"ok": False, "message": str(e)}
-
-
-@router.post("/api/stats/breed-category-rules/test")
-def test_breed_category_rule(req: dict = Body(...)):
-    """测试品种名 Jaccard 召回"""
-    import sys, os as os_module
-    sys.path.insert(0, ETL_CMD_DIR)  # noqa
-    try:
-        from gov_price_etl.classify.rules.jaccard import jaccard_breed_classify
-        breed = (req.get("breed") or "").strip()
-        if not breed:
-            return {"hit": False, "score": 0, "category": ""}
-        cat, score = jaccard_breed_classify(breed)
-        return {"hit": bool(cat), "score": round(score, 3), "category": cat}
-    except Exception as e:
-        return {"hit": False, "score": 0, "category": "", "error": str(e)}
-
-class ClassifyBreedBatchRequest(BaseModel):
-    breeds: list[str]
-    city: str = "xian"
-
-
-class BatchSpecParseRequest(BaseModel):
-    items: list[dict]  # [{spec, breed, category}, ...]
-    city: str = "xian"
-    write_rules: bool = True  # 是否将成功的解析写回规则库
-
-
-def batch_spec_parse_prompt_fn(items: list[dict], batch_size: int = 30) -> str:
-    """生成批量规格解析的 user content（继承 fix_case 规则体系）"""
-    prompts_cfg = PROMPTS.get("batch_spec_parse", {})
-    tmpl = prompts_cfg.get("template", "")
-    ref_attr_names = _get_ref_attr_names()
-    lines = []
-    for i, item in enumerate(items[:batch_size], 1):
-        spec = item.get("spec", "")
-        breed = item.get("breed", "")
-        cat = item.get("category", "")
-        lines.append(f'[{i}] 规格: {spec} | 产品: {breed} | 分类: {cat}')
-    specs_str = "\n".join(lines)
-    try:
-        return tmpl.replace("{specs_str}", specs_str).replace("{batch_size}", str(batch_size)).replace("{ref_names}", ref_attr_names)
-    except (KeyError, ValueError):
-        specs_sample = "\n".join(lines)
-        return f"specs:\n{specs_sample}\n\nbatch_size: {batch_size}\n"
-
-def _call_batch_spec_parse_llm(items: list[dict], batch_size: int = 30) -> dict:
-    """调用 OpenClaw LLM 批量解析规格文本，返回 [{spec, ok, attr, failed_reason}, ...]"""
-    import urllib.request, urllib.error, http.client
-    token = ""
-    try:
-        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-            d = json.load(f)
-            token = d.get("gateway", {}).get("auth", {}).get("token", "")
-    except Exception:
-        return {"ok": False, "message": "无法读取 OpenClaw token"}
-
-    prompt = batch_spec_parse_prompt_fn(items, batch_size)
-    system_msg = PROMPTS.get("batch_spec_parse", {}).get("system", "你是一个建材规格解析专家。")
-
-    body = json.dumps({
-        "model": "openclaw",
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": prompt},
-        ],
-        "user": "batch-spec-parse-agent",
-    }).encode("utf-8")
-
-    try:
-        c = http.client.HTTPConnection("localhost", 18789, timeout=120)
-        c.request("POST", "/v1/chat/completions", body=body, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Content-Length": str(len(body)),
-        })
-        resp = c.getresponse()
-        data = json.loads(resp.read())
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not content:
-            return {"ok": False, "message": "AI 返回空内容"}
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
-                content = content[4:]
-        # 解析 JSON 数组
-        result = json.loads(content)
-        if isinstance(result, list):
-            return {"ok": True, "results": result}
-        return {"ok": False, "message": "AI 返回不是 JSON 数组"}
-    except urllib.error.URLError as e:
-        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
-    except json.JSONDecodeError as e:
-        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
-    except Exception as e:
-        return {"ok": False, "message": f"AI 分析异常: {e}"}
-
-
 @router.post("/api/stats/spec-quality/batch-spec-parse")
 def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
     """
@@ -2835,7 +2442,7 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
         if req.write_rules and ok and suggestions:
             if get_vec_store is not None:
                 vs = get_vec_store()
-                # 反查补全 category：请求为空时，从 breed_category_rules.db 反查
+                # 反查补全 category：请求为空时，从 category_v2_rules.db 反查（_resolve_category_for_breed 待实现）
                 _breed_for_item = item.get("breed", "")
                 _cat_for_item = item.get("category", "") or _resolve_category_for_breed(_breed_for_item)
                 for s in suggestions:
@@ -2939,7 +2546,7 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
     wrote_new = False
     for s in all_suggestions:
         code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
-        # 反查补全 category：请求为空时，从 breed_category_rules.db 反查
+        # 反查补全 category：请求为空时，从 category_v2_rules.db 反查（_resolve_category_for_breed 待实现）
         _s_breed = req.breed or s.get("breed", "")
         _s_category = req.category or s.get("category", "") or _resolve_category_for_breed(_s_breed)
         result = _apply_rule_to_base(
