@@ -154,37 +154,37 @@ function renderDailyChart() {
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'var(--text)', borderColor: 'var(--text-2)', borderWidth: 1,
-      textStyle: { color: 'var(--border-strong)', fontSize: 12 },
-      formatter: p => `<b style="color:var(--primary-soft)">${p[0].name}</b><br/>数量: <b style="color:var(--success-light)">${p[0].value.toLocaleString()}</b>`
+      backgroundColor: 'rgba(255,255,255,0.98)', borderColor: '#cbd5e1', borderWidth: 1,
+      textStyle: { color: '#0f172a', fontSize: 12 },
+      formatter: p => `<b style="color:#3b82f6">${p[0].name}</b><br/>数量: <b style="color:#10b981">${p[0].value.toLocaleString()}</b>`
     },
     grid: { left: '3%', right: '3%', bottom: '10%', top: '14%', containLabel: true },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { color: 'var(--text-2)', fontSize: 10, rotate: 45, interval: 0 },
-      axisLine: { lineStyle: { color: 'var(--text-2)' } },
+      axisLabel: { color: '#475569', fontSize: 10, rotate: 45, interval: 0 },
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
       axisTick: { show: false },
       splitLine: { show: false }
     },
     yAxis: {
-      name: '文档数', nameTextStyle: { color: 'var(--text-2)', fontSize: 10, padding: [0, 0, 0, 30] },
+      name: '文档数', nameTextStyle: { color: '#64748b', fontSize: 10, padding: [0, 0, 0, 30] },
       type: 'value',
-      axisLabel: { color: 'var(--text-2)', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'var(--border)', type: 'dashed' } }
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } }
     },
     series: [{
       type: 'bar', data: values,
       itemStyle: {
-        color: p => isZero(p.value) ? 'var(--text)' : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'var(--primary)' },
-          { offset: 1, color: 'var(--indigo)' }
+        color: p => isZero(p.value) ? '#e2e8f0' : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#2563eb' },
+          { offset: 1, color: '#6366f1' }
         ])
       },
       barMaxWidth: 20,
       emphasis: {
         itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'var(--primary)' },
-          { offset: 1, color: 'var(--primary-soft-light)' }
+          { offset: 0, color: '#2563eb' },
+          { offset: 1, color: '#818cf8' }
         ]) }
       }
     }],

@@ -4,7 +4,7 @@ province: 四川
 ods_index: ods_material_sichuan_price
 dws_index: dws_sichuan_price
 progress_index: material_sichuan_price_sync_progress
-progress_mode: period
+progress_mode: catalogue
 config_path: config.yml
 cities:
   - 成都市

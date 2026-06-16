@@ -432,7 +432,7 @@ function formatDur(sec) {
 .list-num { text-align: right; color: var(--text-2); white-space: nowrap; }
 .list-date { color: var(--text-2); font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; white-space: nowrap; }
 .list-scroll {
-  max-height: 180px;
+  max-height: 320px;
   overflow-y: auto;
 }
 .list-pagination {
