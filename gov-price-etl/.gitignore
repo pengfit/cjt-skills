@@ -1,0 +1,13 @@
+# v1 大类 DB（已废，etl 启动会创建 0 字节空文件）
+data/breed_category_rules.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
