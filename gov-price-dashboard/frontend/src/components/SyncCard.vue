@@ -416,22 +416,20 @@ function formatDur(sec) {
 }
 .list-header, .list-row {
   display: grid;
-  gap: 4px;
-  padding: 6px 6px;
+  gap: 6px;
+  padding: 6px 4px;
   font-size: 10.5px;
   align-items: center;
 }
 .list-header.mode-subitem,
 .list-row.mode-subitem {
-  /* 区县/地区/分类/类别：名称 1fr，状态 30，文档数 52，更新时间 70
-     总宽 = 60+30+52+70+12gap = 224，留 buffer */
-  grid-template-columns: minmax(60px, 1fr) 30px 52px 70px;
+  /* 区县/地区/分类/类别：名称占 4/7（~57%），状态紧凑 1/7，文档数 1/7，时间 1/7 */
+  grid-template-columns: minmax(70px, 4fr) 1fr 1fr 1fr;
 }
 .list-header.mode-period,
 .list-row.mode-period {
-  /* 周期期刊：周期 1fr，发布日期 70，状态 60，文档数 50
-     总宽 = 50+70+60+50+12gap = 242 */
-  grid-template-columns: minmax(50px, 1fr) 70px 60px 50px;
+  /* 周期期刊：周期名称 2fr，发布日期 1.5fr，状态 1fr，文档数 1fr */
+  grid-template-columns: minmax(50px, 2fr) 1.5fr 1fr 1fr;
 }
 .list-header {
   color: var(--text-2);
