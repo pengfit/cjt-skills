@@ -38,28 +38,29 @@
           <div class="sync-doc-count">{{ (data.total_docs || 0).toLocaleString() }} 条文档</div>
         </div>
 
-        <!-- 右侧：详情列表 -->
-        <div class="sync-list-col">
-          <!-- 子项目视图（county / catalogue / tab） -->
+        <!-- 右侧：详情列表（收起时不渲染） -->
+        <div class="sync-list-col" v-show="showDetail">
+          <!-- 子项目视图（county / catalogue / tab） — 参考河南样式布局，列顺序：项目 - 日期 - 状态 - 文档数 -->
           <template v-if="viewMode === 'subitem'">
-            <div class="list-header mode-subitem">
-              <span>{{ subitemHeader }}</span>
-              <span>状态</span>
-              <span>文档数</span>
-              <span>更新时间</span>
-            </div>
             <div class="list-scroll">
+            <div class="list-row list-header mode-subitem">
+              <span class="list-name">{{ subitemHeader }}</span>
+              <span class="list-date">更新时间</span>
+              <span class="list-status">状态</span>
+              <span class="list-num">文档数</span>
+            </div>
               <div class="list-row mode-subitem" v-for="(item, idx) in pagedDetails" :key="idx"
                 :class="{ 'row-active': data.current_county === item.county || data.current_area === item.area || data.current_tab === item.tab_name || data.current_catalogue_name === item.catalogue_name }">
                 <span class="list-name">{{ subitemName(item) }}</span>
-                <span>
-                  <span v-if="item.status === 'running'" class="badge badge-blue">●</span>
-                  <span v-else-if="item.status === 'completed'" class="badge badge-green">✓</span>
-                  <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠</span>
-                  <span v-else class="badge badge-gray">—</span>
+                <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
+                <span class="list-status">
+                  <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
+                  <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                  <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
+                  <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
+                  <span v-else class="list-status-dash">—</span>
                 </span>
                 <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
-                <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
               </div>
             </div>
             <div class="list-pagination" v-if="totalDetailPages > 1">
@@ -80,22 +81,22 @@
             </div>
           </template>
 
-          <!-- 期期刊视图（heze / henan） -->
+          <!-- 期期刊视图（heze / henan） — 完整参考样式：周期 - 发布日期 - 状态 - 文档数 -->
           <template v-else-if="viewMode === 'period_log'">
-            <div class="list-header mode-period">
-              <span>周期</span>
-              <span>发布日期</span>
-              <span>状态</span>
-              <span>文档数</span>
-            </div>
             <div class="list-scroll">
+            <div class="list-row list-header mode-period">
+              <span class="list-name">周期</span>
+              <span class="list-date">发布日期</span>
+              <span class="list-status">状态</span>
+              <span class="list-num">文档数</span>
+            </div>
               <div class="list-row mode-period" v-for="(p, idx) in (data.period_details || []).slice(0, 20)" :key="idx">
                 <span class="list-name">{{ p.period || '—' }}</span>
                 <span class="list-date">{{ p.publish_date || '—' }}</span>
-                <span>
+                <span class="list-status">
                   <span v-if="p.status === 'running'" class="badge badge-blue">● 同步中</span>
                   <span v-else-if="p.status === 'completed'" class="badge badge-green">✓ 已完成</span>
-                  <span v-else class="badge badge-gray">—</span>
+                  <span v-else class="list-status-dash">—</span>
                 </span>
                 <span class="list-num">{{ (p.docs_written || 0).toLocaleString() }}</span>
               </div>
@@ -119,6 +120,7 @@ import { ref, computed } from 'vue'
 const props = defineProps({
   skill: { type: Object, required: true },   // 来自 /api/skill-registry 的 skill 配置
   data: { type: Object, default: () => ({}) }, // 来自 /api/stats/{key}-sync-progress
+  showDetail: { type: Boolean, default: true }, // 是否展开详情（环圈+列表）。默认 true 以保持原有渲染
 })
 
 const PAGE_SIZE = 10
@@ -414,29 +416,64 @@ function formatDur(sec) {
   gap: 6px;
   min-height: 0;
 }
+/* === 表格实现：Flex 布局替换原 CSS Table  ===
+   原实现 display: table/table-row/table-cell 踩了三大坑：
+   1. table-layout: fixed 必须设在 table 元素上，设错位置不生效
+   2. cell 默认 min-width: auto = min-content，长内容会撑破 fixed 约束
+   3. table-row 元素没 width/table-layout 概念，设了也白设
+   Flex 布局下：列宽用 width:%，long-content 用 overflow:hidden + ellipsis 控住，min-width:0 给 flex item 是必备 */
+
+.list-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  display: block;          /* 普通块容器；里面每个 row 是 flex 项 */
+  width: 100%;
+}
+
 .list-header, .list-row {
-  display: grid;
-  gap: 6px;
-  padding: 6px 4px;
-  font-size: 10.5px;
+  display: flex;
   align-items: center;
+  font-size: 10.5px;
+  min-width: 0;            /* flex item 必须：避免内容撑破 width% */
 }
-.list-header.mode-subitem,
-.list-row.mode-subitem {
-  /* 区县/地区/分类/类别：名称占 4/7（~57%），状态紧凑 1/7，文档数 1/7，时间 1/7 */
-  grid-template-columns: minmax(70px, 4fr) 1fr 1fr 1fr;
+
+.list-header > span, .list-row > span {
+  padding: 6px 4px;
+  min-width: 0;            /* 防止 long-content 撑大列 */
+  overflow: hidden;
 }
-.list-header.mode-period,
-.list-row.mode-period {
-  /* 周期期刊：周期名称 2fr，发布日期 1.5fr，状态 1fr，文档数 1fr */
-  grid-template-columns: minmax(50px, 2fr) 1.5fr 1fr 1fr;
-}
+
+/* ===== 河南样式参考：4 列接近等分（25%±6%），列顺序：项目 - 日期 - 状态 - 文档数 =====
+   list-col 实测 247px，cell padding 8px（水平 4×2）
+   内容实测：5字中文 60px / "05-11 13:22" 11字符 sans 60px / "✓ 已完成" 74px / "103,335" 7字符 sans 40px */
+
+/* --- subitem 模式（区县-更新时间-状态-文档数）--- */
+.list-header.mode-subitem .list-name,
+.list-row.mode-subitem .list-name { width: 26%; }   /* 区县：5字 60px + padding 8 = 68px */
+.list-header.mode-subitem .list-date,
+.list-row.mode-subitem .list-date { width: 26%; }   /* 更新时间：11字符 60px 富余 */
+.list-header.mode-subitem .list-status,
+.list-row.mode-subitem .list-status { width: 32%; } /* 状态：badge 74px 富余 */
+.list-header.mode-subitem .list-num,
+.list-row.mode-subitem .list-num { width: 16%; }    /* 文档数：7字符 40px 临界 */
+
+/* --- period_log 模式（周期-发布日期-状态-文档数）--- */
+.list-header.mode-period .list-name,
+.list-row.mode-period .list-name { width: 30%; }    /* 周期 */
+.list-header.mode-period .list-date,
+.list-row.mode-period .list-date { width: 30%; }    /* 发布日期 */
+.list-header.mode-period .list-status,
+.list-row.mode-period .list-status { width: 24%; }  /* 状态 */
+.list-header.mode-period .list-num,
+.list-row.mode-period .list-num { width: 16%; }     /* 文档数 */
+
 .list-header {
   color: var(--text-2);
   font-weight: 500;
   border-bottom: 1px solid var(--border-strong);
   font-size: 10px;
   letter-spacing: 0.2px;
+  flex-shrink: 0;
 }
 .list-row {
   color: var(--text);
@@ -445,13 +482,12 @@ function formatDur(sec) {
 }
 .list-row:hover { background: var(--bg); }
 .row-active { background: var(--primary-light); }
-.list-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.list-num { text-align: right; color: var(--text-2); white-space: nowrap; }
-.list-date { color: var(--text-2); font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; white-space: nowrap; }
-.list-scroll {
-  max-height: 320px;
-  overflow-y: auto;
-}
+
+.list-name { text-overflow: ellipsis; white-space: nowrap; }
+.list-num { text-align: right; color: var(--text-2); white-space: nowrap; padding-right: 8px; }  /* 河南是右对齐，参考改回 */
+.list-date { color: var(--text-2); font-family: inherit; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.list-status { white-space: nowrap; }
+.list-status-dash { color: var(--text-3); font-size: 11px; }  /* period 模式下"—"无记录样式：跟河南一样简洁不显 */
 .list-pagination {
   display: flex;
   justify-content: center;
