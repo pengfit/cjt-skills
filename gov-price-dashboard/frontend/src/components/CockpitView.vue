@@ -42,7 +42,7 @@
             <text x="100" y="135" class="gauge-unit">条</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-green">7 城市</span>
+            <span class="gauge-tag tag-green">{{ cityCount }} 城市</span>
             <span class="gauge-trend">+7日新增 {{ kpi.odsDelta }}</span>
           </div>
         </div>
@@ -106,7 +106,7 @@
       <div class="pipeline-section">
         <div class="section-title">
           <span class="section-dot"></span>
-          数据处理管道 · ODS → DWD → DWS · 7 城市
+          数据处理管道 · ODS → DWD → DWS · {{ cityCount }} 城市
           <span class="section-sub mono">最后更新 {{ kpi.lastUpdate || '—' }}</span>
         </div>
         <div class="pipeline-grid">
@@ -189,7 +189,7 @@
       <div class="skill-updates-section">
         <div class="section-title">
           <span class="section-dot"></span>
-          Skill 更新记录 · 7 城市 · 各 skill 最近检查/更新
+          Skill 更新记录 · {{ cityCount }} 城市 · 各 skill 最近检查/更新
           <span class="section-sub mono">扫描于 {{ updatesNow || '—' }}</span>
         </div>
         <div class="skill-updates-grid">
@@ -297,6 +297,8 @@ const kpi = computed(() => {
 })
 
 const odsPct = computed(() => Math.min(100, kpi.value.ods / 1000))
+
+const cityCount = computed(() => Object.keys(data.all_cities || {}).length)
 
 const syncOkCount = computed(() => {
   // 与城市卡片 alert 判断口径一致：attr 覆盖率 ≥ 80% 视为健康

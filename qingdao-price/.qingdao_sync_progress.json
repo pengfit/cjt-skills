@@ -1,0 +1,59 @@
+{
+  "done": {
+    "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202606/t20260609_10630457.html": {
+      "period": "2026.5月",
+      "publish_date": "2026-06-09",
+      "detail_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202606/t20260609_10630457.html",
+      "pdf_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202606/P020260609584513112485.pdf",
+      "minio_key": "qingdao-price/2026.5月/2026年5月青岛市建设工程材料价格.pdf",
+      "docs_written": 236,
+      "status": "ok",
+      "duration_sec": 2.4,
+      "created_at": "2026-06-16T11:48:01"
+    },
+    "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202605/t20260509_10588919.html": {
+      "period": "2026.4月",
+      "publish_date": "2026-05-09",
+      "detail_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202605/t20260509_10588919.html",
+      "pdf_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202605/P020260509575731647000.pdf",
+      "minio_key": "qingdao-price/2026.4月/2026年4月青岛市建设工程材料价格.pdf",
+      "docs_written": 236,
+      "status": "ok",
+      "duration_sec": 2.0,
+      "created_at": "2026-06-16T11:48:03"
+    },
+    "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202604/t20260413_10560459.html": {
+      "period": "2026.3月",
+      "publish_date": "2026-04-10",
+      "detail_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202604/t20260413_10560459.html",
+      "pdf_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202604/P020260410427802849804.pdf",
+      "minio_key": "qingdao-price/2026.3月/2026年3月青岛市建设工程材料价格.pdf",
+      "docs_written": 236,
+      "status": "ok",
+      "duration_sec": 2.0,
+      "created_at": "2026-06-16T11:48:05"
+    },
+    "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202603/t20260309_10530489.html": {
+      "period": "2026.2月",
+      "publish_date": "2026-03-09",
+      "detail_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202603/t20260309_10530489.html",
+      "pdf_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202603/P020260309622718671268.pdf",
+      "minio_key": "qingdao-price/2026.2月/2026年2月青岛市建设工程材料价格.pdf",
+      "docs_written": 221,
+      "status": "ok",
+      "duration_sec": 7.7,
+      "created_at": "2026-06-16T11:48:12"
+    },
+    "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202602/t20260205_10504286.html": {
+      "period": "2026.1月",
+      "publish_date": "2026-02-05",
+      "detail_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202602/t20260205_10504286.html",
+      "pdf_url": "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202602/P020260205629440106382.pdf",
+      "minio_key": "qingdao-price/2026.1月/2026年1月青岛市建设工程材料价格.pdf",
+      "docs_written": 238,
+      "status": "ok",
+      "duration_sec": 2.3,
+      "created_at": "2026-06-16T11:48:15"
+    }
+  }
+}

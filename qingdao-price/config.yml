@@ -1,0 +1,35 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_qingdao_price
+  progress_index: ods_material_qingdao_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: qingdao-price
+  secure: false
+
+site:
+  base_url: https://sjw.qingdao.gov.cn
+  list_path: /cxjsj13/cxjs_95/cxjsj_zj5/
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+  # PDF 下载时必须带 Referer 头指向详情页，否则 501 Not Implemented
+  pdf_referer_required: true
+
+sync:
+  last_period: ""   # 增量起点；空=全量
+  last_publish_date: ""  # 增量同步只用比这新的
+  # 默认只同步指定年份（数据只关注 2026 年）
+  default_year: 2026
+
+# 增值税率（用于将 PDF 含税价反推为不含税价）
+vat:
+  rate: 0.09       # 建设工程材料增值税税率（与河南 skill 一致）
+
+# 青岛（全市统一价，无多城市拆分）
+city: 青岛
+province: 山东

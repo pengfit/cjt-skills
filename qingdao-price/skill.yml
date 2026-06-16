@@ -1,0 +1,14 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: qingdao                # URL slug，用于 sync-progress 端点路径
+label: 青岛                 # 卡片显示名
+province: 山东              # 省（用于筛选下拉）
+ods_index: ods_material_qingdao_price
+dws_index: dws_qingdao_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_qingdao_price_sync_progress
+progress_mode: period       # 青岛是月度期刊（无区县/无分类）
+config_path: config.yml
+# 青岛为市级期刊，全市统一价
+cities:
+  - 青岛

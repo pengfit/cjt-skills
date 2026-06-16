@@ -1947,6 +1947,115 @@ ALL_COUNTIES_CHONGQING = [
 ]
 
 
+@app.get("/api/stats/qingdao-sync-progress")
+def stats_qingdao_sync_progress():
+    """青岛工程造价信息同步进度（按月跟踪，每期 PDF 一条记录）
+
+    青岛为市级期刊，全市统一价；按月发布 PDF；进度索引里每期一条 status=ok 的记录。
+    字段语义与 heze/henan 端点对齐，供 /api/skill-updates 统一消费。
+    """
+    try:
+        _cfg = _registry_get("qingdao") or {}
+        PROGRESS_INDEX = _cfg.get("progress_index", "ods_material_qingdao_price_sync_progress")
+        DATA_INDEX = _cfg.get("ods_index", "ods_material_qingdao_price")
+        CFG_PATH = _cfg.get("config_path", "/Users/pengfit/.openclaw/workspace/skills/qingdao-price/config.yml")
+
+        all_hits = es.search(index=PROGRESS_INDEX, body={
+            "size": 50,
+            "sort": [{"created_at": "desc"}],
+            "query": {"match_all": {}}
+        }, ignore_unavailable=True)
+        records = all_hits.get("hits", {}).get("hits", [])
+
+        period_details = []
+        total_docs = 0
+        completed = 0
+        running = 0
+        errored = 0
+        latest_period = ""
+        latest_created_at = ""
+        latest_doc = None
+
+        for h in records:
+            src = h["_source"]
+            raw_status = src.get("status", "ok")
+            if raw_status == "ok":
+                status_norm = "completed"
+                completed += 1
+            elif raw_status in ("running", "in_progress"):
+                status_norm = "running"
+                running += 1
+            else:
+                status_norm = raw_status or "completed"
+                completed += 1
+            docs_written = src.get("docs_written", 0) or 0
+            total_docs += docs_written
+            period_details.append({
+                "period": src.get("period", ""),
+                "publish_date": src.get("publish_date", ""),
+                "status": status_norm,
+                "percent": 100.0 if status_norm == "completed" else 0,
+                "docs_written": docs_written,
+                "duration_sec": src.get("duration_sec", 0),
+                "created_at": src.get("created_at", ""),
+                "pdf_url": src.get("pdf_url", ""),
+                "minio_key": src.get("minio_key", ""),
+            })
+            ca = src.get("created_at", "")
+            if ca and ca > latest_created_at:
+                latest_created_at = ca
+                latest_period = src.get("period", "")
+                latest_doc = src
+
+        overall_status = "ok" if running == 0 and errored == 0 else ("running" if running else "error")
+        last_updated = latest_created_at[:19] if latest_created_at else ""
+
+        es_latest_period = latest_period
+        last_sync_period = ""
+        has_incremental = False
+        try:
+            if CFG_PATH and os.path.exists(CFG_PATH):
+                with open(CFG_PATH) as f:
+                    cfg = yaml.safe_load(f)
+                last_sync_period = (cfg.get("sync", {}) or {}).get("last_period", "") or ""
+            if last_sync_period and es_latest_period:
+                has_incremental = es_latest_period > last_sync_period
+            elif es_latest_period and not last_sync_period:
+                has_incremental = True
+        except Exception:
+            pass
+
+        try:
+            cnt = es.search(index=DATA_INDEX, body={
+                "size": 0,
+                "aggs": {"by_period": {"terms": {"field": "period", "size": 20}}}
+            })
+            period_doc_count = {b["key"]: b["doc_count"] for b in cnt.get("aggregations", {}).get("by_period", {}).get("buckets", [])}
+        except Exception:
+            period_doc_count = {}
+
+        return {
+            "run_id": latest_period,
+            "status": overall_status,
+            "period": latest_period,
+            "duration_sec": (latest_doc or {}).get("duration_sec", 0),
+            "last_updated": last_updated,
+            "error": (latest_doc or {}).get("error", ""),
+            "total_docs": total_docs,
+            "total_written": total_docs,
+            "current_page": 0,
+            "total_pages": 0,
+            "current_period": latest_period,
+            "completed_periods": completed,
+            "total_periods": len(period_details),
+            "period_details": period_details,
+            "has_incremental": has_incremental,
+            "last_sync_period": last_sync_period,
+            "es_latest_period": es_latest_period,
+            "period_doc_count": period_doc_count,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/skill-updates")
 def skill_updates():

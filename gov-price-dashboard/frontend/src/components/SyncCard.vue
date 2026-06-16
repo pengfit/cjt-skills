@@ -130,7 +130,7 @@ const page = ref(1)
 const barClass = computed(() => {
   const map = {
     xian: 'xa', chongqing: 'cq', sichuan: 'sc',
-    jinan: 'jn', rizhao: 'rz', heze: 'hz', henan: 'hn',
+    jinan: 'jn', rizhao: 'rz', heze: 'hz', henan: 'hn', qingdao: 'qd',
   }
   return map[props.skill.key] || 'xa'
 })
@@ -144,6 +144,7 @@ const skillTitle = computed(() => {
     rizhao: '3 类别材料价格',
     heze: '菏泽工程造价信息',
     henan: '18 地市材料价格',
+    qingdao: '青岛工程造价信息',
   }
   return t[props.skill.key] || '材料价格信息'
 })
@@ -297,6 +298,7 @@ function formatDur(sec) {
 .sync-bar-rz { background: linear-gradient(90deg, #0d9488, #0d9488); }
 .sync-bar-hz { background: linear-gradient(90deg, #a855f7, #7e22ce); }
 .sync-bar-hn { background: linear-gradient(90deg, #dc2626, #b91c1c); }
+.sync-bar-qd { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .sync-card-content { padding: 16px 20px; }
 .sync-card-header {
   display: flex;
@@ -327,6 +329,7 @@ function formatDur(sec) {
 .tag-rz { background: #f0fdfa; color: #0f766e; }
 .tag-hz { background: #faf5ff; color: #7e22ce; }
 .tag-hn { background: #fef2f2; color: #b91c1c; }
+.tag-qd { background: #ecfeff; color: #0e7490; }
 .sync-card-title {
   font-size: 14px;
   font-weight: 600;
@@ -395,6 +398,7 @@ function formatDur(sec) {
 .ring-rz { stroke: #0d9488; }
 .ring-hz { stroke: #a855f7; }
 .ring-hn { stroke: #dc2626; }
+.ring-qd { stroke: #0891b2; }
 .ring-pct, .ring-sub { transform: rotate(90deg); transform-origin: 50px 50px; }
 .ring-pct {
   fill: var(--text);
@@ -535,6 +539,7 @@ function formatDur(sec) {
 .progress-fill-rz { background: linear-gradient(90deg, #0d9488, #0d9488); }
 .progress-fill-hz { background: linear-gradient(90deg, #a855f7, #7e22ce); }
 .progress-fill-hn { background: linear-gradient(90deg, #dc2626, #b91c1c); }
+.progress-fill-qd { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .progress-info {
   display: flex;
   justify-content: space-between;
