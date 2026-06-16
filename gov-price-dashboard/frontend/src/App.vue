@@ -51,6 +51,7 @@
         <div class="sidebar-group-label">规则管理</div>
         <button class="sidebar-item" :class="{ active: curTab === 'breedcat' }" @click="curTab = 'breedcat'; saveTab('breedcat')">品种分类</button>
         <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'catv2' }" @click="curTab = 'catv2'; saveTab('catv2')">分类 v2</button>
       </div>
     </aside>
 
@@ -372,6 +373,11 @@
       <BreedCategoryRulesView v-else />
     </template>
 
+    <template v-if="curTab === 'catv2'">
+      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+      <CategoryV2RulesView v-else />
+    </template>
+
     </main>
     </div>
   </div>
@@ -401,6 +407,7 @@ import DataHealthView from './components/DataHealthView.vue'
 import CockpitView from './components/CockpitView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import BreedCategoryRulesView from './components/BreedCategoryRulesView.vue'
+import CategoryV2RulesView from './components/CategoryV2RulesView.vue'
 import CmdPalette from './components/CmdPalette.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -418,6 +425,7 @@ const TAB_LIST = [
   { key: 'health',  label: '数据健康' },
   { key: 'breedcat',label: '品种分类' },
   { key: 'rules',   label: '规格解析' },
+  { key: 'catv2',   label: '分类 v2' },
 ]
 
 // URL ?tab= 同步，未指定时 localStorage 回退
@@ -443,7 +451,7 @@ const cmdItems = computed(() => [
   ...TAB_LIST.map((t, i) => ({
     id: 'tab:' + t.key,
     label: t.label,
-    icon: ['🛩️', '📋', '📊', '📈', '🔄', '💚', '🏷️', '🧩'][i] || '·',
+    icon: ['🛩️', '📋', '📊', '📈', '🔄', '💚', '🏷️', '🧩', '🗂️'][i] || '·',
     hint: '跳转到' + t.label,
     shortcut: String(i + 1),
     action: () => { curTab.value = t.key; saveTab(t.key) },
@@ -975,7 +983,7 @@ onMounted(() => {
       return
     }
     // 数字键 1-8 快速切换 tab（在非输入框中）
-    if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-8]$/.test(e.key)) {
+    if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
       const tab = TAB_LIST[Number(e.key) - 1]
       if (tab) {
         curTab.value = tab.key

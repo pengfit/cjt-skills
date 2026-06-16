@@ -20,13 +20,14 @@ try:
     from gov_price_etl.paths import (
         CATEGORY_RULES_DB as _RULES_DB_CAT,
         SPEC_RULES_DB as _RULES_DB_SPEC,
+        CATEGORY_V2_RULES_DB as _RULES_DB_CAT_V2,
         PROJECT_ROOT as _ETL_PROJECT_ROOT,
     )
     # 旧 _RULES_DB 指向 rules_vec.db，refactor 后已并入 SPEC_RULES_DB
     _RULES_DB = _RULES_DB_SPEC
 except Exception as _e:
     print(f"⚠️ etl paths 加载失败: {_e}")
-    _RULES_DB_CAT = _RULES_DB_SPEC = _RULES_DB = None
+    _RULES_DB_CAT = _RULES_DB_SPEC = _RULES_DB = _RULES_DB_CAT_V2 = None
     _ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
 
 try:
@@ -3073,4 +3074,297 @@ def clean_summary(
         "total": sum(v["doc_count"] for v in sorted_merged),  # 全国全量（不仅 top_n）
         "items": items,
         "cities_total": len(CITY_INDEXES),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+# category_v2_rules.db 查询端点
+# ──────────────────────────────────────────────────────────────
+# 表 1：category_v2 (64 行) — 4 级分类体系（L1/L2/L3/L4 + 名称 + GB50500 + 定额引用 + IFC + Uniclass）
+# 表 2：breed_l3_map (4073 行) — 品种→L3 映射（来源：v1_translated 4068 + ai_v2 5）
+# ══════════════════════════════════════════════════════════════
+
+
+def _ensure_cat_v2_tables():
+    """确保 category_v2_rules.db 的两张表存在（幂等）"""
+    if not _RULES_DB_CAT_V2 or not os.path.exists(_RULES_DB_CAT_V2):
+        return False
+    try:
+        conn = sqlite3.connect(_RULES_DB_CAT_V2)
+        c = conn.cursor()
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS category_v2 ("
+            "  l1 TEXT NOT NULL, l2 TEXT NOT NULL, l3 TEXT NOT NULL, l4 TEXT NOT NULL,"
+            "  gb_50500 TEXT DEFAULT '', quota_ref TEXT DEFAULT '',"
+            "  ifc_class TEXT DEFAULT '', uniclass_ss TEXT DEFAULT '',"
+            "  eng_part TEXT DEFAULT '', eng_stage TEXT DEFAULT '',"
+            "  main_or_aux TEXT DEFAULT '', unit TEXT DEFAULT '',"
+            "  billing_unit TEXT DEFAULT '', cost_method TEXT DEFAULT '',"
+            "  name_l1 TEXT DEFAULT '', name_l2 TEXT DEFAULT '',"
+            "  name_l3 TEXT DEFAULT '', name_l4 TEXT DEFAULT '',"
+            "  PRIMARY KEY (l1, l2, l3, l4)"
+            ")"
+        )
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS breed_l3_map ("
+            "  breed_clean TEXT PRIMARY KEY,"
+            "  l3 TEXT NOT NULL,"
+            "  source TEXT DEFAULT 'ai',"
+            "  confidence REAL DEFAULT 1.0,"
+            "  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+            "  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+@router.get("/api/stats/category-v2-stats")
+def category_v2_stats():
+    """category_v2_rules.db 整体统计：分类法条数 / 映射条数 / 来源分布 / L3 覆盖率"""
+    if not _ensure_cat_v2_tables():
+        return {"ok": False, "message": "category_v2_rules.db 不存在或无法访问"}
+
+    conn = sqlite3.connect(_RULES_DB_CAT_V2)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    # 分类法表
+    c.execute("SELECT COUNT(*) AS n FROM category_v2")
+    taxonomy_total = c.fetchone()["n"]
+    c.execute("SELECT COUNT(DISTINCT l1) AS n FROM category_v2")
+    l1_count = c.fetchone()["n"]
+    c.execute("SELECT COUNT(DISTINCT l2) AS n FROM category_v2")
+    l2_count = c.fetchone()["n"]
+    c.execute("SELECT COUNT(DISTINCT l3) AS n FROM category_v2")
+    l3_total = c.fetchone()["n"]
+    c.execute("SELECT COUNT(DISTINCT l4) AS n FROM category_v2 WHERE l4 != 'UNCLASSIFIED'")
+    l4_count = c.fetchone()["n"]
+
+    # 品种映射表
+    c.execute("SELECT COUNT(*) AS n FROM breed_l3_map")
+    map_total = c.fetchone()["n"]
+    c.execute(
+        "SELECT source, COUNT(*) AS n FROM breed_l3_map GROUP BY source ORDER BY n DESC"
+    )
+    source_buckets = [{"source": r["source"], "count": r["n"]} for r in c.fetchall()]
+    c.execute(
+        "SELECT confidence, COUNT(*) AS n FROM breed_l3_map "
+        "GROUP BY ROUND(confidence, 2) ORDER BY confidence DESC"
+    )
+    confidence_buckets = [
+        {"confidence": round(r["confidence"], 2), "count": r["n"]} for r in c.fetchall()
+    ]
+    # L3 命中率（映射的 l3 是否都存在于分类法）
+    c.execute(
+        "SELECT COUNT(DISTINCT m.l3) AS n "
+        "FROM breed_l3_map m "
+        "WHERE m.l3 IN (SELECT l3 FROM category_v2)"
+    )
+    l3_hit = c.fetchone()["n"]
+    c.execute(
+        "SELECT COUNT(DISTINCT m.l3) AS n FROM breed_l3_map m "
+        "WHERE m.l3 NOT IN (SELECT l3 FROM category_v2)"
+    )
+    l3_miss = c.fetchone()["n"]
+    conn.close()
+
+    return {
+        "ok": True,
+        "taxonomy": {
+            "total": taxonomy_total,
+            "l1": l1_count,
+            "l2": l2_count,
+            "l3": l3_total,
+            "l4": l4_count,
+        },
+        "map": {
+            "total": map_total,
+            "source_buckets": source_buckets,
+            "confidence_buckets": confidence_buckets,
+            "l3_in_taxonomy": l3_hit,
+            "l3_not_in_taxonomy": l3_miss,
+        },
+    }
+
+
+@router.get("/api/stats/category-v2-taxonomy")
+def category_v2_taxonomy(
+    l1: str = "",
+    l2: str = "",
+    keyword: str = "",
+    page: int = 1,
+    page_size: int = 50,
+):
+    """查询 category_v2（4 级分类体系），支持 L1/L2 过滤 + 关键字搜索（按名称/编码/GB50500）"""
+    if not _ensure_cat_v2_tables():
+        return {"rows": [], "total": 0, "page": page, "page_size": page_size}
+
+    conn = sqlite3.connect(_RULES_DB_CAT_V2)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    where = []
+    params = []
+    if l1:
+        where.append("l1 = ?")
+        params.append(l1)
+    if l2:
+        where.append("l2 = ?")
+        params.append(l2)
+    if keyword:
+        kw = f"%{keyword}%"
+        where.append(
+            "(name_l1 LIKE ? OR name_l2 LIKE ? OR name_l3 LIKE ? OR name_l4 LIKE ? "
+            "OR l1 LIKE ? OR l2 LIKE ? OR l3 LIKE ? OR l4 LIKE ? "
+            "OR gb_50500 LIKE ? OR quota_ref LIKE ? OR ifc_class LIKE ? OR uniclass_ss LIKE ?)"
+        )
+        params.extend([kw] * 12)
+
+    where_sql = " AND ".join(where) if where else "1=1"
+
+    c.execute(f"SELECT COUNT(*) AS n FROM category_v2 WHERE {where_sql}", params)
+    total = c.fetchone()["n"]
+
+    offset = (page - 1) * page_size
+    c.execute(
+        f"SELECT l1, l2, l3, l4, gb_50500, quota_ref, ifc_class, uniclass_ss, "
+        f"eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
+        f"name_l1, name_l2, name_l3, name_l4 "
+        f"FROM category_v2 WHERE {where_sql} "
+        f"ORDER BY l1, l2, l3, l4 LIMIT ? OFFSET ?",
+        params + [page_size, offset],
+    )
+    rows = [dict(r) for r in c.fetchall()]
+
+    # 过滤选项（L1/L2 下拉用）
+    c.execute("SELECT DISTINCT l1 FROM category_v2 ORDER BY l1")
+    l1_options = [r["l1"] for r in c.fetchall()]
+    c.execute("SELECT DISTINCT l1, l2 FROM category_v2 ORDER BY l1, l2")
+    l2_options = [{"l1": r["l1"], "l2": r["l2"]} for r in c.fetchall()]
+    conn.close()
+
+    return {
+        "rows": rows,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "l1_options": l1_options,
+        "l2_options": l2_options,
+    }
+
+
+@router.get("/api/stats/category-v2-breed-map")
+def category_v2_breed_map(
+    keyword: str = "",
+    l3: str = "",
+    source: str = "",
+    min_confidence: float = Query(0.0, ge=0.0, le=1.0),
+    page: int = 1,
+    page_size: int = 50,
+):
+    """查询 breed_l3_map（品种→L3 映射），支持品种关键字 / L3 过滤 / 来源过滤 / 置信度阈值"""
+    if not _ensure_cat_v2_tables():
+        return {"rows": [], "total": 0, "page": page, "page_size": page_size}
+
+    conn = sqlite3.connect(_RULES_DB_CAT_V2)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    where = []
+    params = []
+    if keyword:
+        where.append("breed_clean LIKE ?")
+        params.append(f"%{keyword}%")
+    if l3:
+        where.append("m.l3 = ?")
+        params.append(l3)
+    if source:
+        where.append("source = ?")
+        params.append(source)
+    if min_confidence and min_confidence > 0:
+        where.append("confidence >= ?")
+        params.append(min_confidence)
+
+    where_sql = " AND ".join(where) if where else "1=1"
+
+    # 关联分类法表拿 name_l3
+    c.execute(
+        f"SELECT m.breed_clean, m.l3, m.source, m.confidence, m.created_at, m.updated_at, "
+        f"t.name_l1, t.name_l2, t.name_l3 "
+        f"FROM breed_l3_map m "
+        f"LEFT JOIN category_v2 t ON m.l3 = t.l3 "
+        f"WHERE {where_sql} "
+        f"ORDER BY m.confidence DESC, m.breed_clean LIMIT ? OFFSET ?",
+        params + [page_size, (page - 1) * page_size],
+    )
+    rows = [dict(r) for r in c.fetchall()]
+
+    c.execute(
+        f"SELECT COUNT(*) AS n FROM breed_l3_map m WHERE {where_sql}", params
+    )
+    total = c.fetchone()["n"]
+
+    # 过滤选项
+    c.execute("SELECT DISTINCT source FROM breed_l3_map ORDER BY source")
+    source_options = [r["source"] for r in c.fetchall()]
+    c.execute("SELECT DISTINCT l3 FROM breed_l3_map ORDER BY l3")
+    l3_options = [r["l3"] for r in c.fetchall()]
+    conn.close()
+
+    return {
+        "rows": rows,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "source_options": source_options,
+        "l3_options": l3_options,
+    }
+
+
+@router.get("/api/stats/category-v2-l3-detail")
+def category_v2_l3_detail(l3: str = Query(...)):
+    """查询指定 L3 的完整信息 + 该 L3 下所有品种映射（聚合）"""
+    if not _ensure_cat_v2_tables():
+        return {"ok": False, "message": "category_v2_rules.db 不存在或无法访问"}
+
+    conn = sqlite3.connect(_RULES_DB_CAT_V2)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    # 分类法里该 L3 的所有 L4 行
+    c.execute(
+        "SELECT l1, l2, l3, l4, gb_50500, quota_ref, ifc_class, uniclass_ss, "
+        "eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
+        "name_l1, name_l2, name_l3, name_l4 "
+        "FROM category_v2 WHERE l3 = ? ORDER BY l4",
+        (l3,),
+    )
+    taxonomy_rows = [dict(r) for r in c.fetchall()]
+
+    # 该 L3 下的品种数 + 来源分布
+    c.execute(
+        "SELECT source, COUNT(*) AS n FROM breed_l3_map WHERE l3 = ? GROUP BY source",
+        (l3,),
+    )
+    source_dist = [{"source": r["source"], "count": r["n"]} for r in c.fetchall()]
+    c.execute("SELECT COUNT(*) AS n FROM breed_l3_map WHERE l3 = ?", (l3,))
+    breed_count = c.fetchone()["n"]
+    c.execute(
+        "SELECT AVG(confidence) AS avg_conf FROM breed_l3_map WHERE l3 = ?",
+        (l3,),
+    )
+    avg_conf = c.fetchone()["avg_conf"] or 0
+    conn.close()
+
+    return {
+        "ok": True,
+        "l3": l3,
+        "taxonomy_rows": taxonomy_rows,
+        "source_dist": source_dist,
+        "breed_count": breed_count,
+        "avg_confidence": round(avg_conf, 4),
     }
