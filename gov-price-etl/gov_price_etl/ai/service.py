@@ -133,97 +133,6 @@ def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120) -> Tu
         return False, f"网关调用异常: {e}"
 
 
-# ── 公开 API ───────────────────────────────────────────────────────
-
-def classify_breed_batch(breeds: List[str], city: str = "") -> Dict[str, str]:
-    """
-    批量品种分类，返回 {breed: category}。
-
-    流程：
-      1. 对每个 breed 查 breed_category_rules.db（精确 → 模糊）
-      2. 命中 → 直接返回（无 AI 调用）
-      3. 未命中 → 批量送 AI
-      4. AI 失败 → 标记为 "其他"
-      5. AI 成功 → 写回 breed_category_rules.db
-
-    参数:
-      breeds: 待分类品种列表
-      city: 城市 key（仅用于日志/AI 上下文，不影响本地查询）
-    """
-    if not breeds:
-        return {}
-    cfg = get_prompt("classify_breed_batch")
-    system_msg = cfg.get("system", "")
-
-    # 1. 查本地规则库（阶段 1+2：精确 → 模糊）
-    from gov_price_etl.classify.rules._core import classify_breed_local
-
-    local_map: Dict[str, str] = {}
-    uncached: List[str] = []
-    for b in breeds:
-        cat, _src = classify_breed_local(b)
-        if cat:
-            local_map[b] = cat
-            _stats["classify_local_hit"] += 1
-        else:
-            uncached.append(b)
-
-    # 2. 送 AI（仅未命中的）
-    if uncached:
-        _stats["classify_calls"] += 1
-        breeds_str = "\n".join(f"{i+1}. {b}" for i, b in enumerate(uncached))
-        try:
-            user_prompt = format_prompt(cfg["template"], breeds=breeds_str)
-        except (KeyError, ValueError):
-            user_prompt = f"待分类：\n{breeds_str}"
-        ok, content = _call_gateway(user_prompt, system_msg, "etl-classify-agent", timeout=180)
-        ai_results: Dict[str, str] = {}
-        ai_parsed: Dict[str, dict] = {}  # breed → {category, confidence, note}（入规则库用）
-        if ok:
-            try:
-                parsed = json.loads(content)
-                results_dict = parsed.get("results", {}) if isinstance(parsed, dict) else {}
-                for b in uncached:
-                    r = results_dict.get(b) or {}
-                    cat = r.get("category", "其他")
-                    confidence = float(r.get("confidence", 0.9) or 0.9)
-                    note = r.get("note", "") or ""
-                    ai_results[b] = cat
-                    ai_parsed[b] = {"category": cat, "confidence": confidence, "note": note}
-            except Exception:
-                _stats["classify_failed"] += 1
-                for b in uncached:
-                    ai_results[b] = "其他"
-        else:
-            _stats["classify_failed"] += 1
-            for b in uncached:
-                ai_results[b] = "其他"
-
-        # 3. AI 响应入规则库（breed_category_rules.db）
-        #    仅在分类有效且非兜底时写入，避免 "其他" 污染 DB
-        if ai_parsed:
-            try:
-                from gov_price_etl.classify.rules.jaccard import batch_insert_breed_rules
-                pairs = []
-                for b, info in ai_parsed.items():
-                    cat = info.get("category", "其他")
-                    if cat and cat != "其他":
-                        pairs.append((
-                            b, cat, "ai",
-                            info.get("confidence", 0.9),
-                            info.get("note", ""),
-                        ))
-                if pairs:
-                    batch_insert_breed_rules(pairs)
-                    _stats["classify_rules_written"] = _stats.get("classify_rules_written", 0) + len(pairs)
-            except Exception:
-                _stats["classify_rules_failed"] = _stats.get("classify_rules_failed", 0) + 1
-
-        return {**local_map, **ai_results}
-
-    return local_map
-
-
 # ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
 V2_AI_BATCH_SIZE = 10  # v2 prompt 更大，每批 10 条（v1 是 20）
 V2_AI_BATCH_SLEEP_S = 0.5
@@ -685,8 +594,13 @@ if __name__ == "__main__":
     if cmd == "stats":
         print(json.dumps(get_stats(), ensure_ascii=False, indent=2))
     elif cmd == "classify":
-        breeds = sys.argv[2:] or ["HPB300", "碎石10～30mm", "C30商品混凝土", "雪松"]
-        r = classify_breed_batch(breeds, "test")
+        # v1 classify_breed_batch 已删除（2026-06-16），仅做 v2 演示
+        from gov_price_etl.ai import classify_v2_batch
+        items = sys.argv[2:] or [
+            {"breed": "HPB300", "spec": "φ6", "unit": "t", "breed_clean": "HPB300"},
+            {"breed": "雪松", "spec": "高3m", "unit": "株", "breed_clean": "雪松"},
+        ]
+        r = classify_v2_batch(items, "test")
         print(json.dumps(r, ensure_ascii=False, indent=2))
         print("--- stats ---")
         print(json.dumps(get_stats(), ensure_ascii=False, indent=2))

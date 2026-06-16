@@ -1,120 +1,42 @@
-"""pipeline/etl.py - ODS → DWD 三段式 ETL（明确节点）
+"""pipeline/etl.py - ODS → DWD 二段式 ETL（v1+v2 并行）
 
-新数据流（v0.3 重构）：
+新数据流（2026-06-16 简化，去掉 v1 阶段 3 AI）：
   ┌─────────────────────────────────────────────────────────────────────┐
   │ ODS source                                                          │
   │   │                                                                 │
-  │   ├── 阶段 1：本地库 breed_category_rules.db 精确匹配                │
-  │   │     - transform_doc 内置（不调 AI）                              │
-  │   │     - category_source = 'db_exact'                              │
+  │   ├── v1 阶段 1+2：breed_category_rules.db 精确 + Jaccard 模糊       │
+  │   │     - transform_doc 内置（纯 DB 查表，不调 AI）                 │
+  │   │     - 命中 → DWD.category = v1 大类名                            │
+  │   │     - 未命中 → DWD.category = '其他'                            │
+  │   │     - category_source = 'db_exact' / 'db_fuzzy' / ''             │
   │   │                                                                 │
-  │   ├── 阶段 2：本地库 DB + Jaccard 模糊召回                            │
-  │   │     - transform_doc 内置（不调 AI）                              │
-  │   │     - category_source = 'db_fuzzy'                              │
-  │   │                                                                 │
-  │   └── 阶段 3：未命中 → AI classify_breed_batch 串行批次              │
-  │         - etl_city 攒批（默认 20/批）                                │
-  │         - category_source = 'ai' | 'ai_fallback'                    │
-  │         - 回写 DWD category（category_source 标识来源）              │
+  │   └── v2 5 段式：category_v2_rules.db 精确 → Jaccard → 正则 → AI    │
+  │         - db_exact_v2 / db_fuzzy_v2 / pattern_v2 / ai_v2 / unit_fallback │
+  │         - DWD.category_l1/l2/l3/l4 + name_l1/l2/l3 + 7 个属性字段    │
+  │         - 命中即写；AI 失败兜底 no_match_v2                          │
   └─────────────────────────────────────────────────────────────────────┘
 
-每条 DWD 文档带 `category_source` 字段，标识分类来源：
-  'db_exact'    阶段 1 命中
-  'db_fuzzy'    阶段 2 命中
-  'ai'          阶段 3 AI 分类成功
-  'ai_fallback' 阶段 3 AI 失败兜底
+v1/v2 协作模式：
+  - v1 category 写到 DWD.category（v1 大类，如「钢材金属材料」），用于 spec 规则库过滤
+  - v2 14 字段写到 DWD.category_l1/l2/l3/l4 + ... + material_code
+  - v1 仅 DB 查表，**不再调 AI**（v1 AI 入口 classify_breed_batch 2026-06-16 删除）
+  - 全部 AI 资源让位给 v2 4 层分类
 
-etl.py 主体瘦身：从混合 ~150 行拆为显式三段编排。
+数据依赖：
+  - gov_price_etl.classify（v1 二段式：DB 精确 + Jaccard 模糊）
+  - gov_price_etl.classify.category_v2（v2 5 段式，写 DWD 14 字段）
+  - gov_price_etl.transform.transform_doc（ODS → DWD 单文档转换）
+
+etl.py 主体瘦身：移除 v1 阶段 3 AI 攒批逻辑（_ai_classify_pending / ai_pending 累加）。
 """
-import json
 import time
 from typing import Tuple
 
-from gov_price_etl.classify import classify_breed_with_stages
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
 from gov_price_etl.transform import transform_doc
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
-
-
-# ── AI 分类串行批次大小（道友要求"串行"，默认 20/批，逐批调用 AI） ────────
-AI_CATEGORY_BATCH_SIZE = 20
-AI_CATEGORY_BATCH_SLEEP_S = 0.5  # 批间限速，避免压垮 gateway
-
-
-def _ai_classify_pending(
-    es_host: str,
-    dwd_idx: str,
-    ai_pending: list,
-    city: str,
-) -> int:
-    """阶段 3：AI classify_breed_batch 串行批次分类 + 回写 DWD。
-
-    Args:
-        es_host:    ES 地址
-        dwd_idx:    DWD 索引名
-        ai_pending: [(breed_clean, doc_id), ...] —— 阶段 1+2 都未命中的品种
-        city:       城市 key（缓存分区用）
-
-    Returns:
-        成功更新数
-    """
-    if not ai_pending:
-        return 0
-
-    # 去重保留顺序
-    breeds = list(dict.fromkeys(b for b, _ in ai_pending))
-    print(f"  [STG3 AI] {city}: 待 AI 分类品种 {len(breeds)} 种 ({len(ai_pending)} 条)")
-
-    # 串行批次调 AI（每批 AI_CATEGORY_BATCH_SIZE 条，批间 sleep 限速）
-    from gov_price_etl.classify.rules._core import classify_breed_ai
-
-    breed_cats: dict = {}
-    breed_sources: dict = {}
-    t_stage3 = time.time()
-    total_breeds = len(breeds)
-    for i in range(0, len(breeds), AI_CATEGORY_BATCH_SIZE):
-        chunk = breeds[i:i + AI_CATEGORY_BATCH_SIZE]
-        for b in chunk:
-            t0 = time.time()
-            cat, src = classify_breed_ai(b, city)
-            breed_cats[b] = cat
-            breed_sources[b] = src
-            print(f"    [STG3 AI] {i + chunk.index(b) + 1}/{total_breeds}: {b} → {cat} ({src}, {time.time()-t0:.1f}s)")
-        if i + AI_CATEGORY_BATCH_SIZE < len(breeds):
-            time.sleep(AI_CATEGORY_BATCH_SLEEP_S)
-    print(f"  [STG3 AI] 阶段 3 AI 分类总耗时 {time.time()-t_stage3:.1f}s")
-
-    # 回写 DWD（bulk update）
-    update_body = ""
-    for breed_clean, doc_id in ai_pending:
-        cat = breed_cats.get(breed_clean, "其他")
-        src = breed_sources.get(breed_clean, "ai_fallback")
-        update_body += json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n"
-        update_body += json.dumps({
-            "doc": {
-                "category": cat,
-                "category_source": src,
-            },
-            "doc_as_upsert": True,
-        }, ensure_ascii=False) + "\n"
-
-    session = get_es_client(es_host)
-    r = session.post(
-        f"{es_host}/{dwd_idx}/_bulk",
-        data=update_body.encode("utf-8"),
-        headers={"Content-Type": "application/x-ndjson"},
-    )
-    result = r.json()
-    errors = sum(1 for it in result.get("items", []) if "error" in it.get("update", {}))
-    updated = len(ai_pending) - errors
-    print(f"  [STG3 AI] 批量回写: 更新 {updated}/{len(ai_pending)} 条，错误 {errors}")
-    if errors > 0:
-        for it in result.get("items", [])[:3]:
-            if "error" in it.get("update", {}):
-                print(f"    错误: {it['update']['error']}")
-    return updated
 
 
 def etl_city(
@@ -128,12 +50,14 @@ def etl_city(
     category: str = "",
     mark_done: bool = False,
 ) -> Tuple[int, int]:
-    """单城市 ODS → DWD 三段式 ETL。返回 (成功, 失败)。
+    """单城市 ODS → DWD 二段式 ETL。返回 (成功, 失败)。
 
-    流程：
+    流程（2026-06-16 简化）：
       1. ODS 滚动拉取（按 update_date 排序）
-      2. 每条调 transform_doc() → 阶段 1+2 本地匹配（不调 AI）
-      3. 阶段 3：未命中品种攒批，调 AI classify_breed_batch 串行分类 → 回写 DWD
+      2. 每条调 transform_doc() → v1 阶段 1+2（DB 查表，不调 AI） + v2 5 段式
+      3. 直接 bulk_index 写 DWD，无 v1 AI 后处理
+
+    v1 阶段 3 AI 已删除，category 未命中统一填 '其他'，v2 兜底 no_match_v2。
     """
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
@@ -188,9 +112,8 @@ def etl_city(
     scroll_id = data.get("_scroll_id", "")
 
     etled = failed = pages = 0
-    ai_pending: list = []  # [(breed_clean, doc_id), ...] 阶段 1+2 都未命中
 
-    # ── 阶段 1+2: 本地规则库匹配（不调 AI） ─────────────────────────────
+    # ── v1 DB 查表 + v2 5 段式：transform_doc 内部已调完，直接写 DWD ──
     while hits:
         pages += 1
         docs = []
@@ -209,30 +132,14 @@ def etl_city(
                         continue
                     doc["spec"] = doc.get("breed_clean") or doc["breed"]
 
-                # ── 阶段 1+2: 本地规则库匹配（覆盖 transform_doc 内的默认分类）──
-                cat, src, stage = classify_breed_with_stages(
-                    doc["breed_clean"], city=city, use_ai=False
-                )
-                if not cat:
-                    cat = "其他"
-                    src = ""
-                    stage = ""
-                doc["category"] = cat
-                doc["category_source"] = src
-                doc["category_stage"] = stage
+                # v1 阶段 1+2 已在 transform_doc 内调完（classify_breed → DB 查表）
+                # category / category_source 已带在 doc 里
+                # 2026-06-16 简化：v1 不再调 AI，未命中直接是 '其他'
 
                 if dry_run:
-                    print(f"    [dry-run] {doc['breed_clean']} → {doc['category']} ({src}/stage={stage})")
+                    print(f"    [dry-run] {doc['breed_clean']} → {doc.get('category', '其他')}")
                     continue
 
-                if stage == "" or src == "ai_fallback":
-                    # 阶段 1+2 都未命中 → 走阶段 3 AI
-                    ai_pending.append((doc["breed_clean"], h["_id"]))
-                    # 先写入 DWD（不带 category，等 AI 更新时合并）
-                    ai_doc = {k: v for k, v in doc.items() if k != "category"}
-                    docs.append(ai_doc)
-                    doc_ids.append(h["_id"])
-                    continue
                 docs.append(doc)
                 doc_ids.append(h["_id"])
             except Exception as e:
@@ -259,14 +166,9 @@ def etl_city(
     if scroll_id:
         session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
 
-    # ── 阶段 3: AI classify_breed_batch 串行批次 ─────────────────────────
-    ai_updated = 0
-    if ai_pending and not dry_run:
-        ai_updated = _ai_classify_pending(es_host, dwd_idx, ai_pending, city)
-
     print(
         f"  [ETL] {city} 完成: → {dwd_idx} | "
-        f"etled={etled}, failed={failed}, ai_updated={ai_updated}"
+        f"etled={etled}, failed={failed}"
     )
     return etled, failed
 
@@ -282,7 +184,7 @@ def run_etl(
     mark_done: bool = False,
     with_dws: bool = True,
 ) -> Tuple[int, int]:
-    """跑全流程：每个城市先 ODS→DWD 三段式 ETL，再 DWD→DWS 三段式同步。"""
+    """跑全流程：每个城市先 ODS→DWD 二段式 ETL（v1 DB + v2 5 段），再 DWD→DWS 三段式同步。"""
     total_etled = 0
     total_failed = 0
 

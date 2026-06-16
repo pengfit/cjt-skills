@@ -34,6 +34,8 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     breed_clean = clean_breed(breed_raw)
     spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
+    # v1 category：仅查 breed_category_rules.db，不再调 AI（v1 AI 入口 2026-06-16 删除）
+    # 命中返回 v1 大类名（用于 spec 规则库过滤），未命中返回 '其他'
     category = classify_breed(breed_clean, spec_clean)
 
     # ── v2 4 层分类（2026-06-16 阶段 3 接入）──

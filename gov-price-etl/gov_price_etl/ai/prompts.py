@@ -74,9 +74,9 @@ def reload_prompts() -> Dict[str, Dict[str, str]]:
 # ── 纯文本内置 fallback（prompts.yml 不存在 / key 缺失时用）───────────
 # 简化版 prompt：不含复杂示例，str.format() 安全。
 BUILTIN_FALLBACK: Dict[str, Dict[str, str]] = {
-    "classify_breed_batch": {
-        "system": "你是一名建筑工程材料分类专家。",
-        "template": "以下品种列表，请逐个分类（限：钢材金属材料/水泥胶凝材料/砂石骨料/混凝土预制构件/砌体墙体材料/防水密封材料/电气材料/给排水材料/园林绿化/其他）：\n{breeds}\n\n输出 JSON: {{\"ok\": true, \"results\": {{\"品种名\": {{\"category\": \"X\", \"confidence\": 0.9, \"note\": \"\"}}}}}}",
+    "classify_v2_batch": {
+        "system": "你是一名建筑工程造价专家与 BIM 工程师。",
+        "template": "以下材料品种列表（每行 品种 | 规格 | 单位），输出 4 层 v2 分类：\n{items}\n\n输出 JSON: {{\"results\": {{\"breed1\": {{\"l1\": \"01\", \"l2\": \"01.04\", \"l3\": \"01.04.01\", \"name_l3\": \"钢构件\", \"gb_50500\": \"010601\"}}}}}}",
     },
     "batch_spec_parse": {
         "system": "你是一个建材规格解析规则生成专家。",

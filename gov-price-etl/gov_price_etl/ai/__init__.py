@@ -2,8 +2,8 @@
 
 设计目标：
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
-  2. 本地规则库前置：调 AI 之前先查 breed_*_rules.db（精确+模糊），
-     命中直接返回，不调 AI（这是核心省钱策略）
+  2. 本地规则库前置：调 AI 之前先查 v2 规则库（category_v2_rules.db），
+     命中直接返回，不调 AI（核心省钱策略）
   3. 统一鉴权：读 openclaw.json 拿 token
   4. 统一重试：失败有 fallback
   5. 计量：每次调用都计入 stats
@@ -12,10 +12,15 @@
 
 实际调用路径（不绕道 dashboard）：
   ETL → ai.service → OpenClaw gateway (localhost:18789/v1/chat/completions)
+
+v1 入口变化（2026-06-16）：
+  - 删除 classify_breed_batch（v1 大分类 AI 入口）
+  - 保留 classify_v2_batch（v2 4 层 AI 入口）
+  - 大分类任务全部走 v2 4 层分类
 """
 from .service import (
     parse_spec_batch,
-    classify_breed_batch,
+    classify_v2_batch,
     get_stats,
     reset_stats,
     GATEWAY_URL,
@@ -31,7 +36,7 @@ from .prompts import (
 __all__ = [
     # AI 调用
     "parse_spec_batch",
-    "classify_breed_batch",
+    "classify_v2_batch",
     "get_stats",
     "reset_stats",
     "GATEWAY_URL",

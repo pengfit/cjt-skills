@@ -326,7 +326,7 @@ def _stage3_pattern(conn: sqlite3.Connection, breed: str, spec: str) -> Optional
 def _stage4_ai(breed: str, spec: str, unit: str, breed_clean: str) -> Optional[dict]:
     """阶段 4: AI 分类（结构化输出 L1-L3 + 9 字段）—— 串行批次
     MVP 阶段：此函数先 return None（不调 AI），让阶段 5 兜底。
-    后续接入：从 gov_price_etl.classify.rules._core.classify_breed_ai 复用
+    后续接入：ai.service.classify_v2_batch
     """
     return None
 
