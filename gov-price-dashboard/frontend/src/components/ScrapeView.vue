@@ -5,9 +5,6 @@
     <div class="panel-header" style="margin-bottom:12px">
       <span class="panel-dot panel-dot-purple"></span>
       <span class="panel-title">数据抓取（全部城市）</span>
-      <button class="poll-toggle" :class="{ active: pollingActive }" @click="togglePolling">
-        {{ pollingActive ? '⏸ 暂停轮询' : '▶ 开启轮询' }}
-      </button>
     </div>
 
     <div class="scrape-grid" v-if="data.all_cities">
@@ -105,9 +102,6 @@ const error = ref('')
 const scrapeExpandedCity = ref('')
 const scrapeRunning = ref({})
 const data = ref({ all_cities: {} })
-let pollTimer = null
-const pollingActive = ref(false)
-const POLL_INTERVAL_MS = 15000
 
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0'
@@ -126,6 +120,8 @@ const EXPAND_LABELS = {
   '济南': '▾ 分类详情',  // 41 产品分类
   '日照': '▾ 分类详情',  // 3 产品分类
   '河南': '▾ 期数详情',  // 按 PDF 期数
+  '菏泽': '▾ 期数详情',  // 按期刊期数
+  '青岛': '▾ 期数详情',  // 按 PDF 期数
 }
 function expandLabel(pipe) {
   return EXPAND_LABELS[pipe.city_label] || '▾ 任务详情'
@@ -156,24 +152,8 @@ async function loadData() {
   }
 }
 
-function togglePolling() {
-  pollingActive.value = !pollingActive.value
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
-  if (pollingActive.value) {
-    loadData()
-    pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
-  }
-}
-
 onMounted(() => {
   loadData()
-  if (pollingActive.value) {
-    pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
-  }
-})
-
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
@@ -207,23 +187,6 @@ onUnmounted(() => {
   letter-spacing: 0.3px;
   margin-right: auto;
 }
-.poll-toggle {
-  font-size: 11px;
-  padding: 4px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(241,245,249,0.6);
-  background: rgba(15, 23, 42, 0.03);
-  color: var(--text-3);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.poll-toggle:hover { border-color: rgba(37,99,235,0.3); color: #1e293b; }
-.poll-toggle.active {
-  background: rgba(37,99,235,0.12);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
 /* === Scrape grid + cards === */
 .scrape-grid {
   display: grid;

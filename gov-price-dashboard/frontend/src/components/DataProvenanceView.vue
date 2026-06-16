@@ -12,9 +12,6 @@
       <div class="panel-header" style="margin-bottom:12px">
         <span class="panel-dot panel-dot-blue"></span>
         <span class="panel-title">数据处理链路（ODS → DWD → DWS）</span>
-        <button class="poll-toggle" :class="{ active: pollingActive }" @click="togglePolling">
-          {{ pollingActive ? '⏸ 暂停轮询' : '▶ 开启轮询' }}
-        </button>
       </div>
       <div class="pipelines-grid">
         <div
@@ -259,9 +256,6 @@ const specQuality = ref({})
 const dwdDrilldownCity = ref(null)
 const coverageByCity = ref({})  // { city: { rate, with_attr, needs_parse, total } }
 let chartIns = null
-let pollTimer = null
-let pollingActive = ref(false)
-const POLL_INTERVAL_MS = 15000
 
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0%'
@@ -499,14 +493,6 @@ async function confirmFix(sg) {
   }
 }
 
-function togglePolling() {
-  pollingActive.value = !pollingActive.value
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
-  if (pollingActive.value) {
-    loadData()
-    pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
-  }
-}
 
 async function loadData() {
   loading.value = true
@@ -619,12 +605,6 @@ function renderChart() {
 window.addEventListener('resize', () => chartIns?.resize())
 onMounted(() => {
   loadData()
-  if (pollingActive.value) {
-    pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
-  }
-})
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
