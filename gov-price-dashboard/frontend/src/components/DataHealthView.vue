@@ -51,8 +51,66 @@
       </div>
     </div>
 
+    <!-- 图表区域 -->
+    <div class="chart-panel">
+      <div class="panel-header">
+        <div class="panel-title-row">
+          <span class="panel-dot panel-dot-blue"></span>
+          <span class="panel-title">近 30 日数据量趋势</span>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot"></span>日增量</span>
+          <span class="legend-item" :title="'日增量落在 30 日均值的 [0.3×, 2×] 区间'">
+            <span class="legend-dot legend-fresh"></span>正常
+            <span class="legend-count">{{ dailyStats.normalCount }}</span>
+          </span>
+          <span class="legend-item" :title="'日增量 < 30 日均值的 0.3 倍'">
+            <span class="legend-dot legend-warn"></span>突减
+            <span class="legend-count">{{ dailyStats.dropCount }}</span>
+          </span>
+          <span class="legend-item" :title="'日增量 > 30 日均值的 2 倍'">
+            <span class="legend-dot legend-down"></span>突增
+            <span class="legend-count">{{ dailyStats.spikeCount }}</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- 汇总卡：4 维度速读 -->
+      <div class="daily-summary">
+        <div class="summary-cell">
+          <div class="summary-label">近 30 日新增</div>
+          <div class="summary-value">{{ dailyStats.totalCount.toLocaleString() }}<span class="summary-unit"> 条</span></div>
+        </div>
+        <div class="summary-cell">
+          <div class="summary-label">活跃天数</div>
+          <div class="summary-value">
+            {{ dailyStats.activeDays }}<span class="summary-unit"> / 30 天</span>
+          </div>
+          <div class="summary-sub" v-if="dailyStats.activeDays > 0">覆盖率 {{ dailyStats.coverage }}%</div>
+        </div>
+        <div class="summary-cell">
+          <div class="summary-label">日均（仅活跃日）</div>
+          <div class="summary-value">{{ dailyStats.avgPerActiveDay.toLocaleString() }}<span class="summary-unit"> 条</span></div>
+        </div>
+        <div class="summary-cell">
+          <div class="summary-label">最大单日</div>
+          <div class="summary-value">
+            {{ dailyStats.maxCount.toLocaleString() }}<span class="summary-unit"> 条</span>
+          </div>
+          <div class="summary-sub" v-if="dailyStats.maxDate">{{ dailyStats.maxDate }}</div>
+        </div>
+      </div>
+
+      <div id="dailyTrendChart" class="chart-area"></div>
+
+      <div v-if="dailyStats.activeDays === 0" class="daily-empty-hint">
+        近 30 日暂无采集记录，等待首次抓取后即可看到趋势。
+      </div>
+    </div>
+
     <!-- 技能数据健康表（以 skill 为中心） -->
     <div class="chart-panel">
+
       <div class="panel-header">
         <div class="panel-title-row">
           <span class="panel-dot panel-dot-purple"></span>
@@ -186,23 +244,6 @@
       </div>
     </div>
 
-    <!-- 图表区域 -->
-    <div class="chart-panel">
-      <div class="panel-header">
-        <div class="panel-title-row">
-          <span class="panel-dot panel-dot-blue"></span>
-          <span class="panel-title">近30日数据量趋势</span>
-        </div>
-        <div class="chart-legend">
-          <span class="legend-item"><span class="legend-dot"></span>日增量</span>
-          <span class="legend-item"><span class="legend-dot legend-fresh"></span>正常</span>
-          <span class="legend-item"><span class="legend-dot legend-warn"></span>突减</span>
-          <span class="legend-item"><span class="legend-dot legend-down"></span>突增</span>
-        </div>
-      </div>
-      <div id="dailyTrendChart" class="chart-area"></div>
-    </div>
-
     <div v-if="loading" class="health-loading">
       <SkeletonCard :lines="5" :hide-footer="true" />
     </div>
@@ -248,6 +289,31 @@ const BAR_CLASS_MAP = {
   xian: 'xa', sichuan: 'sc', chongqing: 'cq', jinan: 'jn',
   rizhao: 'rz', heze: 'hz', henan: 'hn',
 }
+
+// 近 30 日趋势汇总：总条数 / 活跃天数 / 日均 / 最大 + 异常分类计数
+const dailyStats = computed(() => {
+  const daily = data.value.daily || []
+  const nonZero = daily.filter(d => (d.count || 0) > 0)
+  const values = nonZero.map(d => d.count)
+  const total = values.reduce((a, b) => a + b, 0)
+  const max = values.length ? Math.max(...values) : 0
+  const maxItem = max > 0 ? nonZero.find(d => d.count === max) : null
+  const avg = values.length ? total / values.length : 0
+  const normal = avg > 0 ? nonZero.filter(d => d.count >= avg * 0.3 && d.count <= avg * 2).length : 0
+  const drop = avg > 0 ? nonZero.filter(d => d.count < avg * 0.3).length : 0
+  const spike = avg > 0 ? nonZero.filter(d => d.count > avg * 2).length : 0
+  return {
+    totalCount: total,
+    activeDays: nonZero.length,
+    coverage: Math.round((nonZero.length / 30) * 100),
+    avgPerActiveDay: Math.round(avg),
+    maxCount: max,
+    maxDate: maxItem ? maxItem.date.slice(5) : '',
+    normalCount: normal,
+    dropCount: drop,
+    spikeCount: spike,
+  }
+})
 
 // 计算每行数据（合并 skill 配置 + 同步进度 + 规格质量）
 const skillHealthRows = computed(() => {
@@ -412,7 +478,8 @@ function renderDailyChart() {
   const buckets = data.value.daily
   const labels = buckets.map(b => b.date.slice(5))
   const values = buckets.map(b => b.count)
-  const isZero = v => v === 0
+  // 0 值改为 null：不画柱子也不占视觉，但 x 轴仍保留位置（让"日期骨架"清晰）
+  const plotValues = values.map(v => (v > 0 ? v : null))
   // 计算异常点（>平均 2 倍 = spike 突增，<0.3 倍 = drop 突减）
   const nonZero = values.filter(v => v > 0)
   const avg = nonZero.length ? nonZero.reduce((a, b) => a + b, 0) / nonZero.length : 0
@@ -433,17 +500,28 @@ function renderDailyChart() {
       formatter: p => {
         const i = p[0].dataIndex
         const v = values[i]
+        if (v === 0) return `<b style="color:#94a3b8">${p[0].name}</b><br/><span style="color:#94a3b8">无采集</span>`
         const avgLine = avg > 0 ? `<br/>30日均: ${Math.round(avg).toLocaleString()}` : ''
         const ratio = avg > 0 ? (v / avg).toFixed(2) : '-'
-        const flag = v > 0 && avg > 0 && (v / avg > 2 || v / avg < 0.3)
+        const flag = avg > 0 && (v / avg > 2 || v / avg < 0.3)
           ? `<br/><b style="color:${v/avg > 2 ? '#dc2626' : '#ea580c'}">${v/avg > 2 ? '↑ 突增' : '↓ 突减'} (×${ratio})</b>` : ''
         return `<b style="color:#3b82f6">${p[0].name}</b><br/>数量: <b style="color:#10b981">${v.toLocaleString()}</b>${avgLine}${flag}`
       }
     },
-    grid: { left: '3%', right: '3%', bottom: '10%', top: '14%', containLabel: true },
+    grid: { left: '3%', right: '3%', bottom: '10%', top: '18%', containLabel: true },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { color: '#475569', fontSize: 10, rotate: 45, interval: 0 },
+      axisLabel: {
+        color: '#475569', fontSize: 10, rotate: 45, interval: 0,
+        formatter: (v, idx) => {
+          // 活跃日的标签加粗+主色，无数据日弱化
+          return values[idx] > 0 ? `{active|${v}}` : `{idle|${v}}`
+        },
+        rich: {
+          active: { color: '#0f172a', fontWeight: 600 },
+          idle: { color: '#cbd5e1' }
+        }
+      },
       axisLine: { lineStyle: { color: '#cbd5e1' } },
       axisTick: { show: false },
       splitLine: { show: false }
@@ -451,14 +529,14 @@ function renderDailyChart() {
     yAxis: {
       name: '文档数', nameTextStyle: { color: '#64748b', fontSize: 10, padding: [0, 0, 0, 30] },
       type: 'value',
-      axisLabel: { color: '#64748b', fontSize: 10 },
+      axisLabel: { color: '#64748b', fontSize: 10, formatter: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v },
       splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } }
     },
     series: [{
-      type: 'bar', data: values,
+      type: 'bar', data: plotValues,
       itemStyle: {
         color: p => {
-          if (isZero(p.value)) return '#e2e8f0'
+          if (p.value == null) return 'transparent'
           if (avg > 0) {
             const ratio = p.value / avg
             if (ratio > 2) return '#dc2626'  // 突增 - 红
@@ -468,18 +546,28 @@ function renderDailyChart() {
             { offset: 0, color: '#2563eb' },
             { offset: 1, color: '#6366f1' }
           ])
-        }
+        },
+        borderRadius: [4, 4, 0, 0]
+      },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: p => (p.value > 0 ? p.value.toLocaleString() : ''),
+        color: '#475569',
+        fontSize: 10,
+        fontWeight: 600
       },
       markLine: avg > 0 ? {
         silent: true,
         symbol: 'none',
         lineStyle: { color: '#94a3b8', type: 'dashed', width: 1 },
-        label: { show: true, position: 'end', formatter: `均值 ${Math.round(avg).toLocaleString()}`, color: '#64748b', fontSize: 10 },
+        label: { show: true, position: 'insideEndTop', formatter: `30日均 ${Math.round(avg).toLocaleString()}`, color: '#64748b', fontSize: 10, backgroundColor: 'rgba(255,255,255,0.9)', padding: [2, 4] },
         data: [{ yAxis: avg }]
       } : undefined,
       markPoint: markPoints.length ? {
         symbol: 'pin',
-        symbolSize: 32,
+        symbolSize: 28,
+        symbolOffset: [0, -22],
         data: markPoints.map(m => ({
           name: m.kind === 'spike' ? '突增' : '突减',
           value: m.kind === 'spike' ? '↑' : '↓',
@@ -489,7 +577,7 @@ function renderDailyChart() {
         })),
         label: { color: '#fff', fontSize: 11, fontWeight: 700 }
       } : undefined,
-      barMaxWidth: 20,
+      barMaxWidth: 28,
       emphasis: {
         itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: '#2563eb' },
@@ -658,6 +746,81 @@ onUnmounted(() => {
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--primary), var(--indigo)); }
 .chart-area { width: 100%; height: 320px; }
 
+/* ===== 近 30 日汇总卡 ===== */
+.daily-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 4px 0 14px;
+}
+.summary-cell {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  position: relative;
+  overflow: hidden;
+}
+.summary-cell::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 10px 0 0 10px;
+}
+.summary-label {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 4px;
+  letter-spacing: 0.2px;
+}
+.summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.summary-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-left: 2px;
+}
+.summary-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* 图例计数 */
+.legend-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 8px;
+  text-align: center;
+  line-height: 16px;
+}
+
+/* 空状态提示 */
+.daily-empty-hint {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(96, 165, 250, 0.06);
+  border: 1px dashed rgba(37, 99, 235, 0.2);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: center;
+}
+
 /* 7 城同步卡片已从本视图移除（避免与同步页抓取任务重复），卡片逻辑迁到 components/SyncCard.vue 仅供其他视图使用 */
 
 /* ===== 技能数据健康表（以 skill 为中心）===== */
@@ -667,9 +830,8 @@ onUnmounted(() => {
 .legend-down  { background: #dc2626; }
 
 .health-table-scroll {
+  /* 不要让表格容器自身产生滚动条——让表格自然撑开，页面整体滚 */
   overflow-x: auto;
-  max-height: 360px;
-  overflow-y: auto;
 }
 .health-table {
   width: 100%;
