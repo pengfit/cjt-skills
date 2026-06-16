@@ -6,6 +6,7 @@
 from datetime import datetime
 
 from gov_price_etl.classify import classify_breed
+from gov_price_etl.classify.category_v2 import classify_v2
 from gov_price_etl.parse_spec import get_parser
 from gov_price_etl.transform.clean import clean_breed, clean_unit, clean_price
 
@@ -15,7 +16,12 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
 
     字段：
       - breed / breed_clean / spec / unit / price / tax_price
-      - category
+      - category（v1 一级分类，保留兼容）
+      - 4 层 v2 分类：category_l1 / l2 / l3 / l4
+      - 工程属性：eng_part / eng_stage / main_or_aux
+      - 标准码：gb_50500 / quota_ref / ifc_class / uniclass_ss
+      - 物料视图：material_code
+      - v2 元信息：category_v2_source / category_v2_confidence
       - province / city / county / tab_type / tab_name
       - update_date / publish_time / period / code / source
       - citywide_category / source_index / etl_time
@@ -29,6 +35,16 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
     category = classify_breed(breed_clean, spec_clean)
+
+    # ── v2 4 层分类（2026-06-16 阶段 3 接入）──
+    # 走模块级单例 SQLite 连接，性能 ~0.05ms/次。
+    # fail-safe：库文件不存在/异常时返回空 v2 字段，不影响 v1 流程。
+    v2 = classify_v2(
+        breed=breed_raw,
+        spec=spec_clean,
+        unit=unit_clean,
+        breed_clean=breed_clean,
+    )
 
     price = clean_price(raw.get("price")) or 0.0
     tax_price = clean_price(raw.get("tax_price")) or 0.0
@@ -56,7 +72,27 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
-        "category": category,
+        "category": category,                                # v1 一级分类（保留兼容）
+        "category_l1":     v2.get("l1", ""),                # v2 4 层分类
+        "category_l2":     v2.get("l2", ""),
+        "category_l3":     v2.get("l3", ""),
+        "category_l4":     v2.get("l4", "UNCLASSIFIED"),
+        "name_l1":         v2.get("name_l1", ""),           # 兼容字段（同 category_name_l1）
+        "name_l2":         v2.get("name_l2", ""),           # 兼容字段（同 category_name_l2）
+        "name_l3":         v2.get("name_l3", ""),           # 兼容字段（同 category_name_l3）
+        "category_name_l1": v2.get("name_l1", ""),          # L1 中文名（如"建筑工程"）—— 前缀统一 category_
+        "category_name_l2": v2.get("name_l2", ""),          # L2 中文名
+        "category_name_l3": v2.get("name_l3", ""),          # L3 中文名
+        "eng_part":        v2.get("eng_part") or "",        # 工程部位
+        "eng_stage":       v2.get("eng_stage") or "",        # 工程阶段（多选用逗号分隔）
+        "main_or_aux":     v2.get("main_or_aux") or "",      # 主材/辅材
+        "gb_50500":        v2.get("gb_50500") or "",         # GB 50500 清单项目编码
+        "quota_ref":       v2.get("quota_ref") or "",        # 消耗量定额参考号
+        "ifc_class":       v2.get("ifc_class") or "",        # IFC 4.3 类名
+        "uniclass_ss":     v2.get("uniclass_ss") or "",      # Uniclass 2015
+        "material_code":   v2.get("material_code") or "",    # 物料视图主键
+        "category_v2_source":     v2.get("category_v2_source", ""),    # 5 段式来源
+        "category_v2_confidence": v2.get("category_v2_confidence", 0.0),  # 0-1
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),

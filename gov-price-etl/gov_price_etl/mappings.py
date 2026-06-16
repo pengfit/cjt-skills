@@ -5,13 +5,14 @@
 # ── DWD mapping ──────────────────────────────────────────────────────────
 def build_dwd_mapping() -> dict:
     base = {
+        # ── v1 原有字段（保留，不破坏现有 API）──
         "breed":           {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
         "breed_clean":     {"type": "keyword"},
         "spec":            {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
         "unit":            {"type": "keyword"},
         "price":           {"type": "float"},
         "tax_price":       {"type": "float"},
-        "category":        {"type": "keyword"},
+        "category":        {"type": "keyword"},         # v1 一级分类（26 个，保留兼容）
         "province":        {"type": "keyword"},
         "city":            {"type": "keyword"},
         "county":          {"type": "keyword"},
@@ -27,6 +28,31 @@ def build_dwd_mapping() -> dict:
             "type": "nested",
             "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
         },
+        "category_source": {"type": "keyword"},         # v1 阶段 1/2/3 来源标识（保留）
+
+        # ── v2 新增字段（2026-06-16 阶段 2 接入）──
+        # 4 层分类
+        "category_l1":     {"type": "keyword"},         # 8 L1 专业大类
+        "category_l2":     {"type": "keyword"},         # 31 L2 分部工程
+        "category_l3":     {"type": "keyword"},         # 50 L3 分项工程
+        "category_l4":     {"type": "keyword"},         # L4 细目（500+，MVP 暂用 UNCLASSIFIED）
+        "category_name_l1": {"type": "keyword"},        # L1 中文名（如"建筑工程"）—— 2026-06-16 加，前缀统一 category_
+        "category_name_l2": {"type": "keyword"},        # L2 中文名（如"钢结构工程"）
+        "category_name_l3": {"type": "keyword"},        # L3 中文名（如"钢构件"）
+        # 工程属性
+        "eng_part":        {"type": "keyword"},         # 基础/主体/装饰/安装/...
+        "eng_stage":       {"type": "keyword"},         # 设计/施工/运维（多选拼接："设计,施工"）
+        "main_or_aux":     {"type": "keyword"},         # 主材/辅材
+        # 标准码（跨国/跨系统对接用）
+        "gb_50500":        {"type": "keyword"},         # GB 50500 清单项目编码（6 位）
+        "quota_ref":       {"type": "keyword"},         # 消耗量定额参考号（如 "5-31"）
+        "ifc_class":       {"type": "keyword"},         # IFC 4.3 类名（IfcColumn / IfcPipeSegment / ...）
+        "uniclass_ss":     {"type": "keyword"},         # Uniclass 2015 Ss_/Pr_ 编码
+        # 物料视图主键
+        "material_code":   {"type": "keyword"},         # 跨城市一致的物料编码（v2 字典生成）
+        # v2 分类元信息
+        "category_v2_source":      {"type": "keyword"},  # db_exact_v2 / db_fuzzy_v2 / pattern_v2 / ai_v2 / fallback_v2
+        "category_v2_confidence":  {"type": "float"},    # 0-1 置信度
     }
     return {
         "mappings": {"properties": base, "dynamic": True},
@@ -41,6 +67,15 @@ def build_dws_mapping() -> dict:
         "breed":             {"type": "keyword"},
         "breed_clean":       {"type": "keyword"},
         "category":          {"type": "keyword"},
+        "category_l1":       {"type": "keyword"},
+        "category_l2":       {"type": "keyword"},
+        "category_l3":       {"type": "keyword"},
+        "category_l4":       {"type": "keyword"},
+        "category_name_l1":  {"type": "keyword"},
+        "category_name_l2":  {"type": "keyword"},
+        "category_name_l3":  {"type": "keyword"},
+        "category_v2_source":      {"type": "keyword"},
+        "category_v2_confidence":  {"type": "float"},
         "unit":              {"type": "keyword"},
         "price":             {"type": "float"},
         "tax_price":         {"type": "float"},
