@@ -125,13 +125,15 @@
       <div class="spinner"></div>
       <span>加载中...</span>
     </div>
-    <div v-if="error" class="cat-error">{{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import axios from 'axios'
+import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
 import * as echarts from 'echarts'
 import PageHeader from './PageHeader.vue'
@@ -508,7 +510,7 @@ function renderPriceChart(ranges, stats) {
   if (!el || !ranges.length) return
   if (priceChartIns.value) { priceChartIns.value.dispose(); priceChartIns.value = null }
 
-  const chart = markRaw(echarts.init(el))
+  const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   priceChartIns.value = chart
 
   const colors = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#7c3aed','#b45309','#f97316','#dc2626','#e11d48','#06b6d4','#84cc16']

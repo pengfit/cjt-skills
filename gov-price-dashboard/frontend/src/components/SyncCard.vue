@@ -253,25 +253,25 @@ function formatDur(sec) {
 /* === 亮色版（与 DataHealthView 页面整体明亮主题一致） === */
 .sync-card {
   position: relative;
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #1e293b;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 2px rgba(var(--text-rgb), 0.04), 0 2px 6px rgba(var(--text-rgb), 0.03);
   transition: all 0.2s;
 }
 .sync-card:hover {
-  border-color: #334155;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  border-color: var(--text-2);
+  box-shadow: 0 4px 12px rgba(var(--text-rgb), 0.06), 0 2px 4px rgba(var(--text-rgb), 0.04);
   transform: translateY(-1px);
 }
 .sync-card-running {
-  border-color: #1d4ed8;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10), 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.10), 0 1px 2px rgba(var(--text-rgb), 0.04);
 }
 .sync-card-bar {
   height: 3px;
-  background: linear-gradient(90deg, #2563eb, #818cf8);
+  background: linear-gradient(90deg, var(--primary), var(--primary-soft));
   width: 100%;
 }
 .sync-bar-xa { background: linear-gradient(90deg, #b45309, #f97316); }
@@ -301,8 +301,8 @@ function formatDur(sec) {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
-  background: #eff6ff;
-  color: #1e40af;
+  background: var(--primary-light);
+  color: var(--primary-dark);
 }
 .tag-xa { background: #fff7ed; color: #c2410c; }
 .tag-cq { background: #fdf2f8; color: #be185d; }
@@ -314,7 +314,7 @@ function formatDur(sec) {
 .sync-card-title {
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--surface);
 }
 .sync-badges {
   display: flex;
@@ -329,14 +329,14 @@ function formatDur(sec) {
   font-weight: 500;
   white-space: nowrap;
 }
-.badge-green { background: #d1fae5; color: #047857; }
-.badge-red   { background: #fee2e2; color: #b91c1c; }
-.badge-blue  { background: #dbeafe; color: #1e40af; }
-.badge-yellow{ background: #fef3c7; color: #b45309; }
-.badge-gray  { background: #0f172a; color: #64748b; }
+.badge-green { background: var(--success-bg-light); color: #047857; }
+.badge-red   { background: var(--danger-bg-light); color: #b91c1c; }
+.badge-blue  { background: var(--primary-bg-light); color: var(--primary-dark); }
+.badge-yellow{ background: var(--warning-bg-light); color: #b45309; }
+.badge-gray  { background: var(--text); color: var(--text-2); }
 .sync-card-meta {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-2);
   margin-bottom: 12px;
 }
 .sync-card-body {
@@ -362,12 +362,12 @@ function formatDur(sec) {
 }
 .ring-bg {
   fill: none;
-  stroke: #1e293b;
+  stroke: var(--border-strong);
   stroke-width: 8;
 }
 .ring-fill {
   fill: none;
-  stroke: #2563eb;
+  stroke: var(--primary);
   stroke-width: 8;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
@@ -380,12 +380,12 @@ function formatDur(sec) {
 .ring-hz { stroke: #a855f7; }
 .ring-hn { stroke: #dc2626; }
 .ring-pct, .ring-sub { transform: rotate(90deg); transform-origin: center; }
-.ring-pct { fill: #ffffff; }
-.ring-sub { fill: #475569; }
+.ring-pct { fill: var(--surface); }
+.ring-sub { fill: var(--text-2); }
 .sync-status-row { display: flex; gap: 4px; }
 .sync-doc-count {
   font-size: 12px;
-  color: #475569;
+  color: var(--text-2);
 }
 .sync-list-col {
   flex: 1;
@@ -415,22 +415,22 @@ function formatDur(sec) {
   grid-template-columns: minmax(50px, 1fr) 70px 60px 50px;
 }
 .list-header {
-  color: #64748b;
+  color: var(--text-2);
   font-weight: 500;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-strong);
   font-size: 10px;
   letter-spacing: 0.2px;
 }
 .list-row {
-  color: #0f172a;
+  color: var(--text);
   border-radius: 4px;
   transition: background 0.15s;
 }
-.list-row:hover { background: #f8fafc; }
-.row-active { background: #eff6ff; }
+.list-row:hover { background: var(--bg); }
+.row-active { background: var(--primary-light); }
 .list-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.list-num { text-align: right; color: #475569; white-space: nowrap; }
-.list-date { color: #64748b; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; white-space: nowrap; }
+.list-num { text-align: right; color: var(--text-2); white-space: nowrap; }
+.list-date { color: var(--text-2); font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; white-space: nowrap; }
 .list-scroll {
   max-height: 180px;
   overflow-y: auto;
@@ -442,20 +442,20 @@ function formatDur(sec) {
   gap: 12px;
   padding: 4px 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-2);
   flex-shrink: 0;
 }
 .pg-btn {
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  color: var(--text-2);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 10px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.15s;
 }
-.pg-btn:hover:not(:disabled) { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+.pg-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
 .pg-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .pg-info { font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
 .progress-wrap {
@@ -466,13 +466,13 @@ function formatDur(sec) {
 }
 .progress-bar {
   height: 6px;
-  background: #e2e8f0;
+  background: var(--border);
   border-radius: 3px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #818cf8);
+  background: linear-gradient(90deg, var(--primary), var(--primary-soft));
   transition: width 0.5s ease;
 }
 .progress-fill-xa { background: linear-gradient(90deg, #b45309, #f97316); }
@@ -486,13 +486,13 @@ function formatDur(sec) {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-2);
 }
-.pct-active { color: #1e40af; font-weight: 600; }
+.pct-active { color: var(--primary-dark); font-weight: 600; }
 .empty-hint {
   padding: 20px;
   text-align: center;
-  color: #475569;
+  color: var(--text-2);
   font-size: 12px;
 }
 </style>

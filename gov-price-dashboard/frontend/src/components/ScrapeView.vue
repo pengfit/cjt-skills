@@ -87,11 +87,12 @@
     </div>
     <EmptyState v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0"
       icon="📭" title="暂无抓取任务记录" message="该页面需要先运行过一次同步任务" />
-    <div v-if="error" class="prov-error">{{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'

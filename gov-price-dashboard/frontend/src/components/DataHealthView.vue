@@ -58,13 +58,15 @@
     </div>
     <EmptyState v-else-if="!Object.keys(data || {}).length"
       icon="📊" title="暂无数据" message="请稍后再试或检查上游接口" />
-    <div v-if="error" class="health-error">{{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import axios from 'axios'
+import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
 import * as echarts from 'echarts'
 import SkeletonCard from './SkeletonCard.vue'
@@ -141,7 +143,7 @@ function renderDailyChart() {
   const el = document.getElementById('dailyTrendChart')
   if (!el || !data.value.daily?.length) return
   if (dailyChart.value) { dailyChart.value.dispose(); dailyChart.value = null }
-  const chart = markRaw(echarts.init(el))
+  const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   dailyChart.value = chart
 
   const buckets = data.value.daily
@@ -152,37 +154,37 @@ function renderDailyChart() {
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0d1117', borderColor: '#334155', borderWidth: 1,
-      textStyle: { color: '#1e293b', fontSize: 12 },
-      formatter: p => `<b style="color:#3b82f6">${p[0].name}</b><br/>数量: <b style="color:#10b981">${p[0].value.toLocaleString()}</b>`
+      backgroundColor: 'var(--text)', borderColor: 'var(--text-2)', borderWidth: 1,
+      textStyle: { color: 'var(--border-strong)', fontSize: 12 },
+      formatter: p => `<b style="color:var(--primary-soft)">${p[0].name}</b><br/>数量: <b style="color:var(--success-light)">${p[0].value.toLocaleString()}</b>`
     },
     grid: { left: '3%', right: '3%', bottom: '10%', top: '14%', containLabel: true },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { color: '#475569', fontSize: 10, rotate: 45, interval: 0 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { color: 'var(--text-2)', fontSize: 10, rotate: 45, interval: 0 },
+      axisLine: { lineStyle: { color: 'var(--text-2)' } },
       axisTick: { show: false },
       splitLine: { show: false }
     },
     yAxis: {
-      name: '文档数', nameTextStyle: { color: '#64748b', fontSize: 10, padding: [0, 0, 0, 30] },
+      name: '文档数', nameTextStyle: { color: 'var(--text-2)', fontSize: 10, padding: [0, 0, 0, 30] },
       type: 'value',
-      axisLabel: { color: '#64748b', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } }
+      axisLabel: { color: 'var(--text-2)', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'var(--border)', type: 'dashed' } }
     },
     series: [{
       type: 'bar', data: values,
       itemStyle: {
-        color: p => isZero(p.value) ? '#0f172a' : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#2563eb' },
-          { offset: 1, color: '#6366f1' }
+        color: p => isZero(p.value) ? 'var(--text)' : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'var(--primary)' },
+          { offset: 1, color: 'var(--indigo)' }
         ])
       },
       barMaxWidth: 20,
       emphasis: {
         itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#2563eb' },
-          { offset: 1, color: '#818cf8' }
+          { offset: 0, color: 'var(--primary)' },
+          { offset: 1, color: 'var(--primary-soft-light)' }
         ]) }
       }
     }],
@@ -229,11 +231,11 @@ onUnmounted(() => {
   padding: 16px 20px;
   padding-top: 16px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface-2) 100%);
   position: static;
   z-index: 10;
   box-sizing: border-box;
-  color: #ffffff;
+  color: var(--surface);
 }
 
 /* ===== 顶部汇总指标卡 ===== */
@@ -243,19 +245,19 @@ onUnmounted(() => {
   gap: 14px;
 }
 .stat-card {
-  background: #ffffff;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 2px rgba(var(--text-rgb), 0.04), 0 2px 6px rgba(var(--text-rgb), 0.03);
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   position: relative;
 }
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
-  border-color: #334155;
+  box-shadow: 0 6px 20px rgba(var(--text-rgb), 0.08), 0 2px 4px rgba(var(--text-rgb), 0.04);
+  border-color: var(--text-2);
 }
 .stat-card-inner {
   padding: 18px 20px;
@@ -274,15 +276,15 @@ onUnmounted(() => {
   justify-content: center;
   flex-shrink: 0;
 }
-.stat-card-primary  .stat-icon { background: #eff6ff; }
-.stat-card-cyan     .stat-icon { background: #ecfeff; }
-.stat-card-warning  .stat-icon { background: #fffbeb; }
-.stat-card-magenta  .stat-icon { background: #faf5ff; }
+.stat-card-primary  .stat-icon { background: var(--primary-light); }
+.stat-card-cyan     .stat-icon { background: var(--cyan-tint); }
+.stat-card-warning  .stat-icon { background: var(--amber-tint); }
+.stat-card-magenta  .stat-icon { background: var(--purple-tint); }
 
 .stat-content { flex: 1; min-width: 0; }
 .stat-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-2);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -306,7 +308,7 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 400;
   margin-left: 4px;
-  color: #475569;
+  color: var(--text-2);
 }
 .stat-glow {
   position: absolute;
@@ -317,26 +319,26 @@ onUnmounted(() => {
   border-radius: 0 14px 0 0;
   pointer-events: none;
 }
-.stat-card-primary .stat-glow { background: radial-gradient(ellipse at top right, rgba(59,130,246,0.10), transparent 70%); }
-.stat-card-cyan    .stat-glow { background: radial-gradient(ellipse at top right, rgba(6,182,212,0.10),  transparent 70%); }
-.stat-card-warning .stat-glow { background: radial-gradient(ellipse at top right, rgba(245,158,11,0.10), transparent 70%); }
-.stat-card-magenta .stat-glow { background: radial-gradient(ellipse at top right, rgba(168,85,247,0.10), transparent 70%); }
+.stat-card-primary .stat-glow { background: radial-gradient(ellipse at top right, rgba(var(--primary-rgb), 0.10), transparent 70%); }
+.stat-card-cyan    .stat-glow { background: radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.10),  transparent 70%); }
+.stat-card-warning .stat-glow { background: radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.10), transparent 70%); }
+.stat-card-magenta .stat-glow { background: radial-gradient(ellipse at top right, rgba(var(--purple-rgb), 0.10), transparent 70%); }
 
-.stat-card-warning.stat-alert { border-color: #b45309; }
-.stat-card-warning.stat-alert .stat-value { color: #b45309; }
-.stat-card-magenta.stat-alert { border-color: #7c3aed; }
-.stat-card-magenta.stat-alert .stat-value { color: #7c3aed; }
+.stat-card-warning.stat-alert { border-color: var(--warning-dark); }
+.stat-card-warning.stat-alert .stat-value { color: var(--warning-dark); }
+.stat-card-magenta.stat-alert { border-color: var(--purple); }
+.stat-card-magenta.stat-alert .stat-value { color: var(--purple); }
 
-.text-up   { color: #059669 !important; }
-.text-down { color: #dc2626 !important; }
+.text-up   { color: var(--success-dark) !important; }
+.text-down { color: var(--danger) !important; }
 
 /* ===== 图表面板 ===== */
 .chart-panel {
-  background: #ffffff;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
   padding: 18px 20px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 2px rgba(var(--text-rgb), 0.04), 0 2px 6px rgba(var(--text-rgb), 0.03);
   flex-shrink: 0;
 }
 .panel-header {
@@ -356,11 +358,11 @@ onUnmounted(() => {
   border-radius: 50%;
   display: inline-block;
 }
-.panel-dot-blue { background: #2563eb; }
+.panel-dot-blue { background: var(--primary); }
 .panel-title { font-size: 14px; font-weight: 700; color: var(--text); }
 .chart-legend { display: flex; gap: 16px; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
-.legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, #2563eb, #6366f1); }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--primary), var(--indigo)); }
 .chart-area { width: 100%; height: 320px; }
 
 /* ===== 省份同步卡片网格 ===== */
@@ -382,24 +384,24 @@ onUnmounted(() => {
 }
 .sync-grid-hint {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-2);
 }
 .sync-grid-toggle {
   font-size: 12px;
   padding: 5px 12px;
   border-radius: 6px;
-  border: 1px solid #bae6fd;
-  background: #f0f9ff;
-  color: #1e40af;
+  border: 1px solid var(--sky-tint-2);
+  background: var(--info-tint);
+  color: var(--primary-dark);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.15s;
   font-family: inherit;
 }
 .sync-grid-toggle:hover {
-  background: #e0f2fe;
-  border-color: #2563eb;
-  color: #0369a1;
+  background: var(--sky-tint);
+  border-color: var(--primary);
+  color: var(--sky-dark);
 }
 
 </style>

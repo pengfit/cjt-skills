@@ -23,8 +23,8 @@ defineProps({
 
 <style scoped>
 .skeleton-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
 }
@@ -32,9 +32,9 @@ defineProps({
 .skel {
   background: linear-gradient(
     90deg,
-    #e2e8f0 0%,
-    #f1f5f9 50%,
-    #e2e8f0 100%
+    var(--border) 0%,
+    var(--surface-2) 50%,
+    var(--border) 100%
   );
   background-size: 200% 100%;
   animation: skel-shimmer 1.4s linear infinite;

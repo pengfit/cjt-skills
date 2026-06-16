@@ -1,11 +1,5 @@
 <template>
   <div class="dist-page">
-    <!-- Page header -->
-    <div class="dist-header">
-      <div class="dist-title">数据分布</div>
-      <div class="dist-subtitle">按价格区间与省份维度分析全国 <strong>{{ overview.total_provinces }}</strong> 省 / <strong>{{ overview.total_cities }}</strong> 城 共 <strong>{{ overview.total_docs.toLocaleString() }}</strong> 条价格数据</div>
-    </div>
-
     <!-- 统计概览 -->
     <div class="dist-overview-stats">
       <div class="ov-stat">
@@ -99,13 +93,15 @@
     </div>
 
     <div v-if="loading" class="dist-loading">加载中...</div>
-    <div v-if="error" class="dist-error">{{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
+import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
 import * as echarts from 'echarts'
 
@@ -269,7 +265,7 @@ function renderRangeBar() {
   const el = document.getElementById('rangeBarChart')
   if (!el || !rangeData.value.length) return
   if (rangeBarIns.value) { rangeBarIns.value.dispose(); rangeBarIns.value = null }
-  const chart = markRaw(echarts.init(el))
+  const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   rangeBarIns.value = chart
 
   const sorted = [...rangeData.value]
@@ -353,7 +349,7 @@ function renderOneProvince(province) {
   if (!p) return
   const el = document.getElementById('provinceChart_' + province)
   if (!el) return
-  const chart = markRaw(echarts.init(el))
+  const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   provinceChartIns[province] = chart
   const validRanges = p.ranges.filter(r => r.count)
   if (!validRanges.length) return
@@ -413,28 +409,6 @@ onMounted(() => { mountedRef.value = true; loadData() })
   background: var(--bg);
   box-sizing: border-box;
   padding-top: 16px;
-}
-
-.dist-header {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: var(--shadow);
-}
-
-.dist-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-
-.dist-subtitle {
-  font-size: 13px;
-  color: var(--text-2);
-  margin-top: 4px;
-  line-height: 1.5;
 }
 
 

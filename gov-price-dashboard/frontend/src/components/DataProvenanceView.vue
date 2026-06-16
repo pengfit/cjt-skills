@@ -79,7 +79,7 @@
     </div>
     <EmptyState v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0"
       icon="🧪" title="暂无数据" message="该页面需要先运行过一次同步任务" />
-    <div v-if="error" class="prov-error">{{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 
     <!-- DWD 下钻弹窗 -->
@@ -224,8 +224,10 @@
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
+import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import * as echarts from 'echarts'
 import SpecQualityPanel from './SpecQualityPanel.vue'
 import SpecSamplePanel from './SpecSamplePanel.vue'
@@ -571,7 +573,7 @@ function renderChart() {
   if (!el || !data.value.daily?.length) return
   if (chartIns) chartIns.dispose()
 
-  chartIns = echarts.init(el)
+  chartIns = echarts.init(el, getGovPriceTheme())
   const daily = data.value.daily
 
   const dates = daily.map(d => d.date?.slice(5)) // MM-DD

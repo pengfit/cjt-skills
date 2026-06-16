@@ -2,19 +2,17 @@
   <div class="cockpit">
     <!-- 顶部 HUD 标题栏 -->
     <div class="hud-header">
-      <div class="hud-corner tl"></div>
-      <div class="hud-corner tr"></div>
       <div class="hud-title">
-        <span class="hud-prefix">GOV-PRICE</span>
+        <span class="hud-prefix">驾驶舱 · 实时监控</span>
       </div>
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
-        <span class="hud-live" :class="{ active: pollingActive }">● LIVE</span>
+        <span class="hud-live" :class="{ active: pollingActive }">● 运行中</span>
         <button class="hud-btn" @click="manualRefresh" :disabled="loading" title="立即拉取最新数据">
-          {{ loading ? '⟳ LOADING' : '↻ REFRESH' }}
+          {{ loading ? '⟳ 加载中' : '↻ 立即刷新' }}
         </button>
         <button class="hud-btn" @click="togglePolling">
-          {{ pollingActive ? '⏸ PAUSE' : '▶ RESUME' }}
+          {{ pollingActive ? '⏸ 暂停' : '▶ 继续' }}
         </button>
       </div>
     </div>
@@ -26,13 +24,13 @@
     <div v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0">
       <EmptyState icon="📡" title="暂无数据" message="驾驶舱数据加载中或上游接口不可用" />
     </div>
-    <div v-if="error" class="cockpit-error">⚠ {{ error }}</div>
+    <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
 
     <template v-if="data.all_cities">
       <!-- 主仪表盘：4 个大型圆形仪表 -->
       <div class="gauge-row">
         <div class="gauge-card">
-          <div class="gauge-label">DATA INGEST</div>
+          <div class="gauge-label">数据采集</div>
           <div class="gauge-sub">ODS 抓取总量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
@@ -40,21 +38,17 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${odsPct * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <g class="gauge-ticks">
-              <line v-for="i in 24" :key="i" :x1="100" :y1="20" :x2="100" :y2="28"
-                :transform="`rotate(${i * 15} 100 100)`" />
-            </g>
             <text x="100" y="105" class="gauge-num">{{ kpi.ods.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">DOCS</text>
+            <text x="100" y="135" class="gauge-unit">条</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-green">7 CITIES</span>
-            <span class="gauge-trend">+{{ kpi.odsDelta }} 7D</span>
+            <span class="gauge-tag tag-green">7 城市</span>
+            <span class="gauge-trend">+7日新增 {{ kpi.odsDelta }}</span>
           </div>
         </div>
 
         <div class="gauge-card">
-          <div class="gauge-label">DATA TRANSFORM</div>
+          <div class="gauge-label">数据清洗</div>
           <div class="gauge-sub">DWD 清洗总量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
@@ -62,21 +56,17 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${kpi.dwd / kpi.ods * 100 * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <g class="gauge-ticks">
-              <line v-for="i in 24" :key="i" :x1="100" :y1="20" :x2="100" :y2="28"
-                :transform="`rotate(${i * 15} 100 100)`" />
-            </g>
             <text x="100" y="105" class="gauge-num">{{ kpi.dwd.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">DOCS</text>
+            <text x="100" y="135" class="gauge-unit">条</text>
           </svg>
           <div class="gauge-foot">
             <span class="gauge-tag tag-cyan">{{ (kpi.dwd / kpi.ods * 100).toFixed(1) }}%</span>
-            <span class="gauge-trend">3-STAGE ETL</span>
+            <span class="gauge-trend">三段式 ETL</span>
           </div>
         </div>
 
         <div class="gauge-card">
-          <div class="gauge-label">DATA SERVE</div>
+          <div class="gauge-label">数据服务</div>
           <div class="gauge-sub">DWS 服务总量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
@@ -84,38 +74,30 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${kpi.dws / kpi.ods * 100 * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <g class="gauge-ticks">
-              <line v-for="i in 24" :key="i" :x1="100" :y1="20" :x2="100" :y2="28"
-                :transform="`rotate(${i * 15} 100 100)`" />
-            </g>
             <text x="100" y="105" class="gauge-num">{{ kpi.dws.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">DOCS</text>
+            <text x="100" y="135" class="gauge-unit">条</text>
           </svg>
           <div class="gauge-foot">
             <span class="gauge-tag tag-cyan">{{ (kpi.dws / kpi.ods * 100).toFixed(1) }}%</span>
-            <span class="gauge-trend">SYNC OK</span>
+            <span class="gauge-trend">同步正常</span>
           </div>
         </div>
 
         <div class="gauge-card gauge-card-main">
-          <div class="gauge-label">ATTR COVERAGE</div>
-          <div class="gauge-sub">属性解析覆盖率</div>
+          <div class="gauge-label">属性解析覆盖率</div>
+          <div class="gauge-sub">质量指数</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill gauge-fill-amber"
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${kpi.attrRate * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <g class="gauge-ticks">
-              <line v-for="i in 24" :key="i" :x1="100" :y1="20" :x2="100" :y2="28"
-                :transform="`rotate(${i * 15} 100 100)`" />
-            </g>
             <text x="100" y="108" class="gauge-num gauge-num-big">{{ kpi.attrRate.toFixed(1) }}</text>
-            <text x="100" y="138" class="gauge-unit">PERCENT</text>
+            <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-amber">95.6% AVG</span>
-            <span class="gauge-trend">+ AI BATCH</span>
+            <span class="gauge-tag tag-amber">95.6% 均值</span>
+            <span class="gauge-trend">+ AI 批量</span>
           </div>
         </div>
       </div>
@@ -124,21 +106,17 @@
       <div class="pipeline-section">
         <div class="section-title">
           <span class="section-dot"></span>
-          ETL PIPELINE · ODS → DWD → DWS · 7 CITIES
-          <span class="section-sub mono">LAST UPDATE: {{ kpi.lastUpdate || '—' }}</span>
+          数据处理管道 · ODS → DWD → DWS · 7 城市
+          <span class="section-sub mono">最后更新 {{ kpi.lastUpdate || '—' }}</span>
         </div>
         <div class="pipeline-grid">
           <div v-for="(pipe, key) in data.all_cities" :key="key" class="city-card"
             :class="{ alert: attrRate(pipe) < 80 }">
-            <div class="city-card-corner tl"></div>
-            <div class="city-card-corner tr"></div>
-            <div class="city-card-corner bl"></div>
-            <div class="city-card-corner br"></div>
 
             <div class="city-header">
               <span class="city-name">{{ pipe.city_label }}</span>
               <span class="city-status" :class="attrRate(pipe) >= 80 ? 'ok' : 'warn'">
-                {{ attrRate(pipe) >= 80 ? '● ONLINE' : '● ALERT' }}
+                {{ attrRate(pipe) >= 80 ? '✓ 在线' : '⚠ 异常' }}
               </span>
             </div>
 
@@ -150,14 +128,14 @@
                   <div class="stage-bar-fill" :style="{ width: '100%' }"></div>
                 </div>
               </div>
-              <div class="city-arrow">▶</div>
+              <div class="city-arrow" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <div class="city-stage">
                 <div class="stage-num">{{ (pipe.dwd?.count || 0).toLocaleString() }}</div>
                 <div class="stage-bar">
                   <div class="stage-bar-fill" :style="{ width: dwdPct(pipe) + '%' }"></div>
                 </div>
               </div>
-              <div class="city-arrow">▶</div>
+              <div class="city-arrow" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <div class="city-stage">
                 <div class="stage-num">{{ (pipe.dws?.count || 0).toLocaleString() }}</div>
                 <div class="stage-bar">
@@ -168,7 +146,7 @@
 
             <!-- 抓取进度块整体删（道友 11:09：'6/6 类 信息也不需要展示'） -->
 
-            <!-- attr 覆盖率迷你环 -->
+            <!-- attr 覆盖率迷你环 + 趋势 + sparkline -->
             <div class="city-attr">
               <svg viewBox="0 0 36 36" class="mini-ring">
                 <circle class="mini-track" cx="18" cy="18" r="15" />
@@ -176,9 +154,32 @@
                   :stroke-dasharray="`${attrRate(pipe) * 0.942}, 100`" />
               </svg>
               <div class="city-attr-info">
-                <span class="city-attr-num mono">{{ attrRate(pipe).toFixed(1) }}</span>
-                <span class="city-attr-unit">% ATTR</span>
+                <span class="city-attr-num mono">{{ attrRate(pipe).toFixed(1) }}%</span>
+                <span class="city-attr-unit">属性解析</span>
               </div>
+              <!-- 7 日 sparkline -->
+              <div class="city-sparkline-wrap" v-if="pipe.sparkline_7d && pipe.sparkline_7d.length" :title="`近 7 日入库量（按城市）`">
+                <svg class="city-sparkline" viewBox="0 0 80 24" preserveAspectRatio="none">
+                  <polyline
+                    class="spark-line"
+                    :points="sparklinePoints(pipe.sparkline_7d)"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                  />
+                  <polyline
+                    class="spark-area"
+                    :points="sparklineArea(pipe.sparkline_7d)"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                </svg>
+                <span class="city-sparkline-trend" :class="sparklineTrendCls(pipe.sparkline_7d)">
+                  {{ sparklineTrend(pipe.sparkline_7d) }}
+                </span>
+              </div>
+              <div v-else class="city-sparkline-empty" title="无近期入库记录">—</div>
             </div>
           </div>
         </div>
@@ -188,41 +189,37 @@
       <div class="skill-updates-section">
         <div class="section-title">
           <span class="section-dot"></span>
-          SKILL UPDATES · 7 CITIES · 各 skill 最近检查/更新记录
-          <span class="section-sub mono">SCAN AT: {{ updatesNow || '—' }}</span>
+          Skill 更新记录 · 7 城市 · 各 skill 最近检查/更新
+          <span class="section-sub mono">扫描于 {{ updatesNow || '—' }}</span>
         </div>
         <div class="skill-updates-grid">
           <div v-for="u in skillUpdates" :key="u.city" class="skill-update-card"
             :class="['status-' + u.status]">
-            <div class="update-card-corner tl"></div>
-            <div class="update-card-corner tr"></div>
-            <div class="update-card-corner bl"></div>
-            <div class="update-card-corner br"></div>
 
             <div class="update-header">
               <span class="update-city">{{ u.city_label }}</span>
               <span class="update-status" :class="u.status">
-                <span v-if="u.status === 'fresh'">● FRESH</span>
-                <span v-else-if="u.status === 'stale'">● STALE</span>
-                <span v-else-if="u.status === 'very_stale'">● VERY STALE</span>
-                <span v-else>● NO DATA</span>
+                <span v-if="u.status === 'fresh'">✓ 正常</span>
+                <span v-else-if="u.status === 'stale'">⚠ 过期</span>
+                <span v-else-if="u.status === 'very_stale'">✗ 严重过期</span>
+                <span v-else>— 无数据</span>
               </span>
             </div>
             <div class="update-body">
               <div class="update-row">
-                <span class="update-label">LAST UPDATED</span>
+                <span class="update-label">最后更新</span>
                 <span class="update-value mono">{{ formatUpdateTime(u.last_updated) }}</span>
               </div>
               <div class="update-row">
-                <span class="update-label">SINCE</span>
+                <span class="update-label">距今</span>
                 <span class="update-value mono">{{ u.hours_since != null ? hoursAgo(u.hours_since) : '—' }}</span>
               </div>
               <div class="update-row">
-                <span class="update-label">LATEST PERIOD</span>
+                <span class="update-label">最新周期</span>
                 <span class="update-value mono">{{ u.latest_period || '—' }}</span>
               </div>
               <div v-if="u.has_incremental" class="update-badge">
-                <span class="badge-incremental">+ INCREMENTAL</span>
+                <span class="badge-incremental">+ 增量</span>
               </div>
             </div>
           </div>
@@ -232,32 +229,32 @@
       <!-- 底部状态条 -->
       <div class="hud-footer">
         <div class="footer-cell">
-          <span class="footer-label">SYSTEM</span>
-          <span class="footer-value status-ok">● NOMINAL</span>
+          <span class="footer-label">系统</span>
+          <span class="footer-value status-ok">✓ 正常</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">POLL</span>
+          <span class="footer-label">轮询</span>
           <span class="footer-value mono">30m</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">CITIES</span>
+          <span class="footer-label">城市</span>
           <span class="footer-value mono">{{ Object.keys(data.all_cities).length }} / 7</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">ATTR OK</span>
+          <span class="footer-label">属性 OK</span>
           <span class="footer-value mono">{{ syncOkCount }} / 7</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">STALE</span>
+          <span class="footer-label">过期</span>
           <span class="footer-value mono" :class="{ 'status-warn': staleCount > 0 }">{{ staleCount }}</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">ALERTS</span>
+          <span class="footer-label">告警</span>
           <span class="footer-value mono" :class="{ 'status-warn': alertCount > 0 }">{{ alertCount }}</span>
         </div>
         <div class="footer-cell">
-          <span class="footer-label">DATA QUALITY</span>
-          <span class="footer-value status-ok">● {{ kpi.attrRate >= 90 ? 'EXCELLENT' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR' }}</span>
+          <span class="footer-label">数据质量</span>
+          <span class="footer-value status-ok">● {{ kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR' }}</span>
         </div>
       </div>
     </template>
@@ -265,6 +262,7 @@
 </template>
 
 <script setup>
+import ErrorState from './ErrorState.vue'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
@@ -281,7 +279,7 @@ const updatesNow = ref('')     // skill-updates 扫描时间
 let pollTimer = null
 let clockTimer = null
 
-const POLL_INTERVAL_MS = 30 * 60 * 1000  // 30 分钟
+const 轮询_INTERVAL_MS = 30 * 60 * 1000  // 30 分钟
 
 const kpi = computed(() => {
   const cities = Object.values(data.all_cities || {})
@@ -323,6 +321,45 @@ const staleCount = computed(() => {
 function attrRate(pipe) {
   // 从 coverageByCity 算
   return pipe.coverage?.rate ?? 0
+}
+
+// Sparkline: 把 7 个数字归一化到 [0, 24] 高度区间，返回 polyline points
+function sparklinePoints(arr) {
+  if (!arr || arr.length < 2) return ''
+  const max = Math.max(...arr, 1)
+  const w = 80
+  const h = 24
+  const stepX = w / (arr.length - 1)
+  return arr.map((v, i) => {
+    const x = (i * stepX).toFixed(1)
+    const y = (h - (v / max) * (h - 2) - 1).toFixed(1)
+    return `${x},${y}`
+  }).join(' ')
+}
+function sparklineArea(arr) {
+  const linePts = sparklinePoints(arr)
+  if (!linePts) return ''
+  return `0,24 ${linePts} 80,24`
+}
+function sparklineTrend(arr) {
+  if (!arr || arr.length < 2) return '—'
+  const prev = arr.slice(0, -1).reduce((s, v) => s + v, 0)
+  const last = arr[arr.length - 1]
+  if (prev === 0 && last === 0) return '— 平稳'
+  if (prev === 0) return '↑ 新增'
+  const diff = last - (prev / (arr.length - 1))
+  if (Math.abs(diff) < (prev / (arr.length - 1)) * 0.05) return '→ 平稳'
+  return diff > 0 ? `↑ ${Math.round(diff).toLocaleString()}` : `↓ ${Math.round(-diff).toLocaleString()}`
+}
+function sparklineTrendCls(arr) {
+  if (!arr || arr.length < 2) return ''
+  const prev = arr.slice(0, -1).reduce((s, v) => s + v, 0)
+  const last = arr[arr.length - 1]
+  if (prev === 0 && last === 0) return 'trend-flat'
+  if (prev === 0) return 'trend-up'
+  const diff = last - (prev / (arr.length - 1))
+  if (Math.abs(diff) < (prev / (arr.length - 1)) * 0.05) return 'trend-flat'
+  return diff > 0 ? 'trend-up' : 'trend-down'
 }
 
 function dwdPct(pipe) {
@@ -414,7 +451,7 @@ function manualRefresh() {
 
 function startPolling() {
   stopPolling()
-  pollTimer = setInterval(loadData, POLL_INTERVAL_MS)
+  pollTimer = setInterval(loadData, 轮询_INTERVAL_MS)
 }
 
 function stopPolling() {
@@ -439,8 +476,8 @@ onUnmounted(() => {
 
 <style scoped>
 .cockpit {
-  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 50%, #e2e8f0 100%);
-  color: #0f172a;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 50%, var(--border) 100%);
+  color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
   padding: 16px 20px;
   min-height: 100vh;
@@ -448,24 +485,18 @@ onUnmounted(() => {
 }
 
 /* ── HUD 通用 ─────────────────────────────────────── */
-.mono { font-family: 'SF Mono', 'Monaco', 'Menlo', 'Roboto Mono', monospace; }
+.mono { font-family: var(--font-mono-num); }
 
-.hud-corner {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #0284c7;
-  opacity: 0.6;
-}
-.hud-corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
-.hud-corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+
+
+
 
 /* ── 顶部标题栏 ─────────────────────────────────── */
 .hud-header {
   position: relative;
-  background: linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.08) 50%, transparent 100%);
-  border: 1px solid rgba(37,99,235,0.25);
-  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 14px 24px;
   margin-bottom: 20px;
   display: flex;
@@ -475,69 +506,69 @@ onUnmounted(() => {
 }
 .hud-title { display: flex; align-items: baseline; gap: 16px; }
 .hud-prefix {
-  color: #0284c7;
-  font-size: 12px;
-  letter-spacing: 4px;
-  text-shadow: none;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 .hud-status { display: flex; align-items: center; gap: 16px; }
 .hud-clock {
-  color: #16a34a;
+  color: var(--success);
   font-size: 18px;
   font-weight: 600;
   text-shadow: none;
   letter-spacing: 1px;
 }
 .hud-live {
-  color: #dc2626;
+  color: var(--danger);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
   
   animation: pulse 1.5s ease-in-out infinite;
 }
 .hud-live.active::before { content: '●'; }
-.hud-live:not(.active) { color: #94a3b8; text-shadow: none; }
+.hud-live:not(.active) { color: var(--text-3); text-shadow: none; }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 .hud-btn {
   background: transparent;
-  border: 1px solid #0284c7;
-  color: #0284c7;
+  border: 1px solid var(--primary);
+  color: var(--primary);
   padding: 6px 14px;
   border-radius: 2px;
   font-size: 11px;
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.2s;
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: var(--font-sans);
 }
 .hud-btn:hover {
-  background: rgba(37,99,235,0.08);
-  box-shadow: 0 0 12px rgba(22,163,74,0.5);
+  background: rgba(var(--primary-rgb), 0.08);
+  box-shadow: 0 0 12px rgba(var(--success-rgb), 0.5);
 }
 .hud-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  border-color: #94a3b8;
-  color: #94a3b8;
+  border-color: var(--text-3);
+  color: var(--text-3);
 }
 
 /* ── 加载 / 错误 ─────────────────────────────────── */
 .cockpit-loading {
   text-align: center;
   padding: 60px;
-  color: #0284c7;
-  font-family: monospace;
-  letter-spacing: 4px;
+  color: var(--primary);
+  font-family: var(--font-mono-num);
+  letter-spacing: 0.5px;
 }
 .loading-spinner {
   display: inline-block;
   width: 40px;
   height: 40px;
-  border: 2px solid #0284c7;
+  border: 2px solid var(--primary);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -545,12 +576,12 @@ onUnmounted(() => {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .cockpit-error {
-  background: rgba(220,38,38,0.08);
-  border: 1px solid #dc2626;
-  color: #dc2626;
+  background: rgba(var(--danger-rgb), 0.08);
+  border: 1px solid var(--danger);
+  color: var(--danger);
   padding: 12px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
   margin: 20px 0;
 }
 
@@ -562,39 +593,30 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 .gauge-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(37,99,235,0.25);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
   border-radius: 6px;
   padding: 16px;
   position: relative;
   overflow: hidden;
 }
-.gauge-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #93c5fd, transparent);
-  opacity: 0.6;
-}
+
 .gauge-card-main {
-  border-color: rgba(234,88,12,0.4);
-  background: linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%);
+  border-color: rgba(var(--warning-orange-rgb), 0.4);
+  background: linear-gradient(180deg, var(--warning-orange-tint) 0%, var(--warning-orange-soft) 100%);
 }
-.gauge-card-main::before {
-  background: linear-gradient(90deg, transparent, #fdba74, transparent);
-}
+
 .gauge-label {
-  color: #0284c7;
+  color: var(--primary);
   font-size: 10px;
-  letter-spacing: 3px;
-  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-weight: 600;
   text-align: center;
   margin-bottom: 2px;
 }
-.gauge-card-main .gauge-label { color: #ea580c; }
+.gauge-card-main .gauge-label { color: var(--warning-orange); }
 .gauge-sub {
-  color: #475569;
+  color: var(--text-2);
   font-size: 11px;
   text-align: center;
   margin-bottom: 8px;
@@ -608,7 +630,7 @@ onUnmounted(() => {
 }
 .gauge-track {
   fill: none;
-  stroke: #e2e8f0;
+  stroke: var(--border);
   stroke-width: 8;
 }
 .gauge-fill {
@@ -617,29 +639,29 @@ onUnmounted(() => {
   stroke-linecap: round;
   transition: stroke-dasharray 0.6s ease;
 }
-.gauge-fill-green { stroke: #16a34a; filter: none; }
-.gauge-fill-cyan { stroke: #0284c7; filter: none; }
-.gauge-fill-amber { stroke: #ea580c; filter: none; }
+.gauge-fill-green { stroke: var(--success); filter: none; }
+.gauge-fill-cyan { stroke: var(--primary); filter: none; }
+.gauge-fill-amber { stroke: var(--warning-orange); filter: none; }
 .gauge-ticks line {
-  stroke: #cbd5e1;
+  stroke: var(--border-strong);
   stroke-width: 1;
 }
 .gauge-num {
-  fill: #16a34a;
+  fill: var(--success);
   font-size: 32px;
   font-weight: 700;
   text-anchor: middle;
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: var(--font-sans);
   text-shadow: none;
 }
-.gauge-card-main .gauge-num { fill: #ea580c; text-shadow: none; }
+.gauge-card-main .gauge-num { fill: var(--warning-orange); text-shadow: none; }
 .gauge-num-big { font-size: 40px; }
 .gauge-unit {
-  fill: #6a7a8a;
+  fill: var(--text-muted);
   font-size: 9px;
   text-anchor: middle;
-  letter-spacing: 4px;
-  font-family: monospace;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono-num);
 }
 .gauge-foot {
   display: flex;
@@ -650,34 +672,34 @@ onUnmounted(() => {
 }
 .gauge-tag {
   padding: 2px 8px;
-  border-radius: 2px;
-  font-family: monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-  font-weight: 700;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
 }
-.tag-green { background: rgba(22,163,74,0.10); color: #16a34a; }
-.tag-cyan { background: rgba(37,99,235,0.08); color: #0284c7; }
-.tag-amber { background: rgba(234,88,12,0.10); color: #ea580c; }
+.tag-green { background: rgba(var(--success-rgb), 0.10); color: var(--success); }
+.tag-cyan { background: rgba(var(--primary-rgb), 0.08); color: var(--primary); }
+.tag-amber { background: rgba(var(--warning-orange-rgb), 0.10); color: var(--warning-orange); }
 .gauge-trend {
-  color: #475569;
-  font-family: monospace;
+  color: var(--text-2);
+  font-family: var(--font-mono-num);
   font-size: 10px;
   letter-spacing: 1px;
 }
 
 /* ── 全链路管道 ─────────────────────────────── */
 .pipeline-section {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(37,99,235,0.2);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
   border-radius: 6px;
   padding: 16px 20px;
   margin-bottom: 16px;
 }
 .section-title {
-  color: #0284c7;
+  color: var(--primary);
   font-size: 13px;
-  letter-spacing: 3px;
+  letter-spacing: 0.5px;
   font-weight: 700;
   margin-bottom: 16px;
   display: flex;
@@ -688,12 +710,12 @@ onUnmounted(() => {
 .section-dot {
   width: 8px;
   height: 8px;
-  background: #0284c7;
+  background: var(--primary);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+  box-shadow: 0 1px 3px rgba(var(--text-rgb), 0.06);
 }
 .section-sub {
-  color: #475569;
+  color: var(--text-2);
   font-size: 10px;
   letter-spacing: 1px;
   margin-left: auto;
@@ -707,36 +729,30 @@ onUnmounted(() => {
   gap: 12px;
 }
 .city-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(37,99,235,0.15);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
   border-radius: 4px;
   padding: 12px;
   position: relative;
   transition: all 0.2s;
 }
 .city-card:hover {
-  border-color: rgba(22,163,74,0.5);
-  box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+  border-color: rgba(var(--success-rgb), 0.5);
+  box-shadow: 0 1px 3px rgba(var(--text-rgb), 0.06);
 }
 .city-card.alert {
-  border-color: rgba(220,38,38,0.5);
+  border-color: rgba(var(--danger-rgb), 0.5);
   animation: alertPulse 2s ease-in-out infinite;
 }
 @keyframes alertPulse {
-  0%, 100% { box-shadow: 0 0 0 rgba(255,56,56,0); }
-  50% { box-shadow: 0 0 12px rgba(255,56,56,0.4); }
+  0%, 100% { box-shadow: 0 0 0 rgba(var(--danger-rgb), 0); }
+  50% { box-shadow: 0 0 12px rgba(var(--danger-rgb), 0.4); }
 }
-.city-card-corner {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border: 1px solid #0284c7;
-  opacity: 0.5;
-}
-.city-card-corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
-.city-card-corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
-.city-card-corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
-.city-card-corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+
+
+
+
 
 .city-header {
   display: flex;
@@ -745,7 +761,7 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 .city-name {
-  color: #0284c7;
+  color: var(--primary);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -754,11 +770,11 @@ onUnmounted(() => {
 .city-status {
   font-size: 9px;
   letter-spacing: 1px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
   font-weight: 700;
 }
-.city-status.ok { color: #16a34a; text-shadow: none; }
-.city-status.warn { color: #ea580c;  }
+.city-status.ok { color: var(--success); text-shadow: none; }
+.city-status.warn { color: var(--warning-orange);  }
 
 .city-pipe {
   display: flex;
@@ -767,17 +783,17 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 .city-stage { flex: 1; min-width: 0; }
-.city-arrow { flex-shrink: 0; color: #0284c7; font-size: 10px; opacity: 0.5; }
+.city-arrow { flex-shrink: 0; color: var(--primary); font-size: 10px; opacity: 0.5; }
 .stage-tag {
-  color: #475569;
+  color: var(--text-2);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
   margin-bottom: 2px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
 }
 .stage-num {
-  color: #16a34a;
+  color: var(--success);
   font-size: 14px;
   font-weight: 700;
   font-family: 'SF Mono', monospace;
@@ -790,20 +806,20 @@ onUnmounted(() => {
 }
 .stage-bar {
   height: 3px;
-  background: #e2e8f0;
+  background: var(--border);
   border-radius: 1px;
   overflow: hidden;
 }
 .stage-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #16a34a);
-  box-shadow: 0 0 6px rgba(22,163,74,0.5);
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  box-shadow: 0 0 6px rgba(var(--success-rgb), 0.5);
   transition: width 0.6s;
 }
 
 
 .scrape-meta {
-  color: #64748b;
+  color: var(--text-2);
   font-size: 9px;
   letter-spacing: 0.5px;
 }
@@ -813,13 +829,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(37,99,235,0.08);
+  border-top: 1px solid rgba(var(--primary-rgb), 0.08);
 }
 .mini-ring { width: 32px; height: 32px; flex-shrink: 0; }
-.mini-track { fill: none; stroke: #e2e8f0; stroke-width: 3; }
+.mini-track { fill: none; stroke: var(--border); stroke-width: 3; }
 .mini-fill {
   fill: none;
-  stroke: #ea580c;
+  stroke: var(--warning-orange);
   stroke-width: 3;
   stroke-linecap: round;
   transform: rotate(-90deg);
@@ -829,50 +845,82 @@ onUnmounted(() => {
 }
 .city-attr-info { display: flex; align-items: baseline; gap: 4px; }
 .city-attr-num {
-  color: #ea580c;
+  color: var(--warning-orange);
   font-size: 16px;
   font-weight: 700;
   text-shadow: none;
 }
 .city-attr-unit {
-  color: #475569;
+  color: var(--text-2);
   font-size: 9px;
   letter-spacing: 1px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
+}
+
+.city-sparkline-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  min-width: 80px;
+}
+.city-sparkline {
+  width: 80px;
+  height: 24px;
+  color: var(--primary);
+  display: block;
+}
+.city-sparkline-trend {
+  font-size: 10px;
+  font-family: var(--font-mono-num);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+.city-sparkline-trend.trend-up   { color: var(--success); }
+.city-sparkline-trend.trend-down { color: var(--danger); }
+.city-sparkline-trend.trend-flat { color: var(--text-3); }
+.city-sparkline-empty {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font-mono-num);
+  align-self: center;
 }
 
 /* ── 底部状态条 ─────────────────────────────── */
 .hud-footer {
   display: flex;
   gap: 1px;
-  background: rgba(37,99,235,0.08);
-  border: 1px solid rgba(37,99,235,0.25);
+  background: rgba(var(--primary-rgb), 0.08);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
   border-radius: 4px;
   overflow: hidden;
 }
 .footer-cell {
   flex: 1;
-  background: #f8fafc;
+  background: var(--bg);
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 .footer-label {
-  color: #475569;
+  color: var(--text-2);
   font-size: 9px;
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
   font-weight: 700;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
 }
 .footer-value {
-  color: #16a34a;
+  color: var(--success);
   font-size: 13px;
   font-weight: 700;
   text-shadow: none;
 }
-.footer-value.status-ok { color: #16a34a; }
-.footer-value.status-warn { color: #ea580c; text-shadow: none; }
+.footer-value.status-ok { color: var(--success); }
+.footer-value.status-warn { color: var(--warning-orange); text-shadow: none; }
 
 /* ── 响应式 ─────────────────────────────── */
 @media (max-width: 1200px) {
@@ -882,8 +930,8 @@ onUnmounted(() => {
 
 /* ── SKILL UPDATES 模块 ─────────────────────────── */
 .skill-updates-section {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(37,99,235,0.2);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
   border-radius: 6px;
   padding: 16px 20px;
   margin-bottom: 16px;
@@ -895,34 +943,28 @@ onUnmounted(() => {
 }
 .skill-update-card {
   position: relative;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(37,99,235,0.15);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
   border-radius: 4px;
   padding: 12px 14px;
   transition: all 0.2s;
 }
 .skill-update-card:hover {
-  border-color: rgba(22,163,74,0.5);
-  box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+  border-color: rgba(var(--success-rgb), 0.5);
+  box-shadow: 0 1px 3px rgba(var(--text-rgb), 0.06);
 }
-.skill-update-card.status-fresh { border-left: 3px solid #16a34a; }
-.skill-update-card.status-stale { border-left: 3px solid #ea580c; }
+.skill-update-card.status-fresh { border-left: 3px solid var(--success); }
+.skill-update-card.status-stale { border-left: 3px solid var(--warning-orange); }
 .skill-update-card.status-very_stale {
-  border-left: 3px solid #dc2626;
+  border-left: 3px solid var(--danger);
   animation: alertPulse 2s ease-in-out infinite;
 }
-.skill-update-card.status-no_data { border-left: 3px solid #6a7a8a; opacity: 0.7; }
-.update-card-corner {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border: 1px solid #0284c7;
-  opacity: 0.4;
-}
-.update-card-corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
-.update-card-corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
-.update-card-corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
-.update-card-corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.skill-update-card.status-no_data { border-left: 3px solid var(--text-muted); opacity: 0.7; }
+
+
+
+
+
 .update-header {
   display: flex;
   justify-content: space-between;
@@ -930,7 +972,7 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 .update-city {
-  color: #0284c7;
+  color: var(--primary);
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -938,14 +980,14 @@ onUnmounted(() => {
 }
 .update-status {
   font-size: 9px;
-  letter-spacing: 1.5px;
-  font-family: monospace;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono-num);
   font-weight: 700;
 }
-.update-status.fresh { color: #16a34a; text-shadow: none; }
-.update-status.stale { color: #ea580c;  }
-.update-status.very_stale { color: #dc2626;  }
-.update-status.no_data { color: #475569; }
+.update-status.fresh { color: var(--success); text-shadow: none; }
+.update-status.stale { color: var(--warning-orange);  }
+.update-status.very_stale { color: var(--danger);  }
+.update-status.no_data { color: var(--text-2); }
 .update-body {
   display: flex;
   flex-direction: column;
@@ -956,28 +998,28 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 10px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
 }
 .update-label {
-  color: #475569;
+  color: var(--text-2);
   letter-spacing: 1px;
 }
 .update-value {
-  color: #0f172a;
+  color: var(--text);
   font-weight: 600;
 }
 .update-badge {
   margin-top: 6px;
 }
 .badge-incremental {
-  background: rgba(22,163,74,0.10);
-  color: #16a34a;
+  background: rgba(var(--success-rgb), 0.10);
+  color: var(--success);
   padding: 2px 6px;
   border-radius: 2px;
-  font-family: monospace;
+  font-family: var(--font-mono-num);
   font-size: 9px;
   letter-spacing: 1px;
   font-weight: 700;
-  border: 1px solid rgba(22,163,74,0.4);
+  border: 1px solid rgba(var(--success-rgb), 0.4);
 }
 </style>

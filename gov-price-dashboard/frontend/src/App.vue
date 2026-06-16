@@ -40,7 +40,7 @@
         <div class="sidebar-group-label">业务查价</div>
         <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
         <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
-        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">数据统计</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">价格分布</button>
       </div>
       <div class="sidebar-group">
         <div class="sidebar-group-label">系统监控</div>
@@ -74,27 +74,27 @@
         <span class="filter-tag" v-if="searchKeyword">
           <strong>产品名称</strong>
           <em>{{ searchKeyword }}</em>
-          <span class="tag-remove" @click="searchKeyword = ''; doSearch()">✕</span>
+          <span class="tag-remove" @click="searchKeyword = ''; doSearch()" role="button" aria-label="清除关键词筛选" tabindex="0">✕</span>
         </span>
         <span class="filter-tag" v-if="searchProvince">
           <strong>省份</strong>
           <em>{{ searchProvince }}</em>
-          <span class="tag-remove" @click="searchProvince = ''; searchCity = ''; searchCounty = ''; doSearch()">✕</span>
+          <span class="tag-remove" @click="searchProvince = ''; searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除省份筛选" tabindex="0">✕</span>
         </span>
         <span class="filter-tag" v-if="searchCity">
           <strong>城市</strong>
           <em>{{ searchCity }}</em>
-          <span class="tag-remove" @click="searchCity = ''; searchCounty = ''; doSearch()">✕</span>
+          <span class="tag-remove" @click="searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除城市筛选" tabindex="0">✕</span>
         </span>
         <span class="filter-tag" v-if="searchCategory">
           <strong>分类</strong>
           <em>{{ searchCategory }}</em>
-          <span class="tag-remove" @click="searchCategory = ''; doSearch()">✕</span>
+          <span class="tag-remove" @click="searchCategory = ''; doSearch()" role="button" aria-label="清除分类筛选" tabindex="0">✕</span>
         </span>
         <span class="filter-tag" v-if="searchCounty">
           <strong>区县</strong>
           <em>{{ searchCounty }}</em>
-          <span class="tag-remove" @click="searchCounty = ''; doSearch()">✕</span>
+          <span class="tag-remove" @click="searchCounty = ''; doSearch()" role="button" aria-label="清除区县筛选" tabindex="0">✕</span>
         </span>
         <span class="filter-tag-clear" @click="resetSearch">清空全部</span>
       </div>
@@ -105,7 +105,7 @@
       <div class="drawer" v-if="showDrawer">
         <div class="drawer-header">
           <span>更多筛选</span>
-          <span class="drawer-close" @click="showDrawer = false">✕</span>
+          <span class="drawer-close" @click="showDrawer = false" role="button" aria-label="关闭筛选抽屉" tabindex="0">✕</span>
         </div>
         <div class="drawer-body">
           <div class="filter-group">
@@ -240,7 +240,7 @@
                   <th
                     v-for="col in visibleColumns"
                     :key="col.key"
-                    :class="{ sorted: sortKey === col.key, sortable: col.sortable }"
+                    :class="['col-' + col.key, { sorted: sortKey === col.key, sortable: col.sortable }]"
                     :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                     @click="col.sortable && sortBy(col.key)"
                   >
@@ -261,7 +261,7 @@
                   <td
                     v-for="col in visibleColumns"
                     :key="col.key"
-                    :class="getCellClass(col.key, item)"
+                    :class="['col-' + col.key, getCellClass(col.key, item)]"
                     :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
                     :title="col.key === 'breed' ? item.breed : col.key === 'spec' ? item.spec_clean : undefined"
                   >
@@ -413,7 +413,7 @@ const TAB_LIST = [
   { key: 'cockpit', label: '驾驶舱' },
   { key: 'list',    label: '全部数据' },
   { key: 'category',label: '全部类别' },
-  { key: 'dist',    label: '数据统计' },
+  { key: 'dist',    label: '价格分布' },
   { key: 'sync',    label: '数据同步' },
   { key: 'health',  label: '数据健康' },
   { key: 'breedcat',label: '品种分类' },
@@ -892,32 +892,59 @@ async function loadAPI(url) {
   try { return (await axios.get(url)).data } catch { return {} }
 }
 
+// 内存缓存（避免重复请求）
+let _overviewCache = null
+let _overviewCacheAt = 0
+let _filterOptionsCache = null
+let _filterOptionsCacheAt = 0
+const CACHE_TTL = 30 * 1000  // 30s
+
 async function loadOverview() {
+  if (_overviewCache && Date.now() - _overviewCacheAt < CACHE_TTL) {
+    overview.value = _overviewCache
+    // 同步更新 categoryOptions（从 overview 复用）
+    if (_overviewCache.by_category) {
+      categoryOptions.value = _overviewCache.by_category
+        .map(c => ({ key: c.category, count: c.count, label: c.category }))
+        .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
+    }
+    return _overviewCache
+  }
   // 不传搜索过滤条件，获取总览全量数据
   const d = await loadAPI(`${API}/stats/overview`)
-  overview.value = d || { total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, by_province: [] }
-}
-
-async function loadCityOptions() {
-  const d = await loadAPI(`${API}/filter-options`)
-  if (d) {
-    cityOptions.value = d.cities || []
-    countyOptions.value = d.counties || []
-    provinceCityMap.value = d.provinceCityMap || {}
-  }
-}
-
-async function loadCategoryOptions() {
-  const d = await loadAPI(`${API}/stats/overview`)
-  if (d?.by_category) {
-    categoryOptions.value = d.by_category
+  _overviewCache = d || { total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, by_province: [] }
+  _overviewCacheAt = Date.now()
+  overview.value = _overviewCache
+  // 复用 overview 数据填充 categoryOptions（避免重复请求）
+  if (_overviewCache.by_category) {
+    categoryOptions.value = _overviewCache.by_category
       .map(c => ({ key: c.category, count: c.count, label: c.category }))
       .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
   }
+  return _overviewCache
+}
+
+async function loadCityOptions() {
+  if (_filterOptionsCache && Date.now() - _filterOptionsCacheAt < CACHE_TTL) {
+    cityOptions.value = _filterOptionsCache.cities || []
+    countyOptions.value = _filterOptionsCache.counties || []
+    provinceCityMap.value = _filterOptionsCache.provinceCityMap || {}
+    return _filterOptionsCache
+  }
+  const d = await loadAPI(`${API}/filter-options`)
+  _filterOptionsCache = d || {}
+  _filterOptionsCacheAt = Date.now()
+  if (_filterOptionsCache) {
+    cityOptions.value = _filterOptionsCache.cities || []
+    countyOptions.value = _filterOptionsCache.counties || []
+    provinceCityMap.value = _filterOptionsCache.provinceCityMap || {}
+  }
+  return _filterOptionsCache
 }
 
 async function onMount() {
-  await Promise.all([loadOverview(), loadCityOptions(), loadCategoryOptions(), doSearch()])
+  // 只需调 2 个端点：overview（兼做 category）和 filter-options
+  await Promise.all([loadOverview(), loadCityOptions(), doSearch()])
 }
 
 onMounted(() => {

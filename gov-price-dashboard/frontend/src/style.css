@@ -73,10 +73,83 @@
 
   /* === 顶栏高度（移动端覆盖） === */
   --topbar-h: 60px;
+
+  /* === RGB 三元组（供 rgba() 组合使用） === */
+  --primary-rgb:       37, 99, 235;
+  --primary-dark-rgb:  29, 78, 216;
+  --success-rgb:       22, 163, 74;
+  --danger-rgb:        220, 38, 38;
+  --warning-rgb:       217, 119, 6;
+  --warning-orange-rgb: 234, 88, 12;
+  --purple-rgb:        124, 58, 237;
+  --text-rgb:          15, 23, 42;
+  --text-2-rgb:        71, 85, 105;
+  --text-3-rgb:        148, 163, 184;
+  --border-rgb:        226, 232, 240;
+  --surface-rgb:       255, 255, 255;
+  --surface-2-rgb:     241, 245, 249;
+
+  /* === 扩展语义色（CockpitView 主指标橙 等） === */
+  --warning-orange:        #ea580c;   /* orange-600，ATTR COVERAGE 等主指标 */
+  --warning-orange-tint:   #fff7ed;   /* 极浅橙底 */
+  --warning-orange-soft:   #fef3c7;   /* 浅橙底 */
+  --warning-orange-edge:   #fdba74;   /* 橙-300，光晕色 */
+  --text-muted:            #6a7a8a;   /* slate-灰，用于单元/label */
+
+  /* === 极浅语义底色（badge 背景等） === */
+  --primary-light:         rgba(37, 99, 235, 0.04);
+  --primary-bg-light:      #dbeafe;   /* 极浅蓝 badge 底 */
+  --success-bg-light:      #d1fae5;   /* 极浅绿 badge 底 */
+  --danger-bg-light:       #fee2e2;   /* 极浅红 badge 底 */
+  --warning-bg-light:      #fef3c7;   /* 极浅橙 badge 底 */
+
+  /* === 极浅 tint 底色（stat card icon 背景） === */
+  --info-tint:             #f0f9ff;   /* sky-50，cyan stat 底 */
+  --cyan-tint:             #ecfeff;   /* cyan-50 */
+  --sky-tint:              #e0f2fe;   /* sky-200 浅 */
+  --sky-tint-2:            #bae6fd;   /* sky-200 */
+  --amber-tint:            #fffbeb;   /* amber-50 */
+  --purple-tint:           #faf5ff;   /* violet-50 */
+
+  /* === 扩展语义色（stat card 主题色） === */
+  --warning-dark:          #b45309;   /* amber-700，深橙 */
+  --indigo:                #6366f1;   /* indigo-500 */
+  --success-light:         #10b981;   /* emerald-500 */
+  --success-dark:          #059669;   /* emerald-600 */
+  --primary-soft-light:    #818cf8;   /* indigo-400，浅 */
+  --sky-dark:              #0369a1;   /* sky-700 */
 }
 
 /* === Reset === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* === A11y: 全局 focus-visible 环 === */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+  transition: outline-offset 0.1s;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.15);
+}
+
+/* sr-only: 屏幕阅读器专用 */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
 
 /* 全局：所有数字 / 计量类 class 启用 tabular-nums，对齐不抖动 */
 [class*="-num"], [class*="-value"], [class*="-count"], [class*="-pct"],
@@ -1771,6 +1844,48 @@ body {
   .health-cards { grid-template-columns: repeat(2, 1fr) !important; }
   .province-chart-grid { grid-template-columns: 1fr !important; }
   .detail-stats { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ——— 表格列响应式隐藏 ——— */
+/* 移动端隐藏部分非关键列，保留 breed/price/date */
+@media (max-width: 768px) {
+  .result-table th.col-attr,
+  .result-table td.col-attr,
+  .result-table th.col-category,
+  .result-table td.col-category,
+  .result-table th.col-unit,
+  .result-table td.col-unit { display: none; }
+
+  .result-table { font-size: 12px; }
+  .result-table th { padding: 6px 8px; }
+  .result-table td { padding: 6px 8px; }
+
+  /* Filter bar 移动端简化 */
+  .filter-bar { padding: 10px 12px; gap: 6px; }
+  .filter-bar-input { font-size: 14px; }
+  .btn-more { font-size: 12px; padding: 6px 10px; }
+
+  /* Drawer 移动端全屏 */
+  .drawer {
+    width: 100% !important;
+    max-width: 100% !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+  }
+  .drawer-body { padding: 16px 14px; }
+
+  /* 表格容器：水平滚动 */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* 页码区 */
+  .pagination { flex-wrap: wrap; gap: 4px; font-size: 12px; }
+  .page-jump-wrap, .page-size-wrap { display: none; }  /* 移动端隐藏跳页/页大小 */
+}
+
+@media (max-width: 480px) {
+  /* 480px 再隐藏一列 */
+  .result-table th.col-date,
+  .result-table td.col-date { display: none; }
 }
 
 /* ========== Filter Tags ========== */
