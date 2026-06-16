@@ -62,6 +62,81 @@
           <span class="legend-item"><span class="legend-dot legend-fresh"></span>新鲜</span>
           <span class="legend-item"><span class="legend-dot legend-stale"></span>停滞</span>
           <span class="legend-item"><span class="legend-dot legend-down"></span>停更</span>
+          <button class="rule-toggle" @click="showRule = !showRule">
+            {{ showRule ? '▴ 收起规则' : '▾ 规则说明' }}
+          </button>
+        </div>
+      </div>
+      <div v-if="showRule" class="rule-panel">
+        <div class="rule-grid">
+          <div class="rule-section">
+            <h5>健康度（按距今 + 同步状态）</h5>
+            <div class="rule-row">
+              <span class="health-pill pill-fresh">✓ 新鲜</span>
+              <span class="rule-desc">距今 <strong>≤ 3 天</strong>，同步状态正常</span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-warn">● 一般</span>
+              <span class="rule-desc">距今 <strong>4–7 天</strong>，建议关注</span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-stale">⚠ 停滞</span>
+              <span class="rule-desc">距今 <strong>&gt; 7 天</strong>，超一周未抓取</span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-stale">⚠ 中断</span>
+              <span class="rule-desc">同步状态 = <code>interrupted</code></span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-down">● 停更</span>
+              <span class="rule-desc">同步状态 = <code>down</code></span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-down">✗ 出错</span>
+              <span class="rule-desc">同步状态 = <code>error</code></span>
+            </div>
+            <div class="rule-row">
+              <span class="health-pill pill-gray">— 无记录</span>
+              <span class="rule-desc">缺失 <code>last_updated</code> 字段</span>
+            </div>
+          </div>
+          <div class="rule-section">
+            <h5>规格解析率（按 category 平均 rate）</h5>
+            <div class="rule-row">
+              <span class="rate-pill rate-good">≥ 90%</span>
+              <span class="rule-desc"><strong>良好</strong>，解析规则覆盖充分</span>
+            </div>
+            <div class="rule-row">
+              <span class="rate-pill rate-warn">≥ 70%</span>
+              <span class="rule-desc"><strong>一般</strong>，部分分类规则待补</span>
+            </div>
+            <div class="rule-row">
+              <span class="rate-pill rate-bad">&lt; 70%</span>
+              <span class="rule-desc"><strong>落后</strong>，建议补全规格规则</span>
+            </div>
+            <div class="rule-meta">
+              数据源：<code>/api/stats/spec-quality?city={skill.key}</code>，
+              取 <code>coverage</code> 数组所有 category 的 <code>rate</code> 算术平均
+            </div>
+          </div>
+          <div class="rule-section">
+            <h5>异常告警（30 日趋势）</h5>
+            <div class="rule-row">
+              <span class="legend-dot legend-down inline"></span>
+              <span class="rule-desc"><strong>突增</strong>：日增量 &gt; 30 日均值的 <strong>2 倍</strong>（红色）</span>
+            </div>
+            <div class="rule-row">
+              <span class="legend-dot legend-warn inline"></span>
+              <span class="rule-desc"><strong>突减</strong>：日增量 &lt; 30 日均值的 <strong>0.3 倍</strong>（橙色）</span>
+            </div>
+            <div class="rule-row">
+              <span class="legend-dot legend-fresh inline"></span>
+              <span class="rule-desc"><strong>正常</strong>：落在 [0.3×, 2×] 区间内（蓝色）</span>
+            </div>
+            <div class="rule-meta">
+              异常柱用红/橙标色，markPoint 标 ↑/↓ 提示；图中虚线为 30 日均值参考线
+            </div>
+          </div>
         </div>
       </div>
       <div class="health-table-scroll">
@@ -195,6 +270,9 @@ const skillHealthRows = computed(() => {
     }
   })
 })
+
+// 健康度规则说明面板（默认收起）
+const showRule = ref(false)
 
 const skillStats = computed(() => {
   const rows = skillHealthRows.value
@@ -688,5 +766,74 @@ onUnmounted(() => {
 
 .cell-muted { color: var(--text-3); font-size: 11px; }
 .cell-muted-small { font-size: 10px; margin-left: 2px; }
+
+/* ===== 规则说明面板（折叠）===== */
+.rule-toggle {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.rule-toggle:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.rule-panel {
+  background: rgba(241, 245, 249, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.rule-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.rule-section h5 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  color: var(--text-2);
+}
+.rule-row strong { color: var(--text); font-weight: 700; }
+.rule-row code {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.rule-desc { font-size: 12px; }
+.rule-meta {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.6;
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+}
+.legend-dot.inline { display: inline-block; margin: 0; }
+
+@media (max-width: 1100px) {
+  .rule-grid { grid-template-columns: 1fr; }
+}
 
 </style>
