@@ -2979,3 +2979,98 @@ def fix_spec_case(req: FixCaseRequest = Body(...)):
         "etl_ok": False,
     }
 
+
+
+# ── 清洗维度汇总（方案 A：分类清洗 + 规格清洗两个汇总面板）────────────
+@router.get("/api/stats/clean-summary")
+def clean_summary(
+    dim: str = Query("category", pattern="^(category|spec)$", description="聚合维度: category=一级分类, spec=规格"),
+    top_n: int = Query(30, ge=1, le=100, description="返回 top N 项"),
+):
+    """
+    清洗维度汇总：按 category / spec 维度聚合全国 8 城 DWD 数据。
+
+    返回每项：
+      - key:         维度值
+      - doc_count:   全国总文档数
+      - city_count:  覆盖城市数（最大 8）
+      - cities:      覆盖城市 key 列表
+      - parse_rate:  attr 解析率（0-1，attr 字段存在的文档比例）
+    """
+    # spec 是 text 字段，聚合用 .keyword 子字段
+    field = "category" if dim == "category" else "spec.keyword"
+
+    def _query_city(city_key: str, dwd_idx: str):
+        body = {
+            "size": 0,
+            "aggs": {
+                "by_dim": {
+                    "terms": {"field": field, "size": top_n},
+                    "aggs": {
+                        "with_attr": {
+                            "filter": {
+                                "nested": {
+                                    "path": "attr",
+                                    "query": {"match_all": {}}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        try:
+            r = es.search(index=dwd_idx, body=body, ignore_unavailable=True)
+            return city_key, r["aggregations"]["by_dim"]["buckets"]
+        except Exception as e:
+            print(f"[clean-summary] {city_key} query failed: {e}", file=sys.stderr)
+            return city_key, []
+
+    # 8 城并行查（每城一个 DWD 索引）
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(_query_city, k, v["dwd"]) for k, v in CITY_INDEXES.items()]
+        # 每线程先聚合自己城市的数据，最后主线程串行 merge（避免 race）
+        per_city: dict = {}
+        for f in concurrent.futures.as_completed(futures):
+            city_key, buckets = f.result()
+            inner: dict = {}
+            for b in buckets:
+                k = b["key"]
+                if k is None or k == "":
+                    continue
+                inner[k] = {
+                    "count": b["doc_count"],
+                    "with_attr": b["with_attr"]["doc_count"],
+                }
+            per_city[city_key] = inner
+
+    # 串行 merge
+    merged: dict = {}
+    for city_key, dim_map in per_city.items():
+        for k, v in dim_map.items():
+            slot = merged.get(k)
+            if slot is None:
+                slot = {"key": k, "doc_count": 0, "cities": set(), "with_attr": 0}
+                merged[k] = slot
+            slot["doc_count"] += v["count"]
+            slot["cities"].add(city_key)
+            slot["with_attr"] += v["with_attr"]
+
+    # 排序 + 序列化（set → sorted list）
+    sorted_merged = sorted(merged.values(), key=lambda x: -x["doc_count"])
+    items = []
+    for v in sorted_merged[:top_n]:
+        items.append({
+            "key": v["key"],
+            "doc_count": v["doc_count"],
+            "city_count": len(v["cities"]),
+            "cities": sorted(v["cities"]),
+            "parse_rate": round(v["with_attr"] / v["doc_count"], 3) if v["doc_count"] else 0,
+        })
+
+    return {
+        "dim": dim,
+        "total": sum(v["doc_count"] for v in sorted_merged),  # 全国全量（不仅 top_n）
+        "items": items,
+        "cities_total": len(CITY_INDEXES),
+    }

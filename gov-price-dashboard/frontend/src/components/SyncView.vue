@@ -11,10 +11,16 @@
         数据清洗
         <span class="sync-subtab-hint">ODS → DWD → DWS 链路</span>
       </button>
+      <button class="sync-subtab" :class="{ active: subTab === 'cleandim' }" @click="subTab = 'cleandim'">
+        <span class="sync-subtab-dot"></span>
+        维度清洗
+        <span class="sync-subtab-hint">一级分类 × 规格型号 × 城市覆盖</span>
+      </button>
     </div>
 
     <ScrapeView v-if="subTab === 'scrape'" />
     <DataProvenanceView v-else-if="subTab === 'clean'" />
+    <CleanDimView v-else-if="subTab === 'cleandim'" />
   </div>
 </template>
 
@@ -22,6 +28,7 @@
 import { ref } from 'vue'
 import ScrapeView from './ScrapeView.vue'
 import DataProvenanceView from './DataProvenanceView.vue'
+import CleanDimView from './CleanDimView.vue'
 
 const subTab = ref('scrape')
 </script>
