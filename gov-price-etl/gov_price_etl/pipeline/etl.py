@@ -30,13 +30,19 @@ v1/v2 协作模式：
 etl.py 主体瘦身：移除 v1 阶段 3 AI 攒批逻辑（_ai_classify_pending / ai_pending 累加）。
 """
 import time
-from typing import Tuple
+from typing import List, Tuple
 
+from gov_price_etl.ai.service import classify_v2_batch as ai_classify_v2_batch
+from gov_price_etl.classify.category_v2 import classify_v2
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
 from gov_price_etl.transform import transform_doc
+from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
+
+# DB 命中阈值：v2 阶段 1/2/3 都算本地命中，不送 AI
+_LOCAL_HIT_SOURCES = frozenset(("db_exact_v2", "db_fuzzy_v2", "pattern_v2"))
 
 
 def etl_city(
@@ -50,14 +56,20 @@ def etl_city(
     category: str = "",
     mark_done: bool = False,
 ) -> Tuple[int, int]:
-    """单城市 ODS → DWD 二段式 ETL。返回 (成功, 失败)。
+    """单城市 ODS → DWD 二段式 ETL（先 DB 后 AI）。返回 (成功, 失败)。
 
-    流程（2026-06-16 简化）：
-      1. ODS 滚动拉取（按 update_date 排序）
-      2. 每条调 transform_doc() → v1 阶段 1+2（DB 查表，不调 AI） + v2 5 段式
-      3. 直接 bulk_index 写 DWD，无 v1 AI 后处理
+    流程（2026-06-17 重构）：
+      1. 第一轮：滚动 ODS 拉取
+         - 每条调 classify_v2()（DB-only，阶段 4 占位）
+         - DB 命中（db_exact_v2 / db_fuzzy_v2 / pattern_v2）→ 立即 transform_doc + bulk_index
+         - DB 未命中 → 攒到 pending_ai_items
+      2. 第二轮：所有 ODS 走完后，攒批调 ai_classify_v2_batch（写回 breed_l3_map + 返回 v2）
+      3. 第三轮：用 AI 返回的 v2 结果对 pending 项构 doc + bulk_index
 
-    v1 阶段 3 AI 已删除，category 未命中统一填 '其他'，v2 兜底 no_match_v2。
+    优点：
+      - DB 命中的项不需要 AI 调用（6成以上性能节省）
+      - 未命中的攒批送 AI，减少 AI 调用次数
+      - AI 结果自动写回 DB，下次 ETL 走阶段 1 命中（DB 自我学习）
     """
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
@@ -113,47 +125,81 @@ def etl_city(
 
     etled = failed = pages = 0
 
-    # ── v1 DB 查表 + v2 5 段式：transform_doc 内部已调完，直接写 DWD ──
+    # ── 第一轮：滚动 ODS，DB 命中立即写，未命中攒批 ──
+    pending_ai_items: List[dict] = []   # 待 AI 的 items
+    pending_ai_meta: List[tuple] = []    # (doc_id, raw) 对齐 items
+
+    docs = []
+    doc_ids = []
+
+    def _flush_buffer():
+        """把当前 docs buffer 写 DWD。"""
+        nonlocal etled, failed
+        if not docs:
+            return
+        ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
+        etled += ok
+        failed += fail
+        docs.clear()
+        doc_ids.clear()
+
     while hits:
         pages += 1
-        docs = []
-        doc_ids = []
-
         for h in hits:
             try:
-                doc = transform_doc(h["_source"], ods_idx, city)
-                spec_val = doc.get("spec", "")
-                if spec_val == "/":
-                    doc["spec"] = ""
-                    spec_val = ""
-                if not spec_val:
-                    # spec 为空时以 breed 填充
-                    if not doc.get("breed"):
-                        continue
-                    doc["spec"] = doc.get("breed_clean") or doc["breed"]
-
-                # v1 阶段 1+2 已在 transform_doc 内调完（classify_breed → DB 查表）
-                # category / category_source 已带在 doc 里
-                # 2026-06-16 简化：v1 不再调 AI，未命中直接是 '其他'
-
-                if dry_run:
-                    print(f"    [dry-run] {doc['breed_clean']} → {doc.get('category', '其他')}")
+                raw = h["_source"]
+                breed_raw = raw.get("breed", "")
+                breed_clean = clean_breed(breed_raw)
+                if not breed_clean:
+                    # 空 breed 跳过（跟原逻辑一致）
                     continue
 
-                docs.append(doc)
-                doc_ids.append(h["_id"])
+                # 单条 DB-only v2 查表（阶段 4 占位 → 阶段 5 fallback）
+                v2 = classify_v2(
+                    breed=breed_raw,
+                    spec=raw.get("spec", ""),
+                    unit=raw.get("unit", ""),
+                    breed_clean=breed_clean,
+                )
+                source = v2.get("category_v2_source", "")
+
+                if source in _LOCAL_HIT_SOURCES:
+                    # DB 命中 → 立即构 doc + 攒批
+                    doc = transform_doc(raw, ods_idx, city, v2_override=v2)
+                    # transform_doc 内部已完成 spec='/' 规范化和空 spec 回填
+                    # 但空 breed 的空 spec 仍需跳过（doc.get('breed') 为空表示原料不合法）
+                    if not doc.get("breed"):
+                        continue
+
+                    if dry_run:
+                        print(f"    [dry-run DB-hit] {doc['breed_clean']} → {doc.get('category', '其他')} ({source})")
+                        continue
+                    docs.append(doc)
+                    doc_ids.append(h["_id"])
+                else:
+                    # DB 未命中 → 攒到 pending_ai（等下一轮批量 AI）
+                    pending_ai_items.append({
+                        "breed": breed_raw,
+                        "spec": raw.get("spec", ""),
+                        "unit": raw.get("unit", ""),
+                        "breed_clean": breed_clean,
+                    })
+                    pending_ai_meta.append((h["_id"], raw))
+
+                    if dry_run:
+                        print(f"    [dry-run DB-miss] {breed_clean} → {v2.get('category_v2_source')} → 攒批 AI")
+                        continue
             except Exception as e:
                 failed += 1
                 if failed <= 3:
                     print(f"    转换失败: {e}")
 
-        if docs and not dry_run:
-            ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
-            etled += ok
-            failed += fail
+        # 每页 flush（DB 命中部分）
+        if not dry_run:
+            _flush_buffer()
 
         if pages % 20 == 0:
-            print(f"    pages={pages}, etled={etled}/{total}")
+            print(f"    pages={pages}, etled={etled}/{total}, pending_ai={len(pending_ai_items)}")
 
         resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
                             json={"scroll_id": scroll_id})
@@ -163,12 +209,47 @@ def etl_city(
         hits = result["hits"]["hits"]
         scroll_id = result.get("_scroll_id", "")
 
+    # ── 第二轮：批量 AI（service.classify_v2_batch 内部 DB 优先 + 未命中调 AI + 写回 DB）──
+    ai_hits = 0
+    if pending_ai_items and not dry_run:
+        print(f"    [AI] 攒批 {len(pending_ai_items)} 条送 AI 分类...")
+        t0 = time.time()
+        # write_rules=True → AI 结果写回 breed_l3_map，下次 ETL 走阶段 1 命中
+        v2_results = ai_classify_v2_batch(
+            pending_ai_items, city=city, write_rules=True,
+        )
+        elapsed = time.time() - t0
+        print(f"    [AI] AI 调用耗时 {elapsed:.1f}s，返回 {len(v2_results)} 条结果")
+
+        # ── 第三轮：用 AI 返回的 v2 构 doc + bulk_index ──
+        ai_docs = []
+        ai_ids = []
+        for (doc_id, raw), item in zip(pending_ai_meta, pending_ai_items):
+            v2 = v2_results.get(item["breed_clean"])
+            if not v2 or not v2.get("l3"):
+                # AI 也未判出 → 跳过（fail-safe，不写 DWD）
+                failed += 1
+                continue
+            doc = transform_doc(raw, ods_idx, city, v2_override=v2)
+            # transform_doc 内部已完成 spec='/' 规范化和空 spec 回填
+            if not doc.get("breed"):
+                continue
+            ai_docs.append(doc)
+            ai_ids.append(doc_id)
+            ai_hits += 1
+
+        if ai_docs:
+            ok, fail = bulk_index(es_host, dwd_idx, ai_docs, ai_ids)
+            etled += ok
+            failed += fail
+
     if scroll_id:
         session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
 
     print(
         f"  [ETL] {city} 完成: → {dwd_idx} | "
-        f"etled={etled}, failed={failed}"
+        f"etled={etled} (DB-hit={etled - ai_hits}, AI-hit={ai_hits}), "
+        f"failed={failed}, pending_ai={len(pending_ai_items)}"
     )
     return etled, failed
 

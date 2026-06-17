@@ -16,8 +16,13 @@ from gov_price_etl.parse_spec import get_parser
 from gov_price_etl.transform.clean import clean_breed, clean_unit, clean_price
 
 
-def transform_doc(raw: dict, source_index: str, city: str) -> dict:
+def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = None) -> dict:
     """将一条 ODS 原始文档清洗为 DWD 格式。
+
+    v2_override: 外部传入的 v2 分类结果（如 service.classify_v2_batch 返回的）。
+                 为 None 时走 5 段式单条查表（阶段 4 占位 → 阶段 5 fallback）；
+                 不为 None 时跳过查表直接使用（为 ETL pipeline 批量 AI 场景准备，
+                 避免重复调用 classify_v2）。
 
     字段：
       - breed / breed_clean / spec / unit / price / tax_price
@@ -40,15 +45,26 @@ def transform_doc(raw: dict, source_index: str, city: str) -> dict:
     spec_clean = spec_raw
     unit_clean = clean_unit(unit_raw)
 
+    # ── spec 规范化（与原 etl.py 逻辑一致，迁入 transform_doc 让返回值可直接写 DWD）──
+    # '/' 是 crawler 初始写入的空 spec，应规范为空
+    if spec_clean == "/":
+        spec_clean = ""
+    # spec 为空时回填为 breed（让 spec_parsed 能查到规则）
+    if not spec_clean:
+        spec_clean = breed_clean or breed_raw
+
     # ── v2 4 层分类（唯一分类源）──
     # 走模块级单例 SQLite 连接，性能 ~0.05ms/次。
     # fail-safe：库文件不存在/异常时返回空 v2 字段。
-    v2 = classify_v2(
-        breed=breed_raw,
-        spec=spec_clean,
-        unit=unit_clean,
-        breed_clean=breed_clean,
-    )
+    if v2_override is not None:
+        v2 = v2_override  # 外部传入的 v2 结果（AI 批量调用等场景，避免重复查表）
+    else:
+        v2 = classify_v2(
+            breed=breed_raw,
+            spec=spec_clean,
+            unit=unit_clean,
+            breed_clean=breed_clean,
+        )
     # DWD.category = v2 L1 中文名（spec 规则库按此过滤，11,061 条规则已迁到 v2 L1 名）
     category = v2.get("name_l1") or ""
 
