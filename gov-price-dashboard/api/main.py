@@ -16,6 +16,7 @@ from api.skill_registry import (
     get as _registry_get,
     reload as _registry_reload,
     dws_indices_csv as _registry_dws_csv,
+    ods_indices_csv as _registry_ods_csv,
 )
 
 # 启动时预热一次 registry（_registry_get_all 内部懒加载，但显式 reload 更稳）
@@ -28,6 +29,14 @@ try:
 except Exception as _e:
     print(f"[warn] skill_registry 初始化失败: {_e}，使用默认 ALL_INDICES")
     ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
+
+# ODS 索引列表（数据健康查 ODS，其他端点查 DWS）
+try:
+    ALL_ODS_INDICES = _registry_ods_csv()
+    if not ALL_ODS_INDICES:
+        ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
+except Exception:
+    ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
 
 app = FastAPI(title="材价通 API", version="1.0.0")
 
@@ -903,10 +912,14 @@ def stats_breed_detail(
 
 @app.get("/api/stats/data-health")
 def stats_data_health():
-    """数据健康度监控：每日数据量、各省份最新日期、增量异常检测"""
+    """数据健康度监控：每日数据量、各省份最新日期、增量异常检测
+
+    查 ODS 索引（原料层），反映"抓取入仓"真实进度。
+    DWS 是 ETL 后的成品，数量受 ETL 性能影响，不适合做"健康度"指标。
+    """
     try:
         # 1. 每日数据量（最近30天）
-        # DWS 索引里没 date 字段（只有 update_date 是 keyword），
+        # ODS 索引里没 date 字段（只有 update_date 是 keyword），
         # 用 runtime_mappings 转成 date，再做 date_histogram + range 过滤。
         daily_body = {
             "size": 0,
@@ -932,35 +945,48 @@ def stats_data_health():
                 }
             }
         }
-        daily_result = es.search(index=ALL_INDICES, body=daily_body)
+        daily_result = es.search(index=ALL_ODS_INDICES, body=daily_body)
         daily_buckets = daily_result["aggregations"]["daily"]["buckets"]
         daily_data = [
             {"date": b["key_as_string"][:10], "count": b["doc_count"]}
             for b in daily_buckets
         ]
 
-        # 2. 各省份最新数据日期
+        # 2. 各城市/省份最新数据日期（按 _index 分组）
+        # ODS 各 city mapping 不一致（province 有些是 text 有些是 keyword），
+        # 改用 _index 分组 + skill_registry 反查省份。
         province_body = {
             "size": 0,
             "aggs": {
-                "by_province": {
-                    "terms": {"field": "province", "size": 30},
+                "by_index": {
+                    "terms": {"field": "_index", "size": 30},
                     "aggs": {
-                        "max_date": {"max": {"field": "date"}},
+                        "latest": {
+                            "top_hits": {
+                                "size": 1,
+                                "sort": [{"update_date": {"order": "desc"}}],
+                                "_source": ["update_date"],
+                            }
+                        },
                         "count": {"value_count": {"field": "price"}}
                     }
                 }
             }
         }
-        province_result = es.search(index=ALL_INDICES, body=province_body)
-        province_buckets = province_result["aggregations"]["by_province"]["buckets"]
+        province_result = es.search(index=ALL_ODS_INDICES, body=province_body)
+        province_buckets = province_result["aggregations"]["by_index"]["buckets"]
+
+        # 反查 _index → province 映射
+        idx2province: dict = {s.get("ods_index"): s.get("province", "?") for s in _registry_get_all() if s.get("ods_index")}
 
         provinces_data = []
         for b in province_buckets:
-            max_date_str = b.get("max_date", {}).get("value_as_string", "")[:10]
+            latest_hits = b.get("latest", {}).get("hits", {}).get("hits", [])
+            latest_date = latest_hits[0]["_source"].get("update_date", "") if latest_hits else ""
             provinces_data.append({
-                "province": b["key"],
-                "latest_date": max_date_str,
+                "province": idx2province.get(b["key"], b["key"]),  # 查不到就用索引名
+                "city_index": b["key"],
+                "latest_date": latest_date,
                 "count": b["doc_count"],
             })
         provinces_data.sort(key=lambda x: x["latest_date"], reverse=True)
@@ -968,28 +994,33 @@ def stats_data_health():
         # 3. 总览
         # Use ES _count API for accurate total (bypasses 10000 hit cap)
         try:
-            count_resp = es.count(index=ALL_INDICES)
+            count_resp = es.count(index=ALL_ODS_INDICES)
             total_count = count_resp["count"]
         except Exception:
             # Fallback: use match_all with track_total=true
             total_body = {"query": {"match_all": {}}, "size": 0, "track_total": True}
-            total_result = es.search(index=ALL_INDICES, body=total_body)
+            total_result = es.search(index=ALL_ODS_INDICES, body=total_body)
             total_count = total_result["hits"]["total"]["value"]
 
-        # 4. 分类分布（并发）
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category", "size": 20}, "aggs": {"count": {"value_count": {"field": "price"}}}}}}
-            cat_future = pool.submit(es.search, index=ALL_INDICES, body=cat_body)
-        cat_result = cat_future.result()
-        cat_buckets = cat_result["aggregations"]["by_category"]["buckets"]
-        cat_data = [
-            {
-                "category": b["key"],
-                "count": b["doc_count"],
-            }
-            for b in cat_buckets
-        ]
+        # 4. 分类分布（并发）—— ODS 各城 mapping 不一致，cat 字段不全有，best-effort
+        cat_data = []
+        try:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category.keyword", "size": 20}}}}
+                cat_future = pool.submit(es.search, index=ALL_ODS_INDICES, body=cat_body, ignore_unavailable=True)
+            cat_result = cat_future.result()
+            cat_buckets = cat_result["aggregations"]["by_category"]["buckets"]
+            cat_data = [
+                {
+                    "category": b["key"],
+                    "count": b["doc_count"],
+                }
+                for b in cat_buckets
+            ]
+        except Exception:
+            # ODS 没 category 字段（部分城市）—— 跳过，不让 health 崩
+            pass
 
         return {
             "total_docs": total_count,

@@ -23,43 +23,50 @@
         >
           <div class="pipeline-card-header">
             <span class="pipeline-card-city">{{ pipe.city_label }}</span>
-            <span class="pipeline-status" :class="pipe.sync_ok ? 'ok' : 'warn'">
-              {{ pipe.sync_ok ? '✓' : '⚠' }}
-            </span>
           </div>
           <div class="pipeline-card-stages">
             <div class="pipe-stage stage-ods">
               <div class="pipe-stage-label stage-ods-label">ODS</div>
               <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
-              <div class="pipe-stage-date">{{ pipe.ods?.min_date }} ~ {{ pipe.ods?.max_date }}</div>
             </div>
             <div class="pipe-stage-arrow stage-arrow-dwd">→</div>
             <div class="pipe-stage scrape-stage stage-dwd" :style="{ '--pct': dwdPct(pipe) }" :class="{ disabled: !pipe.dwd?.count }">
               <div class="scrape-inner" @click.stop="openDwdDrilldown(key, pipe)">
                 <div class="pipe-stage-label stage-dwd-label">DWD</div>
                 <div class="pipe-stage-count">{{ pipe.dwd?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
-                <div class="pipe-stage-sub" v-if="pipe.dwd?.count">{{ (pipe.dws?.count || 0).toLocaleString() }}/{{ pipe.dwd.count.toLocaleString() }}</div>
               </div>
               <div class="stage-dwd-right">
-                <div class="coverage-ring" :class="coverageClass(pipe.coverage)" :title="coverageTooltip(pipe.coverage)" @click.stop="openDwdDrilldown(key, pipe)">
+                <div class="coverage-ring" :class="dwdSyncClass(dwdSyncRate(pipe))" :title="`ODS 分类成功比例: ${dwdSyncRate(pipe)}%（DWD/ODS）`" @click.stop="openDwdDrilldown(key, pipe)">
                   <svg viewBox="0 0 36 36" class="coverage-svg">
                     <circle class="coverage-track" cx="18" cy="18" r="15.9"/>
                     <circle class="coverage-fill" cx="18" cy="18" r="15.9"
-                      :stroke-dasharray="`${(pipe.coverage?.rate ?? 0) * 1.004}, 100`"/>
+                      :stroke-dasharray="`${dwdSyncRate(pipe) * 1.004}, 100`"/>
                   </svg>
                   <div class="coverage-text">
-                    <span class="coverage-pct">{{ pipe.coverage ? Math.round(pipe.coverage.rate) : '—' }}</span>
+                    <span class="coverage-pct">{{ dwdSyncRate(pipe) }}</span>
                     <span class="coverage-unit">%</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="pipe-stage-arrow stage-arrow-dws">→</div>
-            <div class="pipe-stage stage-dws" :style="{'--pct': dwsPct(pipe)}">
+            <div class="pipe-stage scrape-stage stage-dws" :style="{'--pct': dwsPct(pipe)}" :class="{ disabled: !pipe.dws?.count }">
               <div class="scrape-inner">
                 <div class="pipe-stage-label stage-dws-label">DWS</div>
-                <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
-                <div class="pipe-stage-date">{{ pipe.dws?.min_date || '—' }} ~ {{ pipe.dws?.max_date || '—' }}</div>
+                <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
+              </div>
+              <div class="stage-dws-right">
+                <div class="coverage-ring" :class="dwsSyncClass(dwsSyncRate(pipe))" :title="`DWS 同步率: ${dwsSyncRate(pipe)}%（DWS/DWD）`">
+                  <svg viewBox="0 0 36 36" class="coverage-svg">
+                    <circle class="coverage-track" cx="18" cy="18" r="15.9"/>
+                    <circle class="coverage-fill" cx="18" cy="18" r="15.9"
+                      :stroke-dasharray="`${dwsSyncRate(pipe) * 1.004}, 100`"/>
+                  </svg>
+                  <div class="coverage-text">
+                    <span class="coverage-pct">{{ dwsSyncRate(pipe) }}</span>
+                    <span class="coverage-unit">%</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -268,10 +275,36 @@ function dwdPct(pipe) {
   return ((dwdCount / pipe.ods.count) * 100).toFixed(1) + '%'
 }
 
+/** DWD 同步率（ODS 分类成功比例）数值，供 DWD 卡片 coverage 环使用 */
+function dwdSyncRate(pipe) {
+  if (!pipe.ods?.count) return 0
+  return Math.round((pipe.dwd?.count || 0) / pipe.ods.count * 100)
+}
+
+/** DWD 同步率颜色档位 */
+function dwdSyncClass(rate) {
+  if (rate >= 80) return 'cov-good'
+  if (rate >= 30) return 'cov-warn'
+  return 'cov-bad'
+}
+
 function dwsPct(pipe) {
   if (!pipe.dwd?.count) return '0%'
   const dwsCount = pipe.dws?.count || 0
   return ((dwsCount / pipe.dwd.count) * 100).toFixed(1) + '%'
+}
+
+/** DWS 同步率数值（DWS/DWD 同步完成度 %）*/
+function dwsSyncRate(pipe) {
+  if (!pipe.dwd?.count) return 0
+  return Math.round((pipe.dws?.count || 0) / pipe.dwd.count * 100)
+}
+
+/** DWS 同步率颜色档位 */
+function dwsSyncClass(rate) {
+  if (rate >= 80) return 'cov-good'
+  if (rate >= 30) return 'cov-warn'
+  return 'cov-bad'
 }
 
 async function runFlushDws(city) {
@@ -765,9 +798,6 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 .pipeline-title { font-size: 13px; font-weight: 600; color: #1e293b; }
-.pipeline-status { font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 500; }
-.pipeline-status.ok { background: rgba(16,185,129,0.15); color: var(--status-ok); }
-.pipeline-status.warn { background: rgba(245,158,11,0.15); color: var(--status-warn); }
 .pipeline-stages {
   display: flex;
   align-items: center;
@@ -967,8 +997,15 @@ onMounted(() => {
 .pipeline-card-city { font-size: 13px; font-weight: 700; color: #1e293b; }
 .pipeline-card-stages {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 4px;
+}
+/* ODS 卡片用纵向 flex + 居中：保证与 DWD/DWS 卡片等高时 label+count 居中 */
+.pipeline-card-stages > .pipe-stage:not(.scrape-stage) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 .pipe-stage {
   flex: 1;
@@ -993,8 +1030,6 @@ onMounted(() => {
 .pipe-stage-label { font-size: 10px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px; margin-bottom: 2px; }
 .pipe-stage-count { font-size: 15px; font-weight: 800; color: #0f172a; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; line-height: 1; }
 .pipe-stage-unit { font-size: 10px; color: var(--text-3); margin-left: 1px; }
-.pipe-stage-date { font-size: 9px; color: #475569; margin-top: 3px; }
-.pipe-stage-sub { font-size: 9px; color: var(--status-ok); margin-top: 2px; }
 .pipe-stage-arrow { font-size: 14px; color: var(--primary); flex-shrink: 0; padding: 0 2px; }
 .pipeline-card-etl { font-size: 10px; color: var(--text-3); margin-top: 6px; }
 .pipeline-card-counties {
@@ -1020,9 +1055,6 @@ onMounted(() => {
 }
 .pipeline-county-chip.running { border-color: rgba(37,99,235,0.3); }
 .pipeline-county-chip.completed { border-color: rgba(15,23,42,0.08); }
-.pipeline-status { font-size: 12px; font-weight: 600; }
-.pipeline-status.ok { color: var(--status-ok); }
-.pipeline-status.warn { color: var(--status-warn); }
 
 .fix-success-modal {
   position: fixed;
@@ -1280,6 +1312,9 @@ onMounted(() => {
 
 /* DWD 区域右侧：覆盖率环 + 同步按钮 */
 .stage-dwd-right { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+
+/* DWS 区域右侧：同步率环 */
+.stage-dws-right { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
 
 .coverage-ring {
   position: relative;

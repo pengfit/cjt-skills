@@ -88,6 +88,31 @@ es = Elasticsearch([ES_HOST])
 # _RULES_DB / _RULES_DB_CAT / _RULES_DB_SPEC 已在文件头部从 gov_price_etl.paths 导入
 # （避免与旧路径硬编码冲突）
 
+def _dws_attr_rate(index: str) -> dict:
+    """DWS attr 解析率：含有有效 attr (nested attr.k) 的文档比例。
+
+    逻辑：count = total 中 nested attr.k 存在的文档数；
+    失败 / 异常时返回 rate=0 / count=0。
+    """
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "with_attr": {
+                    "filter": {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}}
+                }
+            }
+        }
+        r = es.search(index=index, body=body, ignore_unavailable=True)
+        aggs = r.get("aggregations", {})
+        with_attr = aggs.get("with_attr", {}).get("doc_count", 0)
+        total = r.get("hits", {}).get("total", {}).get("value", 0)
+        rate = (with_attr / total * 100) if total > 0 else 0
+        return {"with_attr": with_attr, "total": total, "rate": round(rate, 1)}
+    except Exception:
+        return {"with_attr": 0, "total": 0, "rate": 0}
+
+
 def _index_stats(index: str) -> dict:
     """获取单个索引的统计信息（支持逗号分隔的多索引 + ignore_unavailable）"""
     try:
@@ -1247,11 +1272,13 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     "ods": pool.submit(_index_stats, v["ods"]),
                     "dwd": pool.submit(_index_stats, v["dwd"]),
                     "dws": pool.submit(_index_stats, v["dws"]),
+                    "dws_attr": pool.submit(_dws_attr_rate, v["dws"]),
                 }
             for k, f in futures.items():
                 ods_s = f["ods"].result()
                 dwd_s = f["dwd"].result()
                 dws_s = f["dws"].result()
+                dws_attr_s = f["dws_attr"].result()
                 ods_c2 = ods_s.get("count", 0)
                 dwd_c2 = dwd_s.get("count", 0)
                 dws_c2 = dws_s.get("count", 0)
@@ -1271,6 +1298,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     "ods": ods_s,
                     "dwd": dwd_s,
                     "dws": dws_s,
+                    "dws_attr_rate": dws_attr_s,
                     "sync_ok": sync_ok_c,
                     "scrape_fresh": scrape_fresh_c,
                     "status": "ok" if sync_ok_c else "out_of_sync",

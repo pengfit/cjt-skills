@@ -152,6 +152,23 @@ def dws_indices_csv() -> str:
     return ",".join(all_dws_indices())
 
 
+def all_ods_indices() -> list[str]:
+    """返回所有 skill 的 ods_index（去重，过滤空值）"""
+    seen: set[str] = set()
+    out: list[str] = []
+    for s in get_all():
+        idx = s.get("ods_index")
+        if idx and idx not in seen:
+            seen.add(idx)
+            out.append(idx)
+    return out
+
+
+def ods_indices_csv() -> str:
+    """逗号分隔形式，给 es.search(index=...) 用"""
+    return ",".join(all_ods_indices())
+
+
 if __name__ == "__main__":
     # 调试用：python -m api.skill_registry
     import json
