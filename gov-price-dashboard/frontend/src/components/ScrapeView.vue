@@ -105,7 +105,12 @@ const data = ref({ all_cities: {} })
 
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0'
-  return ((scrape.completed / scrape.total_counties) * 100).toFixed(0)
+  // 重庆等城市会出现 completed (累计跨年) > total_counties (当期应有数) 的情况
+  // 如 39/35 = 111%。分母取 max 并 cap 100% 让显示合理
+  const completed = Number(scrape.completed || 0)
+  const denom = Math.max(Number(scrape.total_counties || 0), completed)
+  if (!denom) return '0'
+  return Math.min((completed / denom) * 100, 100).toFixed(0)
 }
 
 function toggleScrapeCounties(city, pipe) {

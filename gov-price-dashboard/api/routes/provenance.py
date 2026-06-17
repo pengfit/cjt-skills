@@ -2803,12 +2803,19 @@ def category_v2_taxonomy(
     l1: str = "",
     l2: str = "",
     keyword: str = "",
+    sort_by: str = "l3",
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 50,
 ):
-    """查询 category_v2（4 级分类体系），支持 L1/L2 过滤 + 关键字搜索（按名称/编码/GB50500）"""
+    """查询 category_v2（3 级分类体系），支持 L1/L2 过滤 + 关键字搜索（按名称/编码/GB50500）+ 排序"""
     if not _ensure_cat_v2_tables():
         return {"rows": [], "total": 0, "page": page, "page_size": page_size}
+
+    # 白名单防 SQL 注入
+    sort_cols = {"l1", "l2", "l3", "gb_50500", "quota_ref", "name_l1", "name_l3", "eng_part", "main_or_aux", "unit"}
+    sort_col = sort_by if sort_by in sort_cols else "l3"
+    sort_d = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
 
     conn = sqlite3.connect(_RULES_DB_CAT_V2)
     conn.row_factory = sqlite3.Row
@@ -2825,11 +2832,11 @@ def category_v2_taxonomy(
     if keyword:
         kw = f"%{keyword}%"
         where.append(
-            "(name_l1 LIKE ? OR name_l2 LIKE ? OR name_l3 LIKE ? OR name_l4 LIKE ? "
-            "OR l1 LIKE ? OR l2 LIKE ? OR l3 LIKE ? OR l4 LIKE ? "
+            "(name_l1 LIKE ? OR name_l2 LIKE ? OR name_l3 LIKE ? "
+            "OR l1 LIKE ? OR l2 LIKE ? OR l3 LIKE ? "
             "OR gb_50500 LIKE ? OR quota_ref LIKE ? OR ifc_class LIKE ? OR uniclass_ss LIKE ?)"
         )
-        params.extend([kw] * 12)
+        params.extend([kw] * 10)
 
     where_sql = " AND ".join(where) if where else "1=1"
 
@@ -2837,12 +2844,14 @@ def category_v2_taxonomy(
     total = c.fetchone()["n"]
 
     offset = (page - 1) * page_size
+    # 主排序 + 次排序保证稳定
+    secondary = "l1, l2" if sort_col not in ("l1", "l2") else "l3"
     c.execute(
-        f"SELECT l1, l2, l3, l4, gb_50500, quota_ref, ifc_class, uniclass_ss, "
+        f"SELECT l1, l2, l3, gb_50500, quota_ref, ifc_class, uniclass_ss, "
         f"eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
-        f"name_l1, name_l2, name_l3, name_l4 "
+        f"name_l1, name_l2, name_l3 "
         f"FROM category_v2 WHERE {where_sql} "
-        f"ORDER BY l1, l2, l3, l4 LIMIT ? OFFSET ?",
+        f"ORDER BY {sort_col} {sort_d}, {secondary} LIMIT ? OFFSET ?",
         params + [page_size, offset],
     )
     rows = [dict(r) for r in c.fetchall()]
