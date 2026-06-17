@@ -5,14 +5,14 @@
 # ── DWD mapping ──────────────────────────────────────────────────────────
 def build_dwd_mapping() -> dict:
     base = {
-        # ── v1 原有字段（保留，不破坏现有 API）──
+        # ── 基础字段（2026-06-17 合并：v1/v2 共用字段统一名称）──
         "breed":           {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
         "breed_clean":     {"type": "keyword"},
         "spec":            {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
         "unit":            {"type": "keyword"},
         "price":           {"type": "float"},
         "tax_price":       {"type": "float"},
-        "category":        {"type": "keyword"},         # v1 一级分类（26 个，保留兼容）
+        "category":        {"type": "keyword"},         # v2 L1 中文名（如"建筑工程"）—— spec 规则库按此过滤
         "province":        {"type": "keyword"},
         "city":            {"type": "keyword"},
         "county":          {"type": "keyword"},
@@ -28,9 +28,8 @@ def build_dwd_mapping() -> dict:
             "type": "nested",
             "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
         },
-        "category_source": {"type": "keyword"},         # v1 阶段 1/2/3 来源标识（保留）
 
-        # ── v2 新增字段（2026-06-16 阶段 2 接入）──
+        # ── v2 4 层分类字段（2026-06-16 阶段 2 接入）──
         # 4 层分类
         "category_l1":     {"type": "keyword"},         # 8 L1 专业大类
         "category_l2":     {"type": "keyword"},         # 31 L2 分部工程

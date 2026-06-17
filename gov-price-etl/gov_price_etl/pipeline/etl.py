@@ -1,33 +1,35 @@
-"""pipeline/etl.py - ODS → DWD 二段式 ETL（v1+v2 并行）
+"""pipeline/etl.py - ODS → DWD ETL（v2-only，两轮：先 DB 后 AI）
 
-新数据流（2026-06-16 简化，去掉 v1 阶段 3 AI）：
+新数据流（2026-06-17 重构，两轮 ETL）：
   ┌─────────────────────────────────────────────────────────────────────┐
   │ ODS source                                                          │
   │   │                                                                 │
-  │   ├── v1 阶段 1+2：breed_category_rules.db 精确 + Jaccard 模糊       │
-  │   │     - transform_doc 内置（纯 DB 查表，不调 AI）                 │
-  │   │     - 命中 → DWD.category = v1 大类名                            │
-  │   │     - 未命中 → DWD.category = '其他'                            │
-  │   │     - category_source = 'db_exact' / 'db_fuzzy' / ''             │
+  │   ├── 第一轮：DB-only 5 段式（category_v2_rules.db）              │
+  │   │     - 阶段 1：breed_l3_map 精确匹配                              │
+  │   │     - 阶段 2：Jaccard 模糊召回 (>= 0.6)                          │
+  │   │     - 阶段 3：L4 pattern 正则                                    │
+  │   │     - DB 命中（db_exact_v2 / db_fuzzy_v2 / pattern_v2）         │
+  │   │         → 立即 transform_doc + bulk_index 写 DWD                │
+  │   │     - DB 未命中 → 攒到 pending_ai_items                         │
   │   │                                                                 │
-  │   └── v2 5 段式：category_v2_rules.db 精确 → Jaccard → 正则 → AI    │
-  │         - db_exact_v2 / db_fuzzy_v2 / pattern_v2 / ai_v2 / unit_fallback │
-  │         - DWD.category_l1/l2/l3/l4 + name_l1/l2/l3 + 7 个属性字段    │
-  │         - 命中即写；AI 失败兜底 no_match_v2                          │
+  │   └── 第二轮：攒批 AI（ai.service.classify_v2_batch）             │
+  │         - DB 优先检查（避免重复调 AI）                              │
+  │         - 未命中攒批送 AI，每批 V2_AI_BATCH_SIZE=20 条                │
+  │         - AI 结果写回 breed_l3_map（DB 自我学习）                   │
+  │         - AI 失败 → 标记 no_match_v2，跳过（fail-safe）              │
+  │         - 重新构 doc + bulk_index 写 DWD                             │
   └─────────────────────────────────────────────────────────────────────┘
 
-v1/v2 协作模式：
-  - v1 category 写到 DWD.category（v1 大类，如「钢材金属材料」），用于 spec 规则库过滤
-  - v2 14 字段写到 DWD.category_l1/l2/l3/l4 + ... + material_code
-  - v1 仅 DB 查表，**不再调 AI**（v1 AI 入口 classify_breed_batch 2026-06-16 删除）
-  - 全部 AI 资源让位给 v2 4 层分类
-
 数据依赖：
-  - gov_price_etl.classify（v1 二段式：DB 精确 + Jaccard 模糊）
-  - gov_price_etl.classify.category_v2（v2 5 段式，写 DWD 14 字段）
+  - gov_price_etl.classify.category_v2（5 段式 + 批量 AI）
+  - gov_price_etl.ai.service（classify_v2_batch 走 OpenClaw gateway）
   - gov_price_etl.transform.transform_doc（ODS → DWD 单文档转换）
 
-etl.py 主体瘦身：移除 v1 阶段 3 AI 攒批逻辑（_ai_classify_pending / ai_pending 累加）。
+历史（2026-06-17 已清干净）：
+  - v1 大分类 DB（breed_category_rules.db）已删除
+  - v1 AI 入口（classify_breed_batch）已删除
+  - v1 阶段 1+2 流转为 v2 阶段 1+2（DB 查表逻辑复用）
+  - DWD.category 字段保留兼容（值 = v2 L1 中文名，spec 规则库按此过滤）
 """
 import time
 from typing import List, Tuple

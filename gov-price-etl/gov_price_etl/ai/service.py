@@ -1,9 +1,9 @@
-"""ai_service.py - 统一 AI 服务入口
+"""ai_service.py - 统一 AI 服务入口（v2-only）
 
 设计目标：
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
-  2. 本地规则库前置：调 AI 之前先查 breed_*_rules.db，命中直接返回（无 AI 调用）
-     - 分类：breed_category_rules.db（精确 → 模糊 / Jaccard）
+  2. 本地规则库前置：调 AI 之前先查 category_v2_rules.db，命中直接返回（无 AI 调用）
+     - 分类：category_v2_rules.db（精确 → 模糊 / Jaccard）
      - 解析：breed_spec_rules.db（VecStore.search 关键词相似度）
   3. 统一鉴权：读 openclaw.json 拿 token
   4. 统一重试：失败有 fallback
@@ -14,9 +14,11 @@
 实际调用路径（不绕道 dashboard）：
   ETL → ai_service → OpenClaw gateway (localhost:18789/v1/chat/completions)
 
-兼容旧接口：
+兼容说明：
   - Prompt 模板从 prompts.yml 加载
   - 缺失时回退到 ai.prompts.BUILTIN_FALLBACK
+  - v1 入口（classify_breed_batch / breed_category_rules.db）已废弃（2026-06-16），
+    请使用 classify_v2_batch 走 v2 4 层分类
 """
 
 import json
@@ -66,7 +68,7 @@ _stats = {
     "classify_calls": 0,         # 调 AI 分类次数
     "classify_local_hit": 0,     # 本地规则库命中次数
     "classify_failed": 0,
-    "classify_rules_written": 0, # AI 响应写入 breed_category_rules.db 条数
+    "classify_rules_written": 0, # AI 响应写入 category_v2_rules.db 条数
     "classify_rules_failed": 0,
     "parse_calls": 0,
     "parse_local_hit": 0,        # 本地规则库命中次数
@@ -134,7 +136,7 @@ def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120) -> Tu
 
 
 # ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
-V2_AI_BATCH_SIZE = 10  # v2 prompt 更大，每批 10 条（v1 是 20）
+V2_AI_BATCH_SIZE = 20  # 每批最多 20 条（prompt 较大，避免超出 token 限制）
 V2_AI_BATCH_SLEEP_S = 0.5
 
 
@@ -629,7 +631,6 @@ if __name__ == "__main__":
     if cmd == "stats":
         print(json.dumps(get_stats(), ensure_ascii=False, indent=2))
     elif cmd == "classify":
-        # v1 classify_breed_batch 已删除（2026-06-16），仅做 v2 演示
         from gov_price_etl.ai import classify_v2_batch
         items = sys.argv[2:] or [
             {"breed": "HPB300", "spec": "φ6", "unit": "t", "breed_clean": "HPB300"},

@@ -7,9 +7,8 @@
     ├── config.yml
     ├── data/
     │   ├── breed_spec_rules.db           # 规格解析规则
-    │   ├── breed_category_rules.db       # 品种分类规则（v1）
-    │   └── category_v2_rules.db          # 分类体系 v2（4 级 L1-L4 + breed→L3 映射）
-    └── src/gov_price_etl/                # PACKAGE_ROOT
+    │   └── category_v2_rules.db          # 分类体系 v2（3 级 L1-L3 + breed→L3 映射）
+    └── gov_price_etl/                    # PACKAGE_ROOT
         ├── paths.py                      # ← 本文件
         ├── ...
 """
@@ -23,11 +22,6 @@ CONFIG_PATH = PROJECT_ROOT / "config.yml"
 
 # 数据文件
 SPEC_RULES_DB = DATA_DIR / "breed_spec_rules.db"
-# CATEGORY_RULES_DB 已废 (2026-06-16)：
-#   - v1 大分类 AI 入口（classify_breed_batch）已删除
-#   - breed_category_rules.db 静态规则（616 条）已清除
-#   - DWD.category 字段值改为 v2 L1 中文名（如"建筑工程"）
-#   - spec 规则库已迁到 v2 L1 名（data/v1_to_v2_l1_name.json 记录映射）
 CATEGORY_V2_RULES_DB = DATA_DIR / "category_v2_rules.db"
 
 # AI Prompt 模板（可手动编辑 + 热重载）

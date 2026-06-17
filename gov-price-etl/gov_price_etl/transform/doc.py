@@ -1,13 +1,20 @@
 """transform/doc.py - 单文档 ODS → DWD 转换
 
 职责：
-  - transform_doc()  把一条 ODS 原始文档清洗为 DWD 格式
+  - transform_doc()  把一条 ODS 原始文档清洗为 DWD 格式（v2 4 层分类）
 
-v1 清理（2026-06-16）：
-  - 不再调 v1 AI（classify_breed_batch 已删除）
-  - DWD.category 字段值 = v2 L1 中文名（如"建筑工程"）
-    —— 用于 spec 规则库过滤（v1 大类已迁移到 v2 L1 名）
-  - DWD 14 个 v2 字段保留完整（l1/l2/l3/l4 + name + 7 属性 + 4 标准码）
+DWD 字段：
+  - 基础：breed / breed_clean / spec / unit / price / tax_price
+  - category = v2 L1 中文名（如"建筑工程"）—— spec 规则库按此过滤（11,061 条已迁）
+  - v2 14 字段：category_l1/l2/l3/l4 + name_l1/l2/l3 + 3 工程属性 + 4 标准码 + material_code
+  - v2 元信息：category_v2_source / category_v2_confidence
+  - 业务：province / city / county / tab_type / tab_name / update_date / period / code / source
+  - 嵌套：attr（list of {k, v}）
+
+设计：
+  - 默认走 5 段式分类（DB 优先 → 未命中兜底）
+  - 支持 v2_override 外部传入（ETL 两轮 AI 场景避免重复查表）
+  - spec='/' 规范化 + 空 spec 回填为 breed（与原 etl.py 逻辑一致）
 """
 from datetime import datetime
 
@@ -94,7 +101,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
-        "category": category,                                # v1 一级分类（保留兼容）
+        "category": category,                                # v2 L1 中文名（spec 规则库过滤）
         "category_l1":     v2.get("l1", ""),                # v2 4 层分类
         "category_l2":     v2.get("l2", ""),
         "category_l3":     v2.get("l3", ""),
