@@ -330,17 +330,41 @@ def classify_v2_batch(
     ai_results: Dict[str, dict] = {}
     if uncached_items:
         _stats["classify_v2_calls"] = _stats.get("classify_v2_calls", 0) + 1
+        # 加载 64 L3 全量作为 prompt 上下文（与校验脚本 prompts.yml 复用）
+        from gov_price_etl.classify.utils import format_l3_list, format_breed_list
+        from gov_price_etl.paths import CATEGORY_V2_RULES_DB
+        try:
+            import sqlite3 as _sqlite3
+            _tax_conn = _sqlite3.connect(f"file:{CATEGORY_V2_RULES_DB}?mode=ro", uri=True)
+            _taxonomy = [dict(r) for r in _tax_conn.execute(
+                "SELECT l1, l2, l3, name_l1, name_l2, name_l3 FROM category_v2 ORDER BY l1, l2, l3"
+            )]
+            _tax_conn.close()
+            l3_list_str = format_l3_list(_taxonomy)
+        except Exception:
+            l3_list_str = ""  # fallback: 让 prompt 里的 l3_list 占位符留空
+            _taxonomy = []
+            _stats["classify_l3_load_failed"] = _stats.get("classify_l3_load_failed", 0) + 1
+
         # 攒批：每批 V2_AI_BATCH_SIZE 条
         for batch_start in range(0, len(uncached_items), V2_AI_BATCH_SIZE):
             batch = uncached_items[batch_start:batch_start + V2_AI_BATCH_SIZE]
-            # 序列化为 prompt items
-            items_str = "\n".join(
-                f"  {i+1}. breed={it.get('breed','')} | spec={it.get('spec','')} | unit={it.get('unit','')}"
-                for i, it in enumerate(batch)
-            )
+            # 序列化为 prompt items（使用 utils.format_breed_list，含 spec/unit/current_l3）
+            breed_list_str = format_breed_list(batch)
             try:
-                user_prompt = format_prompt(cfg["template"], items=items_str)
+                user_prompt = format_prompt(
+                    cfg["template"],
+                    total_l3=len(_taxonomy),
+                    l3_list=l3_list_str,
+                    batch_n=len(batch),
+                    breed_list=breed_list_str,
+                )
             except (KeyError, ValueError):
+                # 退到老 prompt（仅用 items 占位符）— prompts.yml 缺失 detailed 版时
+                items_str = "\n".join(
+                    f"  {i+1}. breed={it.get('breed','')} | spec={it.get('spec','')} | unit={it.get('unit','')}"
+                    for i, it in enumerate(batch)
+                )
                 user_prompt = f"待分类：\n{items_str}"
             ok, content = _call_gateway(
                 user_prompt, system_msg, "etl-classify-v2-agent", timeout=180,
@@ -361,9 +385,20 @@ def classify_v2_batch(
                 time.sleep(V2_AI_BATCH_SLEEP_S)
                 continue
 
+            # ⚠️ 智能引号归一化踩坑防护：AI 返回的 breed_clean 可能把 "" (U+201C/U+201D)
+            # 规范成 "" (U+0022)，导致 results_dict.get(breed_clean) 查不到 → 跳过。
+            # 用 norm_bc() 建二级索引兜底。详见 gov_price_etl.classify.utils。
+            from gov_price_etl.classify.utils import norm_bc
+            results_dict_norm = {norm_bc(k): v for k, v in results_dict.items() if k}
+
             for it in batch:
                 breed_clean = it.get("breed_clean", "")
-                r = results_dict.get(breed_clean) or {}
+                # 优先精确匹配，失败时回退到归一化匹配（避免智能引号 join 丢失）
+                r = (
+                    results_dict.get(breed_clean)
+                    or results_dict_norm.get(norm_bc(breed_clean))
+                    or {}
+                )
                 conf = float(r.get("confidence", 0.7) or 0.7)
                 if conf < 0.70:
                     _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1

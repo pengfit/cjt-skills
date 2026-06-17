@@ -253,58 +253,6 @@ fix_case:
                 ]
               }}
 
-classify_v2_batch:
-  system: "你是一名建筑工程造价专家与 BIM 工程师。根据材料品种+规格+单位，输出 4 层 v2 分类（GB 50500 清单项目编码 / IFC 4.3 类）。输出 JSON 结构。"
-  template: |-
-
-    任务
-      输入材料品种、规格、单位，输出 4 层 v2 分类 + 工程属性 + 标准码 + 物料码。
-      用于工程数字化 / ERP / BIM 建模 / 造价库建设。
-    
-    输入格式
-      每行一条材料：
-        N. breed=<品种> | spec=<规格> | unit=<单位>
-    
-    输出字段（每个品种必填 1 行，结构完全相同）
-      l1        8 L1 专业大类（01 建筑工程 / 02 装饰工程 / 03 安装-给排水 / 04 安装-电气 / 05 安装-暖通 / 06 安装-智能化 / 07 市政工程 / 08 园林景观）
-      l2        31 L2 分部工程（基于 GB 50500 附录）
-      l3        50 L3 分项工程
-      l4        L4 细目（缺失时填 "UNCLASSIFIED"）
-      eng_part  工程部位（基础/主体/装饰/安装/绿化）
-      eng_stage 工程阶段（设计/施工/运维，多选用英文逗号分隔）
-      main_or_aux  主材/辅材
-      gb_50500  GB 50500 清单项目编码（6 位数字字符串）
-      quota_ref 消耗量定额参考号（如 "5-31"，无则留空）
-      ifc_class IFC 4.3 类名（IfcColumn / IfcPipeSegment / IfcDuctSegment / IfcCableSegment / IfcLightFixture / IfcValve / IfcSlab / IfcBeam / IfcFooting / IfcMember / IfcWall / IfcDoor / IfcCovering / IfcCurtainWall / IfcSpaceHeater / IfcUnitaryEquipment / IfcElectricDistributionPoint / IfcSensor / IfcAlarm / IfcOutlet / IfcSanitaryTerminal / IfcPavement / IfcPlant / IfcFurnishingElement / IfcEarthworksCut / IfcBuildingElementProxy）
-      uniclass_ss  Uniclass 2015 编码（如 "Ss_20_20_20"，无则留空）
-      material_code 跨城市稳定物料编码（如 "STEEL_HRB400_F20"，自定格式）
-      confidence 0-1 置信度（禁止低于 0.70）
-      note      简述分类理由
-    
-    输出 JSON 格式（每个品种 1 条 results 记录）
-        {{
-          "ok": true,
-          "results": {{
-            "品种A": {{
-              "l1": "03", "l2": "03.01", "l3": "03.01.02", "l4": "UNCLASSIFIED",
-              "eng_part": "安装", "eng_stage": "设计,施工,运维", "main_or_aux": "主材",
-              "gb_50500": "031002", "quota_ref": "8-25", "ifc_class": "IfcPipeSegment",
-              "uniclass_ss": "Ss_20_20_60", "material_code": "PPR_CW_DN25",
-              "confidence": 0.92, "note": "塑料给水管，按 PP-R 材质归类"
-            }},
-            "品种B": {{...}}
-          }}
-        }}
-
-    要求
-      1. results 数量必须与输入数量完全一致
-      2. 字段值不能为空（除 quota_ref/uniclass_ss/note 允许空字符串）
-      3. confidence 严格 >= 0.70
-      4. 仅输出 JSON，无其他文字
-    
-    以下为待分类材料列表:
-       {items}
-
 batch_spec_parse:
   system: '你是一个建材规格解析规则生成专家。'
   template: |-
@@ -560,3 +508,67 @@ batch_spec_parse:
                     ]
                   }}
                 ]
+
+classify_v2_batch:
+  system: |
+    你是建筑工程造价专家与 BIM 工程师。
+    任务：对每个材料品种（breed + spec + unit），判断它最适合的 v2 4 层分类编码（L1 / L2 / L3 + L4 + name + gb_50500 等）。
+  template: |
+
+    关键约束：
+    1. L3 字段在数据库里已是完整编码（形如 "01.04.01"，l1.l2.末段 3 段拼接），
+        **不是** l1.l2.l3 三段独立字段。**禁止再次拼接**，直接复制即可。
+    2. 输出 L3 / L1 / L2 必须严格来自下方全量列表，禁止编造。
+    3. L4 暂时为 "UNCLASSIFIED"。
+    4. breed_clean 是 breed 的归一化版本（已小写、去符号），但你的输出必须保持
+        与输入完全一致（不要做智能引号 / 直引号转换、不要做大小写转换）。
+
+    v2 L3 分类法全量（{total_l3} 个 L3，按 L1→L2→L3 层级）：
+
+    ⚠️ 编码格式说明：每行的第一个字段（形如 "01.04.01"）就是完整的 L3 编码，**已是 3 段拼接**。
+    不要再拼接、不要补 0、不要加后缀。直接复制粘贴即可。
+
+    {l3_list}
+
+    待分类的 {batch_n} 条品种：
+    {breed_list}
+
+    每行品种格式：N. breed=<品种名> | spec=<规格> | unit=<单位> | current_l3=<当前 L3 编码>
+    其中 current_l3 是 v1→v2 自动翻译的结果（可能过粗或不够准确），也可能为空（新增品种）。
+
+    你的任务：对每条品种输出一个 JSON 对象，按出现顺序排列到 results 数组：
+      - "breed_clean": 原品种名（保持完全一致，包括智能引号 "" 等特殊字符）
+      - "current_l3": 原 L3 编码（保持完全一致）
+      - "l1": L1 编码（2 位字符）
+      - "l2": L2 编码（5 位字符，如 "01.04"）
+      - "l3": L3 编码（8 位字符，如 "01.04.01"），必须是全量列表中的合法编码
+      - "name_l3": L3 中文名（从全量列表反查，禁止编造）
+      - "l4": "UNCLASSIFIED"（v2 暂未启用 L4）
+      - "name_l1": L1 中文名（从全量列表反查）
+      - "name_l2": L2 中文名（从全量列表反查）
+      - "gb_50500": GB 50500 工程量清单编码（如 "010601"，无则填空字符串）
+      - "quota_ref": 定额引用（如 "1-1" / "5-31"，无则填空字符串）
+      - "ifc_class": IFC 国际 BIM 分类（如 "IfcBeam"，无则填空字符串）
+      - "uniclass_ss": Uniclass 分类（如 "Ss_20_20_20"，无则填空字符串）
+      - "eng_part": 工程部位（"基础" / "主体" / "装饰" / "屋面" / "其他" 之一，无则填空）
+      - "eng_stage": 工程阶段（"设计" / "施工" / "运维" 之一，无则填空）
+      - "main_or_aux": 主辅材（"主材" / "辅材" 之一，无则填空）
+      - "unit": 单位（"m³" / "t" / "m" / "kg" 等，无则填空）
+      - "confidence": 0.0-1.0 置信度（>=0.85 高置信度 / 0.70-0.85 中等 / <0.70 低）
+      - "reason": 一句话理由（中文，不超过 30 字）
+
+    ⚠️ 字符保留警告：breed_clean 输入时可能含智能引号（"" U+201C/U+201D），
+    你必须保持字符完全一致——**不要把智能引号规范成直引号 ""**，否则下游 join 会丢失。
+
+    输出 JSON 结构（严格遵守，不要任何额外说明文字）：
+    {{
+      "ok": true,
+      "results": [
+        {{"breed_clean": "...", "current_l3": "...", "l1": "...", "l2": "...", "l3": "...",
+          "name_l1": "...", "name_l2": "...", "name_l3": "...", "l4": "UNCLASSIFIED",
+          "gb_50500": "...", "quota_ref": "...", "ifc_class": "...", "uniclass_ss": "...",
+          "eng_part": "...", "eng_stage": "...", "main_or_aux": "...", "unit": "...",
+          "confidence": 0.9, "reason": "..."}},
+        ...
+      ]
+    }}

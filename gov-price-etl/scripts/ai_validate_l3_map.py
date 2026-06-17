@@ -81,44 +81,14 @@ def load_translated_rows(conn: sqlite3.Connection, limit: int = 0) -> List[dict]
     ]
 
 
-# ── Prompt 模板 ─────────────────────────────────────────────────────
-SYSTEM_MSG = (
-    "你是建筑工程造价专家与 BIM 工程师。"
-    "任务：对每个材料品种，判断它最适合的 v2 L3 分类编码。"
-    "必须基于 64 L3 全量列表 + 当前 L3 参考 + 材料名做判断。"
-    "禁止编造不在列表里的 L3。"
-)
+# ── Prompt 模板（从 prompts.yml 加载，与 service.classify_v2_batch 复用）──
+from gov_price_etl.ai.prompts import get_prompt, format_prompt as _format_prompt
 
-TEMPLATE = """\
-v2 L3 分类法全量（{total_l3} 个 L3，按 L1→L2→L3 层级）：
 
-⚠️ 编码格式说明：每行的第一个字段（形如 "01.04.01"）就是完整的 L3 编码，**已是 3 段拼接**。
-不要再拼接、不要补 0、不要加后缀。直接复制粘贴即可。
-
-{l3_list}
-
-待校验的 {batch_n} 条品种（来自 v1 字典翻译，confidence=0.7 偏低）：
-{breed_list}
-
-每行品种格式：N. breed=<品种名> | current_l3=<当前 L3 编码>
-其中 current_l3 是 v1→v2 自动翻译的结果，可能过粗或不够准确。
-
-你的任务：对每条品种输出一个 JSON 对象，按出现顺序排列到 results 数组：
-  - "breed_clean": 原品种名（保持完全一致）
-  - "current_l3": 原 L3 编码（保持完全一致）
-  - "suggested_l3": 你建议的 L3 编码（必须是上面 64 L3 完整编码之一，3 段格式如 "01.04.01"；如 current 已准确，输出原值）
-  - "confidence": 0.0-1.0 置信度（>=0.85 表示高置信度变更/确认）
-  - "reason": 一句话理由（中文，不超过 30 字）
-
-输出 JSON 结构（严格遵守，不要任何额外说明文字）：
-{{
-  "ok": true,
-  "results": [
-    {{"breed_clean": "...", "current_l3": "...", "suggested_l3": "...", "confidence": 0.9, "reason": "..."}},
-    ...
-  ]
-}}
-"""
+def _load_prompt_cfg():
+    """从 prompts.yml 加载 classify_v2_batch prompt（含踩坑防护：l3 编码格式 + 智能引号保留）。
+    校验脚本额外补 spec/unit 字段（v2 新增补全场景需要）。"""
+    return get_prompt("classify_v2_batch")
 
 
 def format_l3_list(taxonomy: List[dict]) -> str:
@@ -133,16 +103,23 @@ def format_l3_list(taxonomy: List[dict]) -> str:
 
 
 def format_breed_list(items: List[dict]) -> str:
-    """待校验品种拼成短文本。"""
+    """待校验品种拼成短文本（含 spec / unit / breed / current_l3）。"""
     lines = []
     for i, it in enumerate(items, 1):
-        lines.append(f"  {i}. breed={it['breed_clean']} | current_l3={it['current_l3']}")
+        breed = it.get('breed', it.get('breed_clean', ''))
+        spec = it.get('spec', '')
+        unit = it.get('unit', '')
+        lines.append(f"  {i}. breed={breed} | spec={spec} | unit={unit} | current_l3={it['current_l3']}")
     return "\n".join(lines)
 
 
 def call_ai_validate(batch: List[dict], taxonomy: List[dict], retries: int = 2) -> Tuple[bool, str, dict]:
-    """调 AI 校验一批（带重试）。返回 (ok, raw_content, parsed_json)。"""
-    user = TEMPLATE.format(
+    """调 AI 校验一批（带重试）。返回 (ok, raw_content, parsed_json)。
+    prompt 从 prompts.yml 加载，与 service.classify_v2_batch 复用同一份。
+    """
+    cfg = _load_prompt_cfg()
+    user = _format_prompt(
+        cfg["template"],
         total_l3=len(taxonomy),
         l3_list=format_l3_list(taxonomy),
         batch_n=len(batch),
@@ -152,7 +129,7 @@ def call_ai_validate(batch: List[dict], taxonomy: List[dict], retries: int = 2) 
     for attempt in range(1, retries + 2):
         ok, content = _call_gateway(
             prompt=user,
-            system=SYSTEM_MSG,
+            system=cfg["system"],
             user="validate_l3_batch",
             timeout=180,  # 64 L3 全量 + 长 batch 给足时间
         )
