@@ -253,12 +253,14 @@ def _format_result(node: dict, source: str, confidence: float) -> dict:
 # ── 5 段式 ─────────────────────────────────────────────────────────────
 
 def _stage1_db_exact(conn: sqlite3.Connection, breed_clean: str) -> Optional[dict]:
-    """阶段 1: breed_l3_map 表精确匹配"""
+    """阶段 1: breed_l3_map 表精确匹配（仅 conf >= MIN_RULE_CONFIDENCE 视为有效）"""
     if not breed_clean:
         return None
+    from gov_price_etl.classify.constants import MIN_RULE_CONFIDENCE
     row = conn.execute(
-        "SELECT l3, source, confidence FROM breed_l3_map WHERE breed_clean = ? LIMIT 1",
-        (breed_clean,),
+        "SELECT l3, source, confidence FROM breed_l3_map "
+        "WHERE breed_clean = ? AND confidence >= ? LIMIT 1",
+        (breed_clean, MIN_RULE_CONFIDENCE),
     ).fetchone()
     if not row:
         return None
@@ -277,8 +279,12 @@ def _stage2_db_fuzzy(conn: sqlite3.Connection, breed_clean: str) -> Optional[dic
     if not breed_clean:
         return None
     target = set(breed_clean)
+    # 阶段 2 候选集：DB 中 confidence >= MIN_RULE_CONFIDENCE 的项（低 conf 不参与模糊召回）
+    from gov_price_etl.classify.constants import MIN_RULE_CONFIDENCE
     rows = conn.execute(
-        "SELECT breed_clean, l3, source, confidence FROM breed_l3_map"
+        "SELECT breed_clean, l3, source, confidence FROM breed_l3_map "
+        "WHERE confidence >= ?",
+        (MIN_RULE_CONFIDENCE,),
     ).fetchall()
     if not rows:
         return None

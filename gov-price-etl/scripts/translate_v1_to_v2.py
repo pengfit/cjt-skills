@@ -87,9 +87,12 @@ def main():
 
     # 转译
     rows_to_insert = []
-    skip_reasons = {"no_v1_l1_mapping": 0, "empty_breed": 0, "dup_breed": 0, "invalid_l3": 0}
+    skip_reasons = {"no_v1_l1_mapping": 0, "empty_breed": 0, "dup_breed": 0, "invalid_l3": 0, "below_threshold": 0}
     seen_breed_clean = set()
     skipped_examples = []
+
+    # 入库最低置信度（与 service.py / stage 1/2 一致）
+    from gov_price_etl.classify.constants import MIN_RULE_CONFIDENCE
 
     for breed, category, src in v1_rules:
         if not breed or not category:
@@ -114,6 +117,11 @@ def main():
             skip_reasons["dup_breed"] += 1
             continue
         seen_breed_clean.add(breed_clean)
+
+        # 低 conf 直接不入库（避免污染规则库）
+        if confidence < MIN_RULE_CONFIDENCE:
+            skip_reasons["below_threshold"] += 1
+            continue
 
         rows_to_insert.append((breed_clean, l3, source, confidence))
 

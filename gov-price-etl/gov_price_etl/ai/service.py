@@ -338,6 +338,7 @@ def classify_v2_batch(
         try:
             import sqlite3 as _sqlite3
             _tax_conn = _sqlite3.connect(f"file:{CATEGORY_V2_RULES_DB}?mode=ro", uri=True)
+            _tax_conn.row_factory = _sqlite3.Row  # 关键：必须设，否则 dict(r) 抛 ValueError 被 except 吞掉 → l3_list 留空
             _taxonomy = [dict(r) for r in _tax_conn.execute(
                 "SELECT l1, l2, l3, name_l1, name_l2, name_l3 FROM category_v2 ORDER BY l1, l2, l3"
             )]
@@ -379,13 +380,28 @@ def classify_v2_batch(
                 continue
             try:
                 parsed = json.loads(content)
-                results_dict = parsed.get("results", {}) if isinstance(parsed, dict) else {}
+                results_raw = parsed.get("results", {}) if isinstance(parsed, dict) else {}
             except Exception:
                 _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
                 for it in batch:
                     ai_results[it.get("breed_clean", "")] = None
                 time.sleep(V2_AI_BATCH_SLEEP_S)
                 continue
+
+            # AI 输出格式兼容两种：
+            #   A. dict: {"breed_clean": {...}, ...} （旧版）
+            #   B. list: [{...}, {...}] （prompts.yml v2 当前定义）
+            # 统一归一化为 dict[breed_clean → result]
+            if isinstance(results_raw, list):
+                results_dict = {
+                    (r.get("breed_clean", "")): r
+                    for r in results_raw
+                    if isinstance(r, dict) and r.get("breed_clean")
+                }
+            elif isinstance(results_raw, dict):
+                results_dict = results_raw
+            else:
+                results_dict = {}
 
             # ⚠️ 智能引号归一化踩坑防护：AI 返回的 breed_clean 可能把 "" (U+201C/U+201D)
             # 规范成 "" (U+0022)，导致 results_dict.get(breed_clean) 查不到 → 跳过。
@@ -444,27 +460,35 @@ def classify_v2_batch(
             time.sleep(V2_AI_BATCH_SLEEP_S)
 
         # 3. AI 响应入 v2 breed_l3_map
+        # 过滤规则：confidence < 0.90 不入库（AI 自己拿不准的别污染规则库，下次还要再调一次）
+        MIN_RULE_CONFIDENCE = 0.90
         if write_rules and ai_results:
             try:
                 import sqlite3
                 from gov_price_etl.paths import PROJECT_ROOT
                 v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
                 conn = sqlite3.connect(str(v2_db_path))
-                conn.executemany(
-                    """INSERT OR REPLACE INTO breed_l3_map
-                       (breed_clean, l3, source, confidence)
-                       VALUES (?, ?, ?, ?)""",
-                    [
-                        (bc, v["l3"], "ai_v2", v["category_v2_confidence"])
-                        for bc, v in ai_results.items()
-                        if v and v.get("l3")
-                    ],
+                rows_to_write = [
+                    (bc, v["l3"], "ai_v2", v["category_v2_confidence"])
+                    for bc, v in ai_results.items()
+                    if v and v.get("l3") and v.get("category_v2_confidence", 0) >= MIN_RULE_CONFIDENCE
+                ]
+                rows_skipped = sum(
+                    1 for v in ai_results.values()
+                    if v and v.get("l3") and v.get("category_v2_confidence", 0) < MIN_RULE_CONFIDENCE
                 )
+                if rows_to_write:
+                    conn.executemany(
+                        """INSERT OR REPLACE INTO breed_l3_map
+                           (breed_clean, l3, source, confidence)
+                           VALUES (?, ?, ?, ?)""",
+                        rows_to_write,
+                    )
                 conn.commit()
                 conn.close()
-                _stats["classify_v2_rules_written"] = _stats.get("classify_v2_rules_written", 0) + len([
-                    1 for v in ai_results.values() if v and v.get("l3")
-                ])
+                _stats["classify_v2_rules_written"] = _stats.get("classify_v2_rules_written", 0) + len(rows_to_write)
+                if rows_skipped:
+                    _stats["classify_v2_rules_below_threshold"] = _stats.get("classify_v2_rules_below_threshold", 0) + rows_skipped
             except Exception:
                 _stats["classify_v2_rules_failed"] = _stats.get("classify_v2_rules_failed", 0) + 1
 
