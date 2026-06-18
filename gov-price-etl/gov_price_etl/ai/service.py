@@ -209,6 +209,7 @@ _V2_NAMES_CACHE: dict = {}  # {(l1, l2, l3): (name_l1, name_l2, name_l3)}
 
 
 _V2_L3_CACHE: set = set()
+_TAXONOMY_CACHE: list = []  # 全量分类法列表（喂给 AI prompt 防编造）
 
 
 def _validate_l3(l3: str) -> bool:
@@ -334,6 +335,30 @@ def _lookup_names(l1: str, l2: str, l3: str) -> tuple:
     return ("", "", "")
 
 
+def _load_taxonomy_for_prompt() -> list:
+    """加载 v2 字典全量 L1/L2/L3 + name，喂给 AI 当参考表。进程级缓存。"""
+    if _TAXONOMY_CACHE:
+        return _TAXONOMY_CACHE
+    try:
+        from gov_price_etl.paths import PROJECT_ROOT
+        import sqlite3
+        v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+        conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
+        rows = conn.execute(
+            "SELECT DISTINCT l1, l2, l3, name_l1, name_l2, name_l3 "
+            "FROM category_v2 ORDER BY l1, l2, l3"
+        ).fetchall()
+        conn.close()
+        _TAXONOMY_CACHE.extend([
+            {"l1": r[0], "l2": r[1], "l3": r[2],
+             "name_l1": r[3] or "", "name_l2": r[4] or "", "name_l3": r[5] or ""}
+            for r in rows
+        ])
+    except Exception as e:
+        print(f"    [warn] _load_taxonomy_for_prompt failed: {e}", file=sys.stderr)
+    return _TAXONOMY_CACHE
+
+
 def classify_v2_batch(
     items: List[dict],
     city: str = "",
@@ -397,11 +422,15 @@ def classify_v2_batch(
     ai_results: Dict[str, dict] = {}
     if uncached_items:
         _stats["classify_v2_calls"] = _stats.get("classify_v2_calls", 0) + 1
-        # 优化：不再发送 64 L3 全量列表（prompt 从 60-80K 减到 5K）
-        # AI 凭 8 大类记忆输出 l1/l2/l3 估计，后续用本地 _validate_l3 校验
+        # 加载 v2 字典全量（L1/L2/L3 + name）→ 喂给 AI，避免乱填编码
+        # 之前省略导致 AI 复用已有 L3 编码 + 改 name_l3（保温材料→01.04.01 钢构件）
+        # 权衡：~5K tokens（64 L3 × ~80 字），小于 64K context 限
         from gov_price_etl.classify.utils import format_breed_list
-        l3_list_str = ""  # 不再发送 64 L3
-        _taxonomy = []
+        _taxonomy = _load_taxonomy_for_prompt()
+        l3_list_str = "\n".join(
+            f"  {t['l3']}  {t['name_l1']}/{t['name_l2']}/{t['name_l3']}"
+            for t in _taxonomy
+        ) if _taxonomy else ""
 
         # 攒批去重：按 (breed_clean, spec, unit) 三元组只送一次 AI
         # v2 体系下 breed_clean 决定 l3，spec/unit 不影响分类，但为保幂等仍按三元组去重
@@ -606,6 +635,20 @@ def classify_v2_batch(
                     l4 = "UNCLASSIFIED" if l4 in ("", breed_clean) else l4
                     # 从 v2 字典反查中文名（以字典为准，不信 AI 输出）
                     name_l1, name_l2, name_l3 = _lookup_names(l1, l2, l3)
+                    # 二次校验：AI 输出的 name_l3 跟字典反查不一致 → 拒绝（AI 复用
+                    # 已有 L3 编码 + 改语义，导致“保温材料被分类为钢构件”问题）
+                    name_l3_ai = (r.get("name_l3") or "").strip()
+                    name_l1_ai = (r.get("name_l1") or "").strip()
+                    name_l2_ai = (r.get("name_l2") or "").strip()
+                    if l3 and name_l3 and (
+                        (name_l3_ai and name_l3_ai != name_l3)
+                        or (name_l2_ai and name_l2_ai != name_l2)
+                        or (name_l1_ai and name_l1_ai != name_l1)
+                    ):
+                        _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
+                        _stats["classify_v2_name_mismatch"] = _stats.get("classify_v2_name_mismatch", 0) + 1
+                        ai_results[breed_clean] = None
+                        continue
                     v2_dict = {
                         "l1": l1, "l2": l2, "l3": l3, "l4": l4,
                         "name_l1": name_l1, "name_l2": name_l2, "name_l3": name_l3,
