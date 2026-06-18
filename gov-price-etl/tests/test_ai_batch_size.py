@@ -69,7 +69,7 @@ class TestBatchSize(unittest.TestCase):
 
 
 class TestClassifyV2BatchSplitting(unittest.TestCase):
-    """验证 classify_v2_batch 实际按 10 条分批调 AI（mock _ai_invoke）。"""
+    """验证 classify_v3_batch 实际按 10 条分批调 AI（mock _ai_invoke）。"""
 
     def _make_items(self, n: int) -> list:
         """生成 n 条测试 items"""
@@ -86,13 +86,13 @@ class TestClassifyV2BatchSplitting(unittest.TestCase):
     @patch("gov_price_etl.ai.service._ai_invoke")
     def test_40_items_split_into_4_batches(self, mock_invoke):
         """40 条 items 应分 4 批（10 + 10 + 10 + 10）调 AI"""
-        from gov_price_etl.ai.service import classify_v2_batch
+        from gov_price_etl.ai.service import classify_v3_batch
 
         # mock AI 返回（results 是 dict：breed_clean → result）
         mock_invoke.return_value = (True, '{"results": {}}')
 
         items = self._make_items(40)
-        classify_v2_batch(items, city="test", write_rules=False)
+        classify_v3_batch(items, city="test", write_rules=False)
 
         # AI 被调了 4 次（40 / 10 = 4）
         self.assertEqual(mock_invoke.call_count, 4)
@@ -110,36 +110,36 @@ class TestClassifyV2BatchSplitting(unittest.TestCase):
     @patch("gov_price_etl.ai.service._ai_invoke")
     def test_10_items_exactly_one_batch(self, mock_invoke):
         """恰好 10 条 items → 1 批"""
-        from gov_price_etl.ai.service import classify_v2_batch
+        from gov_price_etl.ai.service import classify_v3_batch
 
         mock_invoke.return_value = (True, '{"results": {}}')
 
         items = self._make_items(10)
-        classify_v2_batch(items, city="test", write_rules=False)
+        classify_v3_batch(items, city="test", write_rules=False)
 
         self.assertEqual(mock_invoke.call_count, 1)
 
     @patch("gov_price_etl.ai.service._ai_invoke")
     def test_25_items_split_into_3_batches(self, mock_invoke):
         """25 条 items → 3 批（10 + 10 + 5）"""
-        from gov_price_etl.ai.service import classify_v2_batch
+        from gov_price_etl.ai.service import classify_v3_batch
 
         mock_invoke.return_value = (True, '{"results": {}}')
 
         items = self._make_items(25)
-        classify_v2_batch(items, city="test", write_rules=False)
+        classify_v3_batch(items, city="test", write_rules=False)
 
         self.assertEqual(mock_invoke.call_count, 3)
 
     @patch("gov_price_etl.ai.service._ai_invoke")
     def test_45_items_split_into_5_batches(self, mock_invoke):
         """45 条 items → 5 批（10 + 10 + 10 + 10 + 5）"""
-        from gov_price_etl.ai.service import classify_v2_batch
+        from gov_price_etl.ai.service import classify_v3_batch
 
         mock_invoke.return_value = (True, '{"results": {}}')
 
         items = self._make_items(45)
-        classify_v2_batch(items, city="test", write_rules=False)
+        classify_v3_batch(items, city="test", write_rules=False)
 
         self.assertEqual(mock_invoke.call_count, 5)
 

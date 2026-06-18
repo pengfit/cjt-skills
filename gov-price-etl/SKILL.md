@@ -1,15 +1,15 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL（v0.4 重构，v2 分类）：ODS→DWD 二段式（先 DB 5 段式后 AI 攒批），DWD→DWS 三段式（attr / 本地规则库 / AI 串行），未命中走 Dify workflow AI。"
+description: "政府材料价格数据入仓 ETL（v0.4 重构，v3 分类（2026-06-18 起按 GB 章节重建））：ODS→DWD 二段式（先 DB 5 段式后 AI 攒批），DWD→DWS 三段式（attr / 本地规则库 / AI 串行），未命中走 Dify workflow AI。"
 ---
 
 # gov-price-etl
 
 政府材料价格数据入仓 ETL，**v0.4 重构后**：
-- **ODS → DWD**：**二段式**（先 DB 5 段式后 AI 攒批）— 阶段 1 breed_l3_map 精确 → 阶段 2 Jaccard 模糊 → 阶段 3 L4 pattern → 阶段 4 unit 兜底 → 阶段 5 AI 攒批（v2.batch，未命中时 Dify workflow）
+- **ODS → DWD**：**二段式**（先 DB 5 段式后 AI 攒批）— 阶段 1 breed_l3_map 精确 → 阶段 2 Jaccard 模糊 → 阶段 3 L4 pattern → 阶段 4 unit 兜底 → 阶段 5 AI 攒批（classify_v3_batch，未命中时 Dify workflow）
 - **DWD → DWS**：**三段式**（attr / 本地规则库 / AI 串行）— 阶段 1 已有 attr → 阶段 2 走 breed_spec_rules.db → 阶段 3 Dify AI 攒批
 
-v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06-16），统一用 v2 4 层分类（8 L1 / 30 L2 / 50 L3 / 64 行 nodes）。AI 调用 2026-06-18 起统一走 Dify workflow API（替代 OpenClaw gateway）。
+v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06-16），统一用 v3 4 层分类（8 L1 / 42 L2 / 145 L3，按 GB 50854-2013 / GB/T 50856-2024 / GB 50857-2013 / GB 50858-2013 重建）。AI 调用 2026-06-18 起统一走 Dify workflow API（替代 OpenClaw gateway）。
 
 ---
 
@@ -150,12 +150,12 @@ gov-price-etl/
 
 ## API 速查
 
-### classify（品种分类，v2 5 段式，ODS→DWD 用）
+### classify（品种分类，v3 5 段式，ODS→DWD 用）
 
 ```python
 from gov_price_etl.classify import (
-    classify_v2,        # 单条 5 段式（阶段 1-3 DB 命中即返回，阶段 4 unit 兜底，阶段 5 是 ai_batch）
-    classify_v2_batch,  # 批量 AI 攒批入口（pipeline.etl 第二轮用，DB 优先 + 未命中调 Dify + 写回 DB）
+    classify_v3,        # 单条 5 段式（阶段 1-3 DB 命中即返回，阶段 4 unit 兜底，阶段 5 是 ai_batch）
+    classify_v3_batch,  # 批量 AI 攒批入口（pipeline.etl 第二轮用，DB 优先 + 未命中调 Dify + 写回 DB）
     close_singleton,    # 关 DB 连接（CLI 退出时调）
 )
 ```
@@ -254,13 +254,13 @@ print(p.parse_spec('D720*8'))
 "
 ```
 
-### 4. 品种分类测试（v2 5 段式）
+### 4. 品种分类测试（v3 5 段式）
 
 ```bash
 python3 -c "
-from gov_price_etl.classify import classify_v2
+from gov_price_etl.classify import classify_v3
 for breed in ['圆钢', '螺纹钢', '矮牵牛', 'xxYYZZ未知']:
-    v2 = classify_v2(breed, spec='', unit='', breed_clean=breed)
+    v2 = classify_v3(breed, spec='', unit='', breed_clean=breed)
     l3 = v2.get('l3', '?')
     src = v2.get('category_v2_source', '?')
     conf = v2.get('category_v2_confidence', 0.0)

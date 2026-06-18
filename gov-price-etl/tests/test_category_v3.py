@@ -20,9 +20,9 @@ TEST_DIR = Path(__file__).parent
 PROJECT_ROOT = TEST_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gov_price_etl.classify.category_v2 import (
-    classify_v2,
-    classify_v2_batch,
+from gov_price_etl.classify.category_v3 import (
+    classify_v3,
+    classify_v3_batch,
     close_singleton,
     _stage1_db_exact,
     _stage2_db_fuzzy,
@@ -35,7 +35,7 @@ from gov_price_etl.classify.category_v2 import (
 
 def _make_temp_db() -> str:
     """构造一个最小可用的 v2 测试库到 tempfile，路径返回。"""
-    from scripts.init_category_v2_db import (
+    from scripts.init_category_v3_db import (
         init_db, import_category_nodes, SCHEMA_SQL,
     )
     fd, path = tempfile.mkstemp(suffix=".db", prefix="cat_v2_test_")
@@ -52,17 +52,17 @@ def _make_temp_db() -> str:
 
 
 def _seed_test_breed_l3_map(db_path: str):
-    """往 breed_l3_map 灌入测试数据（模拟阶段 1+2 命中）"""
+    """往 breed_l3_map_v3 灌入测试数据（模拟阶段 1+2 命中）"""
     conn = sqlite3.connect(db_path)
     test_pairs = [
         ("PP-R冷水管",      "03.01.02", "manual",  1.0),
         ("PP-R热水管",      "03.01.02", "manual",  1.0),
         ("UPVC排水管",      "03.02.02", "manual",  1.0),
-        ("商品砼",         "01.03.01", "manual",  1.0),
-        ("电力电缆",        "04.02.01", "manual",  1.0),
+        ("商品砼",         "01.05.01", "manual",  1.0),
+        ("电力电缆",        "04.06.01", "manual",  1.0),
     ]
     conn.executemany(
-        """INSERT OR REPLACE INTO breed_l3_map (breed_clean, l3, source, confidence)
+        """INSERT OR REPLACE INTO breed_l3_map_v3 (breed_clean, l3, source, confidence)
            VALUES (?, ?, ?, ?)""",
         test_pairs,
     )
@@ -76,33 +76,33 @@ class TestClassifyV2(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """准备测试库（用真实库而非 tempfile，因为 category_v2 表内容来自
-        category_v2.json 灌入，手动复制 50 条到 tempfile 麻烦）"""
+        category_v3.json 灌入，手动复制 50 条到 tempfile 麻烦）"""
         # 重置单例连接：防止上一个测试类缓存的连接指向已删除的 temp_db
         close_singleton()
 
-        cls.db_path = str(PROJECT_ROOT / "data" / "category_v2_rules.db")
+        cls.db_path = str(PROJECT_ROOT / "data" / "category_v3_rules.db")
         # 确保库存在
         if not Path(cls.db_path).exists():
-            from scripts.init_category_v2_db import main as init_main
-            sys.argv = ["init_category_v2_db.py"]
+            from scripts.init_category_v3_db import main as init_main
+            sys.argv = ["init_category_v3_db.py"]
             init_main()
         # 灌入测试用的 breed_l3_map（不污染生产库：用临时 db_path）
         fd, cls.temp_db = tempfile.mkstemp(suffix=".db", prefix="cat_v2_test_")
         os.close(fd)
-        from scripts.init_category_v2_db import init_db, import_category_nodes
+        from scripts.init_category_v3_db import init_db, import_category_nodes
         init_db(Path(cls.temp_db))
         # 复制 category_v2 表
         src = sqlite3.connect(cls.db_path)
         dst = sqlite3.connect(cls.temp_db)
-        for row in src.execute("SELECT * FROM category_v2"):
+        for row in src.execute("SELECT * FROM category_v3"):
             dst.execute(
-                """INSERT INTO category_v2
+                """INSERT INTO category_v3
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", row,
             )
         src.close()
         dst.commit()
         dst.close()
-        # 灌入 breed_l3_map 测试数据
+        # 灌入 breed_l3_map_v3 测试数据
         _seed_test_breed_l3_map(cls.temp_db)
         # 再次重置单例（避免 setUpClass 期间产生的连接指向 temp_db，被 tearDown 删后影响后续）
         close_singleton()
@@ -116,13 +116,13 @@ class TestClassifyV2(unittest.TestCase):
 
     # ── 阶段 1: db_exact ──────────────────────────────────────
     def test_stage1_db_exact(self):
-        """阶段 1: breed_l3_map 精确匹配"""
+        """阶段 1: breed_l3_map_v3 精确匹配"""
         conn = sqlite3.connect(self.temp_db)
         result = _stage1_db_exact(conn, "PP-R冷水管")
         conn.close()
         self.assertIsNotNone(result)
         self.assertEqual(result["l3"], "03.01.02")
-        self.assertEqual(result["category_v2_source"], "db_exact_v2")
+        self.assertEqual(result["category_v2_source"], "db_exact_v3")
         self.assertEqual(result["name_l3"], "塑料给水管")
         self.assertEqual(result["gb_50500"], "031002")
         self.assertEqual(result["ifc_class"], "IfcPipeSegment")
@@ -161,7 +161,7 @@ class TestClassifyV2(unittest.TestCase):
         conn.close()
         self.assertIsNotNone(result)
         self.assertEqual(result["l3"], "03.01.02")
-        self.assertEqual(result["category_v2_source"], "pattern_v2")
+        self.assertEqual(result["category_v2_source"], "pattern_v3")
         self.assertGreaterEqual(result["category_v2_confidence"], 0.8)
 
     def test_stage3_pattern_upvc(self):
@@ -176,7 +176,7 @@ class TestClassifyV2(unittest.TestCase):
         conn = sqlite3.connect(self.temp_db)
         result = _stage3_pattern(conn, "电力电缆", "YJV 4×185")
         conn.close()
-        self.assertEqual(result["l3"], "04.02.01")
+        self.assertEqual(result["l3"], "04.06.01")
         self.assertEqual(result["ifc_class"], "IfcCableSegment")
 
     def test_stage3_pattern_no_match(self):
@@ -193,8 +193,8 @@ class TestClassifyV2(unittest.TestCase):
         result = _stage5_unit_fallback(conn, "m³")
         conn.close()
         self.assertIsNotNone(result)
-        self.assertEqual(result["l3"], "01.03.01")
-        self.assertEqual(result["category_v2_source"], "fallback_v2")
+        self.assertEqual(result["l3"], "01.05.01")
+        self.assertEqual(result["category_v2_source"], "fallback_v3")
         self.assertLess(result["category_v2_confidence"], 0.5)
 
     def test_stage5_unit_fallback_unit_normalize(self):
@@ -203,7 +203,7 @@ class TestClassifyV2(unittest.TestCase):
         result = _stage5_unit_fallback(conn, "m3")
         conn.close()
         self.assertIsNotNone(result)
-        self.assertEqual(result["l3"], "01.03.01")
+        self.assertEqual(result["l3"], "01.05.01")
 
     def test_stage5_unit_fallback_no_match(self):
         """阶段 5: 未知 unit 返回 None"""
@@ -213,70 +213,71 @@ class TestClassifyV2(unittest.TestCase):
         self.assertIsNone(result)
 
     # ── 主入口：5 段式端到端 ──────────────────────────────────
-    def test_classify_v2_stage1_hit(self):
+    def test_classify_v3_stage1_hit(self):
         """端到端：阶段 1 命中（PP-R 冷水管）"""
-        result = classify_v2("PP-R 冷水管", "DN25 1.6MPa", "m", "PP-R冷水管", db_path=self.temp_db)
+        result = classify_v3("PP-R 冷水管", "DN25 1.6MPa", "m", "PP-R冷水管", db_path=self.temp_db)
         self.assertEqual(result["l3"], "03.01.02")
-        self.assertEqual(result["category_v2_source"], "db_exact_v2")
+        self.assertEqual(result["category_v2_source"], "db_exact_v3")
         self.assertEqual(result["category_v2_confidence"], 1.0)
 
-    def test_classify_v2_stage3_hit(self):
+    def test_classify_v3_stage3_hit(self):
         """端到端：阶段 3 命中（breed_clean 不在 db，但 breed+spec 有 YJV pattern）"""
-        result = classify_v2("电力电缆", "YJV 4×185", "m", "未知品种", db_path=self.temp_db)
+        result = classify_v3("电力电缆", "YJV 4×185", "m", "未知品种", db_path=self.temp_db)
         # 阶段 1（breed_clean="未知品种"）未命中
         # 阶段 2 Jaccard 相似度不够
-        # 阶段 3：haystack="电力电缆 YJV 4×185" 匹配 YJV pattern → 04.02.01
-        self.assertEqual(result["l3"], "04.02.01")
-        self.assertEqual(result["category_v2_source"], "pattern_v2")
+        # 阶段 3：haystack="电力电缆 YJV 4×185" 匹配 YJV pattern → 04.06.01（v3 L3）
+        self.assertEqual(result["l3"], "04.06.01")
+        self.assertEqual(result["category_v2_source"], "pattern_v3")
 
-    def test_classify_v2_stage5_fallback(self):
+    def test_classify_v3_stage5_fallback(self):
         """端到端：兜底（完全不认识的品种 + 体积单位）"""
-        result = classify_v2("未知物品XYZ", "M-001", "m³", "未知物品XYZ", db_path=self.temp_db)
-        self.assertEqual(result["l3"], "01.03.01")
-        self.assertEqual(result["category_v2_source"], "fallback_v2")
+        result = classify_v3("未知物品XYZ", "M-001", "m³", "未知物品XYZ", db_path=self.temp_db)
+        self.assertEqual(result["l3"], "01.05.01")
+        self.assertEqual(result["category_v2_source"], "fallback_v3")
 
-    def test_classify_v2_db_path_missing_failsafe(self):
+    def test_classify_v3_db_path_missing_failsafe(self):
         """fail-safe: db_path 不存在时返回 error_v2 而不抛异常"""
-        result = classify_v2("PP-R", "DN25", "m", "PP-R", db_path="/nonexistent/path.db")
-        self.assertEqual(result["category_v2_source"], "error_v2")
+        result = classify_v3("PP-R", "DN25", "m", "PP-R", db_path="/nonexistent/path.db")
+        self.assertEqual(result["category_v2_source"], "error_v3")
         self.assertEqual(result["l3"], "")
 
-    def test_classify_v2_complete_fields(self):
+    def test_classify_v3_complete_fields(self):
         """端到端：所有 9 个元数据字段都有值"""
-        result = classify_v2("PP-R 冷水管", "DN25 1.6MPa", "m", "PP-R冷水管", db_path=self.temp_db)
+        result = classify_v3("PP-R 冷水管", "DN25 1.6MPa", "m", "PP-R冷水管", db_path=self.temp_db)
         # 必填字段非 None / 非空
         for k in ["l1", "l2", "l3", "name_l1", "name_l2", "name_l3", "gb_50500", "ifc_class", "unit", "main_or_aux"]:
             self.assertTrue(result.get(k), f"字段 {k} 应非空: {result}")
 
     # ── 批量入口 ──────────────────────────────────────────────
-    def test_classify_v2_batch(self):
+    def test_classify_v3_batch(self):
         items = [
             {"breed": "PP-R 冷水管", "spec": "DN25", "unit": "m", "breed_clean": "PP-R冷水管"},
             {"breed": "电力电缆",   "spec": "YJV",   "unit": "m", "breed_clean": "电力电缆"},
             {"breed": "未知物品",   "spec": "M-1",   "unit": "m³", "breed_clean": "未知物品"},
         ]
-        results = classify_v2_batch(items, db_path=self.temp_db)
+        results = classify_v3_batch(items, db_path=self.temp_db)
         self.assertEqual(len(results), 3)
         self.assertEqual(results[0]["l3"], "03.01.02")
-        self.assertEqual(results[1]["l3"], "04.02.01")
-        self.assertEqual(results[2]["category_v2_source"], "fallback_v2")
+        self.assertEqual(results[1]["l3"], "04.06.01")
+        self.assertEqual(results[2]["category_v2_source"], "fallback_v3")
 
     # ── 字典结构验证 ──────────────────────────────────────────
     def test_dict_v2_l3_count(self):
-        """category_v2.json 至少有 50 个 L3 节点"""
-        path = PROJECT_ROOT / "data" / "category_v2.json"
+        """category_v3.json 至少有 50 个 L3 节点"""
+        path = PROJECT_ROOT / "data" / "category_v3.json"
         data = json.loads(path.read_text(encoding="utf-8"))
-        self.assertGreaterEqual(len(data["l3_index"]), 50)
+        l3_count = sum(len(l2["l3"]) for l1 in data["tree"]["l1"] for l2 in l1["l2"])
+        self.assertGreaterEqual(l3_count, 50)
 
     def test_dict_std_codes_l3_count(self):
-        """std_codes.json 至少有 50 个 L3 标准码"""
-        path = PROJECT_ROOT / "data" / "std_codes.json"
+        """std_codes_v3.json 至少有 50 个 L3 标准码"""
+        path = PROJECT_ROOT / "data" / "std_codes_v3.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         self.assertGreaterEqual(len(data["codes"]), 50)
 
     def test_dict_l1_count(self):
         """8 个 L1 专业大类"""
-        path = PROJECT_ROOT / "data" / "category_v2.json"
+        path = PROJECT_ROOT / "data" / "category_v3.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         l1_codes = [n["code"] for n in data["tree"]["l1"]]
         self.assertEqual(len(l1_codes), 8)

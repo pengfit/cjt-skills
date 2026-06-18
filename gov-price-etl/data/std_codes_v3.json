@@ -1,0 +1,2377 @@
+{
+  "version": "v3.0",
+  "updated_at": "2026-06-18",
+  "description": "L3 → GB 50500 / IFC / Uniclass 映射。每个 L3 一条记录，按 GB 标准章节精确映射。",
+  "codes": {
+    "01.01.01": {
+      "name": "挖一般土方",
+      "gb_50500": "010101",
+      "gb_50500_name": "挖一般土方",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksCut",
+      "uniclass_ss": "Ss_20_50_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.01.02": {
+      "name": "挖沟槽土方",
+      "gb_50500": "010101",
+      "gb_50500_name": "挖沟槽土方",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksCut",
+      "uniclass_ss": "Ss_20_50_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.01.03": {
+      "name": "挖基坑土方",
+      "gb_50500": "010101",
+      "gb_50500_name": "挖基坑土方",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksCut",
+      "uniclass_ss": "Ss_20_50_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.01.04": {
+      "name": "回填方",
+      "gb_50500": "010103",
+      "gb_50500_name": "回填方",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksFill",
+      "uniclass_ss": "Ss_20_50_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.01.05": {
+      "name": "石方工程",
+      "gb_50500": "010102",
+      "gb_50500_name": "石方工程",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksCut",
+      "uniclass_ss": "Ss_20_50_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.02.01": {
+      "name": "地基处理",
+      "gb_50500": "010201",
+      "gb_50500_name": "地基处理",
+      "quota_ref": null,
+      "ifc_class": "IfcPile",
+      "uniclass_ss": "Ss_20_60_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.02.02": {
+      "name": "基坑与边坡支护",
+      "gb_50500": "010202",
+      "gb_50500_name": "基坑与边坡支护",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_60_60",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.03.01": {
+      "name": "打桩",
+      "gb_50500": "010301",
+      "gb_50500_name": "打桩",
+      "quota_ref": null,
+      "ifc_class": "IfcPile",
+      "uniclass_ss": "Ss_20_60_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "根",
+      "billing_unit": "根",
+      "cost_method": "清单"
+    },
+    "01.03.02": {
+      "name": "灌注桩",
+      "gb_50500": "010302",
+      "gb_50500_name": "灌注桩",
+      "quota_ref": null,
+      "ifc_class": "IfcPile",
+      "uniclass_ss": "Ss_20_60_30",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "根",
+      "billing_unit": "根",
+      "cost_method": "清单"
+    },
+    "01.04.01": {
+      "name": "砖砌体",
+      "gb_50500": "010401",
+      "gb_50500_name": "砖砌体",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.04.02": {
+      "name": "砌块砌体",
+      "gb_50500": "010402",
+      "gb_50500_name": "砌块砌体",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.04.03": {
+      "name": "石砌体",
+      "gb_50500": "010403",
+      "gb_50500_name": "石砌体",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.04.04": {
+      "name": "垫层",
+      "gb_50500": "010404",
+      "gb_50500_name": "垫层",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.01": {
+      "name": "现浇混凝土基础",
+      "gb_50500": "010501",
+      "gb_50500_name": "现浇混凝土基础",
+      "quota_ref": null,
+      "ifc_class": "IfcFooting",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.02": {
+      "name": "现浇混凝土柱",
+      "gb_50500": "010502",
+      "gb_50500_name": "现浇混凝土柱",
+      "quota_ref": null,
+      "ifc_class": "IfcColumn",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.03": {
+      "name": "现浇混凝土梁",
+      "gb_50500": "010503",
+      "gb_50500_name": "现浇混凝土梁",
+      "quota_ref": null,
+      "ifc_class": "IfcBeam",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.04": {
+      "name": "现浇混凝土墙",
+      "gb_50500": "010504",
+      "gb_50500_name": "现浇混凝土墙",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.05": {
+      "name": "现浇混凝土板",
+      "gb_50500": "010505",
+      "gb_50500_name": "现浇混凝土板",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.06": {
+      "name": "现浇混凝土楼梯",
+      "gb_50500": "010506",
+      "gb_50500_name": "现浇混凝土楼梯",
+      "quota_ref": null,
+      "ifc_class": "IfcStair",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.05.07": {
+      "name": "现浇混凝土其他构件",
+      "gb_50500": "010507",
+      "gb_50500_name": "现浇混凝土其他构件",
+      "quota_ref": null,
+      "ifc_class": "IfcBuildingElement",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.08": {
+      "name": "后浇带",
+      "gb_50500": "010508",
+      "gb_50500_name": "后浇带",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.09": {
+      "name": "预制混凝土柱",
+      "gb_50500": "010509",
+      "gb_50500_name": "预制混凝土柱",
+      "quota_ref": null,
+      "ifc_class": "IfcColumn",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.10": {
+      "name": "预制混凝土梁",
+      "gb_50500": "010510",
+      "gb_50500_name": "预制混凝土梁",
+      "quota_ref": null,
+      "ifc_class": "IfcBeam",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.11": {
+      "name": "预制混凝土屋架",
+      "gb_50500": "010511",
+      "gb_50500_name": "预制混凝土屋架",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.12": {
+      "name": "预制混凝土板",
+      "gb_50500": "010512",
+      "gb_50500_name": "预制混凝土板",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.13": {
+      "name": "预制混凝土楼梯",
+      "gb_50500": "010513",
+      "gb_50500_name": "预制混凝土楼梯",
+      "quota_ref": null,
+      "ifc_class": "IfcStair",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.14": {
+      "name": "其他预制构件",
+      "gb_50500": "010514",
+      "gb_50500_name": "其他预制构件",
+      "quota_ref": null,
+      "ifc_class": "IfcBuildingElement",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.05.15": {
+      "name": "钢筋工程",
+      "gb_50500": "010515",
+      "gb_50500_name": "钢筋工程",
+      "quota_ref": null,
+      "ifc_class": "IfcReinforcingBar",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.05.16": {
+      "name": "螺栓铁件",
+      "gb_50500": "010516",
+      "gb_50500_name": "螺栓铁件",
+      "quota_ref": null,
+      "ifc_class": "IfcFastener",
+      "uniclass_ss": "Ss_20_20_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.01": {
+      "name": "钢网架",
+      "gb_50500": "010601",
+      "gb_50500_name": "钢网架",
+      "quota_ref": null,
+      "ifc_class": "IfcSpace",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.02": {
+      "name": "钢屋架钢桁架",
+      "gb_50500": "010602",
+      "gb_50500_name": "钢屋架钢桁架",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.03": {
+      "name": "钢柱",
+      "gb_50500": "010603",
+      "gb_50500_name": "钢柱",
+      "quota_ref": null,
+      "ifc_class": "IfcColumn",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.04": {
+      "name": "钢梁",
+      "gb_50500": "010604",
+      "gb_50500_name": "钢梁",
+      "quota_ref": null,
+      "ifc_class": "IfcBeam",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.05": {
+      "name": "钢板楼板墙板",
+      "gb_50500": "010605",
+      "gb_50500_name": "钢板楼板墙板",
+      "quota_ref": null,
+      "ifc_class": "IfcPlate",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.06": {
+      "name": "钢构件",
+      "gb_50500": "010606",
+      "gb_50500_name": "钢构件",
+      "quota_ref": null,
+      "ifc_class": "IfcMember",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.06.07": {
+      "name": "金属制品",
+      "gb_50500": "010607",
+      "gb_50500_name": "金属制品",
+      "quota_ref": null,
+      "ifc_class": "IfcElementComponent",
+      "uniclass_ss": "Ss_20_30_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "t",
+      "billing_unit": "t",
+      "cost_method": "清单"
+    },
+    "01.07.01": {
+      "name": "木屋架",
+      "gb_50500": "010701",
+      "gb_50500_name": "木屋架",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_30_30",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.07.02": {
+      "name": "木构件",
+      "gb_50500": "010702",
+      "gb_50500_name": "木构件",
+      "quota_ref": null,
+      "ifc_class": "IfcMember",
+      "uniclass_ss": "Ss_20_30_30",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "01.07.03": {
+      "name": "屋面木基层",
+      "gb_50500": "010703",
+      "gb_50500_name": "屋面木基层",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_30_30",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.08.01": {
+      "name": "瓦型材及其他屋面",
+      "gb_50500": "010901",
+      "gb_50500_name": "瓦型材及其他屋面",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.08.02": {
+      "name": "屋面防水",
+      "gb_50500": "010902",
+      "gb_50500_name": "屋面防水",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.08.03": {
+      "name": "墙面防水防潮",
+      "gb_50500": "010903",
+      "gb_50500_name": "墙面防水防潮",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.08.04": {
+      "name": "楼地面防水防潮",
+      "gb_50500": "010904",
+      "gb_50500_name": "楼地面防水防潮",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.09.01": {
+      "name": "保温隔热",
+      "gb_50500": "011001",
+      "gb_50500_name": "保温隔热",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.09.02": {
+      "name": "防腐面层",
+      "gb_50500": "011002",
+      "gb_50500_name": "防腐面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "01.09.03": {
+      "name": "其他防腐",
+      "gb_50500": "011003",
+      "gb_50500_name": "其他防腐",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.01": {
+      "name": "整体面层",
+      "gb_50500": "011101",
+      "gb_50500_name": "整体面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.02": {
+      "name": "块料面层",
+      "gb_50500": "011102",
+      "gb_50500_name": "块料面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.03": {
+      "name": "橡塑面层",
+      "gb_50500": "011103",
+      "gb_50500_name": "橡塑面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.04": {
+      "name": "其他材料面层",
+      "gb_50500": "011104",
+      "gb_50500_name": "其他材料面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.05": {
+      "name": "踢脚线",
+      "gb_50500": "011105",
+      "gb_50500_name": "踢脚线",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "02.01.06": {
+      "name": "楼梯面层",
+      "gb_50500": "011106",
+      "gb_50500_name": "楼梯面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.07": {
+      "name": "台阶装饰",
+      "gb_50500": "011107",
+      "gb_50500_name": "台阶装饰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.01.08": {
+      "name": "零星装饰",
+      "gb_50500": "011108",
+      "gb_50500_name": "零星装饰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.01": {
+      "name": "墙面抹灰",
+      "gb_50500": "011201",
+      "gb_50500_name": "墙面抹灰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.02": {
+      "name": "柱面抹灰",
+      "gb_50500": "011202",
+      "gb_50500_name": "柱面抹灰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.03": {
+      "name": "零星抹灰",
+      "gb_50500": "011203",
+      "gb_50500_name": "零星抹灰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.04": {
+      "name": "墙面块料面层",
+      "gb_50500": "011204",
+      "gb_50500_name": "墙面块料面层",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.05": {
+      "name": "柱面镶贴块料",
+      "gb_50500": "011205",
+      "gb_50500_name": "柱面镶贴块料",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.06": {
+      "name": "镶贴零星块料",
+      "gb_50500": "011206",
+      "gb_50500_name": "镶贴零星块料",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.07": {
+      "name": "墙饰面",
+      "gb_50500": "011207",
+      "gb_50500_name": "墙饰面",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.08": {
+      "name": "柱饰面",
+      "gb_50500": "011208",
+      "gb_50500_name": "柱饰面",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.09": {
+      "name": "幕墙工程（含密封胶）",
+      "gb_50500": "011209",
+      "gb_50500_name": "幕墙工程（含密封胶）",
+      "quota_ref": null,
+      "ifc_class": "IfcCurtainWall",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.02.10": {
+      "name": "隔断",
+      "gb_50500": "011210",
+      "gb_50500_name": "隔断",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.03.01": {
+      "name": "天棚抹灰",
+      "gb_50500": "011301",
+      "gb_50500_name": "天棚抹灰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.03.02": {
+      "name": "天棚吊顶",
+      "gb_50500": "011302",
+      "gb_50500_name": "天棚吊顶",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.03.03": {
+      "name": "采光天棚",
+      "gb_50500": "011303",
+      "gb_50500_name": "采光天棚",
+      "quota_ref": null,
+      "ifc_class": "IfcRoof",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.03.04": {
+      "name": "天棚其他装饰",
+      "gb_50500": "011304",
+      "gb_50500_name": "天棚其他装饰",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.04.01": {
+      "name": "木门",
+      "gb_50500": "010801",
+      "gb_50500_name": "木门",
+      "quota_ref": null,
+      "ifc_class": "IfcDoor",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.02": {
+      "name": "金属门",
+      "gb_50500": "010802",
+      "gb_50500_name": "金属门",
+      "quota_ref": null,
+      "ifc_class": "IfcDoor",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.03": {
+      "name": "金属卷帘门",
+      "gb_50500": "010803",
+      "gb_50500_name": "金属卷帘门",
+      "quota_ref": null,
+      "ifc_class": "IfcDoor",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.04": {
+      "name": "厂库房大门特种门（含防火门）",
+      "gb_50500": "010804",
+      "gb_50500_name": "厂库房大门特种门（含防火门）",
+      "quota_ref": null,
+      "ifc_class": "IfcDoor",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.05": {
+      "name": "其他门",
+      "gb_50500": "010805",
+      "gb_50500_name": "其他门",
+      "quota_ref": null,
+      "ifc_class": "IfcDoor",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.06": {
+      "name": "木窗",
+      "gb_50500": "010806",
+      "gb_50500_name": "木窗",
+      "quota_ref": null,
+      "ifc_class": "IfcWindow",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.07": {
+      "name": "金属窗",
+      "gb_50500": "010807",
+      "gb_50500_name": "金属窗",
+      "quota_ref": null,
+      "ifc_class": "IfcWindow",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.04.08": {
+      "name": "门窗套",
+      "gb_50500": "010808",
+      "gb_50500_name": "门窗套",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.04.09": {
+      "name": "窗台板",
+      "gb_50500": "010809",
+      "gb_50500_name": "窗台板",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "02.04.10": {
+      "name": "窗帘窗帘盒轨",
+      "gb_50500": "010810",
+      "gb_50500_name": "窗帘窗帘盒轨",
+      "quota_ref": null,
+      "ifc_class": "IfcFurnishingElement",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "02.05.01": {
+      "name": "门油漆",
+      "gb_50500": "011401",
+      "gb_50500_name": "门油漆",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.05.02": {
+      "name": "窗油漆",
+      "gb_50500": "011402",
+      "gb_50500_name": "窗油漆",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "樘",
+      "billing_unit": "樘",
+      "cost_method": "清单"
+    },
+    "02.05.03": {
+      "name": "木材面油漆",
+      "gb_50500": "011404",
+      "gb_50500_name": "木材面油漆",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.05.04": {
+      "name": "金属面油漆",
+      "gb_50500": "011405",
+      "gb_50500_name": "金属面油漆",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.05.05": {
+      "name": "抹灰面油漆",
+      "gb_50500": "011406",
+      "gb_50500_name": "抹灰面油漆",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.05.06": {
+      "name": "喷刷涂料",
+      "gb_50500": "011407",
+      "gb_50500_name": "喷刷涂料",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.05.07": {
+      "name": "裱糊",
+      "gb_50500": "011408",
+      "gb_50500_name": "裱糊",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "02.06.01": {
+      "name": "柜类货架",
+      "gb_50500": "011501",
+      "gb_50500_name": "柜类货架",
+      "quota_ref": null,
+      "ifc_class": "IfcFurnishingElement",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "02.06.02": {
+      "name": "压条装饰线",
+      "gb_50500": "011502",
+      "gb_50500_name": "压条装饰线",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "02.06.03": {
+      "name": "扶手栏杆栏板装饰",
+      "gb_50500": "011503",
+      "gb_50500_name": "扶手栏杆栏板装饰",
+      "quota_ref": null,
+      "ifc_class": "IfcRailing",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "02.06.04": {
+      "name": "暖气罩",
+      "gb_50500": "011504",
+      "gb_50500_name": "暖气罩",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "03.01.01": {
+      "name": "金属给水管",
+      "gb_50500": "031001",
+      "gb_50500_name": "金属给水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.01.02": {
+      "name": "塑料给水管",
+      "gb_50500": "031002",
+      "gb_50500_name": "塑料给水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.01.03": {
+      "name": "复合给水管",
+      "gb_50500": "031003",
+      "gb_50500_name": "复合给水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.01.04": {
+      "name": "给水管道附件",
+      "gb_50500": "031004",
+      "gb_50500_name": "给水管道附件",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeFitting",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.01.05": {
+      "name": "给水阀门",
+      "gb_50500": "031005",
+      "gb_50500_name": "给水阀门",
+      "quota_ref": null,
+      "ifc_class": "IfcValve",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.02.01": {
+      "name": "金属排水管",
+      "gb_50500": "031006",
+      "gb_50500_name": "金属排水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.02.02": {
+      "name": "塑料排水管",
+      "gb_50500": "031007",
+      "gb_50500_name": "塑料排水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.02.03": {
+      "name": "排水管道附件",
+      "gb_50500": "031008",
+      "gb_50500_name": "排水管道附件",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeFitting",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.03.01": {
+      "name": "燃气管道",
+      "gb_50500": "031011",
+      "gb_50500_name": "燃气管道",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_50",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.03.02": {
+      "name": "燃气管道附件",
+      "gb_50500": "031012",
+      "gb_50500_name": "燃气管道附件",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeFitting",
+      "uniclass_ss": "Ss_60_10_50",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.04.01": {
+      "name": "采暖管道",
+      "gb_50500": "031008",
+      "gb_50500_name": "采暖管道",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_60",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "03.04.02": {
+      "name": "采暖管道附件",
+      "gb_50500": "031008",
+      "gb_50500_name": "采暖管道附件",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeFitting",
+      "uniclass_ss": "Ss_60_10_60",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.05.01": {
+      "name": "通用阀门",
+      "gb_50500": "031013",
+      "gb_50500_name": "通用阀门",
+      "quota_ref": null,
+      "ifc_class": "IfcValve",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "03.06.01": {
+      "name": "卫生洁具",
+      "gb_50500": "031009",
+      "gb_50500_name": "卫生洁具",
+      "quota_ref": null,
+      "ifc_class": "IfcSanitaryTerminal",
+      "uniclass_ss": "Ss_60_10_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "03.06.02": {
+      "name": "给排水配件",
+      "gb_50500": "031010",
+      "gb_50500_name": "给排水配件",
+      "quota_ref": null,
+      "ifc_class": "IfcSanitaryTerminal",
+      "uniclass_ss": "Ss_60_10_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "04.01.01": {
+      "name": "变压器安装",
+      "gb_50500": "030401",
+      "gb_50500_name": "变压器安装",
+      "quota_ref": null,
+      "ifc_class": "IfcTransformer",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "04.02.01": {
+      "name": "成套配电箱",
+      "gb_50500": "030402",
+      "gb_50500_name": "成套配电箱",
+      "quota_ref": null,
+      "ifc_class": "IfcDistributionElement",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "04.02.02": {
+      "name": "配电柜",
+      "gb_50500": "030402",
+      "gb_50500_name": "配电柜",
+      "quota_ref": null,
+      "ifc_class": "IfcDistributionElement",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "04.03.01": {
+      "name": "母线安装",
+      "gb_50500": "030403",
+      "gb_50500_name": "母线安装",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "04.04.01": {
+      "name": "控制保护装置",
+      "gb_50500": "030404",
+      "gb_50500_name": "控制保护装置",
+      "quota_ref": null,
+      "ifc_class": "IfcDistributionElement",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "04.04.02": {
+      "name": "开关插座",
+      "gb_50500": "030405",
+      "gb_50500_name": "开关插座",
+      "quota_ref": null,
+      "ifc_class": "IfcSwitchingDevice",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "04.05.01": {
+      "name": "电机检查接线",
+      "gb_50500": "030406",
+      "gb_50500_name": "电机检查接线",
+      "quota_ref": null,
+      "ifc_class": "IfcElectricMotor",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "04.06.01": {
+      "name": "电力电缆",
+      "gb_50500": "030408",
+      "gb_50500_name": "电力电缆",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "04.06.02": {
+      "name": "控制电缆",
+      "gb_50500": "030408",
+      "gb_50500_name": "控制电缆",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "04.06.03": {
+      "name": "电缆附件",
+      "gb_50500": "030409",
+      "gb_50500_name": "电缆附件",
+      "quota_ref": null,
+      "ifc_class": "IfcCableFitting",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "04.07.01": {
+      "name": "电气电线",
+      "gb_50500": "030411",
+      "gb_50500_name": "电气电线",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "04.07.02": {
+      "name": "电气配管",
+      "gb_50500": "030411",
+      "gb_50500_name": "电气配管",
+      "quota_ref": null,
+      "ifc_class": "IfcCableCarrierSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "04.08.01": {
+      "name": "接闪器",
+      "gb_50500": "030409",
+      "gb_50500_name": "接闪器",
+      "quota_ref": null,
+      "ifc_class": "IfcProtectiveDevice",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "屋面",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "04.08.02": {
+      "name": "接地装置",
+      "gb_50500": "030410",
+      "gb_50500_name": "接地装置",
+      "quota_ref": null,
+      "ifc_class": "IfcProtectiveDevice",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "基础",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "04.09.01": {
+      "name": "照明灯具",
+      "gb_50500": "030413",
+      "gb_50500_name": "照明灯具",
+      "quota_ref": null,
+      "ifc_class": "IfcLightFixture",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "05.01.01": {
+      "name": "通风管道",
+      "gb_50500": "030701",
+      "gb_50500_name": "通风管道",
+      "quota_ref": null,
+      "ifc_class": "IfcDuctSegment",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "05.02.01": {
+      "name": "风机盘管",
+      "gb_50500": "030702",
+      "gb_50500_name": "风机盘管",
+      "quota_ref": null,
+      "ifc_class": "IfcUnitaryEquipment",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "05.02.02": {
+      "name": "空调机组",
+      "gb_50500": "030703",
+      "gb_50500_name": "空调机组",
+      "quota_ref": null,
+      "ifc_class": "IfcUnitaryEquipment",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "05.02.03": {
+      "name": "通风设备",
+      "gb_50500": "030704",
+      "gb_50500_name": "通风设备",
+      "quota_ref": null,
+      "ifc_class": "IfcFlowTerminal",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "台",
+      "billing_unit": "台",
+      "cost_method": "清单"
+    },
+    "05.02.04": {
+      "name": "风口风阀",
+      "gb_50500": "030708",
+      "gb_50500_name": "风口风阀",
+      "quota_ref": null,
+      "ifc_class": "IfcFlowController",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "05.03.01": {
+      "name": "散热器",
+      "gb_50500": "030705",
+      "gb_50500_name": "散热器",
+      "quota_ref": null,
+      "ifc_class": "IfcSpaceHeater",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "片",
+      "billing_unit": "片",
+      "cost_method": "清单"
+    },
+    "05.03.02": {
+      "name": "地暖管",
+      "gb_50500": "030706",
+      "gb_50500_name": "地暖管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_40_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "06.01.01": {
+      "name": "网络线缆",
+      "gb_50500": "030502",
+      "gb_50500_name": "网络线缆",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_50",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "06.01.02": {
+      "name": "光纤线缆",
+      "gb_50500": "030502",
+      "gb_50500_name": "光纤线缆",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_50",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "06.01.03": {
+      "name": "综合布线配件",
+      "gb_50500": "030502",
+      "gb_50500_name": "综合布线配件",
+      "quota_ref": null,
+      "ifc_class": "IfcCableFitting",
+      "uniclass_ss": "Ss_60_30_50",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "06.02.01": {
+      "name": "视频监控",
+      "gb_50500": "030504",
+      "gb_50500_name": "视频监控",
+      "quota_ref": null,
+      "ifc_class": "IfcSensor",
+      "uniclass_ss": "Ss_60_30_60",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "06.02.02": {
+      "name": "门禁对讲",
+      "gb_50500": "030505",
+      "gb_50500_name": "门禁对讲",
+      "quota_ref": null,
+      "ifc_class": "IfcSensor",
+      "uniclass_ss": "Ss_60_30_60",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "06.03.01": {
+      "name": "火灾探测器",
+      "gb_50500": "030904",
+      "gb_50500_name": "火灾探测器",
+      "quota_ref": null,
+      "ifc_class": "IfcSensor",
+      "uniclass_ss": "Ss_60_30_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "06.03.02": {
+      "name": "报警联动设备",
+      "gb_50500": "030904",
+      "gb_50500_name": "报警联动设备",
+      "quota_ref": null,
+      "ifc_class": "IfcSensor",
+      "uniclass_ss": "Ss_60_30_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "07.01.01": {
+      "name": "路面材料",
+      "gb_50500": "040201",
+      "gb_50500_name": "路面材料",
+      "quota_ref": null,
+      "ifc_class": "IfcPavement",
+      "uniclass_ss": "Ss_20_50_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "07.01.02": {
+      "name": "路基材料",
+      "gb_50500": "040201",
+      "gb_50500_name": "路基材料",
+      "quota_ref": null,
+      "ifc_class": "IfcEarthworksFill",
+      "uniclass_ss": "Ss_20_50_10",
+      "eng_part": "基础",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "07.02.01": {
+      "name": "桥涵构件",
+      "gb_50500": "040301",
+      "gb_50500_name": "桥涵构件",
+      "quota_ref": null,
+      "ifc_class": "IfcBeam",
+      "uniclass_ss": "Ss_20_50_40",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "07.03.01": {
+      "name": "市政给水管",
+      "gb_50500": "040501",
+      "gb_50500_name": "市政给水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_30",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "07.03.02": {
+      "name": "市政排水管",
+      "gb_50500": "040502",
+      "gb_50500_name": "市政排水管",
+      "quota_ref": null,
+      "ifc_class": "IfcPipeSegment",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "08.01.01": {
+      "name": "苗木",
+      "gb_50500": "050101",
+      "gb_50500_name": "苗木",
+      "quota_ref": null,
+      "ifc_class": "IfcElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "株",
+      "billing_unit": "株",
+      "cost_method": "清单"
+    },
+    "08.01.02": {
+      "name": "草坪",
+      "gb_50500": "050102",
+      "gb_50500_name": "草坪",
+      "quota_ref": null,
+      "ifc_class": "IfcElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "08.01.03": {
+      "name": "花卉",
+      "gb_50500": "050103",
+      "gb_50500_name": "花卉",
+      "quota_ref": null,
+      "ifc_class": "IfcElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "株",
+      "billing_unit": "株",
+      "cost_method": "清单"
+    },
+    "08.01.04": {
+      "name": "地被植物",
+      "gb_50500": "050104",
+      "gb_50500_name": "地被植物",
+      "quota_ref": null,
+      "ifc_class": "IfcElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "08.01.05": {
+      "name": "攀缘植物",
+      "gb_50500": "050105",
+      "gb_50500_name": "攀缘植物",
+      "quota_ref": null,
+      "ifc_class": "IfcElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "株",
+      "billing_unit": "株",
+      "cost_method": "清单"
+    },
+    "08.02.01": {
+      "name": "园建材料",
+      "gb_50500": "050201",
+      "gb_50500_name": "园建材料",
+      "quota_ref": null,
+      "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "08.03.01": {
+      "name": "景观小品",
+      "gb_50500": "050301",
+      "gb_50500_name": "景观小品",
+      "quota_ref": null,
+      "ifc_class": "IfcFurnishingElement",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "个",
+      "billing_unit": "个",
+      "cost_method": "清单"
+    }
+  }
+}

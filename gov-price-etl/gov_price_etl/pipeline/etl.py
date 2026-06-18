@@ -4,7 +4,7 @@
   ┌─────────────────────────────────────────────────────────────────────┐
   │ ODS source                                                          │
   │   │                                                                 │
-  │   ├── 第一轮：DB-only 5 段式（category_v2_rules.db）              │
+  │   ├── 第一轮：DB-only 5 段式（category_v3_rules.db）              │
   │   │     - 阶段 1：breed_l3_map 精确匹配                              │
   │   │     - 阶段 2：Jaccard 模糊召回 (>= 0.6)                          │
   │   │     - 阶段 3：L4 pattern 正则                                    │
@@ -12,7 +12,7 @@
   │   │         → 立即 transform_doc + bulk_index 写 DWD                │
   │   │     - DB 未命中 → 攒到 pending_ai_items                         │
   │   │                                                                 │
-  │   └── 第二轮：攒批 AI（ai.service.classify_v2_batch）             │
+  │   └── 第二轮：攒批 AI（ai.service.classify_v3_batch）             │
   │         - DB 优先检查（避免重复调 AI）                              │
   │         - 未命中攒批送 AI，每批 V2_AI_BATCH_SIZE=20 条                │
   │         - AI 结果写回 breed_l3_map（DB 自我学习）                   │
@@ -21,8 +21,8 @@
   └─────────────────────────────────────────────────────────────────────┘
 
 数据依赖：
-  - gov_price_etl.classify.category_v2（5 段式 + 批量 AI）
-  - gov_price_etl.ai.service（classify_v2_batch 走 OpenClaw gateway）
+  - gov_price_etl.classify.category_v3（v3 5 段式 + 批量 AI，按 GB 章节）
+  - gov_price_etl.ai.service（classify_v3_batch 走 OpenClaw gateway）
   - gov_price_etl.transform.transform_doc（ODS → DWD 单文档转换）
 
 历史（2026-06-17 已清干净）：
@@ -34,8 +34,8 @@
 import time
 from typing import List, Tuple
 
-from gov_price_etl.ai.service import classify_v2_batch as ai_classify_v2_batch
-from gov_price_etl.classify.category_v2 import classify_v2
+from gov_price_etl.ai.service import classify_v3_batch as ai_classify_v3_batch
+from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
@@ -44,7 +44,7 @@ from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
 
 # DB 命中阈值：v2 阶段 1/2/3 都算本地命中，不送 AI
-_LOCAL_HIT_SOURCES = frozenset(("db_exact_v2", "db_fuzzy_v2", "pattern_v2"))
+_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3", "pattern_v3"))
 
 
 def etl_city(
@@ -62,10 +62,10 @@ def etl_city(
 
     流程（2026-06-17 重构）：
       1. 第一轮：滚动 ODS 拉取
-         - 每条调 classify_v2()（DB-only，阶段 4 占位）
+         - 每条调 classify_v3()（DB-only，阶段 4 占位）
          - DB 命中（db_exact_v2 / db_fuzzy_v2 / pattern_v2）→ 立即 transform_doc + bulk_index
          - DB 未命中 → 攒到 pending_ai_items
-      2. 第二轮：所有 ODS 走完后，攒批调 ai_classify_v2_batch（写回 breed_l3_map + 返回 v2）
+      2. 第二轮：所有 ODS 走完后，攒批调 ai_classify_v3_batch（写回 breed_l3_map + 返回 v2）
       3. 第三轮：用 AI 返回的 v2 结果对 pending 项构 doc + bulk_index
 
     优点：
@@ -157,7 +157,7 @@ def etl_city(
                     continue
 
                 # 单条 DB-only v2 查表（阶段 4 占位 → 阶段 5 fallback）
-                v2 = classify_v2(
+                v2 = classify_v3(
                     breed=breed_raw,
                     spec=raw.get("spec", ""),
                     unit=raw.get("unit", ""),
@@ -211,13 +211,13 @@ def etl_city(
         hits = result["hits"]["hits"]
         scroll_id = result.get("_scroll_id", "")
 
-    # ── 第二轮：批量 AI（service.classify_v2_batch 内部 DB 优先 + 未命中调 AI + 写回 DB）──
+    # ── 第二轮：批量 AI（service.classify_v3_batch 内部 DB 优先 + 未命中调 AI + 写回 DB）──
     ai_hits = 0
     if pending_ai_items and not dry_run:
         print(f"    [AI] 攒批 {len(pending_ai_items)} 条送 AI 分类...")
         t0 = time.time()
         # write_rules=True → AI 结果写回 breed_l3_map，下次 ETL 走阶段 1 命中
-        v2_results = ai_classify_v2_batch(
+        v2_results = ai_classify_v3_batch(
             pending_ai_items, city=city, write_rules=True,
         )
         elapsed = time.time() - t0

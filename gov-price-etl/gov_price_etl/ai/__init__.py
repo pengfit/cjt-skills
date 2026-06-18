@@ -22,7 +22,7 @@ v1 入口变化（2026-06-16）：
 """
 from .service import (
     parse_spec_batch,
-    classify_v2_batch,
+    classify_v3_batch,
     get_stats,
     reset_stats,
 )

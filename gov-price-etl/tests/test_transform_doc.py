@@ -4,7 +4,7 @@
 test_transform_doc.py - transform_doc 单文档转换测试
 
 覆盖：
-  1. 默认行为（v2_override=None → 调 classify_v2）
+  1. 默认行为（v2_override=None → 调 classify_v3()）
   2. v2_override 外部传入（跳过查表直接用，ETL pipeline 批量 AI 场景）
   3. v2_override 字段映射（14 个 v2 字段透传到 DWD）
   4. spec 为空时的 breed 填充
@@ -22,14 +22,14 @@ TEST_DIR = Path(__file__).parent
 PROJECT_ROOT = TEST_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gov_price_etl.classify.category_v2 import (
-    classify_v2,
+from gov_price_etl.classify.category_v3 import (
+    classify_v3,
     close_singleton,
 )
 from gov_price_etl.transform import transform_doc
 
 
-# 完整 v2 字典（模拟 service.classify_v2_batch 返回结果）
+# 完整 v2 字典（模拟 service.classify_v3_batch 返回结果）
 MOCK_AI_V2 = {
     "l1": "01", "l2": "01.04", "l3": "01.04.01", "l4": "UNCLASSIFIED",
     "gb_50500": "010601", "quota_ref": "5-31",
@@ -37,7 +37,7 @@ MOCK_AI_V2 = {
     "eng_part": "主体", "eng_stage": "施工", "main_or_aux": "主材",
     "unit": "t", "billing_unit": "t", "cost_method": "清单",
     "name_l1": "建筑工程", "name_l2": "钢筋工程", "name_l3": "钢构件",
-    "category_v2_source": "ai_v2", "category_v2_confidence": 0.92,
+    "category_v2_source": "ai_v3", "category_v2_confidence": 0.92,
     "material_code": "MAT-001",
 }
 
@@ -47,8 +47,8 @@ class TestTransformDoc(unittest.TestCase):
     def setUp(self):
         close_singleton()
 
-    def test_default_uses_classify_v2(self):
-        """默认行为：v2_override=None → 调 classify_v2 5 段式"""
+    def test_default_uses_classify_v3(self):
+        """默认行为：v2_override=None → 调 classify_v3 5 段式"""
         raw = {"breed": "圆钢", "spec": "Φ20", "unit": "t"}
         doc = transform_doc(raw, "ods_test", "xian")
         # 默认走 DB 查表，结果应包含完整 v2 字段
@@ -78,7 +78,7 @@ class TestTransformDoc(unittest.TestCase):
         self.assertEqual(doc["ifc_class"], "IfcBeam")
         self.assertEqual(doc["uniclass_ss"], "Ss_20_20_20")
         self.assertEqual(doc["material_code"], "MAT-001")
-        self.assertEqual(doc["category_v2_source"], "ai_v2")
+        self.assertEqual(doc["category_v2_source"], "ai_v3")
         self.assertEqual(doc["category_v2_confidence"], 0.92)
 
     def test_v2_override_doesnt_call_db(self):
@@ -95,14 +95,14 @@ class TestTransformDoc(unittest.TestCase):
             doc_default["category_v3_confidence"] if "category_v3_confidence" in doc_default else doc_default.get("category_v2_source", ""),
             doc_override["category_v2_source"],
         )
-        self.assertEqual(doc_override["category_v2_source"], "ai_v2")
+        self.assertEqual(doc_override["category_v2_source"], "ai_v3")
 
     def test_v2_override_none_fields_handled(self):
         """v2_override 字段为 None 时不应崩溃（用空字符串兜底）"""
         partial_v2 = {
             "l1": "01", "l2": "", "l3": "", "l4": "UNCLASSIFIED",
             "name_l1": "建筑工程", "name_l2": "", "name_l3": "",
-            "category_v2_source": "ai_v2", "category_v2_confidence": 0.7,
+            "category_v2_source": "ai_v3", "category_v2_confidence": 0.7,
             # 其他字段缺失 → 用 "" 兜底
         }
         raw = {"breed": "测试", "spec": "", "unit": ""}
@@ -146,7 +146,7 @@ class TestTransformDoc(unittest.TestCase):
         doc = transform_doc(raw, "ods_test", "xian")
         # 圆钢在 breed_l3_map 里（DB 里有 AI 校验过的数据）
         # 应有 category_l3 = '01.04.01'（钢构件）
-        if doc["category_v2_source"] in ("db_exact_v2", "db_fuzzy_v2"):
+        if doc["category_v2_source"] in ("db_exact_v3", "db_fuzzy_v3"):
             self.assertEqual(doc["category_l1"], "01")
 
 
@@ -155,27 +155,27 @@ class TestEtlTwoPassLogic(unittest.TestCase):
     """测试 pipeline.etl 的'先 DB 后 AI'两轮逻辑（不依赖 ES，仅验证逻辑分支）。"""
 
     def test_local_hit_sources_includes_db_and_pattern(self):
-        """DB 命中阈值应包含 db_exact_v2 / db_fuzzy_v2 / pattern_v2"""
+        """DB 命中阈值应包含 db_exact_v3 / db_fuzzy_v3 / pattern_v3"""
         from gov_price_etl.pipeline.etl import _LOCAL_HIT_SOURCES
-        self.assertIn("db_exact_v2", _LOCAL_HIT_SOURCES)
-        self.assertIn("db_fuzzy_v2", _LOCAL_HIT_SOURCES)
-        self.assertIn("pattern_v2", _LOCAL_HIT_SOURCES)
+        self.assertIn("db_exact_v3", _LOCAL_HIT_SOURCES)
+        self.assertIn("db_fuzzy_v3", _LOCAL_HIT_SOURCES)
+        self.assertIn("pattern_v3", _LOCAL_HIT_SOURCES)
         # 不应包含 fallback（unit 推断）或 no_match
-        self.assertNotIn("fallback_v2", _LOCAL_HIT_SOURCES)
-        self.assertNotIn("no_match_v2", _LOCAL_HIT_SOURCES)
-        self.assertNotIn("ai_v2", _LOCAL_HIT_SOURCES)
+        self.assertNotIn("fallback_v3", _LOCAL_HIT_SOURCES)
+        self.assertNotIn("no_match_v3", _LOCAL_HIT_SOURCES)
+        self.assertNotIn("ai_v3", _LOCAL_HIT_SOURCES)
 
     def test_db_hit_decision(self):
         """DB 命中判断逻辑"""
         from gov_price_etl.pipeline.etl import _LOCAL_HIT_SOURCES
         # 命中场景
-        self.assertTrue("db_exact_v2" in _LOCAL_HIT_SOURCES)
-        self.assertTrue("db_fuzzy_v2" in _LOCAL_HIT_SOURCES)
-        self.assertTrue("pattern_v2" in _LOCAL_HIT_SOURCES)
+        self.assertTrue("db_exact_v3" in _LOCAL_HIT_SOURCES)
+        self.assertTrue("db_fuzzy_v3" in _LOCAL_HIT_SOURCES)
+        self.assertTrue("pattern_v3" in _LOCAL_HIT_SOURCES)
         # 未命中场景
-        self.assertFalse("fallback_v2" in _LOCAL_HIT_SOURCES)
-        self.assertFalse("ai_v2" in _LOCAL_HIT_SOURCES)
-        self.assertFalse("no_match_v2" in _LOCAL_HIT_SOURCES)
+        self.assertFalse("fallback_v3" in _LOCAL_HIT_SOURCES)
+        self.assertFalse("ai_v3" in _LOCAL_HIT_SOURCES)
+        self.assertFalse("no_match_v3" in _LOCAL_HIT_SOURCES)
 
 
 if __name__ == "__main__":
