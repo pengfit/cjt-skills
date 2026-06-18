@@ -61,9 +61,6 @@ gov-price-etl/
 ├── cli/                      # 入口脚本
 │   ├── etl.py
 │   └── sync_dws.py
-└── commands/                 # ⚠️ 旧入口 shim（已废弃）
-    ├── etl.py
-    └── sync_dws_quick.py
 ```
 
 ## v0.2 重构亮点
@@ -72,6 +69,5 @@ gov-price-etl/
 - **三合一 DWS 同步** → `cli/sync_dws.py --mode {quick,plain,ai}`
 - **零 `sys.path` 黑魔法** → 拍平布局 + `paths.py` 中心化
 - **零硬编码绝对路径** → `paths.py` 解析所有 DB/JSON
-- **向后兼容** → 旧 `commands/etl.py` 仍可用（打 DeprecationWarning）
 
 详细对照见 [SKILL.md 重构说明](./SKILL.md#重构说明v01--v02)。

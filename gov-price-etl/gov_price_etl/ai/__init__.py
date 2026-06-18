@@ -4,14 +4,16 @@
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
   2. 本地规则库前置：调 AI 之前先查 v2 规则库（category_v2_rules.db），
      命中直接返回，不调 AI（核心省钱策略）
-  3. 统一鉴权：读 openclaw.json 拿 token
-  4. 统一重试：失败有 fallback
+  3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
+     - 分类：app-YId5nS63bZnsEbjKA1GiPuep (etl-classify-v2)
+     - 解析：app-kgaF6jNrpd4PytjhUk3VTCQ4 (etl-parse-spec)
+  4. 统一重试：失败有 fallback（Dify client 内部 5xx 重试 + 业务层 fallback dict）
   5. 计量：每次调用都计入 stats
   6. Prompt 模板从 prompts.yml 加载（path 由 paths.PROMPTS_YML 解析），
      改 yml 后下次调用自动重读（mtime 检测）
 
-实际调用路径（不绕道 dashboard）：
-  ETL → ai.service → OpenClaw gateway (localhost:18789/v1/chat/completions)
+实际调用路径：
+  ETL → ai.service._ai_invoke → dify_client.DifyClient → Dify /v1/workflows/run
 
 v1 入口变化（2026-06-16）：
   - 删除 classify_breed_batch（v1 大分类 AI 入口）
@@ -23,7 +25,6 @@ from .service import (
     classify_v2_batch,
     get_stats,
     reset_stats,
-    GATEWAY_URL,
 )
 from .prompts import (
     get_prompts,
@@ -39,7 +40,6 @@ __all__ = [
     "classify_v2_batch",
     "get_stats",
     "reset_stats",
-    "GATEWAY_URL",
     # Prompt 模板管理
     "get_prompts",
     "get_prompt",

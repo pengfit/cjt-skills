@@ -5,20 +5,25 @@
   2. 本地规则库前置：调 AI 之前先查 category_v2_rules.db，命中直接返回（无 AI 调用）
      - 分类：category_v2_rules.db（精确 → 模糊 / Jaccard）
      - 解析：breed_spec_rules.db（VecStore.search 关键词相似度）
-  3. 统一鉴权：读 openclaw.json 拿 token
-  4. 统一重试：失败有 fallback
+  3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
+     - 分类：app-YId5nS63bZnsEbjKA1GiPuep (etl-classify-v2)
+     - 解析：app-kgaF6jNrpd4PytjhUk3VTCQ4 (etl-parse-spec)
+     - Dify base URL / api_key 走 ~/.openclaw/dify.json 或 env (DIFY_BASE_URL / DIFY_API_KEY_*)
+  4. 统一重试：失败有 fallback（Dify client 内部 5xx 重试 + 业务层 fallback dict）
   5. 计量：每次调用都计入 stats
   6. Prompt 模板从 prompts.yml 加载（路径由 paths.PROMPTS_YML 解析），
      改 yml 后下次 AI 调用自动重读（mtime 检测）
 
-实际调用路径（不绕道 dashboard）：
-  ETL → ai_service → OpenClaw gateway (localhost:18789/v1/chat/completions)
+实际调用路径：
+  ETL → ai.service._ai_invoke → dify_client.DifyClient → Dify /v1/workflows/run
 
 兼容说明：
   - Prompt 模板从 prompts.yml 加载
   - 缺失时回退到 ai.prompts.BUILTIN_FALLBACK
   - v1 入口（classify_breed_batch / breed_category_rules.db）已废弃（2026-06-16），
     请使用 classify_v2_batch 走 v2 4 层分类
+  - 原 _call_gateway (OpenClaw chat/completions) 路径已删除（2026-06-18），
+    如需临时回退 OpenClaw，可参考 git 历史 `114afc2` 之前的 service.py
 """
 
 import json
@@ -33,11 +38,6 @@ from gov_price_etl.paths import (
     SPEC_RULES_DB,
 )
 import requests
-
-# ── 配置 ──────────────────────────────────────────────────────────────
-GATEWAY_URL = os.environ.get("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
-OPENCLAW_CONFIG = os.path.expanduser("~/.openclaw/openclaw.json")
-
 
 # 上海/中国时区 helper（db 入库时间统一走这里，避免 SQLite CURRENT_TIMESTAMP 返回 UTC）
 try:
@@ -56,12 +56,8 @@ def now_cst() -> str:
 
 
 def _read_token() -> str:
-    try:
-        with open(OPENCLAW_CONFIG) as f:
-            d = json.load(f)
-        return d.get("gateway", {}).get("auth", {}).get("token", "")
-    except Exception:
-        return ""
+    """已废：OpenClaw 路径删除后该函数不再被使用，保留仅为避免导入报错。"""
+    return ""
 
 
 def _get_ref_attr_names() -> str:
@@ -109,46 +105,99 @@ def reset_stats() -> None:
     _reset_stats()
 
 
-def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120) -> Tuple[bool, str]:
-    """Direct call to OpenClaw gateway chat completions API."""
-    token = _read_token()
-    if not token:
-        return False, "无法读取 OpenClaw token"
-    body = json.dumps({
-        "model": "openclaw",
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
-        "user": user,
-    }).encode("utf-8")
+def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120,
+                  model: str = None) -> Tuple[bool, str]:
+    """已废（2026-06-18）：ETL 不再走 OpenClaw gateway chat/completions。
+
+    所有 ETL AI 调用统一走 Dify workflow（_call_dify_workflow）。
+    保留函数签名仅为防止外部脚本引用时 ImportError，调用一律返回失败。
+
+    如需临时回退 OpenClaw 路径，可参考 git 历史 commit `114afc2` 之前的实现。
+    """
+    return False, (
+        "_call_gateway 已废 (2026-06-18)：ETL AI 调用统一走 Dify workflow，"
+        "请使用 _ai_invoke(...) → _call_dify_workflow(...)"
+    )
+
+
+# ── Dify workflow 后端 ────────────────────────────────────────────────
+# Dify workflow API 的输出端已含 ok/results/raw/err_msg（与 Code 节点 outputs 一致），
+# 这里是「调用入口」：把 prompt 拆成 Dify 期望的 inputs 格式，拿到 results 后返回 (ok, content_str)。
+#
+# 重要：Dify Code 节点已做 JSON 提取 + 容错 + 结构化，外层不需要再剥 ```json``` 围栏。
+# 跟 _call_gateway 的差异：Dify 返回 results 是 list/dict（结构化），OpenClaw 返回 content 是 str。
+# ETL 侧统一当 str 处理（Dify 的 results 用 json.dumps 转字符串，调用方再 json.loads）。
+def _call_dify_workflow(app_id: str, inputs: dict, user: str,
+                        timeout: int = 90) -> Tuple[bool, str]:
+    """调用 Dify workflow（同步 blocking），返回 (ok, content_str)。
+
+    Args:
+        app_id:  app-YId5nS63bZnsEbjKA1GiPuep (classify-v2) / app-kgaF6jNrpd4PytjhUk3VTCQ4 (parse-spec)
+        inputs:  workflow start 节点的变量 dict（breed_list / batch_n / total_l3 等）
+        user:    调用方标识（Dify 用于会话隔离 / 统计）
+        timeout: 同步超时秒
+
+    Returns:
+        (ok, content)：
+          - ok=True, content=str(json.dumps(outputs['results']))  成功（Dify 已经 JSON 提取过）
+          - ok=False, content=错误描述
+    """
+    # 延迟 import 避免 service.py 被 import 时强制 load Dify 配置
+    from gov_price_etl.ai.dify_client import (
+        KNOWN_APPS, DifyConfigError, DifyAPIError, call_workflow,
+    )
+
+    # 把 alias 解析成完整 app id
+    full_app_id = app_id
+    if not app_id.startswith("app-"):
+        info = KNOWN_APPS.get(app_id)
+        if info:
+            full_app_id = info["app_id"]
+        else:
+            return False, f"未知 app alias: {app_id!r}（已知: {list(KNOWN_APPS.keys())}）"
+
     try:
-        s = requests.Session()
-        s.trust_env = False
-        r = s.post(
-            f"{GATEWAY_URL}/v1/chat/completions",
-            data=body,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            timeout=timeout,
-        )
-        if r.status_code != 200:
-            return False, f"HTTP {r.status_code}: {r.text[:200]}"
-        data = r.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not content:
-            return False, "AI 返回空内容"
-        # Strip ```json ``` fences
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
-                content = content[4:]
-        return True, content.strip()
+        resp = call_workflow(full_app_id, inputs, user=user, timeout_s=timeout)
+    except DifyConfigError as e:
+        return False, f"Dify 配置错误: {e}"
+    except DifyAPIError as e:
+        return False, f"Dify API 错误: {e}"
     except Exception as e:
-        return False, f"网关调用异常: {e}"
+        return False, f"Dify 调用异常: {e}"
+
+    if not resp.ok:
+        # 优先看 Dify 端 err_msg（业务级错误），其次 HTTP/连接错误
+        wf_err = resp.outputs.get("err_msg") if isinstance(resp.outputs, dict) else None
+        return False, wf_err or resp.error or f"Dify workflow status={resp.workflow_status!r}"
+
+    # 成功：把 results 序列化为字符串（与 _call_gateway 行为一致，下游统一 json.loads）
+    results = resp.outputs.get("results")
+    if results is None:
+        return False, "Dify outputs 缺 results 字段"
+    return True, json.dumps(results, ensure_ascii=False)
+
+
+# ── 统一 AI 调度器（只走 Dify workflow，2026-06-18 起）───────────────
+# 调用方：classify_v2_batch / parse_spec_batch。
+# 只需传 dify_inputs（对应 Dify workflow start 节点的变量），user 用于会话隔离。
+def _ai_invoke(task: str, *, dify_inputs: dict, user: str,
+               timeout: int = 90, **_) -> Tuple[bool, str]:
+    """统一 AI 调用入口（仅 Dify workflow）。
+
+    Args:
+        task: "classify" | "parse"
+        dify_inputs: Dify workflow start 节点的变量 dict
+        user: 调用方标识（Dify 用于会话隔离 / 统计）
+        timeout: 同步超时秒
+
+    Returns:
+        (ok, content_str) — ok=True 时 content 是 json.dumps(outputs['results'])
+    """
+    from gov_price_etl.ai.dify_client import KNOWN_APPS
+    alias = f"etl-{task}-v2" if task == "classify" else f"etl-{task}-spec"
+    if alias not in KNOWN_APPS:
+        return False, f"未知 task: {task!r}（alias 推断失败）"
+    return _call_dify_workflow(alias, dify_inputs, user, timeout=timeout)
 
 
 # ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
@@ -445,9 +494,15 @@ def classify_v2_batch(
                     for i, it in enumerate(batch)
                 )
                 user_prompt = f"待分类：\n{items_str}"
-            ok, content = _call_gateway(
-                user_prompt, system_msg,
-                f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
+            # 统一 AI 调度（仅 Dify workflow）
+            ok, content = _ai_invoke(
+                "classify",
+                dify_inputs={
+                    "breed_list": breed_list_str,
+                    "batch_n": len(batch),
+                    "total_l3": len(_taxonomy),
+                },
+                user=f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
                 timeout=90,  # P0-2: 180s→30s 避免 keep-alive 卡死
             )
             if not ok:
@@ -740,7 +795,17 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                 )
             except (KeyError, ValueError):
                 user_prompt = f"specs:\n{specs_str}\n\nref_names: {_get_ref_attr_names()}"
-            ok, content = _call_gateway(user_prompt, system_msg, "etl-parse-agent", timeout=TIMEOUT)
+            # 统一 AI 调度（仅 Dify workflow）
+            ok, content = _ai_invoke(
+                "parse",
+                dify_inputs={
+                    "specs_str": specs_str,
+                    "ref_names": _get_ref_attr_names(),
+                    "batch_size": len(batch_items),
+                },
+                user="etl-parse-agent",
+                timeout=TIMEOUT,
+            )
             if not ok:
                 _stats["parse_failed"] += len(batch_items)
                 for k, item in enumerate(batch_items):

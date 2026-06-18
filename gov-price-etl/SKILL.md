@@ -1,11 +1,15 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL（v0.3 三段式重构）：ODS → DWD → DWS 节点明确，每段都先查本地规则库，未命中强制走 AI 串行。"
+description: "政府材料价格数据入仓 ETL（v0.4 重构，v2 分类）：ODS→DWD 二段式（先 DB 5 段式后 AI 攒批），DWD→DWS 三段式（attr / 本地规则库 / AI 串行），未命中走 Dify workflow AI。"
 ---
 
 # gov-price-etl
 
-政府材料价格数据入仓 ETL，**v0.3 重构后 ODS → DWD → DWS 节点全部三段化**：每段先查本地规则库（`breed_category_rules.db` / `breed_spec_rules.db`），未命中强制走 AI **串行**分类/解析。
+政府材料价格数据入仓 ETL，**v0.4 重构后**：
+- **ODS → DWD**：**二段式**（先 DB 5 段式后 AI 攒批）— 阶段 1 breed_l3_map 精确 → 阶段 2 Jaccard 模糊 → 阶段 3 L4 pattern → 阶段 4 unit 兜底 → 阶段 5 AI 攒批（v2.batch，未命中时 Dify workflow）
+- **DWD → DWS**：**三段式**（attr / 本地规则库 / AI 串行）— 阶段 1 已有 attr → 阶段 2 走 breed_spec_rules.db → 阶段 3 Dify AI 攒批
+
+v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06-16），统一用 v2 4 层分类（8 L1 / 30 L2 / 50 L3 / 64 行 nodes）。AI 调用 2026-06-18 起统一走 Dify workflow API（替代 OpenClaw gateway）。
 
 ---
 
@@ -139,23 +143,20 @@ gov-price-etl/
 │   ├── etl.py                  # ODS → DWD → DWS 主入口
 │   ├── sync_dws.py             # DWD → DWS 同步（--mode quick|plain|ai）
 │   └── reload_prompts.py       # 重读 prompts.yml
-├── prompts.yml                 # AI Prompt 模板
-└── commands/                   # ⚠️ 旧入口 shim（已废弃）
+└── prompts.yml                 # AI Prompt 模板
 ```
 
 ---
 
-## 三段式 API 速查
+## API 速查
 
-### classify（品种分类，ODS→DWD 用）
+### classify（品种分类，v2 5 段式，ODS→DWD 用）
 
 ```python
 from gov_price_etl.classify import (
-    classify_breed_db_exact,    # 阶段 1: DB 精确查表 → (cat, 'db_exact'|'')
-    classify_breed_db_fuzzy,    # 阶段 2: DB 模糊召回 → (cat, 'db_fuzzy'|'')
-    classify_breed_local,       # 阶段 1+2: 本地规则库 → (cat, 'db_exact'|'db_fuzzy'|'')
-    classify_breed_ai,          # 阶段 3: AI 串行 → (cat, 'ai'|'ai_fallback')
-    classify_breed_with_stages, # 三段合并 → (cat, source, stage)
+    classify_v2,        # 单条 5 段式（阶段 1-3 DB 命中即返回，阶段 4 unit 兜底，阶段 5 是 ai_batch）
+    classify_v2_batch,  # 批量 AI 攒批入口（pipeline.etl 第二轮用，DB 优先 + 未命中调 Dify + 写回 DB）
+    close_singleton,    # 关 DB 连接（CLI 退出时调）
 )
 ```
 
@@ -253,14 +254,18 @@ print(p.parse_spec('D720*8'))
 "
 ```
 
-### 4. 品种分类测试（**三段式**）
+### 4. 品种分类测试（v2 5 段式）
 
 ```bash
-PYTHONPATH=src python3 -c "
-from gov_price_etl.classify import classify_breed_with_stages
+python3 -c "
+from gov_price_etl.classify import classify_v2
 for breed in ['圆钢', '螺纹钢', '矮牵牛', 'xxYYZZ未知']:
-    cat, src, stage = classify_breed_with_stages(breed, city='xian', use_ai=False)
-    print(f'{breed:15s} → {cat:20s} (source={src}, stage={stage})')
+    v2 = classify_v2(breed, spec='', unit='', breed_clean=breed)
+    l3 = v2.get('l3', '?')
+    src = v2.get('category_v2_source', '?')
+    conf = v2.get('category_v2_confidence', 0.0)
+    name = v2.get('name_l3', v2.get('name_l1', '?'))
+    print(f'{breed:15s} → L3={l3:8s} {name:20s} (source={src}, conf={conf:.2f})')
 "
 ```
 
@@ -280,13 +285,6 @@ Prompt 模板从 `gov-price-etl/prompts.yml` 加载（不是 hard-coded，也不
 - `fix_case` — 单条 spec → 解析规则
 - `classify_breed_batch` — 批量品种 → 分类（阶段 3 使用）
 - `batch_spec_parse` — 批量 spec → 解析规则（阶段 3 使用）
-
-### 6. 旧入口 shim（兼容，会打 DeprecationWarning）
-
-```bash
-python3 commands/etl.py ...        # → cli/etl.py
-python3 commands/sync_dws_quick.py # → cli/sync_dws.py --mode quick
-```
 
 ---
 
@@ -381,20 +379,21 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 
 ---
 
-## 分类体系（28 类）
+## v2 分类体系（4 层 / 64 节点）
 
-钢材 / 水泥 / 石材 / 砂石骨料 / 保温材料 / 防水材料 / 管材管件 / 市政设施 / 装饰装修材料 / 涂料油漆 / 陶瓷卫生洁具 / 五金配件 / 密封材料 / 铜材 / 铝材铝合金 / 金属材料 / 绿化苗木 / 铁艺铸铁件 / 消防器材 / 网格布土工材料 / 化工材料 / 龙骨吊顶 / 瓦 / 公用事业费 / 机械设备 / 电气材料 / 劳务工种 / 其他
+**结构**：8 L1 专业大类 / 30 L2 分部工程 / 50 L3 分项工程 / 64 行 nodes（4 层：L1+L2+L3+L4 联合主键）。
+
+**8 大 L1 专业**：建筑工程 / 装饰装修 / 安装工程 / 市政工程 / 园林景观 / 水利工程 / 公路工程 / 其他。
+
+数据源：`data/category_v2.json`（4 层树定义）+ `data/std_codes.json`（GB 50500 / IFC / Uniclass 编码）+ `data/category_v2_rules.db`（SQLite 实例）。
 
 ---
 
-## 三段式重构说明（v0.2 → v0.3）
+## 重构历史（v0.1 → v0.2 → v0.3 → v0.4）
 
-| 项目 | 旧 (v0.2) | 新 (v0.3) |
+| 版本 | 日期 | 重点 |
 |---|---|---|
-| ODS→DWD 分类逻辑 | `classify_breed()` 混合（Jaccard + 兜底 "其他"） | 显式三段：`classify_breed_db_exact` / `db_fuzzy` / `ai` |
-| DWD→DWS 解析逻辑 | `sync_dws_with_ai()` 混合（已有 attr + 本地 + AI） | 显式三段：attr / local_db / ai |
-| `_get_db_conn()` | 误用 vec_store 连接（指向 breed_spec_rules.db） | 独立维护 breed_category_rules.db 连接 |
-| AI 批次大小 | 100/批（DWS）+ 20/批（ODS） | 统一 20/批串行（道友要求） |
-| source 字段 | 无 | DWD 加 `category_source` / `category_stage`，DWS 加 `attr_source` |
-| 阶段 1+2 内嵌 | 不明显（混在 transform_doc 中） | 显式拆出 `classify_breed_with_stages()` |
-| 阶段 3 显式触发 | 隐式（凑够批次自动调） | 显式 `_ai_classify_pending()` / `_ai_parse_specs_serial()` |
+| **v0.1** | 2026-04 | 单文件 1107 行上帝模块 `etl.py` |
+| **v0.2** | 2026-05 | 拆分为 gov_price_etl 包（7 个模块，每个 < 250 行）；拍平 src/ 层级；DWS sync 三合一（quick/plain/ai） |
+| **v0.3** | 2026-06 初 | ODS→DWD 引入 v1 显式三段式（db_exact / db_fuzzy / ai），DWD→DWS 保持三段式（attr / local_db / ai） |
+| **v0.4** | 2026-06-17 | v1 大类字典废（28 类→v2 4 层 64 节点），分类重写为 5 段式（breed_l3_map 精确 / Jaccard 模糊 / L4 pattern / unit 兜底 / AI 攒批），DWD 走"先 DB 后 AI"两轮；2026-06-18 起 AI 切到 Dify workflow API |

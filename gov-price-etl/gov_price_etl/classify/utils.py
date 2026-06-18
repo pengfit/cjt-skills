@@ -75,7 +75,9 @@ def format_breed_list(items: List[dict]) -> str:
         breed = it.get('breed') or it.get('breed_clean', '')
         spec = it.get('spec', '')
         unit = it.get('unit', '')
-        lines.append(f"  {i}. breed={breed} | spec={spec} | unit={unit}")
+        current_l3 = it.get('current_l3', '')
+        # current_l3 始终输出（空也保留 key，让 AI 知道该字段存在 / 缺值）
+        lines.append(f"  {i}. breed={breed} | spec={spec} | unit={unit} | current_l3={current_l3}")
     return "\n".join(lines)
 
 

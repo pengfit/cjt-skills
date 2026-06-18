@@ -1,0 +1,17 @@
+{
+  "_comment": "Dify workflow 配置示例。复制到 dify.config.local.json 或 ~/.openclaw/dify.json 并填入 api_key。Dify 控制台 → App → API Access 复制。base_url 不要带 /v1 后缀（client 会自动拼 /v1/workflows/run）。",
+  "_base_url": "Dify 服务地址。默认 http://localhost（Dify Docker 80 端口）",
+
+  "base_url": "http://localhost",
+
+  "apps": {
+    "etl-classify-v2": {
+      "_app_id": "etl-classify-v2",
+      "api_key": "app-<PUT-YOUR-DIFY-API-KEY-HERE>"
+    },
+    "etl-parse-spec": {
+      "_app_id": "etl-parse-spec",
+      "api_key": "app-<PUT-YOUR-DIFY-API-KEY-HERE>"
+    }
+  }
+}

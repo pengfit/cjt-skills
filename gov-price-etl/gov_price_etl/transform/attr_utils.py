@@ -75,12 +75,3 @@ def build_attr(doc: dict) -> dict:
 def flat_attr_to_nested(flat: dict) -> list:
     """扁平 attr dict → nested [{k, v}] 列表，写入 DWS。"""
     return [{"k": k, "v": v} for k, v in flat.items() if v]
-
-
-# ── backward compat shims（老代码用 _build_attr / _flat_attr_to_nested）──
-def _build_attr(doc: dict) -> dict:
-    return build_attr(doc)
-
-
-def _flat_attr_to_nested(flat: dict) -> list:
-    return flat_attr_to_nested(flat)

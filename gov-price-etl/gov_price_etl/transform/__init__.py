@@ -15,12 +15,9 @@
 from .clean import clean_breed, clean_unit, clean_price
 from .doc import transform_doc
 from .attr_utils import build_attr, flat_attr_to_nested
-# 兼容老代码
-from .attr_utils import _build_attr, _flat_attr_to_nested
 
 __all__ = [
     "transform_doc",
     "clean_breed", "clean_unit", "clean_price",
     "build_attr", "flat_attr_to_nested",
-    "_build_attr", "_flat_attr_to_nested",
 ]
