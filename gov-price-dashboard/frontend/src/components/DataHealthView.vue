@@ -3,77 +3,39 @@
 
     <!-- 四个汇总指标卡（以抓取 skill 为中心） -->
     <div class="health-cards">
-      <div class="stat-card stat-card-primary">
-        <div class="stat-card-inner">
-          <div class="stat-icon">📄</div>
-          <div class="stat-content">
-            <div class="stat-label">总数据量</div>
-            <div class="stat-value"><span class="stat-num">{{ data.total_docs.toLocaleString() }}</span><span class="stat-unit">条</span></div>
-          </div>
-          <div class="stat-glow"></div>
-        </div>
-      </div>
-      <div class="stat-card stat-card-cyan">
-        <div class="stat-card-inner">
-          <div class="stat-icon">🧩</div>
-          <div class="stat-content">
-            <div class="stat-label">抓取任务</div>
-            <div class="stat-value"><span class="stat-num">{{ skillStats.total }}</span><span class="stat-unit">个</span></div>
-          </div>
-          <div class="stat-glow"></div>
-        </div>
-      </div>
-      <div class="stat-card stat-card-warning">
-        <div class="stat-card-inner">
-          <div class="stat-icon">⏱</div>
-          <div class="stat-content">
-            <div class="stat-label">平均新鲜度</div>
-            <div class="stat-value">
-              <span class="stat-num">{{ skillStats.avgFreshness }}</span>
-              <span class="stat-unit">天前</span>
-            </div>
-          </div>
-          <div class="stat-glow"></div>
-        </div>
-      </div>
-      <div class="stat-card stat-card-magenta" :class="{ 'stat-alert': anomalyStats.total > 0 }">
-        <div class="stat-card-inner">
-          <div class="stat-icon">⚠</div>
-          <div class="stat-content">
-            <div class="stat-label">异常告警</div>
-            <div class="stat-value">
-              <span class="stat-num">{{ anomalyStats.total }}</span>
-              <span class="stat-unit">个 skill 有异常</span>
-            </div>
-          </div>
-          <div class="stat-glow"></div>
-        </div>
-      </div>
+      <StatCard icon="📄" label="总数据量" :value="data.total_docs" unit="条" />
+      <StatCard icon="🧩" label="抓取任务" :value="skillStats.total" unit="个" />
+      <StatCard icon="⏱" label="平均新鲜度" :value="skillStats.avgFreshness" unit="天前" />
+      <StatCard
+        icon="⚠"
+        label="异常告警"
+        :value="anomalyStats.total"
+        :unit="anomalyStats.total > 0 ? '个 skill 有异常' : '个'"
+        :variant="anomalyStats.total > 0 ? 'danger' : 'default'"
+      />
     </div>
 
     <!-- 图表区域 -->
     <div class="chart-panel">
-      <div class="panel-header">
-        <div class="panel-title-row">
-          <span class="panel-dot panel-dot-blue"></span>
-          <span class="panel-title">近 30 日数据量趋势</span>
-        </div>
-        <div class="chart-legend">
-          <span class="legend-item"><span class="legend-dot"></span>日增量</span>
-          <span class="legend-item" :title="'日增量落在 30 日均值的 [0.3×, 2×] 区间'">
-            <span class="legend-dot legend-fresh"></span>正常
-            <span class="legend-count">{{ dailyStats.normalCount }}</span>
-          </span>
-          <span class="legend-item" :title="'日增量 < 30 日均值的 0.3 倍'">
-            <span class="legend-dot legend-warn"></span>突减
-            <span class="legend-count">{{ dailyStats.dropCount }}</span>
-          </span>
-          <span class="legend-item" :title="'日增量 > 30 日均值的 2 倍'">
-            <span class="legend-dot legend-down"></span>突增
-            <span class="legend-count">{{ dailyStats.spikeCount }}</span>
-          </span>
-        </div>
-      </div>
+      <SectionHeader title="近 30 日数据量趋势" dot-color="blue">
+        <template #right>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot"></span>日增量</span>
+            <span class="legend-item" :title="'日增量落在 30 日均值的 [0.3×, 2×] 区间'">
+              <span class="legend-dot legend-fresh"></span>正常
+              <span class="legend-count">{{ dailyStats.normalCount }}</span>
+            </span>
+            <span class="legend-item" :title="'日增量 < 30 日均值的 0.3 倍'">
+              <span class="legend-dot legend-warn"></span>突减
+              <span class="legend-count">{{ dailyStats.dropCount }}</span>
+            </span>
+            <span class="legend-item" :title="'日增量 > 30 日均值的 2 倍'">
+              <span class="legend-dot legend-down"></span>突增
+              <span class="legend-count">{{ dailyStats.spikeCount }}</span>
+            </span>
+          </div>
+        </template>
+      </SectionHeader>
 
       <!-- 汇总卡：4 维度速读 -->
       <div class="daily-summary">
@@ -111,20 +73,18 @@
     <!-- 技能数据健康表（以 skill 为中心） -->
     <div class="chart-panel">
 
-      <div class="panel-header">
-        <div class="panel-title-row">
-          <span class="panel-dot panel-dot-purple"></span>
-          <span class="panel-title">抓取任务数据健康</span>
-        </div>
-        <div class="chart-legend">
-          <span class="legend-item"><span class="legend-dot legend-fresh"></span>新鲜</span>
-          <span class="legend-item"><span class="legend-dot legend-stale"></span>停滞</span>
-          <span class="legend-item"><span class="legend-dot legend-down"></span>停更</span>
-          <button class="rule-toggle" @click="showRule = !showRule">
-            {{ showRule ? '▴ 收起规则' : '▾ 规则说明' }}
-          </button>
-        </div>
-      </div>
+      <SectionHeader title="抓取任务数据健康" dot-color="purple">
+        <template #right>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot legend-fresh"></span>新鲜</span>
+            <span class="legend-item"><span class="legend-dot legend-stale"></span>停滞</span>
+            <span class="legend-item"><span class="legend-dot legend-down"></span>停更</span>
+            <button class="rule-toggle" @click="showRule = !showRule">
+              {{ showRule ? '▴ 收起规则' : '▾ 规则说明' }}
+            </button>
+          </div>
+        </template>
+      </SectionHeader>
       <div v-if="showRule" class="rule-panel">
         <div class="rule-grid">
           <div class="rule-section">
@@ -198,29 +158,29 @@
         </div>
       </div>
       <div class="health-table-scroll">
-        <table class="health-table">
+        <table class="data-table">
           <thead>
             <tr>
-              <th>抓取任务</th>
-              <th>拼音</th>
-              <th>覆盖范围</th>
-              <th class="th-num">文档总数</th>
-              <th>最后抓取</th>
-              <th class="th-num">距今</th>
-              <th>健康度</th>
-              <th class="th-num">规格解析率</th>
+              <th class="text-left no-sort">抓取任务</th>
+              <th class="no-sort">拼音</th>
+              <th class="text-left no-sort">覆盖范围</th>
+              <th class="text-right no-sort">文档总数</th>
+              <th class="no-sort">最后抓取</th>
+              <th class="text-right no-sort">距今</th>
+              <th class="no-sort">健康度</th>
+              <th class="text-right no-sort">规格解析率</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="s in skillHealthRows" :key="s.key" :class="rowClass(s)">
-              <td>
+              <td class="text-left">
                 <span class="skill-tag" :class="`tag-${s.barClass}`">{{ s.label }}</span>
               </td>
               <td class="cell-pinyin">{{ s.key }}</td>
-              <td class="cell-scope">{{ s.scope }}</td>
-              <td class="cell-num">{{ (s.total_docs || 0).toLocaleString() }}</td>
+              <td class="cell-scope text-left">{{ s.scope }}</td>
+              <td class="cell-num text-right">{{ (s.total_docs || 0).toLocaleString() }}</td>
               <td class="cell-time">{{ s.last_updated || '—' }}</td>
-              <td class="cell-num">{{ s.daysAgo === null ? '—' : s.daysAgo + ' 天' }}</td>
+              <td class="cell-num text-right">{{ s.daysAgo === null ? '—' : s.daysAgo + ' 天' }}</td>
               <td>
                 <span v-if="s.status === 'error'" class="health-pill pill-down">✗ 出错</span>
                 <span v-else-if="s.status === 'interrupted'" class="health-pill pill-stale">⚠ 中断</span>
@@ -262,6 +222,8 @@ import { markRaw } from 'vue'
 import * as echarts from 'echarts'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
+import SectionHeader from './SectionHeader.vue'
+import StatCard from './StatCard.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -619,99 +581,17 @@ onUnmounted(() => {
   color: var(--surface);
 }
 
-/* ===== 顶部汇总指标卡 ===== */
+/* ===== 顶部汇总指标卡（已迁移至 StatCard 组件） ===== */
 .health-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-}
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  padding: 0;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(var(--text-rgb), 0.04), 0 2px 6px rgba(var(--text-rgb), 0.03);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  position: relative;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--text-rgb), 0.08), 0 2px 4px rgba(var(--text-rgb), 0.04);
-  border-color: var(--text-2);
-}
-.stat-card-inner {
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  position: relative;
-}
-.stat-icon {
-  font-size: 24px;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.stat-card-primary  .stat-icon { background: var(--primary-light); }
-.stat-card-cyan     .stat-icon { background: var(--cyan-tint); }
-.stat-card-warning  .stat-icon { background: var(--amber-tint); }
-.stat-card-magenta  .stat-icon { background: var(--purple-tint); }
-
-.stat-content { flex: 1; min-width: 0; }
-.stat-label {
-  font-size: 12px;
-  color: var(--text-2);
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.stat-num {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--text);
-  line-height: 1;
-  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  display: block;
+  margin-bottom: 14px;
 }
 
-.stat-value {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-.stat-unit {
-  font-size: 13px;
-  font-weight: 400;
-  margin-left: 4px;
-  color: var(--text-2);
-}
-.stat-glow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 80px;
-  height: 60px;
-  border-radius: 0 14px 0 0;
-  pointer-events: none;
-}
-.stat-card-primary .stat-glow { background: radial-gradient(ellipse at top right, rgba(var(--primary-rgb), 0.10), transparent 70%); }
-.stat-card-cyan    .stat-glow { background: radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.10),  transparent 70%); }
-.stat-card-warning .stat-glow { background: radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.10), transparent 70%); }
-.stat-card-magenta .stat-glow { background: radial-gradient(ellipse at top right, rgba(var(--purple-rgb), 0.10), transparent 70%); }
-
-.stat-card-warning.stat-alert { border-color: var(--warning-dark); }
-.stat-card-warning.stat-alert .stat-value { color: var(--warning-dark); }
-.stat-card-magenta.stat-alert { border-color: var(--purple); }
-.stat-card-magenta.stat-alert .stat-value { color: var(--purple); }
-
-.text-up   { color: var(--success-dark) !important; }
-.text-down { color: var(--danger) !important; }
+/* ===== 表格内文字辅助颜色 ===== */
+.text-up   { color: var(--status-ok); }
+.text-down { color: var(--danger); }
 
 /* ===== 图表面板 ===== */
 .chart-panel {
@@ -722,25 +602,7 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px rgba(var(--text-rgb), 0.04), 0 2px 6px rgba(var(--text-rgb), 0.03);
   flex-shrink: 0;
 }
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.panel-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.panel-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.panel-dot-blue { background: var(--primary); }
-.panel-title { font-size: 14px; font-weight: 700; color: var(--text); }
+/* panel-header / panel-title / panel-dot 已迁移至 SectionHeader.vue */
 .chart-legend { display: flex; gap: 16px; }
 .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--primary), var(--indigo)); }
@@ -833,38 +695,10 @@ onUnmounted(() => {
   /* 不要让表格容器自身产生滚动条——让表格自然撑开，页面整体滚 */
   overflow-x: auto;
 }
-.health-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
-}
-.health-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  color: var(--text-2);
-  font-weight: 500;
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-strong);
-  font-size: 11px;
-  letter-spacing: 0.2px;
-  z-index: 1;
-}
-.health-table th.th-num { text-align: right; }
-.health-table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  vertical-align: middle;
-}
-.health-table tbody tr:last-child td { border-bottom: none; }
-.health-table tbody tr:hover { background: var(--bg); }
-
-.health-table .cell-num { text-align: right; font-variant-numeric: tabular-nums; }
-.health-table .cell-time { color: var(--text-2); font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11.5px; }
-.health-table .cell-scope { color: var(--text-2); }
-.health-table .cell-empty { text-align: center; color: var(--text-3); padding: 24px; }
+.data-table .cell-num { font-variant-numeric: tabular-nums; }
+.data-table .cell-time { color: var(--text-2); font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11.5px; }
+.data-table .cell-scope { color: var(--text-2); }
+.data-table .cell-empty { text-align: center; color: var(--text-3); padding: 24px; }
 
 .row-fresh td:first-child { border-left: 3px solid #16a34a; }
 .row-warn  td:first-child { border-left: 3px solid #ea580c; }

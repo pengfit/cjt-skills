@@ -360,6 +360,7 @@ body {
 }
 
 /* ——— table header ——— */
+.data-table th,
 .result-table th {
   padding: 11px 14px;
   text-align: center;
@@ -375,13 +376,23 @@ body {
   transition: color var(--transition-fast), background var(--transition-fast);
   position: relative;
 }
+.data-table th.text-left,
+.result-table th.text-left { text-align: left; }
+.data-table th.no-sort,
+.result-table th.no-sort { cursor: default; }
+.data-table th.no-sort:hover,
+.result-table th.no-sort:hover { background: transparent; color: #475569; }
+.data-table th:hover,
 .result-table th:hover { background: rgba(37,99,235,0.06); color: #2563eb; }
+.data-table th.sorted,
 .result-table th.sorted { color: #2563eb; font-weight: 700; }
 
 .sort-icon { margin-left: 3px; font-size: 10px; opacity: 0.5; }
+.data-table th.sorted .sort-icon,
 .result-table th.sorted .sort-icon { opacity: 1; }
 
 /* ——— table body ——— */
+.data-table td,
 .result-table td {
   padding: 10px 14px;
   color: #1e293b;
@@ -394,8 +405,23 @@ body {
   background: inherit;
   font-size: 13px;
 }
+.data-table td.text-left,
+.result-table td.text-left { text-align: left; }
+.data-table td.text-right,
+.result-table td.text-right { text-align: right; }
+.data-table td.no-ellipsis,
+.result-table td.no-ellipsis {
+  max-width: 320px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.5;
+}
+.data-table td.compact,
+.result-table td.compact { padding: 6px 14px; font-size: 12px; }
 
 /* ——— table row ——— */
+.data-table tbody tr,
 .result-table tbody tr {
   border-bottom: 1px solid #e2e8f0;
   transition: background 0.15s, box-shadow 0.15s;
@@ -404,11 +430,20 @@ body {
   position: relative;
 }
 
+.data-table tbody tr:nth-child(even),
 .result-table tbody tr:nth-child(even) { background: #f8fafc; }
+.data-table tbody tr:last-child,
 .result-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover,
 .result-table tbody tr:hover {
   background: rgba(37,99,235,0.06) !important;
   box-shadow: inset 3px 0 0 0 #2563eb;
+}
+/* 禁用 hover 效果（如详情行/抽屉内行） */
+.data-table.no-row-hover tbody tr:hover,
+.result-table.no-row-hover tbody tr:hover {
+  background: inherit !important;
+  box-shadow: none;
 }
 
 /* ——— nav-tab ——— */
@@ -814,7 +849,8 @@ body {
 
 .table-scroll { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; }
 
-.result-table {
+.result-table,
+.data-table {
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;

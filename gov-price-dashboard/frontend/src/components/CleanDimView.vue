@@ -2,36 +2,25 @@
   <div class="cleandim-page">
 
     <!-- Page header -->
-    <div class="cleandim-header">
-      <div class="cleandim-header-left">
-        <div class="cleandim-title">🧪 清洗维度</div>
-        <div class="cleandim-subtitle">
-          按一级分类 / 规格型号 × 城市覆盖 × 解析率三个维度，横向看全国 8 城 DWD 数据清洗状况
-        </div>
-      </div>
-      <div class="cleandim-header-stats" v-if="cleanCategory.items.length">
-        <div class="cleandim-stat">
-          <span class="cleandim-stat-val">{{ cleanCategory.total.toLocaleString() }}</span>
-          <span class="cleandim-stat-key">分类清洗·文档数</span>
-        </div>
-        <div class="cleandim-stat">
-          <span class="cleandim-stat-val">{{ cleanSpec.total.toLocaleString() }}</span>
-          <span class="cleandim-stat-key">规格清洗·文档数</span>
-        </div>
-        <div class="cleandim-stat">
-          <span class="cleandim-stat-val">{{ cleanCategory.items.length }}</span>
-          <span class="cleandim-stat-key">覆盖分类数</span>
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      variant="flat"
+      title="清洗维度"
+      subtitle="按一级分类 / 规格型号 × 城市覆盖 × 解析率三个维度，横向看全国 8 城 DWD 数据清洗状况"
+      :stats="cleanCategory.items.length ? [
+        { label: '分类清洗·文档数', value: cleanCategory.total.toLocaleString() },
+        { label: '规格清洗·文档数', value: cleanSpec.total.toLocaleString() },
+        { label: '覆盖分类数', value: cleanCategory.items.length },
+      ] : []"
+    ><template #icon>🧪</template></PageHeader>
 
     <!-- 分类清洗 -->
     <div class="chart-panel" v-if="cleanCategory.items.length">
-      <div class="panel-header" style="margin-bottom:12px">
-        <span class="panel-dot panel-dot-blue"></span>
-        <span class="panel-title">分类清洗</span>
-        <span class="panel-meta">一级分类 × 城市覆盖 · {{ cleanCategory.total.toLocaleString() }} 条 / {{ cleanCategory.items.length }} 分类</span>
-      </div>
+      <SectionHeader
+        title="分类清洗"
+        dot-color="blue"
+        :subtitle="`一级分类 × 城市覆盖 · ${cleanCategory.total.toLocaleString()} 条 / ${cleanCategory.items.length} 分类`"
+        style="margin-bottom:12px"
+      />
       <div class="clean-table">
         <div class="clean-table-header">
           <span class="clean-col-key">分类</span>
@@ -68,11 +57,12 @@
 
     <!-- 规格清洗 -->
     <div class="chart-panel" v-if="cleanSpec.items.length">
-      <div class="panel-header" style="margin-bottom:12px">
-        <span class="panel-dot panel-dot-green"></span>
-        <span class="panel-title">规格清洗</span>
-        <span class="panel-meta">top 规格 × 城市覆盖 · {{ cleanSpec.total.toLocaleString() }} 条</span>
-      </div>
+      <SectionHeader
+        title="规格清洗"
+        dot-color="green"
+        :subtitle="`top 规格 × 城市覆盖 · ${cleanSpec.total.toLocaleString()} 条`"
+        style="margin-bottom:12px"
+      />
       <div class="clean-table">
         <div class="clean-table-header">
           <span class="clean-col-key">规格型号</span>
@@ -125,6 +115,8 @@ import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import ErrorState from './ErrorState.vue'
+import SectionHeader from './SectionHeader.vue'
+import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -170,68 +162,9 @@ onMounted(() => {
   color: #1e293b;
 }
 
-/* === Page header === */
-.cleandim-header {
-  padding: 22px 0 16px;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-.cleandim-header-left { flex: 1; min-width: 0; }
-.cleandim-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
-  line-height: 1.3;
-}
-.cleandim-subtitle {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
-  line-height: 1.5;
-}
-.cleandim-header-stats {
-  display: flex;
-  gap: 28px;
-  flex-shrink: 0;
-}
-.cleandim-stat { text-align: right; }
-.cleandim-stat-val {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-  color: #2563eb;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-.cleandim-stat-key {
-  display: block;
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
+/* === Page header（已迁移至 PageHeader flat 变体） === */
 
-/* === Panel header 共享 === */
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.panel-dot { width: 8px; height: 8px; border-radius: 50%; }
-.panel-dot-blue { background: var(--primary); }
-.panel-dot-green { background: var(--status-ok); }
-.panel-dot-amber { background: var(--status-warn); }
-.panel-title { font-size: 13px; font-weight: 600; color: #1e293b; }
-.panel-meta {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 400;
-  margin-left: 6px;
-}
+/* panel-header / panel-title / panel-dot / panel-meta 已迁移至 SectionHeader.vue */
 
 /* === 清洗维度表（分类清洗 / 规格清洗 共用） === */
 .clean-table { display: flex; flex-direction: column; gap: 0; }

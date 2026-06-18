@@ -234,7 +234,7 @@
         <!-- Data Table -->
         <div class="content-card" v-else>
           <div class="table-scroll">
-            <table class="result-table">
+            <table class="data-table">
               <thead>
                 <tr>
                   <th

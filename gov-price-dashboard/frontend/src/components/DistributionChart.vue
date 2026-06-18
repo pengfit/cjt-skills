@@ -1,36 +1,37 @@
 <template>
   <div class="dist-page">
+    <!-- 页面 header -->
+    <PageHeader
+      variant="flat"
+      title="价格分布"
+      subtitle="价格区间分布 / 省份分布 / 主体区间占比，多维度看全国材料价格结构"
+    ><template #icon>📈</template></PageHeader>
+
     <!-- 统计概览 -->
     <div class="dist-overview-stats">
-      <div class="ov-stat">
-        <span class="ov-icon">📊</span>
-        <div class="ov-body">
-          <div class="ov-value">{{ overview.total_docs.toLocaleString() }}</div>
-          <div class="ov-label">条价格数据</div>
-        </div>
-      </div>
-      <div class="ov-divider"></div>
-      <div class="ov-stat">
-        <span class="ov-icon">🌍</span>
-        <div class="ov-body">
-          <div class="ov-value">{{ overview.total_provinces }} 省 / {{ overview.total_cities }} 城</div>
-          <div class="ov-label">覆盖范围</div>
-        </div>
-      </div>
-      <div class="ov-divider"></div>
-      <div class="ov-stat">
-        <span class="ov-icon">💰</span>
-        <div class="ov-body">
-        </div>
-      </div>
-      <div class="ov-divider"></div>
-      <div class="ov-stat">
-        <span class="ov-icon">📐</span>
-        <div class="ov-body">
-          <div class="ov-value">{{ dominantPct }}%</div>
-          <div class="ov-label">主体区间 200-500元</div>
-        </div>
-      </div>
+      <StatCard
+        icon="📊"
+        label="条价格数据"
+        :value="overview.total_docs"
+      />
+      <StatCard
+        icon="🌍"
+        label="覆盖范围"
+        :value="`${overview.total_provinces} 省 / ${overview.total_cities} 城`"
+        :format="'raw'"
+      />
+      <StatCard
+        icon="💰"
+        label="平均价格"
+        :value="overview.avg_price"
+        unit="元"
+      />
+      <StatCard
+        icon="📐"
+        label="主体区间 200-500元"
+        :value="dominantPct + '%'"
+        :format="'raw'"
+      />
     </div>
 
     <!-- Chart cards -->
@@ -68,19 +69,19 @@
     <!-- Range table -->
     <div class="dist-card table-card">
       <div class="card-title">价格区间明细</div>
-      <table class="dist-table">
+      <table class="data-table">
         <thead>
           <tr>
-            <th>价格区间</th>
-            <th>产品数量</th>
-            <th>占比</th>
+            <th class="no-sort">价格区间</th>
+            <th class="no-sort text-right">产品数量</th>
+            <th class="no-sort text-left">占比</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in rangeData" :key="item.range">
             <td><span class="range-badge">{{ item.range }}</span></td>
-            <td>{{ item.count.toLocaleString() }}</td>
-            <td>
+            <td class="text-right">{{ item.count.toLocaleString() }}</td>
+            <td class="text-left">
               <div class="pct-bar-wrap">
                 <div class="pct-bar" :style="{ width: getPct(item.count) + '%', background: getRangeColor(item.range) }"></div>
                 <span class="pct-label">{{ getPct(item.count) }}%</span>
@@ -98,6 +99,8 @@
 </template>
 
 <script setup>
+import PageHeader from './PageHeader.vue'
+import StatCard from './StatCard.vue'
 import ErrorState from './ErrorState.vue'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
@@ -412,27 +415,14 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 
 
-/* 统计概览卡片 */
+/* 统计概览卡片（已迁移至 StatCard） */
 .dist-overview-stats {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
-.ov-stat {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-}
-.ov-icon { font-size: 22px; line-height: 1; }
-.ov-body { display: flex; flex-direction: column; gap: 2px; }
-.ov-value { font-size: 16px; font-weight: 700; color: #0f172a; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
-.ov-label { font-size: 11px; color: var(--text-3); }
-.ov-divider { width: 1px; height: 36px; background: var(--border); margin: 0 24px; flex-shrink: 0; }
 
 .dist-cards {
   display: grid;
@@ -459,35 +449,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   margin-bottom: 12px;
 }
 
-.dist-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.dist-table th {
-  text-align: left;
-  padding: 11px 14px;
-  background: rgba(15, 23, 42, 0.04);
-  color: var(--text-3);
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border);
-}
-
-.dist-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(15,23,42,0.04);
-  color: #1e293b;
-}
-
-.dist-table tr:last-child td {
-  border-bottom: none;
-}
-
-.dist-table tr:hover td { background: rgba(37,99,235,0.04); }
+/* dist-table 已迁移至全局 .data-table */
 
 .range-badge {
   display: inline-block;

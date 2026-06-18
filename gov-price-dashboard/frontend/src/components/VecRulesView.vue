@@ -1,18 +1,12 @@
 <template>
   <div class="vec-page">
     <!-- Header -->
-    <div class="vec-header">
-      <div class="vec-header-left">
-        <div class="vec-title">📦 规格规则库</div>
-        <div class="vec-subtitle">存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索</div>
-      </div>
-      <div class="vec-header-stats">
-        <div class="vec-stat">
-          <span class="vec-stat-val">{{ vecRules.total.toLocaleString() }}</span>
-          <span class="vec-stat-key">规则总数</span>
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      variant="flat"
+      title="规格规则库"
+      subtitle="存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索"
+      :stats="[{ label: '规则总数', value: vecRules.total.toLocaleString() }]"
+    />
 
     <!-- Toolbar -->
     <div class="vec-toolbar">
@@ -112,17 +106,17 @@
         <span>加载中...</span>
       </div>
 
-      <table class="vec-table" v-else>
+      <table class="data-table no-row-hover" v-else>
         <thead>
           <tr>
-            <th style="width:40px">#</th>
-            <th style="width:120px">breed</th>
-            <th style="width:90px">attr</th>
-            <th style="width:80px">分类</th>
-            <th style="width:160px">pattern</th>
-            <th style="width:350px">code</th>
-            <th style="width:140px">note</th>
-            <th style="width:130px">创建时间</th>
+            <th style="width:40px" class="no-sort">#</th>
+            <th style="width:120px" class="no-sort">breed</th>
+            <th style="width:90px" class="no-sort">attr</th>
+            <th style="width:80px" class="no-sort">分类</th>
+            <th style="width:160px" class="no-sort">pattern</th>
+            <th style="width:350px" class="text-left no-sort">code</th>
+            <th style="width:140px" class="no-sort">note</th>
+            <th style="width:130px" class="no-sort">创建时间</th>
           </tr>
         </thead>
         <tbody>
@@ -132,7 +126,7 @@
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
             <td>{{ r.category || '—' }}</td>
             <td class="vec-pattern-cell"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
-            <td class="vec-code-cell"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></td>
+            <td class="vec-code-cell text-left no-ellipsis"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></td>
             <td class="vec-note-cell">{{ r.note || '—' }}</td>
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
@@ -164,6 +158,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 import CustomSelect from './CustomSelect.vue'
+import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -232,19 +227,7 @@ onMounted(() => {
   font-size: 13px;
 }
 
-/* Header */
-.vec-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 22px 0 16px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
-}
-.vec-title { font-size: 18px; font-weight: 700; color: #1e293b; }
-.vec-subtitle { font-size: 12px; color: var(--text-3); margin-top: 3px; }
-.vec-header-stats { display: flex; gap: 20px; }
-.vec-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.vec-stat-val { font-size: 18px; font-weight: 700; color: var(--primary); }
-.vec-stat-key { font-size: 11px; color: var(--text-3); }
+/* Header（已迁移至 PageHeader flat 变体） */
 
 /* Toolbar */
 .vec-toolbar {
@@ -341,30 +324,13 @@ onMounted(() => {
 /* Table */
 .vec-table-wrap {
   border-radius: 10px;
-  border: 1px solid rgba(15,23,42,0.07);
+  border: 1px solid var(--border);
   overflow: hidden;
-  background: rgba(241,245,249,0.8);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
-.vec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.vec-table th {
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 9px 12px;
-  text-align: left;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--border);
-  letter-spacing: 0.3px;
-}
-.vec-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text);
-  vertical-align: top;
-}
-.vec-table tr:last-child td { border-bottom: none; }
-.vec-table tr:hover td { background: var(--surface-2); }
+/* vec-table 已迁移至全局 .data-table */
+.vec-table td { padding: 8px 12px; }
 
 /* Loading */
 .vec-loading {

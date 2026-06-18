@@ -54,6 +54,30 @@ app.include_router(provenance_router)
 es = Elasticsearch([ES_HOST])
 
 
+def _filter_existing_indices(csv: str) -> str:
+    """过滤掉 ES 中不存在的索引（用于 DWS 索引可能缺失的情况）"""
+    indices = [i.strip() for i in csv.split(",") if i.strip()]
+    if not indices:
+        return csv
+    keep = []
+    for idx in indices:
+        try:
+            if es.indices.exists(index=idx):
+                keep.append(idx)
+        except Exception:
+            pass
+    if not keep:
+        return csv
+    dropped = [i for i in indices if i not in keep]
+    if dropped:
+        print(f"[info] ALL_INDICES 过滤掉缺失索引: {dropped}")
+    return ",".join(keep)
+
+
+# DWD/DWS 索引若尚未跑 ETL 不会创建；启动时过滤掉不存在的，避免搜索接口 500
+ALL_INDICES = _filter_existing_indices(ALL_INDICES)
+
+
 def _build_bool_query(must_clauses, filter_clauses):
     """构建 bool 查询，处理空列表情况"""
     must_clause = must_clauses if must_clauses else [{"match_all": {}}]

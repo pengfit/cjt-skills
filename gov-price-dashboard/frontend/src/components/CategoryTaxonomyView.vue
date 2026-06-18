@@ -1,35 +1,22 @@
 <template>
   <div class="ctx-page">
     <!-- Header -->
-    <div class="ctx-header">
-      <div class="ctx-header-left">
-        <div class="ctx-title">🗂️ 分类体系</div>
-        <div class="ctx-subtitle">
-          3 级分类法（L1 / L2 / L3）+ 品种→L3 映射规则，
-          来源 <code>category_v2_rules.db</code>，覆盖 8 大类 / 64 个 L3
-        </div>
-      </div>
-      <div class="ctx-header-stats">
-        <div class="ctx-stat">
-          <span class="ctx-stat-val">{{ stats.taxonomy.l1 || 0 }}</span>
-          <span class="ctx-stat-key">一级</span>
-        </div>
-        <div class="ctx-stat">
-          <span class="ctx-stat-val">{{ stats.taxonomy.l3 || 0 }}</span>
-          <span class="ctx-stat-key">三级分类</span>
-        </div>
-        <div class="ctx-stat">
-          <span class="ctx-stat-val">{{ stats.map.total.toLocaleString() }}</span>
-          <span class="ctx-stat-key">品种映射</span>
-        </div>
-        <div class="ctx-stat" :title="`L3 命中率：${stats.map.l3_in_taxonomy} / ${stats.map.l3_in_taxonomy + stats.map.l3_not_in_taxonomy}`">
-          <span class="ctx-stat-val ctx-stat-rate">
-            {{ hitRate }}%
-          </span>
-          <span class="ctx-stat-key">L3 命中率</span>
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      variant="flat"
+      title="分类体系"
+      subtitle="3 级分类法（L1 / L2 / L3）+ 品种→L3 映射规则，来源 <code>category_v2_rules.db</code>，覆盖 8 大类 / 64 个 L3"
+      :stats="[
+        { label: '一级', value: stats.taxonomy.l1 || 0 },
+        { label: '三级分类', value: stats.taxonomy.l3 || 0 },
+        { label: '品种映射', value: stats.map.total.toLocaleString() },
+        {
+          label: 'L3 命中率',
+          value: hitRate + '%',
+          tone: 'ok',
+          title: `L3 命中率：${stats.map.l3_in_taxonomy} / ${stats.map.l3_in_taxonomy + stats.map.l3_not_in_taxonomy}`,
+        },
+      ]"
+    />
 
     <!-- Sub Tabs (对齐 SyncView 的 sync-subtabs 导航模式) -->
     <div class="ctx-subtabs">
@@ -62,6 +49,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import CategoryTaxonomyTab from './CategoryTaxonomyTab.vue'
 import BreedMapTab from './BreedMapTab.vue'
+import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -104,25 +92,13 @@ onMounted(() => {
 <style scoped>
 .ctx-page { padding: 0 28px 28px; }
 
-/* Header */
-.ctx-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 22px 0 16px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
-}
-.ctx-title { font-size: 18px; font-weight: 700; color: #1e293b; }
-.ctx-subtitle { font-size: 12px; color: var(--text-3); margin-top: 3px; line-height: 1.6; }
-.ctx-subtitle code {
+/* Header（已迁移至 PageHeader flat 变体） */
+.ctx-subtitle code,
+.ctx-page :deep(.page-header-subtitle code) {
   font-family: 'Courier New', monospace; font-size: 10px;
   color: var(--primary); background: rgba(37,99,235,0.08);
   border-radius: 3px; padding: 1px 4px; font-weight: 500;
 }
-.ctx-header-stats { display: flex; gap: 20px; }
-.ctx-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.ctx-stat-val { font-size: 18px; font-weight: 700; color: var(--primary); }
-.ctx-stat-rate { color: var(--status-ok); }
-.ctx-stat-key { font-size: 11px; color: var(--text-3); }
 
 /* Sub Tabs ── 对齐 SyncView 导航模式 ──
    视觉跟 .sync-subtab 完全一致（dot + 标题 + hint，active 蓝点 + 色条），

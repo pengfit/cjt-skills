@@ -119,20 +119,20 @@
   <!-- Table -->
   <div class="ctx-card" :class="`ctx-density-${taxDensity}`">
     <div class="table-scroll">
-      <table class="ctx-table">
+      <table class="data-table">
         <thead>
           <tr>
-            <th style="width:50px" class="ctx-th-sortable" @click="setTaxSort('l1')">L1 <span class="ctx-sort-arrow" v-if="taxSort.col==='l1'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:70px" class="ctx-th-sortable" @click="setTaxSort('l2')">L2 <span class="ctx-sort-arrow" v-if="taxSort.col==='l2'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:100px" class="ctx-th-sortable" @click="setTaxSort('l3')">L3 <span class="ctx-sort-arrow" v-if="taxSort.col==='l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:78px">GB50500</th>
-            <th style="width:44px">定额</th>
-            <th class="ctx-th-sortable" @click="setTaxSort('name_l3')">分类名称 <span class="ctx-sort-arrow" v-if="taxSort.col==='name_l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:80px">工程部位</th>
-            <th style="width:80px">主辅材</th>
-            <th style="width:56px">单位</th>
-            <th style="width:140px">IFC</th>
-            <th style="width:140px">Uniclass</th>
+            <th style="width:50px" @click="setTaxSort('l1')">L1 <span class="sort-icon" v-if="taxSort.col==='l1'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
+            <th style="width:70px" @click="setTaxSort('l2')">L2 <span class="sort-icon" v-if="taxSort.col==='l2'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
+            <th style="width:100px" @click="setTaxSort('l3')">L3 <span class="sort-icon" v-if="taxSort.col==='l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
+            <th style="width:78px" class="no-sort">GB50500</th>
+            <th style="width:44px" class="no-sort">定额</th>
+            <th class="text-left" @click="setTaxSort('name_l3')">分类名称 <span class="sort-icon" v-if="taxSort.col==='name_l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
+            <th style="width:80px" class="no-sort">工程部位</th>
+            <th style="width:80px" class="no-sort">主辅材</th>
+            <th style="width:56px" class="no-sort">单位</th>
+            <th style="width:140px" class="text-left no-sort">IFC</th>
+            <th style="width:140px" class="text-left no-sort">Uniclass</th>
           </tr>
         </thead>
         <tbody>
@@ -153,7 +153,7 @@
             <td><span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" title="查看此 L3 关联的品种">{{ r.l3 }} <span class="ctx-l3-arrow">→</span></span></td>
             <td><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></td>
             <td><span class="ctx-quota">{{ r.quota_ref || '—' }}</span></td>
-            <td>
+            <td class="text-left no-ellipsis">
               <div class="ctx-name-stack">
                 <span class="ctx-name-l1">› {{ r.name_l1 || '—' }}</span>
                 <span class="ctx-name-l3">{{ r.name_l3 || r.name_l2 || r.l3 }}</span>
@@ -168,8 +168,8 @@
               <span class="ctx-main-aux" :class="`ctx-ma-${r.main_or_aux}`">{{ r.main_or_aux || '—' }}</span>
             </td>
             <td><span class="ctx-unit">{{ r.unit || '—' }}</span></td>
-            <td class="ctx-std-text" :title="r.ifc_class">{{ r.ifc_class || '—' }}</td>
-            <td class="ctx-std-text" :title="r.uniclass_ss">{{ r.uniclass_ss || '—' }}</td>
+            <td class="text-left" :title="r.ifc_class">{{ r.ifc_class || '—' }}</td>
+            <td class="text-left" :title="r.uniclass_ss">{{ r.uniclass_ss || '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -442,29 +442,17 @@ onMounted(() => {
 
 /* Card / Table */
 .ctx-card {
-  background: rgba(15, 23, 42, 0.03); border: 1px solid #e2e8f0;
-  border-radius: 12px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
 }
 .table-scroll { overflow-x: auto; }
-.ctx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ctx-table th {
-  padding: 11px 14px; text-align: left; font-weight: 600; font-size: 11px;
-  color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(15, 23, 42, 0.04); border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
-}
-.ctx-th-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
-.ctx-th-sortable:hover { color: var(--primary); }
-.ctx-sort-arrow { color: var(--primary); font-size: 10px; margin-left: 2px; font-weight: 700; }
-.ctx-table td { padding: 10px 14px; border-bottom: 1px solid rgba(15,23,42,0.04); vertical-align: middle; }
-.ctx-density-compact .ctx-table td { padding: 5px 14px; }
-.ctx-density-compact .ctx-table th { padding: 7px 14px; }
-.ctx-density-compact .ctx-table { font-size: 12px; }
-.ctx-density-loose .ctx-table td { padding: 16px 14px; }
-.ctx-density-loose .ctx-table th { padding: 14px 14px; }
-.ctx-density-loose .ctx-table { font-size: 14px; }
-.ctx-row:hover td { background: rgba(37,99,235,0.07); }
-.ctx-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.ctx-row { cursor: pointer; }
+.ctx-density-compact.data-table td { padding: 5px 14px; }
+.ctx-density-compact.data-table th { padding: 7px 14px; }
+.ctx-density-compact.data-table { font-size: 12px; }
+.ctx-density-loose.data-table td { padding: 16px 14px; }
+.ctx-density-loose.data-table th { padding: 14px 14px; }
+.ctx-density-loose.data-table { font-size: 14px; }
 .ctx-empty { text-align: center; color: #475569; padding: 48px 36px !important; }
 .ctx-empty-art { font-size: 48px; opacity: 0.6; margin-bottom: 12px; }
 .ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }

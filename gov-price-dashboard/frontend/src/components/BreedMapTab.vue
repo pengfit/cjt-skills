@@ -48,15 +48,15 @@
   <!-- Table -->
   <div class="ctx-card">
     <div class="table-scroll">
-      <table class="ctx-table">
+      <table class="data-table">
         <thead>
           <tr>
-            <th style="width:50%">品种</th>
-            <th style="width:90px">L3</th>
-            <th>L3 名称</th>
-            <th style="width:90px">来源</th>
-            <th style="width:80px">置信度</th>
-            <th style="width:140px">更新时间</th>
+            <th style="width:50%" class="text-left no-sort">品种</th>
+            <th style="width:90px" class="no-sort">L3</th>
+            <th class="text-left no-sort">L3 名称</th>
+            <th style="width:90px" class="no-sort">来源</th>
+            <th style="width:80px" class="no-sort">置信度</th>
+            <th style="width:140px" class="no-sort">更新时间</th>
           </tr>
         </thead>
         <tbody>
@@ -67,9 +67,9 @@
             <td colspan="6" class="ctx-empty">暂无映射</td>
           </tr>
           <tr v-for="r in mapRows" :key="r.breed_clean" class="ctx-row" v-show="!mapLoading && mapRows.length">
-            <td><span class="ctx-breed-text">{{ r.breed_clean }}</span></td>
+            <td class="text-left"><span class="ctx-breed-text">{{ r.breed_clean }}</span></td>
             <td><span class="ctx-code-text ctx-l3-code">{{ r.l3 }}</span></td>
-            <td>
+            <td class="text-left no-ellipsis">
               <div class="ctx-name-stack">
                 <span class="ctx-name-l1">{{ r.name_l1 || '—' }}</span>
                 <span class="ctx-name-l3">{{ r.name_l3 || '—' }}</span>
@@ -233,20 +233,11 @@ onMounted(() => {
 
 /* Card / Table */
 .ctx-card {
-  background: rgba(15, 23, 42, 0.03); border: 1px solid #e2e8f0;
-  border-radius: 12px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
 }
 .table-scroll { overflow-x: auto; }
-.ctx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ctx-table th {
-  padding: 11px 14px; text-align: left; font-weight: 600; font-size: 11px;
-  color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(15, 23, 42, 0.04); border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
-}
-.ctx-table td { padding: 10px 14px; border-bottom: 1px solid rgba(15,23,42,0.04); vertical-align: middle; }
-.ctx-row:hover td { background: rgba(37,99,235,0.07); }
-.ctx-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.ctx-row { cursor: pointer; }
 .ctx-empty { text-align: center; color: #475569; padding: 48px 36px !important; }
 
 /* Breed map-specific */

@@ -1,34 +1,30 @@
 <template>
   <div class="sync-page">
-    <!-- Page Header（跟 CategoryTaxonomyView 的 .ctx-header 同构） -->
-    <div class="sync-header">
-      <div class="sync-header-left">
-        <div class="sync-title">🔄 数据同步</div>
-        <div class="sync-subtitle">
-          8 城市材料价格抓取 / ODS → DWD → DWS 清洗链路 / 进度监控与运行状况
-        </div>
-      </div>
-      <div class="sync-header-stats">
-        <div class="sync-stat">
-          <span class="sync-stat-val">{{ stats.cities }}</span>
-          <span class="sync-stat-key">同步城市</span>
-        </div>
-        <div class="sync-stat" :title="`ODS 索引实际文档数 = sum(ods.*.count)`">
-          <span class="sync-stat-val">{{ stats.odsDocs.toLocaleString() }}</span>
-          <span class="sync-stat-key">入库文档 <span v-if="stats.odsDelta > 0" class="sync-stat-delta">+{{ stats.odsDelta }} / 7d</span></span>
-        </div>
-        <div class="sync-stat" :title="`DWS 索引实际记录数 = sum(dws.*.count)`">
-          <span class="sync-stat-val">{{ stats.dwsRecords.toLocaleString() }}</span>
-          <span class="sync-stat-key">清洗记录</span>
-        </div>
-        <div class="sync-stat" :title="`清洗完成率 = DWS / ODS`">
-          <span class="sync-stat-val" :class="{ 'sync-stat-rate': stats.cleanRate !== '0.0', 'sync-stat-warn': stats.cleanRate === '0.0' }">
-            {{ stats.cleanRate }}%
-          </span>
-          <span class="sync-stat-key">清洗完成率</span>
-        </div>
-      </div>
-    </div>
+    <!-- Page Header -->
+    <PageHeader
+      variant="flat"
+      title="数据同步"
+      subtitle="8 城市材料价格抓取 / ODS → DWD → DWS 清洗链路 / 进度监控与运行状况"
+      :stats="[
+        { label: '同步城市', value: stats.cities },
+        {
+          label: `入库文档${stats.odsDelta > 0 ? ` <span class='delta'>+${stats.odsDelta} / 7d</span>` : ''}`,
+          value: stats.odsDocs.toLocaleString(),
+          title: 'ODS 索引实际文档数 = sum(ods.*.count)',
+        },
+        {
+          label: '清洗记录',
+          value: stats.dwsRecords.toLocaleString(),
+          title: 'DWS 索引实际记录数 = sum(dws.*.count)',
+        },
+        {
+          label: '清洗完成率',
+          value: stats.cleanRate + '%',
+          tone: stats.cleanRate === '0.0' ? 'warn' : 'ok',
+          title: '清洗完成率 = DWS / ODS',
+        },
+      ]"
+    ><template #icon>🔄</template></PageHeader>
 
     <div class="sync-subtabs">
       <button class="sync-subtab" :class="{ active: subTab === 'scrape' }" @click="subTab = 'scrape'">
@@ -60,6 +56,7 @@ import axios from 'axios'
 import ScrapeView from './ScrapeView.vue'
 import DataProvenanceView from './DataProvenanceView.vue'
 import CleanDimView from './CleanDimView.vue'
+import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const subTab = ref('scrape')
@@ -113,26 +110,12 @@ onMounted(loadStats)
   color: var(--text);
 }
 
-/* Header（跟 CategoryTaxonomyView 的 .ctx-header 同构） */
-.sync-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 22px 0 16px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
-}
-.sync-title { font-size: 18px; font-weight: 700; color: #1e293b; }
-.sync-subtitle { font-size: 12px; color: var(--text-3); margin-top: 3px; line-height: 1.6; }
-.sync-header-stats { display: flex; gap: 20px; }
-.sync-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.sync-stat-val { font-size: 18px; font-weight: 700; color: var(--primary); }
-.sync-stat-rate { color: var(--status-ok); }
-.sync-stat-warn { color: var(--status-warn, #ea580c); }
-.sync-stat-delta {
+/* Header（已迁移至 PageHeader flat 变体） */
+.sync-page :deep(.delta) {
   display: inline-block; margin-left: 4px; padding: 1px 5px;
   background: rgba(34,197,94,0.12); color: #16a34a;
   border-radius: 3px; font-size: 9px; font-weight: 600;
 }
-.sync-stat-key { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
 
 .sync-subtabs {
   display: flex;

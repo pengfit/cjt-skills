@@ -2,10 +2,7 @@
   <div class="scrape-page">
 
     <!-- All Cities Scrape Cards -->
-    <div class="panel-header" style="margin-bottom:12px">
-      <span class="panel-dot panel-dot-purple"></span>
-      <span class="panel-title">数据抓取（全部城市）</span>
-    </div>
+    <SectionHeader title="数据抓取（全部城市）" dot-color="purple" style="margin-bottom:12px" />
 
     <div class="scrape-grid" v-if="data.all_cities">
       <div
@@ -90,6 +87,7 @@
 
 <script setup>
 import ErrorState from './ErrorState.vue'
+import SectionHeader from './SectionHeader.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
@@ -169,29 +167,7 @@ onMounted(() => {
   color: #1e293b;
 }
 
-/* === Panel header === */
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.panel-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.panel-dot-blue   { background: var(--primary); box-shadow: 0 0 8px rgba(37,99,235,0.6); }
-.panel-dot-purple { background: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.6); }
-/* panel-dot-cyan: 统一表示同步进行中，与主色一致 */
-.panel-dot-cyan { background: var(--primary); box-shadow: 0 0 8px rgba(37,99,235,0.6); }
-.panel-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
-  letter-spacing: 0.3px;
-  margin-right: auto;
-}
+/* panel-header / panel-title / panel-dot 已迁移至 SectionHeader.vue */
 /* === Scrape grid + cards === */
 .scrape-grid {
   display: grid;
