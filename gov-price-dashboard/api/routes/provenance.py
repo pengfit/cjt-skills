@@ -2716,7 +2716,7 @@ def clean_summary(
 # ══════════════════════════════════════════════════════════════
 # category_v3_rules.db 查询端点（2026-06-18 起 v3 替代 v2）
 # ──────────────────────────────────────────────────────────────
-# 表 1：category_v3 (145 行) — 4 级分类体系（L1/L2/L3/L4 + 名称 + GB50500 + 定额引用 + IFC + Uniclass）
+# 表 1：category_v3 (145 行) — 4 级分类体系（L1/L2/L3/L4 + 名称 + GB50500 + IFC + Uniclass）
 #       严格按 GB 50854-2013 / GB/T 50856-2024 / GB 50857-2013 / GB 50858-2013 章节重建
 # 表 2：breed_l3_map_v3 — 品种→L3 映射
 # ══════════════════════════════════════════════════════════════
@@ -2732,7 +2732,7 @@ def _ensure_cat_v3_tables():
         c.execute(
             "CREATE TABLE IF NOT EXISTS category_v3 ("
             "  l1 TEXT NOT NULL, l2 TEXT NOT NULL, l3 TEXT NOT NULL, l4 TEXT NOT NULL,"
-            "  gb_50500 TEXT NOT NULL, quota_ref TEXT DEFAULT '',"
+            "  gb_50500 TEXT NOT NULL,"
             "  ifc_class TEXT DEFAULT '', uniclass_ss TEXT DEFAULT '',"
             "  eng_part TEXT DEFAULT '', eng_stage TEXT DEFAULT '',"
             "  main_or_aux TEXT DEFAULT '', unit TEXT DEFAULT '',"
@@ -2846,7 +2846,7 @@ def category_v2_taxonomy(
         return {"rows": [], "total": 0, "page": page, "page_size": page_size}
 
     # 白名单防 SQL 注入
-    sort_cols = {"l1", "l2", "l3", "gb_50500", "quota_ref", "name_l1", "name_l3", "eng_part", "main_or_aux", "unit"}
+    sort_cols = {"l1", "l2", "l3", "gb_50500", "name_l1", "name_l3", "eng_part", "main_or_aux", "unit"}
     sort_col = sort_by if sort_by in sort_cols else "l3"
     sort_d = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
 
@@ -2867,9 +2867,9 @@ def category_v2_taxonomy(
         where.append(
             "(name_l1 LIKE ? OR name_l2 LIKE ? OR name_l3 LIKE ? "
             "OR l1 LIKE ? OR l2 LIKE ? OR l3 LIKE ? "
-            "OR gb_50500 LIKE ? OR quota_ref LIKE ? OR ifc_class LIKE ? OR uniclass_ss LIKE ?)"
+            "OR gb_50500 LIKE ? OR ifc_class LIKE ? OR uniclass_ss LIKE ?)"
         )
-        params.extend([kw] * 10)
+        params.extend([kw] * 9)
 
     where_sql = " AND ".join(where) if where else "1=1"
 
@@ -2880,7 +2880,7 @@ def category_v2_taxonomy(
     # 主排序 + 次排序保证稳定
     secondary = "l1, l2" if sort_col not in ("l1", "l2") else "l3"
     c.execute(
-        f"SELECT l1, l2, l3, gb_50500, quota_ref, ifc_class, uniclass_ss, "
+        f"SELECT l1, l2, l3, gb_50500, ifc_class, uniclass_ss, "
         f"eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
         f"name_l1, name_l2, name_l3 "
         f"FROM category_v3 WHERE {where_sql} "
@@ -2986,7 +2986,7 @@ def category_v2_l3_detail(l3: str = Query(...)):
 
     # 分类法里该 L3 的所有 L4 行
     c.execute(
-        "SELECT l1, l2, l3, l4, gb_50500, quota_ref, ifc_class, uniclass_ss, "
+        "SELECT l1, l2, l3, l4, gb_50500, ifc_class, uniclass_ss, "
         "eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
         "name_l1, name_l2, name_l3, name_l4 "
         "FROM category_v3 WHERE l3 = ? ORDER BY l4",

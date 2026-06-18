@@ -213,7 +213,7 @@ def _ensure_alive_conn(db_path: str) -> sqlite3.Connection:
 def _load_category_node(conn: sqlite3.Connection, l3: str) -> Optional[dict]:
     """根据 L3 码查 category_v3 表完整节点"""
     row = conn.execute(
-        """SELECT l1, l2, l3, l4, gb_50500, quota_ref, ifc_class, uniclass_ss,
+        """SELECT l1, l2, l3, l4, gb_50500, ifc_class, uniclass_ss,
                   eng_part, eng_stage, main_or_aux, unit, billing_unit,
                   cost_method, name_l1, name_l2, name_l3
            FROM category_v3 WHERE l3 = ? LIMIT 1""",
@@ -223,11 +223,11 @@ def _load_category_node(conn: sqlite3.Connection, l3: str) -> Optional[dict]:
         return None
     return {
         "l1": row[0], "l2": row[1], "l3": row[2], "l4": row[3],
-        "gb_50500": row[4], "quota_ref": row[5], "ifc_class": row[6],
-        "uniclass_ss": row[7], "eng_part": row[8], "eng_stage": row[9],
-        "main_or_aux": row[10], "unit": row[11], "billing_unit": row[12],
-        "cost_method": row[13], "name_l1": row[14], "name_l2": row[15],
-        "name_l3": row[16],
+        "gb_50500": row[4], "ifc_class": row[5],
+        "uniclass_ss": row[6], "eng_part": row[7], "eng_stage": row[8],
+        "main_or_aux": row[9], "unit": row[10], "billing_unit": row[11],
+        "cost_method": row[12], "name_l1": row[13], "name_l2": row[14],
+        "name_l3": row[15],
     }
 
 

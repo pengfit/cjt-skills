@@ -83,7 +83,6 @@
           <span class="ctx-help-key">标准映射</span>
           <span class="ctx-help-val">
             <code>gb_50500</code> — GB 50500 工程量清单规范编码<br/>
-            <code>quota_ref</code> — 定额引用（如 <code>1-1</code> / <code>4-1</code>）<br/>
             <code>ifc_class</code> — IFC 国际 BIM 分类<br/>
             <code>uniclass_ss</code> — Uniclass 分类代码
           </span>
@@ -126,7 +125,6 @@
             <th style="width:70px" @click="setTaxSort('l2')">L2 <span class="sort-icon" v-if="taxSort.col==='l2'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:100px" @click="setTaxSort('l3')">L3 <span class="sort-icon" v-if="taxSort.col==='l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:78px" class="no-sort">GB50500</th>
-            <th style="width:44px" class="no-sort">定额</th>
             <th class="text-left" @click="setTaxSort('name_l3')">分类名称 <span class="sort-icon" v-if="taxSort.col==='name_l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:80px" class="no-sort">工程部位</th>
             <th style="width:80px" class="no-sort">主辅材</th>
@@ -137,10 +135,10 @@
         </thead>
         <tbody>
           <tr v-if="taxLoading">
-            <td colspan="11" class="ctx-empty">加载中...</td>
+            <td colspan="10" class="ctx-empty">加载中...</td>
           </tr>
           <tr v-else-if="!taxRows.length">
-            <td colspan="11" class="ctx-empty">
+            <td colspan="10" class="ctx-empty">
               <div class="ctx-empty-art">🗂️</div>
               <div class="ctx-empty-title">暂无分类条目</div>
               <div class="ctx-empty-hint">试试调整筛选条件或清空全部</div>
@@ -152,7 +150,6 @@
             <td><span class="ctx-code-text">{{ r.l2 }}</span></td>
             <td><span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" title="查看此 L3 关联的品种">{{ r.l3 }} <span class="ctx-l3-arrow">→</span></span></td>
             <td><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></td>
-            <td><span class="ctx-quota">{{ r.quota_ref || '—' }}</span></td>
             <td class="text-left no-ellipsis">
               <div class="ctx-name-stack">
                 <span class="ctx-name-l1">› {{ r.name_l1 || '—' }}</span>
@@ -206,7 +203,6 @@
             <div class="ctx-drawer-field"><label>L1</label><span>{{ drawerRow.name_l1 || '—' }}</span></div>
             <div class="ctx-drawer-field"><label>L2 分部</label><span>{{ drawerRow.name_l2 || '—' }}</span></div>
             <div class="ctx-drawer-field"><label>GB50500</label><span>{{ drawerRow.gb_50500 || '—' }}</span></div>
-            <div class="ctx-drawer-field"><label>定额引用</label><span>{{ drawerRow.quota_ref || '—' }}</span></div>
           </div>
         </div>
         <div class="ctx-drawer-section">
@@ -481,13 +477,6 @@ onMounted(() => {
 .ctx-l3-arrow { opacity: 0.4; font-size: 11px; transition: all 0.15s; }
 .ctx-l3-link:hover .ctx-l3-arrow { opacity: 1; transform: translateX(2px); }
 .ctx-gb { color: var(--status-ok); font-weight: 600; }
-.ctx-quota {
-  display: inline-block; padding: 1px 7px;
-  background: rgba(37,99,235,0.08); color: var(--primary);
-  border-radius: 3px; font-size: 11px; font-weight: 600;
-  font-family: 'Courier New', monospace;
-  white-space: nowrap;
-}
 .ctx-name-stack { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(37,99,235,0.18); }
 .ctx-name-l1 { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .ctx-name-l3 { font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.3; }
