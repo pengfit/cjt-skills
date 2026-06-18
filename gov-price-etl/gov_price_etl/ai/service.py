@@ -370,7 +370,7 @@ def classify_v3_batch(
     输入:
       items: [{"breed": ..., "spec": ..., "unit": ..., "breed_clean": ...}, ...]
       city:  城市 key（仅用于日志/AI 上下文）
-      write_rules: 是否持久化到 breed_l3_map。默认 True。
+      write_rules: 是否持久化到 breed_l3_map_v3。默认 True。
 
     v2_dict 字段（14 个）：
       l1 / l2 / l3 / l4 + name_l1/l2/l3（7 个 code + name）
@@ -379,11 +379,11 @@ def classify_v3_batch(
       + material_code（1 物料码）
 
     流程：
-      1. 对每个 item 查 v2 breed_l3_map（精确 → 模糊 / Jaccard）
+      1. 对每个 item 查 v2 breed_l3_map_v3（精确 → 模糊 / Jaccard）
       2. 命中 → 直接返回（无 AI 调用）
       3. 未命中 → 攒批送 AI
       4. AI 失败 → 标记 no_match_v2
-      5. AI 成功 → 写回 breed_l3_map
+      5. AI 成功 → 写回 breed_l3_map_v3
     """
     if not items:
         return {}
@@ -391,7 +391,7 @@ def classify_v3_batch(
     cfg = get_prompt("classify_v2_batch")  # P0-fix: yml key 是 classify_v2_batch（不是 classify_v3_batch）
     system_msg = cfg.get("system", "")
 
-    # 1. 查 v2 breed_l3_map（阶段 1+2 复用现有本地匹配）
+    # 1. 查 v2 breed_l3_map_v3（阶段 1+2 复用现有本地匹配）
     from gov_price_etl.classify.category_v3 import classify_v3, close_singleton
     close_singleton()  # 重置单例（处理可能的 stale 状态）
 
@@ -486,6 +486,18 @@ def classify_v3_batch(
         if _already_in_db:
             print(f"    [AI] db 预查命中: {len(_already_in_db)}/{len(deduped_uncached)} 已存在，直接跳过 AI")
             _stats["classify_v3_db_pre_hit"] = _stats.get("classify_v3_db_pre_hit", 0) + len(_already_in_db)
+            # P0-fix: 预查命中的项也要包到返回值里, 否则 ETL 第三轮会全部 fail
+            # 复用 classify_v3 （DB 里有记录 → db_exact_v3 命中, 拿到完整 v2_dict）
+            for _it in deduped_uncached:
+                _bc = _it.get("breed_clean", "")
+                if _bc in _already_in_db and _bc not in local_map:
+                    _v2 = classify_v3(
+                        breed=_it.get("breed", ""),
+                        spec=_it.get("spec", ""),
+                        unit=_it.get("unit", ""),
+                        breed_clean=_bc,
+                    )
+                    local_map[_bc] = _v2
             # 整批命中直接返回（不调 AI）
             if len(_already_in_db) == len(deduped_uncached):
                 if _v2_conn is not None:
@@ -650,14 +662,16 @@ def classify_v3_batch(
             if write_rules and _v2_conn is not None:
                 try:
                     # 仅处理本批涉及的 breed_clean（不用全 ai_results）
-                    batch_bc = [it.get("breed_clean", "") for it in batch]
+                    # P0-fix: dedup breed_clean（去重前批中可能存在不同 spec 的同 breed）
+                    # 否则 INSERT OR IGNORE 静默丢重复 PK 冲突
+                    batch_bc = list({it.get("breed_clean", ""): None for it in batch if it.get("breed_clean", "")}.keys())
                     # batch_bc_valid：正常 AI 成功（有 l3）或 AI 失败走 fallback 两条都入
                     batch_bc_valid = [bc for bc in batch_bc
                                       if bc and ai_results.get(bc)]
                     if batch_bc_valid:
                         placeholders = ",".join("?" * len(batch_bc_valid))
                         existing = _v2_conn.execute(
-                            f"SELECT breed_clean, source FROM breed_l3_map WHERE breed_clean IN ({placeholders})",
+                            f"SELECT breed_clean, source FROM breed_l3_map_v3 WHERE breed_clean IN ({placeholders})",
                             batch_bc_valid,
                         ).fetchall()
                         protected = {row[0] for row in existing if row[1] in PROTECTED_SOURCES}
@@ -688,14 +702,14 @@ def classify_v3_batch(
                         placeholders2 = ",".join("?" * len(bc_in_batch))
                         exists_now = {
                             row[0] for row in _v2_conn.execute(
-                                f"SELECT breed_clean FROM breed_l3_map WHERE breed_clean IN ({placeholders2})",
+                                f"SELECT breed_clean FROM breed_l3_map_v3 WHERE breed_clean IN ({placeholders2})",
                                 bc_in_batch,
                             ).fetchall()
                         }
                         rows_actually_inserted = len(bc_in_batch) - len(exists_now)
                         rows_skipped_existing = len(exists_now)
                         _v2_conn.executemany(
-                            """INSERT OR IGNORE INTO breed_l3_map
+                            """INSERT OR IGNORE INTO breed_l3_map_v3
                                (breed_clean, l3, source, confidence, created_at, updated_at)
                                VALUES (?, ?, ?, ?, ?, ?)""",
                             [(bc, l3, src, conf, now_cst(), now_cst()) for bc, l3, src, conf in rows_to_write],
