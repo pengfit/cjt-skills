@@ -54,8 +54,7 @@ CREATE TABLE IF NOT EXISTS breed_spec_rules (
     breed       TEXT    DEFAULT '',
     category    TEXT    DEFAULT '',
     tokens      TEXT    DEFAULT '[]',
-    created_at  TEXT    DEFAULT (datetime('now'))
-)
+    created_at  TEXT    DEFAULT (datetime('now', 'localtime'))
 """
 
 ENSURE_COLS = """

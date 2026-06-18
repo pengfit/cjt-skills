@@ -39,6 +39,22 @@ GATEWAY_URL = os.environ.get("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
 OPENCLAW_CONFIG = os.path.expanduser("~/.openclaw/openclaw.json")
 
 
+# 上海/中国时区 helper（db 入库时间统一走这里，避免 SQLite CURRENT_TIMESTAMP 返回 UTC）
+try:
+    from zoneinfo import ZoneInfo
+    _SH_TZ = ZoneInfo("Asia/Shanghai")
+except Exception:
+    _SH_TZ = None  # fallback: 依赖 datetime.now() 本地时区
+
+
+def now_cst() -> str:
+    """返回 Asia/Shanghai 时区下的当前时间字符串，格式 'YYYY-MM-DD HH:MM:SS'。"""
+    from datetime import datetime
+    if _SH_TZ is not None:
+        return datetime.now(_SH_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _read_token() -> str:
     try:
         with open(OPENCLAW_CONFIG) as f:
@@ -136,7 +152,7 @@ def _call_gateway(prompt: str, system: str, user: str, timeout: int = 120) -> Tu
 
 
 # ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
-V2_AI_BATCH_SIZE = 20  # 每批最多 20 条（prompt 较大，避免超出 token 限制）
+V2_AI_BATCH_SIZE = 10  # P1-5: 20→10。prompt 64 L3 + 10 breed 约 40K tokens，低于 64K 限；减半避免超限
 V2_AI_BATCH_SLEEP_S = 0.5
 
 
@@ -332,26 +348,86 @@ def classify_v2_batch(
     ai_results: Dict[str, dict] = {}
     if uncached_items:
         _stats["classify_v2_calls"] = _stats.get("classify_v2_calls", 0) + 1
-        # 加载 64 L3 全量作为 prompt 上下文（与校验脚本 prompts.yml 复用）
-        from gov_price_etl.classify.utils import format_l3_list, format_breed_list
-        from gov_price_etl.paths import CATEGORY_V2_RULES_DB
-        try:
-            import sqlite3 as _sqlite3
-            _tax_conn = _sqlite3.connect(f"file:{CATEGORY_V2_RULES_DB}?mode=ro", uri=True)
-            _tax_conn.row_factory = _sqlite3.Row  # 关键：必须设，否则 dict(r) 抛 ValueError 被 except 吞掉 → l3_list 留空
-            _taxonomy = [dict(r) for r in _tax_conn.execute(
-                "SELECT l1, l2, l3, name_l1, name_l2, name_l3 FROM category_v2 ORDER BY l1, l2, l3"
-            )]
-            _tax_conn.close()
-            l3_list_str = format_l3_list(_taxonomy)
-        except Exception:
-            l3_list_str = ""  # fallback: 让 prompt 里的 l3_list 占位符留空
-            _taxonomy = []
-            _stats["classify_l3_load_failed"] = _stats.get("classify_l3_load_failed", 0) + 1
+        # 优化：不再发送 64 L3 全量列表（prompt 从 60-80K 减到 5K）
+        # AI 凭 8 大类记忆输出 l1/l2/l3 估计，后续用本地 _validate_l3 校验
+        from gov_price_etl.classify.utils import format_breed_list
+        l3_list_str = ""  # 不再发送 64 L3
+        _taxonomy = []
+
+        # 攒批去重：按 (breed_clean, spec, unit) 三元组只送一次 AI
+        # v2 体系下 breed_clean 决定 l3，spec/unit 不影响分类，但为保幂等仍按三元组去重
+        # 避免「同一材料多期重复出现」导致 AI 调用量爆炸
+        from collections import OrderedDict
+        _groups: "OrderedDict[tuple, dict]" = OrderedDict()
+        for _it in uncached_items:
+            _key = (
+                _it.get("breed_clean", ""),
+                _it.get("spec", ""),
+                _it.get("unit", ""),
+            )
+            if _key not in _groups:
+                _groups[_key] = _it
+        deduped_uncached = list(_groups.values())
+        if len(uncached_items) != len(deduped_uncached):
+            print(f"    [AI] 去重: {len(uncached_items)} → {len(deduped_uncached)} (save {len(uncached_items) - len(deduped_uncached)})")
+            _stats["classify_v2_dedup_saved"] = _stats.get("classify_v2_dedup_saved", 0) + (
+                len(uncached_items) - len(deduped_uncached)
+            )
+
+        # 预打开 db 连接（每批 commit，不需要循环重连）
+        # 设计变更（C 选项）：每批 AI 调完即写 db，避免「攒批 + 最后 commit」在 token 超限时
+        # 全部白调且 db 0 写入。每批 commit 让增量逐步可见，失败时已有部分保留。
+        PROTECTED_SOURCES = ("manual", "v1_translated", "v1_translated_v2")
+        _v2_conn = None
+        if write_rules:
+            try:
+                import sqlite3
+                from gov_price_etl.paths import PROJECT_ROOT
+                _v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
+                _v2_conn = sqlite3.connect(str(_v2_db_path))
+            except Exception:
+                _stats["classify_v2_db_open_failed"] = _stats.get("classify_v2_db_open_failed", 0) + 1
+                _v2_conn = None
+
+        # 设计变更（P0-1）：AI 调前先查 db existing，整批命中 → 直接跳过（不调 AI）
+        # 解决"主键全冲突但仍走 AI 浪费调用量"问题
+        _already_in_db = set()
+        if _v2_conn is not None and deduped_uncached:
+            try:
+                _bc_to_check = [it.get("breed_clean", "") for it in deduped_uncached]
+                _bc_to_check = [b for b in _bc_to_check if b]
+                if _bc_to_check:
+                    _ph = ",".join("?" * len(_bc_to_check))
+                    _rows = _v2_conn.execute(
+                        f"SELECT breed_clean FROM breed_l3_map WHERE breed_clean IN ({_ph})",
+                        _bc_to_check,
+                    ).fetchall()
+                    _already_in_db = {r[0] for r in _rows}
+            except Exception:
+                pass
+        if _already_in_db:
+            print(f"    [AI] db 预查命中: {len(_already_in_db)}/{len(deduped_uncached)} 已存在，直接跳过 AI")
+            _stats["classify_v2_db_pre_hit"] = _stats.get("classify_v2_db_pre_hit", 0) + len(_already_in_db)
+            # 整批命中直接返回（不调 AI）
+            if len(_already_in_db) == len(deduped_uncached):
+                if _v2_conn is not None:
+                    try:
+                        _v2_conn.close()
+                    except Exception:
+                        pass
+                return {**local_map}
+            # 部分命中：只送未命中的给 AI
+            deduped_uncached = [it for it in deduped_uncached
+                                if it.get("breed_clean", "") not in _already_in_db]
+            print(f"    [AI] 实际送 AI: {len(deduped_uncached)} 条 (db 预查后)")
 
         # 攒批：每批 V2_AI_BATCH_SIZE 条
-        for batch_start in range(0, len(uncached_items), V2_AI_BATCH_SIZE):
-            batch = uncached_items[batch_start:batch_start + V2_AI_BATCH_SIZE]
+        _total_batches = (len(deduped_uncached) + V2_AI_BATCH_SIZE - 1) // V2_AI_BATCH_SIZE
+        _t_total = time.time()
+        for batch_start in range(0, len(deduped_uncached), V2_AI_BATCH_SIZE):
+            batch = deduped_uncached[batch_start:batch_start + V2_AI_BATCH_SIZE]
+            _t_batch = time.time()
+            _batch_idx = batch_start // V2_AI_BATCH_SIZE + 1
             # 序列化为 prompt items（使用 utils.format_breed_list，含 spec/unit/current_l3）
             breed_list_str = format_breed_list(batch)
             try:
@@ -370,127 +446,198 @@ def classify_v2_batch(
                 )
                 user_prompt = f"待分类：\n{items_str}"
             ok, content = _call_gateway(
-                user_prompt, system_msg, "etl-classify-v2-agent", timeout=180,
+                user_prompt, system_msg,
+                f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
+                timeout=90,  # P0-2: 180s→30s 避免 keep-alive 卡死
             )
             if not ok:
+                # P0-2: AI 失败写 fallback dict，进 ai_results，让 commit 块处理（不 continue）
                 _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
+                _stats["classify_v2_fallback_written"] = _stats.get("classify_v2_fallback_written", 0) + 0  # 计数下面再增
                 for it in batch:
-                    ai_results[it.get("breed_clean", "")] = None
-                time.sleep(V2_AI_BATCH_SLEEP_S)
-                continue
-            try:
-                parsed = json.loads(content)
-                results_raw = parsed.get("results", {}) if isinstance(parsed, dict) else {}
-            except Exception:
-                _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
-                for it in batch:
-                    ai_results[it.get("breed_clean", "")] = None
-                time.sleep(V2_AI_BATCH_SLEEP_S)
-                continue
-
+                    ai_results[it.get("breed_clean", "")] = {
+                        "l1": "", "l2": "", "l3": "", "l4": "UNCLASSIFIED",
+                        "name_l1": "", "name_l2": "", "name_l3": "",
+                        "eng_part": "", "eng_stage": "", "main_or_aux": "",
+                        "gb_50500": "", "quota_ref": "", "ifc_class": "",
+                        "uniclass_ss": "", "material_code": "",
+                        "category_v2_source": "ai_fallback",
+                        "category_v2_confidence": 0.0,
+                    }
+                # 不 continue，让下面 commit 块写入
+            else:
+                try:
+                    parsed = json.loads(content)
+                    results_raw = parsed.get("results", {}) if isinstance(parsed, dict) else {}
+                except Exception:
+                    # JSON 解析失败 → 写 fallback dict
+                    _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
+                    for it in batch:
+                        ai_results[it.get("breed_clean", "")] = {
+                            "l1": "", "l2": "", "l3": "", "l4": "UNCLASSIFIED",
+                            "name_l1": "", "name_l2": "", "name_l3": "",
+                            "eng_part": "", "eng_stage": "", "main_or_aux": "",
+                            "gb_50500": "", "quota_ref": "", "ifc_class": "",
+                            "uniclass_ss": "", "material_code": "",
+                            "category_v2_source": "ai_fallback",
+                            "category_v2_confidence": 0.0,
+                        }
+                    # 不 continue
             # AI 输出格式兼容两种：
             #   A. dict: {"breed_clean": {...}, ...} （旧版）
             #   B. list: [{...}, {...}] （prompts.yml v2 当前定义）
             # 统一归一化为 dict[breed_clean → result]
-            if isinstance(results_raw, list):
-                results_dict = {
-                    (r.get("breed_clean", "")): r
-                    for r in results_raw
-                    if isinstance(r, dict) and r.get("breed_clean")
-                }
-            elif isinstance(results_raw, dict):
-                results_dict = results_raw
-            else:
-                results_dict = {}
+            if ok:  # 只有 AI 成功才走这路径；失败已在上面写 fallback dict
+                if isinstance(results_raw, list):
+                    results_dict = {
+                        (r.get("breed_clean", "")): r
+                        for r in results_raw
+                        if isinstance(r, dict) and r.get("breed_clean")
+                    }
+                elif isinstance(results_raw, dict):
+                    results_dict = results_raw
+                else:
+                    results_dict = {}
 
-            # ⚠️ 智能引号归一化踩坑防护：AI 返回的 breed_clean 可能把 "" (U+201C/U+201D)
-            # 规范成 "" (U+0022)，导致 results_dict.get(breed_clean) 查不到 → 跳过。
-            # 用 norm_bc() 建二级索引兜底。详见 gov_price_etl.classify.utils。
-            from gov_price_etl.classify.utils import norm_bc
-            results_dict_norm = {norm_bc(k): v for k, v in results_dict.items() if k}
+                # ⚠️ 智能引号归一化踩坑防护：AI 返回的 breed_clean 可能把 "" (U+201C/U+201D)
+                # 规范成 "" (U+0022)，导致 results_dict.get(breed_clean) 查不到 → 跳过。
+                # 用 norm_bc() 建二级索引兜底。详见 gov_price_etl.classify.utils。
+                from gov_price_etl.classify.utils import norm_bc
+                results_dict_norm = {norm_bc(k): v for k, v in results_dict.items() if k}
 
-            for it in batch:
-                breed_clean = it.get("breed_clean", "")
-                # 优先精确匹配，失败时回退到归一化匹配（避免智能引号 join 丢失）
-                r = (
-                    results_dict.get(breed_clean)
-                    or results_dict_norm.get(norm_bc(breed_clean))
-                    or {}
-                )
-                conf = float(r.get("confidence", 0.7) or 0.7)
-                if conf < 0.70:
-                    _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
-                    ai_results[breed_clean] = None
-                    continue
-                l1, l2, l3, l4 = (
-                    r.get("l1", ""), r.get("l2", ""), r.get("l3", ""),
-                    r.get("l4", "UNCLASSIFIED"),
-                )
-                # 严格校验：L3 必须在 v2 字典里（否则 AI 可能在编造）
-                if not _validate_l3(l3):
-                    # 字典外 L3：尝试动态扩展字典
-                    name_l3_ai = r.get("name_l3", "") or r.get("l4", "") or breed_clean
-                    if _auto_extend_dict(l1, l2, l3, name_l3_ai,
-                                         gb_50500=r.get("gb_50500", ""),
-                                         ifc_class=r.get("ifc_class", "")):
-                        # 动态扩展成功，合法化
-                        pass
-                    else:
+                for it in batch:
+                    breed_clean = it.get("breed_clean", "")
+                    # 优先精确匹配，失败时回退到归一化匹配（避免智能引号 join 丢失）
+                    r = (
+                        results_dict.get(breed_clean)
+                        or results_dict_norm.get(norm_bc(breed_clean))
+                        or {}
+                    )
+                    conf = float(r.get("confidence", 0.7) or 0.7)
+                    if conf < 0.70:
                         _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
-                        _stats["classify_v2_invalid_l3"] = _stats.get("classify_v2_invalid_l3", 0) + 1
                         ai_results[breed_clean] = None
                         continue
-                # 强制 l4 = "UNCLASSIFIED"（除非是字典中真实存在的 L4）
-                l4 = "UNCLASSIFIED" if l4 in ("", breed_clean) else l4
-                # 从 v2 字典反查中文名（以字典为准，不信 AI 输出）
-                name_l1, name_l2, name_l3 = _lookup_names(l1, l2, l3)
-                v2_dict = {
-                    "l1": l1, "l2": l2, "l3": l3, "l4": l4,
-                    "name_l1": name_l1, "name_l2": name_l2, "name_l3": name_l3,
-                    "eng_part": r.get("eng_part", ""), "eng_stage": r.get("eng_stage", ""),
-                    "main_or_aux": r.get("main_or_aux", ""),
-                    "gb_50500": r.get("gb_50500", ""), "quota_ref": r.get("quota_ref", ""),
-                    "ifc_class": r.get("ifc_class", ""), "uniclass_ss": r.get("uniclass_ss", ""),
-                    "material_code": r.get("material_code", ""),
-                    "category_v2_source": "ai_v2",
-                    "category_v2_confidence": conf,
-                }
-                ai_results[breed_clean] = v2_dict
+                    l1, l2, l3, l4 = (
+                        r.get("l1", ""), r.get("l2", ""), r.get("l3", ""),
+                        r.get("l4", "UNCLASSIFIED"),
+                    )
+                    # 严格校验：L3 必须在 v2 字典里（否则 AI 可能在编造）
+                    if not _validate_l3(l3):
+                        # 字典外 L3：尝试动态扩展字典
+                        name_l3_ai = r.get("name_l3", "") or r.get("l4", "") or breed_clean
+                        if _auto_extend_dict(l1, l2, l3, name_l3_ai,
+                                             gb_50500=r.get("gb_50500", ""),
+                                             ifc_class=r.get("ifc_class", "")):
+                            # 动态扩展成功，合法化
+                            pass
+                        else:
+                            _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
+                            _stats["classify_v2_invalid_l3"] = _stats.get("classify_v2_invalid_l3", 0) + 1
+                            ai_results[breed_clean] = None
+                            continue
+                    # 强制 l4 = "UNCLASSIFIED"（除非是字典中真实存在的 L4）
+                    l4 = "UNCLASSIFIED" if l4 in ("", breed_clean) else l4
+                    # 从 v2 字典反查中文名（以字典为准，不信 AI 输出）
+                    name_l1, name_l2, name_l3 = _lookup_names(l1, l2, l3)
+                    v2_dict = {
+                        "l1": l1, "l2": l2, "l3": l3, "l4": l4,
+                        "name_l1": name_l1, "name_l2": name_l2, "name_l3": name_l3,
+                        "eng_part": r.get("eng_part", ""), "eng_stage": r.get("eng_stage", ""),
+                        "main_or_aux": r.get("main_or_aux", ""),
+                        "gb_50500": r.get("gb_50500", ""), "quota_ref": r.get("quota_ref", ""),
+                        "ifc_class": r.get("ifc_class", ""), "uniclass_ss": r.get("uniclass_ss", ""),
+                        "material_code": r.get("material_code", ""),
+                        "category_v2_source": "ai_v2",
+                        "category_v2_confidence": conf,
+                    }
+                    ai_results[breed_clean] = v2_dict
+            if write_rules and _v2_conn is not None:
+                try:
+                    # 仅处理本批涉及的 breed_clean（不用全 ai_results）
+                    batch_bc = [it.get("breed_clean", "") for it in batch]
+                    # batch_bc_valid：正常 AI 成功（有 l3）或 AI 失败走 fallback 两条都入
+                    batch_bc_valid = [bc for bc in batch_bc
+                                      if bc and ai_results.get(bc)]
+                    if batch_bc_valid:
+                        placeholders = ",".join("?" * len(batch_bc_valid))
+                        existing = _v2_conn.execute(
+                            f"SELECT breed_clean, source FROM breed_l3_map WHERE breed_clean IN ({placeholders})",
+                            batch_bc_valid,
+                        ).fetchall()
+                        protected = {row[0] for row in existing if row[1] in PROTECTED_SOURCES}
+                    else:
+                        protected = set()
+
+                    # 本批待写：正常用 l3，兑底用 L3='其他' 作为占位
+                    rows_to_write = []
+                    rows_skipped_empty = 0
+                    for bc in batch_bc_valid:
+                        if bc in protected:
+                            continue
+                        v = ai_results[bc]
+                        if v.get("category_v2_source") == "ai_fallback":
+                            # AI 失败兑底：l3=空，用'其他'占位
+                            l3, conf, src = "其他", 0.0, "ai_fallback"
+                        elif v.get("l3"):
+                            l3, conf, src = v["l3"], v["category_v2_confidence"], "ai_v2"
+                        else:
+                            rows_skipped_empty += 1
+                            continue
+                        rows_to_write.append((bc, l3, src, conf))
+                    rows_skipped_protected = sum(1 for bc in batch_bc_valid if bc in protected)
+                    rows_actually_inserted = 0
+                    rows_skipped_existing = 0
+                    if rows_to_write:
+                        bc_in_batch = [r[0] for r in rows_to_write]
+                        placeholders2 = ",".join("?" * len(bc_in_batch))
+                        exists_now = {
+                            row[0] for row in _v2_conn.execute(
+                                f"SELECT breed_clean FROM breed_l3_map WHERE breed_clean IN ({placeholders2})",
+                                bc_in_batch,
+                            ).fetchall()
+                        }
+                        rows_actually_inserted = len(bc_in_batch) - len(exists_now)
+                        rows_skipped_existing = len(exists_now)
+                        _v2_conn.executemany(
+                            """INSERT OR IGNORE INTO breed_l3_map
+                               (breed_clean, l3, source, confidence, created_at, updated_at)
+                               VALUES (?, ?, ?, ?, ?, ?)""",
+                            [(bc, l3, src, conf, now_cst(), now_cst()) for bc, l3, src, conf in rows_to_write],
+                        )
+                    _v2_conn.commit()
+                    _stats["classify_v2_rules_written"] = _stats.get("classify_v2_rules_written", 0) + rows_actually_inserted
+                    if rows_skipped_existing:
+                        _stats["classify_v2_rules_skipped_existing"] = _stats.get("classify_v2_rules_skipped_existing", 0) + rows_skipped_existing
+                    if rows_skipped_protected:
+                        _stats["classify_v2_rules_skipped_protected"] = _stats.get("classify_v2_rules_skipped_protected", 0) + rows_skipped_protected
+                    if rows_skipped_empty:
+                        _stats["classify_v2_rules_no_l3"] = _stats.get("classify_v2_rules_no_l3", 0) + rows_skipped_empty
+                except Exception:
+                    _stats["classify_v2_rules_failed"] = _stats.get("classify_v2_rules_failed", 0) + 1
+
+            # P1-3: 每批进度 print
+            _elapsed = time.time() - _t_batch
+            _total_elapsed = time.time() - _t_total
+            print(
+                f"    [AI] batch {_batch_idx}/{_total_batches}: "
+                f"items={len(batch)}, "
+                f"written={_stats.get('classify_v2_rules_written', 0)}, "
+                f"existing={_stats.get('classify_v2_rules_skipped_existing', 0)}, "
+                f"protected={_stats.get('classify_v2_rules_skipped_protected', 0)}, "
+                f"fallback={_stats.get('classify_failed', 0)}, "
+                f"{_elapsed:.1f}s (total {_total_elapsed:.0f}s)"
+            )
+            sys.stdout.flush()
 
             time.sleep(V2_AI_BATCH_SLEEP_S)
 
-        # 3. AI 响应入 v2 breed_l3_map
-        # 过滤规则：confidence < 0.90 不入库（AI 自己拿不准的别污染规则库，下次还要再调一次）
-        MIN_RULE_CONFIDENCE = 0.90
-        if write_rules and ai_results:
+        # 循环结束：关闭 db 连接
+        if _v2_conn is not None:
             try:
-                import sqlite3
-                from gov_price_etl.paths import PROJECT_ROOT
-                v2_db_path = PROJECT_ROOT / "data" / "category_v2_rules.db"
-                conn = sqlite3.connect(str(v2_db_path))
-                rows_to_write = [
-                    (bc, v["l3"], "ai_v2", v["category_v2_confidence"])
-                    for bc, v in ai_results.items()
-                    if v and v.get("l3") and v.get("category_v2_confidence", 0) >= MIN_RULE_CONFIDENCE
-                ]
-                rows_skipped = sum(
-                    1 for v in ai_results.values()
-                    if v and v.get("l3") and v.get("category_v2_confidence", 0) < MIN_RULE_CONFIDENCE
-                )
-                if rows_to_write:
-                    conn.executemany(
-                        """INSERT OR REPLACE INTO breed_l3_map
-                           (breed_clean, l3, source, confidence)
-                           VALUES (?, ?, ?, ?)""",
-                        rows_to_write,
-                    )
-                conn.commit()
-                conn.close()
-                _stats["classify_v2_rules_written"] = _stats.get("classify_v2_rules_written", 0) + len(rows_to_write)
-                if rows_skipped:
-                    _stats["classify_v2_rules_below_threshold"] = _stats.get("classify_v2_rules_below_threshold", 0) + rows_skipped
+                _v2_conn.close()
             except Exception:
-                _stats["classify_v2_rules_failed"] = _stats.get("classify_v2_rules_failed", 0) + 1
+                pass
 
     return {**local_map, **ai_results}
 
@@ -553,6 +700,24 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
         else:
             uncached_idx.append(i)
             uncached_items.append(item)
+
+    # P1-4: parse_spec_batch 防御性去重（与 classify_v2_batch 对齐）
+    # 外层 dws_sync.py 已按 (breed, spec) 去重，但函数内部加上保险避免重复 AI 调用
+    from collections import OrderedDict
+    _spec_groups: "OrderedDict[tuple, int]" = OrderedDict()
+    for _i, _it in zip(uncached_idx, uncached_items):
+        _key = (_it.get("breed", ""), _it.get("spec", ""), _it.get("category", ""))
+        if _key not in _spec_groups:
+            _spec_groups[_key] = _i
+    if len(uncached_items) != len(_spec_groups):
+        _saved = len(uncached_items) - len(_spec_groups)
+        _stats["parse_dedup_saved"] = _stats.get("parse_dedup_saved", 0) + _saved
+        print(f"    [STG3 AI] 去重: {len(uncached_items)} → {len(_spec_groups)} (save {_saved})")
+        uncached_items = [_it for _it in uncached_items
+                         if (_it.get("breed",""), _it.get("spec",""), _it.get("category","")) in _spec_groups]
+        # 同步：uncached_idx 重新对应
+        uncached_idx = [_spec_groups[(_it.get("breed",""), _it.get("spec",""), _it.get("category",""))]
+                        for _it in uncached_items]
 
     # 2. 送 AI（仅未命中的，串行 20/批，遵守道友要求）
     if uncached_items:

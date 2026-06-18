@@ -75,11 +75,7 @@ def format_breed_list(items: List[dict]) -> str:
         breed = it.get('breed') or it.get('breed_clean', '')
         spec = it.get('spec', '')
         unit = it.get('unit', '')
-        cur_l3 = it.get('current_l3', '')
-        if spec or unit:
-            lines.append(f"  {i}. breed={breed} | spec={spec} | unit={unit} | current_l3={cur_l3}")
-        else:
-            lines.append(f"  {i}. breed={breed} | current_l3={cur_l3}")
+        lines.append(f"  {i}. breed={breed} | spec={spec} | unit={unit}")
     return "\n".join(lines)
 
 

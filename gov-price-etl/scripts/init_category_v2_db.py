@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS breed_l3_map (
     l3          TEXT NOT NULL,
     source      TEXT,                   -- 'manual' / 'ai' / 'jaccard'
     confidence  REAL DEFAULT 1.0,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at  TEXT    DEFAULT (datetime('now', 'localtime')),
+    updated_at  TEXT    DEFAULT (datetime('now', 'localtime'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_breed_l3 ON breed_l3_map(l3);
