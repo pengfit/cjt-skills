@@ -508,21 +508,6 @@ def classify_v2_batch(
             _batch_idx = batch_start // V2_AI_BATCH_SIZE + 1
             # 序列化为 prompt items（使用 utils.format_breed_list，含 spec/unit/current_l3）
             breed_list_str = format_breed_list(batch)
-            try:
-                user_prompt = format_prompt(
-                    cfg["template"],
-                    total_l3=len(_taxonomy),
-                    l3_list=l3_list_str,
-                    batch_n=len(batch),
-                    breed_list=breed_list_str,
-                )
-            except (KeyError, ValueError):
-                # 退到老 prompt（仅用 items 占位符）— prompts.yml 缺失 detailed 版时
-                items_str = "\n".join(
-                    f"  {i+1}. breed={it.get('breed','')} | spec={it.get('spec','')} | unit={it.get('unit','')}"
-                    for i, it in enumerate(batch)
-                )
-                user_prompt = f"待分类：\n{items_str}"
             # 统一 AI 调度（仅 Dify workflow）
             ok, content = _ai_invoke(
                 "classify",
@@ -530,6 +515,7 @@ def classify_v2_batch(
                     "breed_list": breed_list_str,
                     "batch_n": len(batch),
                     "total_l3": len(_taxonomy),
+                    "l3_list":l3_list_str
                 },
                 user=f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
                 timeout=90,  # P0-2: 180s→30s 避免 keep-alive 卡死
