@@ -523,7 +523,18 @@ def classify_v2_batch(
             else:
                 try:
                     parsed = json.loads(content)
-                    results_raw = parsed.get("results", {}) if isinstance(parsed, dict) else {}
+                    # Dify outputs['results'] 直接是 list（workflow end 节点把 results 数组
+                    # 当作 outputs 字段整体暴露），不是 {"results": [...]} 包裹结构。
+                    # 兼容两种 schema：
+                    #   A. dict: {"results": [...]} → 取 .get("results")
+                    #   B. list: [...] → 整体作为 results
+                    #   C. 其他: dict 里也兼容 "results" 键
+                    if isinstance(parsed, dict):
+                        results_raw = parsed.get("results", {})
+                    elif isinstance(parsed, list):
+                        results_raw = parsed
+                    else:
+                        results_raw = {}
                 except Exception:
                     # JSON 解析失败 → 写 fallback dict
                     _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
