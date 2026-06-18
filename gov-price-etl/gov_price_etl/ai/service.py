@@ -388,7 +388,7 @@ def classify_v3_batch(
     if not items:
         return {}
 
-    cfg = get_prompt("classify_v3_batch")
+    cfg = get_prompt("classify_v2_batch")  # P0-fix: yml key 是 classify_v2_batch（不是 classify_v3_batch）
     system_msg = cfg.get("system", "")
 
     # 1. 查 v2 breed_l3_map（阶段 1+2 复用现有本地匹配）
@@ -477,7 +477,7 @@ def classify_v3_batch(
                 if _bc_to_check:
                     _ph = ",".join("?" * len(_bc_to_check))
                     _rows = _v2_conn.execute(
-                        f"SELECT breed_clean FROM breed_l3_map WHERE breed_clean IN ({_ph})",
+                        f"SELECT breed_clean FROM breed_l3_map_v3 WHERE breed_clean IN ({_ph})",
                         _bc_to_check,
                     ).fetchall()
                     _already_in_db = {r[0] for r in _rows}
