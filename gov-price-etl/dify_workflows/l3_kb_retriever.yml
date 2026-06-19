@@ -1,9 +1,10 @@
 app:
-  description: '根据 breed 从知识库检索 top-K L3 候选，格式化为 candidate_l3'
+  description: '知识库检索 breed → 返回 raw chunks（Python 端解析）'
   icon: book
   icon_background: '#E4F2EB'
   mode: workflow
   name: l3_kb_retriever
+  use_icon_as_answer_icon: false
 
 kind: app
 version: 0.1.5
@@ -35,23 +36,14 @@ workflow:
         id: edge-start-kr
         source: start
         sourceHandle: source
-        target: knowledge_retrieval
+        target: kr
         targetHandle: target
       - data:
           isInIteration: false
           sourceType: knowledge-retrieval
-          targetType: code
-        id: edge-kr-code
-        source: knowledge_retrieval
-        sourceHandle: source
-        target: format_code
-        targetHandle: target
-      - data:
-          isInIteration: false
-          sourceType: code
           targetType: answer
-        id: edge-code-end
-        source: format_code
+        id: edge-kr-end
+        source: kr
         sourceHandle: source
         target: end
         targetHandle: target
@@ -94,7 +86,7 @@ workflow:
           title: 知识库检索
           type: knowledge-retrieval
         height: 100
-        id: knowledge_retrieval
+        id: kr
         position:
           x: 400
           y: 280
@@ -104,48 +96,16 @@ workflow:
         type: custom
         width: 244
       - data:
-          code_language: python3
-          code: "import re\n\ndef parse_l3_chunk(content):\n    if not content or not isinstance(content, str):\n        return None\n    code_match = re.search(r'\\*\\*L3 \\u7f16\\u7801\\*\\*[:\\uff1a]\\s*`?([\\d.]+)`?', content)\n    if not code_match:\n        return None\n    l3_code = code_match.group(1)\n    path_match = re.search(r'\\*\\*\\u5206\\u7c7b\\u8def\\u5f84\\*\\*[:\\uff1a]\\s*L1\\s+\\d+\\s+(\\S+?)\\s*\\u2192\\s*L2\\s+[\\d.]+\\s+(\\S+?)\\s*\\u2192\\s*L3\\s+[\\d.]+\\s+(\\S+?)(?=\\s|$|\\n)', content)\n    if path_match:\n        return (l3_code, path_match.group(1), path_match.group(2), path_match.group(3))\n    return (l3_code, '', '', '')\n\ndef main(retrieval_result=None):\n    if not retrieval_result:\n        return {'candidate_l3': '', 'chunk_count': 0, 'parsed_count': 0, 'error': 'retrieval_result empty', 'first_chunk_sample': ''}\n    lines = []\n    chunk_count = 0\n    parsed_count = 0\n    first_chunk_sample = ''\n    for item in retrieval_result:\n        chunk_count += 1\n        if not isinstance(item, dict):\n            continue\n        content = item.get('content', '')\n        if not content:\n            continue\n        if not first_chunk_sample:\n            first_chunk_sample = content[:300]\n        parsed = parse_l3_chunk(content)\n        if not parsed:\n            continue\n        parsed_count += 1\n        l3_code, l1_name, l2_name, l3_name = parsed\n        if l1_name and l2_name and l3_name:\n            line = '  ' + l3_code + '  ' + l1_name + '/' + l2_name + '/' + l3_name\n        else:\n            line = '  ' + l3_code\n        if line not in lines:\n            lines.append(line)\n    return {\n        'candidate_l3': '\\n'.join(lines),\n        'chunk_count': chunk_count,\n        'parsed_count': parsed_count,\n        'error': '' if lines else ('KB returned ' + str(chunk_count) + ' chunks, all parse failed'),\n        'first_chunk_sample': first_chunk_sample\n    }"
-          outputs:
-            - variable: candidate_l3
-              type: string
-            - variable: chunk_count
-              type: number
-            - variable: parsed_count
-              type: number
-            - variable: error
-              type: string
-            - variable: first_chunk_sample
-              type: string
-          title: 格式化
-          type: code
-          variables:
-            - max_length: 102400
-              value_selector:
-                - knowledge_retrieval
-                - result
-              variable: retrieval_result
-        height: 120
-        id: format_code
-        position:
-          x: 720
-          y: 280
-        positionAbsolute:
-          x: 720
-          y: 280
-        type: custom
-        width: 244
-      - data:
-          answer: '== candidate_l3 ==\n{{format_code.candidate_l3}}\n== 诊断 ==\nchunks: {{format_code.chunk_count}} | parsed: {{format_code.parsed_count}} | error: {{format_code.error}}'
+          answer: '{{#sys.query#}} 的 KB 检索结果: {{#kr.result#}}'
           title: 输出
           type: answer
         height: 107
         id: end
         position:
-          x: 1040
+          x: 720
           y: 280
         positionAbsolute:
-          x: 1040
+          x: 720
           y: 280
         type: custom
         width: 244
