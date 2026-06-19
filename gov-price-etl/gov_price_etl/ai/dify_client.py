@@ -1,8 +1,8 @@
 """dify_client.py - 通用 Dify Workflow API 客户端
 
 调用 Dify 自建的 ETL workflow：
-  - etl-classify-v2  (app id: app-YId5nS63bZnsEbjKA1GiPuep)
-  - etl-parse-spec   (app id: app-kgaF6jNrpd4PytjhUk3VTCQ4)
+  - etl-classify-deepseek  (app id: app-rUtcXqTyV8N8TY0s6RhSu0GB)
+  - etl-parse-spec         (app id: app-kgaF6jNrpd4PytjhUk3VTCQ4)
 
 Dify API 端点：
   POST {base_url}/v1/workflows/run
@@ -78,10 +78,7 @@ DIFY_CONFIG_PATH = _resolve_config_path()
 
 # 已知的 ETL workflow app id 映射
 KNOWN_APPS: Dict[str, Dict[str, str]] = {
-    "etl-classify-v2": {
-        "app_id": "app-YId5nS63bZnsEbjKA1GiPuep",
-        "purpose": "v2 4 层建材分类（17 字段 JSON）[已废弃]",
-    },
+
     "etl-classify-deepseek": {
         "app_id": "app-rUtcXqTyV8N8TY0s6RhSu0GB",
         "purpose": "DeepSeek 版建材分类（含内置 L3 知识库）",
@@ -90,10 +87,7 @@ KNOWN_APPS: Dict[str, Dict[str, str]] = {
         "app_id": "app-kgaF6jNrpd4PytjhUk3VTCQ4",
         "purpose": "建材规格解析（diameter / length / thickness 等）",
     },
-    "l3_kb_retriever": {
-        "app_id": "app-cdGwKghBxnTN0FDJQCNI8NKE",
-        "purpose": "L3 知识库语义检索（替代本地 n-gram 评分）",
-    },
+
 }
 
 

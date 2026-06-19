@@ -5,13 +5,13 @@
   "base_url": "http://localhost",
 
   "apps": {
-    "etl-classify-v2": {
-      "_app_id": "etl-classify-v2",
-      "api_key": "app-<PUT-YOUR-DIFY-API-KEY-HERE>"
+    "etl-classify-deepseek": {
+      "_app_id": "etl-classify-deepseek",
+      "api_key": "***"
     },
     "etl-parse-spec": {
       "_app_id": "etl-parse-spec",
-      "api_key": "app-<PUT-YOUR-DIFY-API-KEY-HERE>"
+      "api_key": "***"
     }
   }
 }

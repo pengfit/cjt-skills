@@ -40,47 +40,47 @@ class TestConfig:
         # 没文件 → DifyConfigError
         monkeypatch.setenv("DIFY_CONFIG_PATH", str(tmp_path / "nonexistent.json"))
         monkeypatch.delenv("DIFY_BASE_URL", raising=False)
-        monkeypatch.delenv("DIFY_API_KEY_ETL_CLASSIFY_V2", raising=False)
+        monkeypatch.delenv("DIFY_API_KEY_ETL_CLASSIFY_DEEPSEEK", raising=False)
         with pytest.raises(DifyConfigError, match="api_key"):
-            load_config("app-YId5nS63bZnsEbjKA1GiPuep")
+            load_config("app-rUtcXqTyV8N8TY0s6RhSu0GB")
 
     def test_load_from_file(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "dify.json"
         cfg_file.write_text(json.dumps({
             "base_url": "http://dify.local:8080",
             "apps": {
-                "etl-classify-v2": {"api_key": "secret-key-1"},
+                "etl-classify-deepseek": {"api_key": "secret-key-1"},
                 "etl-parse-spec": {"api_key": "secret-key-2"},
             },
         }))
         monkeypatch.setenv("DIFY_CONFIG_PATH", str(cfg_file))
         monkeypatch.delenv("DIFY_BASE_URL", raising=False)
-        monkeypatch.delenv("DIFY_API_KEY_ETL_CLASSIFY_V2", raising=False)
-        cfg = load_config("app-YId5nS63bZnsEbjKA1GiPuep")
+        monkeypatch.delenv("DIFY_API_KEY_ETL_CLASSIFY_DEEPSEEK", raising=False)
+        cfg = load_config("app-rUtcXqTyV8N8TY0s6RhSu0GB")
         assert cfg.api_key == "secret-key-1"
         assert cfg.base_url == "http://dify.local:8080"
-        assert cfg.app_id == "app-YId5nS63bZnsEbjKA1GiPuep"
+        assert cfg.app_id == "app-rUtcXqTyV8N8TY0s6RhSu0GB"
 
     def test_env_overrides_file(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "dify.json"
         cfg_file.write_text(json.dumps({
-            "apps": {"etl-classify-v2": {"api_key": "file-key"}},
+            "apps": {"etl-classify-deepseek": {"api_key": "file-key"}},
         }))
         monkeypatch.setenv("DIFY_CONFIG_PATH", str(cfg_file))
-        monkeypatch.setenv("DIFY_API_KEY_ETL_CLASSIFY_V2", "env-key")
+        monkeypatch.setenv("DIFY_API_KEY_ETL_CLASSIFY_DEEPSEEK", "env-key")
         monkeypatch.setenv("DIFY_BASE_URL", "http://override:9999")
-        cfg = load_config("app-YId5nS63bZnsEbjKA1GiPuep")
+        cfg = load_config("app-rUtcXqTyV8N8TY0s6RhSu0GB")
         assert cfg.api_key == "env-key"
         assert cfg.base_url == "http://override:9999"
 
     def test_put_here_placeholder_rejected(self, tmp_path, monkeypatch):
         cfg_file = tmp_path / "dify.json"
         cfg_file.write_text(json.dumps({
-            "apps": {"etl-classify-v2": {"api_key": "<PUT-HERE"}},
+            "apps": {"etl-classify-deepseek": {"api_key": "<PUT-HERE"}},
         }))
         monkeypatch.setenv("DIFY_CONFIG_PATH", str(cfg_file))
         with pytest.raises(DifyConfigError, match="api_key"):
-            load_config("app-YId5nS63bZnsEbjKA1GiPuep")
+            load_config("app-rUtcXqTyV8N8TY0s6RhSu0GB")
 
 
 class TestResponse:
@@ -202,7 +202,7 @@ class TestCallWorkflow:
 
     def test_config_error_returns_failed_response(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIFY_CONFIG_PATH", str(tmp_path / "nonexistent.json"))
-        resp = call_workflow("app-YId5nS63bZnsEbjKA1GiPuep", {"a": 1})
+        resp = call_workflow("app-rUtcXqTyV8N8TY0s6RhSu0GB", {"a": 1})
         assert not resp.ok
         assert "api_key" in resp.error or "配置" in resp.error
 
@@ -228,18 +228,17 @@ class TestIntegration:
     """真实调 Dify workflow。验证：连通、解析、字段对齐。"""
 
     def test_classify_v2_minimal(self):
-        """跑一次最小 v2 分类。"""
+        """跑一次最小分类（DeepSeek 版）。"""
         resp = call_workflow(
-            "app-YId5nS63bZnsEbjKA1GiPuep",
+            "app-rUtcXqTyV8N8TY0s6RhSu0GB",
             {
                 "breed_list": "1. breed=HPB300 | spec=φ6 | unit=t | current_l3=",
                 "batch_n": 1,
-                "total_l3": 64,
             },
             user="pytest-integration",
-            timeout_s=60,
+            timeout_s=90,
         )
-        print(f"\n[Integration] classify-v2 ok={resp.ok} status={resp.workflow_status}")
+        print(f"\n[Integration] classify-deepseek ok={resp.ok} status={resp.workflow_status}")
         print(f"  outputs: {json.dumps(resp.outputs, ensure_ascii=False)[:200]}")
         if not resp.ok:
             pytest.skip(f"Dify 返回失败（可能 workflow 未发布 / 模型未配置）: {resp.error}")
@@ -284,8 +283,8 @@ class TestAiInvoke:
         assert ok
         # 验证 _call_dify_workflow 收到正确 alias + dify_inputs + user
         args, _ = mock_dw.call_args
-        assert args[0] == "etl-classify-v2"
-        assert args[1] == {"breed_list": "x", "batch_n": 1, "total_l3": 64}
+        assert args[0] == "etl-classify-deepseek"
+        assert args[1] == {"breed_list": "x", "batch_n": 1}
         assert args[2] == "u"
 
     def test_parse_uses_dify_workflow(self):

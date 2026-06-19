@@ -3,8 +3,9 @@
 dify_export.py - 从 prompts.yml 自动生成 Dify 1.14.2 workflow DSL YAML。
 
 生成产物：
-  dify/etl-classify-v2.yml   — v2 4 层建材分类（17 字段）
   dify/parse-spec.yml        — 建材规格解析（返回 suggestions[]）
+
+2026-06-19：etl-classify-v2 已废弃，不再导出（分类走 DeepSeek 版 etl-classify-deepseek，在 Dify 控制台手动维护）
 
 导入方式：Dify → Studio → Workflow → Import from DSL → 选 .yml
 
@@ -263,121 +264,7 @@ def _to_dify_var(user_template: str, var_names: list[str]) -> str:
     return out
 
 
-# ── Workflow 1: v2 4 层分类 ────────────────────────────────────────
-def build_classify_v2(prompts: dict) -> dict:
-    cfg = prompts["classify_v2_batch"]
-    system_msg = cfg["system"].strip()
-    user_tmpl = _to_dify_var(
-        cfg["template"].strip(),
-        var_names=["breed_list", "batch_n", "total_l3"],
-    )
-
-    start_inputs = [
-        {
-            "type": "text-input",
-            "variable": "breed_list",
-            "label": "品种列表（待分类项）",
-            "required": True,
-            "max_length": 50000,
-            "options": [],
-            "placeholder": "每行格式：N. breed=<品种名> | spec=<规格> | unit=<单位> | current_l3=<v1 翻译结果或空>",
-        },
-        {
-            "type": "number",
-            "variable": "batch_n",
-            "label": "批大小（本次品种数）",
-            "required": True,
-            "options": [],
-            "default": 10,
-        },
-        {
-            "type": "number",
-            "variable": "total_l3",
-            "label": "v2 字典 L3 编码总数",
-            "required": True,
-            "options": [],
-            "default": 64,
-        },
-    ]
-
-    start = make_start_node(start_inputs)
-    llm = make_llm_node(
-        node_id="llm_classify",
-        title="v2 分类推理（LLM）",
-        system=system_msg,
-        user_template=user_tmpl,
-        var_refs=["breed_list", "batch_n", "total_l3"],
-        output_var="text",
-        desc="依据 prompts.yml/classify_v2_batch 调用 LLM 推断 v2 4 层分类编码与扩展属性",
-    )
-    code = make_code_node(
-        node_id="code_parse",
-        title="JSON 提取与结构化",
-        code=JSON_PARSE_CODE,
-        input_var="llm_output",
-        input_value_selector=["llm_classify", "text"],
-        outputs_dict={
-            "ok": {"type": "boolean", "children": None},
-            "results": {"type": "array[object]", "children": None},
-            "raw": {"type": "string", "children": None},
-            "err_msg": {"type": "string", "children": None},
-        },
-        desc="从 LLM 输出中健壮提取 JSON（剥离 ``` 围栏、前缀说明、尾部注释），并按 Dify 声明类型反序列化",
-    )
-    end = make_end_node(
-        outputs=[
-            {"variable": "ok", "value_selector": ["code_parse", "ok"]},
-            {"variable": "results", "value_selector": ["code_parse", "results"]},
-            {"variable": "raw", "value_selector": ["code_parse", "raw"]},
-            {"variable": "err_msg", "value_selector": ["code_parse", "err_msg"]},
-        ],
-        desc="对外暴露的工作流输出：results 为分类结果数组，ok/err_msg/raw 用于调用方可观测性",
-    )
-
-    graph = {
-        "edges": [
-            make_edge("start", "llm_classify"),
-            make_edge("llm_classify", "code_parse"),
-            make_edge("code_parse", "end"),
-        ],
-        "nodes": [start, llm, code, end],
-        "viewport": {"x": -200, "y": 100, "zoom": 1},
-    }
-
-    return {
-        "app": {
-            "description": (
-                "v2 4 层建材分类 ETL 工作流。\n"
-                "\n"
-                "用途：对建材品种（breed+spec+unit+current_l3）进行 v2 分类法 4 层编码推断，"
-                "为工程量清单与 BIM 建模提供结构化标签（L1/L2/L3 + name + GB 50500 / IFC / Uniclass / 工程部位 / 阶段 / 置信度等 17 字段）。\n"
-                "\n"
-                "输入：1~10 条品种（文本格式，详见入参 placeholder）\n"
-                "输出：results 数组（每条品种一个分类对象）、ok/err_msg/raw 可观测字段\n"
-                "依赖：v2 字典（64 个 L3 编码），本地预筛后未命中项送 LLM\n"
-                "\n"
-                "适用场景：gov-price-etl 价格入库后的离线分类增强。\n"
-                "维护：scripts/dify_export.py 从 prompts.yml 自动生成（不要手工改本 DSL）。"
-            ),
-            "icon": "🤖",
-            "icon_background": "#FFEAD5",
-            "mode": "workflow",
-            "name": "etl-classify-v2",
-            "use_icon_as_answer_icon": False,
-        },
-        "dependencies": [],
-        "kind": "app",
-        "version": DIFY_VERSION,
-        "workflow": {
-            "conversation_variables": [],
-            "environment_variables": [],
-            "features": _default_features(),
-            "graph": graph,
-        },
-    }
-
-
-# ── Workflow 2: 规格解析 ──────────────────────────────────────────
+# ── Workflow: 规格解析 ────────────────────────────────────────────
 def build_parse_spec(prompts: dict) -> dict:
     cfg = prompts["batch_spec_parse"]
     system_msg = cfg["system"].strip()
@@ -519,19 +406,12 @@ def main() -> int:
     print(f"📤 输出: {OUT_DIR}/")
     print("─" * 60)
 
-    # Workflow 1
-    w1 = build_classify_v2(prompts)
-    p1 = OUT_DIR / "etl-classify-v2.yml"
-    with open(p1, "w", encoding="utf-8") as f:
-        yaml.dump(w1, f, allow_unicode=True, sort_keys=False, default_flow_style=False, width=4096)
-    print(f"  ✅ {p1.name}  ({p1.stat().st_size} bytes)")
-
-    # Workflow 2
-    w2 = build_parse_spec(prompts)
-    p2 = OUT_DIR / "etl-parse-spec.yml"
-    with open(p2, "w", encoding="utf-8") as f:
-        yaml.dump(w2, f, allow_unicode=True, sort_keys=False, default_flow_style=False, width=4096)
-    print(f"  ✅ {p2.name}  ({p2.stat().st_size} bytes)")
+    # Workflow（仅 parse-spec，classify-v2 已废弃不再导出）
+    w = build_parse_spec(prompts)
+    p = OUT_DIR / "etl-parse-spec.yml"
+    with open(p, "w", encoding="utf-8") as f:
+        yaml.dump(w, f, allow_unicode=True, sort_keys=False, default_flow_style=False, width=4096)
+    print(f"  ✅ {p.name}  ({p.stat().st_size} bytes)")
 
     print("─" * 60)
     print("📋 导入步骤：")
@@ -542,7 +422,7 @@ def main() -> int:
     print("─" * 60)
 
     # sanity check
-    for p in (p1, p2):
+    for p in (p,):
         with open(p, "r", encoding="utf-8") as f:
             d = yaml.safe_load(f)
         nodes = d["workflow"]["graph"]["nodes"]

@@ -5,7 +5,7 @@
   2. 本地规则库前置：调 AI 之前先查 v2 规则库（category_v2_rules.db），
      命中直接返回，不调 AI（核心省钱策略）
   3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
-     - 分类：app-YId5nS63bZnsEbjKA1GiPuep (etl-classify-v2)
+     - 分类：app-rUtcXqTyV8N8TY0s6RhSu0GB (etl-classify-deepseek)
      - 解析：app-kgaF6jNrpd4PytjhUk3VTCQ4 (etl-parse-spec)
   4. 统一重试：失败有 fallback（Dify client 内部 5xx 重试 + 业务层 fallback dict）
   5. 计量：每次调用都计入 stats
@@ -15,10 +15,9 @@
 实际调用路径：
   ETL → ai.service._ai_invoke → dify_client.DifyClient → Dify /v1/workflows/run
 
-v1 入口变化（2026-06-16）：
-  - 删除 classify_breed_batch（v1 大分类 AI 入口）
-  - 保留 classify_v2_batch（v2 4 层 AI 入口）
-  - 大分类任务全部走 v2 4 层分类
+入口变化：
+  - 2026-06-16：删除 classify_breed_batch（v1），大分类全部走 v2 4 层
+  - 2026-06-19：etl-classify-v2 废弃，分类走 etl-classify-deepseek（DeepSeek 版，内置 L3 知识库）
 """
 from .service import (
     parse_spec_batch,

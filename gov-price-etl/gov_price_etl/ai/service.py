@@ -471,65 +471,6 @@ def find_top_l3_for_prompt(breed: str, spec: str = "", top_k: int = 10) -> list:
     return top
 
 
-def l3_kb_retriever(breed: str, spec: str = "", top_k: int = 10) -> list:
-    """使用 Dify l3_kb_retriever workflow 做语义检索，替代本地 n-gram 评分。
-
-    Dify workflow 以 l3_kb_doc.md 为知识库进行语义匹配，
-    返回 top-K L3（含 score）。失败时回退到本地 find_top_l3_for_prompt。
-
-    Args:
-        breed: 材料品种名（如 "热轧带肋钢筋"、"XPS挤塑板"）
-        spec: 规格（可选，如 "HRB400"、"C30"）
-        top_k: 返回 top-K
-
-    Returns:
-        list[dict] — 每项含 l1/l2/l3/name_l1/name_l2/name_l3，按 score 降序
-    """
-    import re as _re
-
-    # 调用 Dify workflow
-    from gov_price_etl.ai.dify_client import KNOWN_APPS, call_workflow
-    workflow_alias = "l3_kb_retriever"
-    if workflow_alias not in KNOWN_APPS:
-        return find_top_l3_for_prompt(breed, spec, top_k)
-
-    inputs = {"breed": breed, "spec": spec}
-    resp = call_workflow(workflow_alias, inputs, user="l3_kb_retriever", timeout_s=30)
-
-    if not resp.ok or not resp.outputs.get("result"):
-        return find_top_l3_for_prompt(breed, spec, top_k)
-
-    # 解析 KB chunk，提取 L3 编码
-    full_taxonomy = _load_taxonomy_for_prompt()
-    taxonomy_by_l3 = {t["l3"]: t for t in full_taxonomy}
-
-    results = []
-    seen_l3 = set()
-    for chunk in resp.outputs["result"]:
-        content = chunk.get("content", "")
-        score = chunk.get("metadata", {}).get("score", 0.0)
-        # 新格式: "## L3 XX.XX.XX 路径" - 只处理以 ## L3 开头的 chunk
-        # 跳过 检索说明 等非 L3 chunk
-        if not content.lstrip().startswith("## L3 ") and not _re.match(r"^##\s+L3\s+", content):
-            continue
-        m = _re.search(r"(\d{2}\.\d{2}\.\d{2})", content)
-        if not m:
-            continue
-        l3_code = m.group(1)
-        if l3_code in seen_l3:
-            continue
-        seen_l3.add(l3_code)
-        entry = taxonomy_by_l3.get(l3_code)
-        if entry:
-            results.append({**entry, "score": score})
-
-    results.sort(key=lambda x: -x.get("score", 0))
-    if not results:
-        return find_top_l3_for_prompt(breed, spec, top_k)
-
-    return results[:top_k]
-
-
 def classify_v3_batch(
     items: List[dict],
     city: str = "",

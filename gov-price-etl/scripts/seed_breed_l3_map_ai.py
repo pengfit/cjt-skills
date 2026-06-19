@@ -21,7 +21,7 @@ from elasticsearch import helpers
 import sqlite3
 
 from gov_price_etl.ai.service import (
-    _ai_invoke, _load_taxonomy_for_prompt, l3_kb_retriever,
+    _ai_invoke, _load_taxonomy_for_prompt, find_top_l3_for_prompt,
 )
 from gov_price_etl.classify.utils import format_breed_list
 from gov_price_etl.paths import PROJECT_ROOT
@@ -45,7 +45,7 @@ def ai_classify_batch(items: list, city: str = '') -> dict:
         _batch_breeds = list({(it.get("breed",""), it.get("spec","")): None for it in batch}.keys())
         _top_set = set()
         for _b, _s in _batch_breeds:
-            for _t in l3_kb_retriever(_b, _s, top_k=10):
+            for _t in find_top_l3_for_prompt(_b, _s, top_k=10):
                 _top_set.add((_t['l1'], _t['l2'], _t['l3']))
         _taxonomy = _load_taxonomy_for_prompt()
         l3_list_str = "\n".join(
