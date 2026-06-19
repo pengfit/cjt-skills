@@ -1526,6 +1526,19 @@ body {
   align-content: flex-start;
   box-shadow: 0 4px 16px #e2e8f0;
 }
+
+/* 在内容区内部的滤波栏：去掉粘性和大阴影，与内容区统一 */
+.filter-bar-inside {
+  position: static;
+  z-index: auto;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 12px;
+  margin-bottom: 8px;
+}
 .filter-bar-input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37,99,235,0.4);
@@ -1552,6 +1565,26 @@ body {
   color: #2563eb;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+}
+.btn-more.btn-active {
+  background: rgba(37,99,235,0.12);
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+/* 列表页：左侧分类树 + 右侧产品表格 */
+.list-tree-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.list-tree-panel {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Drawer backdrop */

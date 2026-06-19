@@ -59,47 +59,6 @@
 
     <!-- Filter Bar (full-width, above main content) -->
     <template v-if="curTab === 'list'">
-    <div class="filter-bar">
-      <input
-        class="filter-bar-input"
-        v-model="searchKeyword"
-        placeholder="🔍 产品名称 / 关键词"
-        @keyup.enter="doSearch()"
-        @input="onKeywordInput"
-      />
-      <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
-
-      <!-- Active Filter Tags (inside filter-bar) -->
-      <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory">
-        <span class="filter-tag" v-if="searchKeyword">
-          <strong>产品名称</strong>
-          <em>{{ searchKeyword }}</em>
-          <span class="tag-remove" @click="searchKeyword = ''; doSearch()" role="button" aria-label="清除关键词筛选" tabindex="0">✕</span>
-        </span>
-        <span class="filter-tag" v-if="searchProvince">
-          <strong>省份</strong>
-          <em>{{ searchProvince }}</em>
-          <span class="tag-remove" @click="searchProvince = ''; searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除省份筛选" tabindex="0">✕</span>
-        </span>
-        <span class="filter-tag" v-if="searchCity">
-          <strong>城市</strong>
-          <em>{{ searchCity }}</em>
-          <span class="tag-remove" @click="searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除城市筛选" tabindex="0">✕</span>
-        </span>
-        <span class="filter-tag" v-if="searchCategory">
-          <strong>分类</strong>
-          <em>{{ searchCategory }}</em>
-          <span class="tag-remove" @click="searchCategory = ''; doSearch()" role="button" aria-label="清除分类筛选" tabindex="0">✕</span>
-        </span>
-        <span class="filter-tag" v-if="searchCounty">
-          <strong>区县</strong>
-          <em>{{ searchCounty }}</em>
-          <span class="tag-remove" @click="searchCounty = ''; doSearch()" role="button" aria-label="清除区县筛选" tabindex="0">✕</span>
-        </span>
-        <span class="filter-tag-clear" @click="resetSearch">清空全部</span>
-      </div>
-    </div>
-
     <!-- Filter Drawer (slide-in from right) -->
     <Transition name="drawer">
       <div class="drawer" v-if="showDrawer">
@@ -192,8 +151,63 @@
       <div class="drawer-backdrop" v-if="showDrawer" @click="showDrawer = false"></div>
     </Transition>
 
-      <!-- RIGHT: Content Area -->
+      <!-- 列表页：左侧分类树 + 右侧产品表格 -->
+      <div class="list-tree-layout" v-if="curTab === 'list'">
+        <aside class="list-tree-panel">
+          <CategoryTreeSidebar
+            :active-l3="searchCategoryCode"
+            @select="onCategoryTreeSelect"
+          />
+        </aside>
+
+      <!-- Content Area -->
       <main class="content-area">
+
+      <div class="filter-bar filter-bar-inside">
+        <input
+          class="filter-bar-input"
+          v-model="searchKeyword"
+          placeholder="🔍 产品名称 / 关键词"
+          @keyup.enter="doSearch()"
+          @input="onKeywordInput"
+        />
+        <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
+
+        <!-- Active Filter Tags (inside filter-bar) -->
+        <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory || searchCategoryCode">
+          <span class="filter-tag" v-if="searchKeyword">
+            <strong>产品名称</strong>
+            <em>{{ searchKeyword }}</em>
+            <span class="tag-remove" @click="searchKeyword = ''; doSearch()" role="button" aria-label="清除关键词筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="searchProvince">
+            <strong>省份</strong>
+            <em>{{ searchProvince }}</em>
+            <span class="tag-remove" @click="searchProvince = ''; searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除省份筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="searchCity">
+            <strong>城市</strong>
+            <em>{{ searchCity }}</em>
+            <span class="tag-remove" @click="searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除城市筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="searchCategory">
+            <strong>分类</strong>
+            <em>{{ searchCategory }}</em>
+            <span class="tag-remove" @click="searchCategory = ''; doSearch()" role="button" aria-label="清除分类筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="searchCategoryCode">
+            <strong>{{ {l1:'L1大类',l2:'L2分部',l3:'L3分项'}[searchCategoryLevel] || '分类' }}</strong>
+            <em>{{ searchCategoryCode }}</em>
+            <span class="tag-remove" @click="searchCategoryCode = ''; searchCategoryLevel = ''; doSearch()" role="button" aria-label="清除分类树筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="searchCounty">
+            <strong>区县</strong>
+            <em>{{ searchCounty }}</em>
+            <span class="tag-remove" @click="searchCounty = ''; doSearch()" role="button" aria-label="清除区县筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag-clear" @click="resetSearch">清空全部</span>
+        </div>
+      </div>
 
         <!-- Toolbar (standalone, outside Transition) -->
         <!-- ========== TABLE or CHART or LOADING or EMPTY ========== -->
@@ -331,6 +345,7 @@
         </div>
         </Transition>
       </main>
+      </div> <!-- /.list-tree-layout -->
     </template>
 
     <!-- Distribution page -->
@@ -403,6 +418,7 @@ import DataHealthView from './components/DataHealthView.vue'
 import CockpitView from './components/CockpitView.vue'
 import VecRulesView from './components/VecRulesView.vue'
 import CategoryTaxonomyView from './components/CategoryTaxonomyView.vue'
+import CategoryTreeSidebar from './components/CategoryTreeSidebar.vue'
 import CmdPalette from './components/CmdPalette.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -479,6 +495,8 @@ const searchProvince = ref('')
 const searchCity = ref('')
 const searchCounty = ref('')
 const searchCategory = ref('')
+const searchCategoryCode = ref('')   // 分类树选中节点的代码（L1/L2/L3）
+const searchCategoryLevel = ref('')    // 节点层级: 'l1' | 'l2' | 'l3'
 const categoryOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
@@ -636,6 +654,21 @@ function onProvinceChange() {
   searchCounty.value = ''
 }
 
+function onCategoryTreeSelect(node) {
+  // 根据节点包含的字段判断层级
+  if (node.l3) {
+    searchCategoryCode.value = node.l3
+    searchCategoryLevel.value = 'l3'
+  } else if (node.l2) {
+    searchCategoryCode.value = node.l2
+    searchCategoryLevel.value = 'l2'
+  } else if (node.l1) {
+    searchCategoryCode.value = node.l1
+    searchCategoryLevel.value = 'l1'
+  }
+  doSearch()
+}
+
 function prevPage() {
   if (searchPage.value <= 1) return
   searchPage.value = String(Number(searchPage.value) - 1)
@@ -674,6 +707,11 @@ async function doSearch(pageOverride) {
     if (searchCity.value) params.city = searchCity.value
     if (searchCounty.value) params.county = searchCounty.value
     if (searchCategory.value) params.category = searchCategory.value
+    // 分类树筛选（按层级传递不同参数）
+    if (searchCategoryCode.value && searchCategoryLevel.value) {
+      const levelKey = 'category_' + searchCategoryLevel.value
+      params[levelKey] = searchCategoryCode.value
+    }
     if (priceMin.value) params.price_min = priceMin.value
     if (priceMax.value) params.price_max = priceMax.value
     params.page = Number(pageOverride || searchPage.value)
@@ -705,6 +743,8 @@ function resetSearch() {
   searchCity.value = ''
   searchCounty.value = ''
   searchCategory.value = ''
+  searchCategoryCode.value = ''
+  searchCategoryLevel.value = ''
   priceMin.value = ''
   priceMax.value = ''
   searchPage.value = '1'

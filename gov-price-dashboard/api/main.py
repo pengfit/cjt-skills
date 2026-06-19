@@ -2,12 +2,19 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch
 from typing import Optional
-import os, sys
+import os, sys, sqlite3
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
+
+# category_v3 分类库路径（ETL 项目中的 SQLite DB）
+CATEGORY_DB = os.environ.get(
+    "CATEGORY_DB",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "..", "gov-price-etl", "data", "category_v3_rules.db"),
+)
 
 # 集中引用 skill registry（见 api/skill_registry.py）
 # 新增/修改 skill 只需编辑 skills/<name>/skill.yml，重启后自动生效
@@ -91,6 +98,47 @@ def root():
     return {"message": "材价通 API", "version": "1.0.0"}
 
 
+@app.get("/api/taxonomy/v3/tree")
+def taxonomy_v3_tree():
+    """返回 L1→L2→L3 分类树（纯分类体系，无 ES 计数）"""
+    db_path = CATEGORY_DB
+    if not os.path.isfile(db_path):
+        return {"ok": False, "error": f"分类库不存在: {db_path}", "tree": []}
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        rows = conn.execute(
+            "SELECT l1, name_l1, l2, name_l2, l3, name_l3 "
+            "FROM category_v3 WHERE l4 = 'UNCLASSIFIED' "
+            "ORDER BY l1, l2, l3"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        return {"ok": False, "error": str(e), "tree": []}
+
+    # 组装树
+    tree = []
+    l1_map = {}
+    for l1, name_l1, l2, name_l2, l3, name_l3 in rows:
+        if l1 not in l1_map:
+            node = {"l1": l1, "name_l1": name_l1, "children": []}
+            l1_map[l1] = node
+            tree.append(node)
+        l1_node = l1_map[l1]
+        l2_node = None
+        for c in l1_node["children"]:
+            if c["l2"] == l2:
+                l2_node = c
+                break
+        if not l2_node:
+            l2_node = {"l2": l2, "name_l2": name_l2, "children": []}
+            l1_node["children"].append(l2_node)
+        l2_node["children"].append({
+            "l3": l3, "name_l3": name_l3,
+        })
+
+    return {"ok": True, "tree": tree}
+
+
 @app.get("/api/search")
 def search(
     keyword: Optional[str] = Query(None),
@@ -99,6 +147,9 @@ def search(
     county: Optional[str] = Query(None),
     unit: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    category_l1: Optional[str] = Query(None),
+    category_l2: Optional[str] = Query(None),
+    category_l3: Optional[str] = Query(None),
     price_min: Optional[float] = Query(None),
     price_max: Optional[float] = Query(None),
     page: int = Query(1, ge=1),
@@ -139,6 +190,12 @@ def search(
         filter_clauses.append({"term": {"unit": unit}})
     if category:
         filter_clauses.append({"term": {"category": category}})
+    if category_l1:
+        filter_clauses.append({"term": {"category_l1": category_l1}})
+    if category_l2:
+        filter_clauses.append({"term": {"category_l2": category_l2}})
+    if category_l3:
+        filter_clauses.append({"term": {"category_l3": category_l3}})
     if price_min is not None and price_max is not None and price_min <= price_max:
         filter_clauses.append({"range": {"price": {"gte": price_min, "lte": price_max}}})
     elif price_min is not None and price_min >= 0:
