@@ -6,7 +6,7 @@
      - 分类：category_v3_rules.db（精确 → 模糊 / Jaccard）
      - 解析：breed_spec_rules.db（VecStore.search 关键词相似度）
   3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
-     - 分类：etl-classify-deepseek (DeepSeek 版，内置 L3 知识库)
+     - 分类：etl-classify-category (DeepSeek 版，内置 L3 知识库)
      - 解析：etl-parse-spec (app-kgaF6jNrpd4PytjhUk3VTCQ4)
      - Dify base URL / api_key 走 ~/.openclaw/dify.json 或 env (DIFY_BASE_URL / DIFY_API_KEY_*)
   4. 统一重试：失败有 fallback（Dify client 内部 5xx 重试 + 业务层 fallback dict）
@@ -196,7 +196,7 @@ def _ai_invoke(task: str, *, dify_inputs: dict, user: str,
     from gov_price_etl.ai.dify_client import KNOWN_APPS
     # 2026-06-19: classify 用 DeepSeek 版（内置 L3 知识库，无需总列表数/候选 L3）
     if task == "classify":
-        alias = "etl-classify-deepseek"
+        alias = "etl-classify-category"
     elif task == "parse":
         alias = "etl-parse-spec"
     else:
@@ -632,7 +632,7 @@ def classify_v3_batch(
                     "breed_list": breed_list_str,
                     "batch_n": len(batch),
                 },
-                user=f"etl-classify-deepseek-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
+                user=f"etl-classify-category-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
                 timeout=90,
             )
             if not ok:

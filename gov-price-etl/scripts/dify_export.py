@@ -5,7 +5,7 @@ dify_export.py - 从 prompts.yml 自动生成 Dify 1.14.2 workflow DSL YAML。
 生成产物：
   dify/parse-spec.yml        — 建材规格解析（返回 suggestions[]）
 
-2026-06-19：etl-classify-v2 已废弃，不再导出（分类走 DeepSeek 版 etl-classify-deepseek，在 Dify 控制台手动维护）
+2026-06-19：etl-classify-v2 已废弃，不再导出（分类走 etl-classify-category，在 Dify 控制台手动维护）
 
 导入方式：Dify → Studio → Workflow → Import from DSL → 选 .yml
 

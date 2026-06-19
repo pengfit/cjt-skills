@@ -5,8 +5,8 @@
   "base_url": "http://localhost",
 
   "apps": {
-    "etl-classify-deepseek": {
-      "_app_id": "etl-classify-deepseek",
+    "etl-classify-category": {
+      "_app_id": "etl-classify-category",
       "api_key": "***"
     },
     "etl-parse-spec": {
