@@ -44,7 +44,7 @@ from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
 
 # DB 命中阈值：v2 阶段 1/2/3 都算本地命中，不送 AI
-_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3", "pattern_v3"))
+_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3"))
 
 
 def etl_city(

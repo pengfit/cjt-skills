@@ -383,7 +383,7 @@ def classify_v3(
         for stage_fn in (
             lambda: _stage1_db_exact(conn, breed_clean),
             lambda: _stage2_db_fuzzy(conn, breed_clean),
-            lambda: _stage3_pattern(conn, breed, spec),
+            # lambda: _stage3_pattern(conn, breed, spec),  # 2026-06-19：全部走 AI 分类，pattern 规则跳过
             lambda: _stage4_ai(breed, spec, unit, breed_clean),
             lambda: _stage5_unit_fallback(conn, unit),
         ):

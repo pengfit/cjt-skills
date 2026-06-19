@@ -491,10 +491,12 @@ def classify_v3_batch(
       + material_code（1 物料码）
 
     流程：
-      1. 对每个 item 查 v2 breed_l3_map_v3（精确 → 模糊 / Jaccard）
-      2. 命中 → 直接返回（无 AI 调用）
+      1. 全部 item 直接去重（不先查 breed_l3_map_v3）
+         ETL pipeline round 1 已对每个 ODS 文档调过 classify_v3()，
+         到达这里的都是 round 1 返回 fallback_v3 的项，本地再查结果一样。
+      2. 去重后 db 预查（breed_l3_map_v3 精确匹配，防同批次内重复调 AI）
       3. 未命中 → 攒批送 AI
-      4. AI 失败 → 标记 no_match_v2
+      4. AI 失败 → 跳过（不入缓存，下次 ETL 重新送 AI）
       5. AI 成功 → 写回 breed_l3_map_v3
     """
     if not items:
@@ -503,34 +505,14 @@ def classify_v3_batch(
     cfg = get_prompt("classify_v2_batch")  # P0-fix: yml key 是 classify_v2_batch（不是 classify_v3_batch）
     system_msg = cfg.get("system", "")
 
-    # 1. 查 v2 breed_l3_map_v3（阶段 1+2 复用现有本地匹配）
-    from gov_price_etl.classify.category_v3 import classify_v3, close_singleton
-    close_singleton()  # 重置单例（处理可能的 stale 状态）
-
+    # 1. 全部送 AI（不在本地再查 breed_l3_map_v3）
+    # ETL pipine round 1 已对所有 ODS 文档调过 classify_v3()，
+    # 进入 classify_v3_batch 的都是 round 1 返回 fallback_v3 的项。
+    # 本地再查一次结果一样，白耗 DB 调用。直接去重送 AI。
     local_map: Dict[str, dict] = {}
-    uncached_idx: List[int] = []
-    uncached_items: List[dict] = []
+    uncached_items: List[dict] = items
 
-    for i, item in enumerate(items):
-        breed_clean = item.get("breed_clean", "")
-        if not breed_clean:
-            continue
-        # 复用 classify_v3（v0.5 段式: db_exact + db_fuzzy + pattern + ai + fallback）
-        v2 = classify_v3(
-            breed=item.get("breed", ""),
-            spec=item.get("spec", ""),
-            unit=item.get("unit", ""),
-            breed_clean=breed_clean,
-        )
-        if v2.get("category_v2_source") in ("db_exact_v3", "db_fuzzy_v3"):
-            local_map[breed_clean] = v2
-            _stats["classify_local_hit"] = _stats.get("classify_local_hit", 0) + 1
-        else:
-            # 阶段 3/5 也未命中 → 留给 AI
-            uncached_idx.append(i)
-            uncached_items.append(item)
-
-    # 2. 送 AI（仅未命中的）
+    # 2. 送 AI（所有 pending 项）
     ai_results: Dict[str, dict] = {}
     if uncached_items:
         _stats["classify_v3_calls"] = _stats.get("classify_v3_calls", 0) + 1
@@ -633,7 +615,7 @@ def classify_v3_batch(
                     "batch_n": len(batch),
                 },
                 user=f"etl-classify-category-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
-                timeout=90,
+                timeout=180,
             )
             if not ok:
                 # P0-2: AI 失败写 fallback dict，进 ai_results，让 commit 块处理（不 continue）
@@ -792,11 +774,11 @@ def classify_v3_batch(
                             continue
                         v = ai_results[bc]
                         if v.get("category_v2_source") == "ai_fallback_v3" or not v.get("l3"):
-                            # AI 失败 / AI 返回 l3=空 → 都当作 fallback，用'其他'占位
-                            # 避免 top-K 提示下 AI 偶尔返回空 l3 被静默丢掉
-                            l3, conf, src = "其他", 0.0, "ai_fallback_v3"
-                        else:
-                            l3, conf, src = v["l3"], v["category_v2_confidence"], "ai_v3"
+                            # AI 失败 / AI 返回 l3=空 → 不入缓存
+                            # 避免'其他'占位数据被 stage 2 Jaccard 模糊召回误匹配
+                            # 下次 ETL 会重新送 AI
+                            continue
+                        l3, conf, src = v["l3"], v["category_v2_confidence"], "ai_v3"
                         rows_to_write.append((bc, l3, src, conf))
                     rows_skipped_protected = sum(1 for bc in batch_bc_valid if bc in protected)
                     rows_actually_inserted = 0
