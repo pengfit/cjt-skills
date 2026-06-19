@@ -1,7 +1,7 @@
 {
-  "version": "v3.0",
-  "updated_at": "2026-06-18",
-  "description": "L3 → GB 50500 / IFC / Uniclass 映射。每个 L3 一条记录，按 GB 标准章节精确映射。",
+  "version": "v3.2",
+  "updated_at": "2026-06-19",
+  "description": "L3 → GB/T 50500-2024 / IFC / Uniclass 映射。v3.2: 修正 GB 编码冲突（电缆附件 030409→030408、采暖管道 031008→030708）。",
   "codes": {
     "01.01.01": {
       "name": "挖一般土方",
@@ -1614,7 +1614,7 @@
     },
     "03.04.01": {
       "name": "采暖管道",
-      "gb_50500": "031008",
+      "gb_50500": "030708",
       "gb_50500_name": "采暖管道",
       "quota_ref": null,
       "ifc_class": "IfcPipeSegment",
@@ -1630,7 +1630,7 @@
     },
     "03.04.02": {
       "name": "采暖管道附件",
-      "gb_50500": "031008",
+      "gb_50500": "030708",
       "gb_50500_name": "采暖管道附件",
       "quota_ref": null,
       "ifc_class": "IfcPipeFitting",
@@ -1844,7 +1844,7 @@
     },
     "04.06.03": {
       "name": "电缆附件",
-      "gb_50500": "030409",
+      "gb_50500": "030408",
       "gb_50500_name": "电缆附件",
       "quota_ref": null,
       "ifc_class": "IfcCableFitting",
@@ -1856,6 +1856,23 @@
       "main_or_aux": "辅材",
       "unit": "个",
       "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "04.10.01": {
+      "name": "光伏组件设备",
+      "gb_50500": "030412",
+      "gb_50500_name": "光伏组件设备",
+      "quota_ref": null,
+      "ifc_class": "IfcSolarDevice",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
       "cost_method": "清单"
     },
     "04.07.01": {
@@ -2176,6 +2193,23 @@
       "billing_unit": "套",
       "cost_method": "清单"
     },
+    "06.04.01": {
+      "name": "建筑设备监控",
+      "gb_50500": "030503",
+      "gb_50500_name": "建筑设备监控",
+      "quota_ref": null,
+      "ifc_class": "IfcSensor",
+      "uniclass_ss": "Ss_60_30_50",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
     "07.01.01": {
       "name": "路面材料",
       "gb_50500": "040201",
@@ -2209,6 +2243,22 @@
       "billing_unit": "m³",
       "cost_method": "清单"
     },
+    "07.01.03": {
+      "name": "道路附属设施",
+      "gb_50500": "040202",
+      "gb_50500_name": "道路附属设施",
+      "quota_ref": null,
+      "ifc_class": "IfcElementComponent",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
     "07.02.01": {
       "name": "桥涵构件",
       "gb_50500": "040301",
@@ -2224,6 +2274,22 @@
       "main_or_aux": "主材",
       "unit": "m³",
       "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "07.02.02": {
+      "name": "桥梁支座及伸缩缝",
+      "gb_50500": "040302",
+      "gb_50500_name": "桥梁支座及伸缩缝",
+      "quota_ref": null,
+      "ifc_class": "IfcElementComponent",
+      "uniclass_ss": "Ss_20_50_40",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "套",
+      "billing_unit": "套",
       "cost_method": "清单"
     },
     "07.03.01": {
@@ -2253,6 +2319,136 @@
       "eng_part": "主体",
       "eng_stage": [
         "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "07.03.03": {
+      "name": "市政检查井",
+      "gb_50500": "040503",
+      "gb_50500_name": "市政检查井",
+      "quota_ref": null,
+      "ifc_class": "IfcTank",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "座",
+      "billing_unit": "座",
+      "cost_method": "清单"
+    },
+    "07.03.04": {
+      "name": "市政井盖及雨水篦",
+      "gb_50500": "040503",
+      "gb_50500_name": "市政井盖及雨水篦",
+      "quota_ref": null,
+      "ifc_class": "IfcElementComponent",
+      "uniclass_ss": "Ss_60_10_40",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "07.04.01": {
+      "name": "隧道衬砌材料",
+      "gb_50500": "040401",
+      "gb_50500_name": "隧道衬砌材料",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_50_60",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m³",
+      "billing_unit": "m³",
+      "cost_method": "清单"
+    },
+    "07.04.02": {
+      "name": "隧道防火材料",
+      "gb_50500": "040402",
+      "gb_50500_name": "隧道防火材料",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
+      "uniclass_ss": "Ss_20_50_60",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "07.05.01": {
+      "name": "交通标志标线",
+      "gb_50500": "040702",
+      "gb_50500_name": "交通标志标线",
+      "quota_ref": null,
+      "ifc_class": "IfcElementComponent",
+      "uniclass_ss": "Ss_20_50_20",
+      "eng_part": "主体",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "辅材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "07.05.02": {
+      "name": "交通信号灯设施",
+      "gb_50500": "040703",
+      "gb_50500_name": "交通信号灯设施",
+      "quota_ref": null,
+      "ifc_class": "IfcLightFixture",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "主体",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "07.06.01": {
+      "name": "路灯灯杆灯具",
+      "gb_50500": "040801",
+      "gb_50500_name": "路灯灯杆灯具",
+      "quota_ref": null,
+      "ifc_class": "IfcLightFixture",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
+    "07.06.02": {
+      "name": "路灯电缆",
+      "gb_50500": "040802",
+      "gb_50500_name": "路灯电缆",
+      "quota_ref": null,
+      "ifc_class": "IfcCableSegment",
+      "uniclass_ss": "Ss_60_30_10",
+      "eng_part": "装饰",
+      "eng_stage": [
         "施工"
       ],
       "main_or_aux": "主材",
@@ -2341,12 +2537,61 @@
       "billing_unit": "株",
       "cost_method": "清单"
     },
+    "08.01.06": {
+      "name": "绿地灌溉系统",
+      "gb_50500": "050106",
+      "gb_50500_name": "绿地灌溉系统",
+      "quota_ref": null,
+      "ifc_class": "IfcFlowTerminal",
+      "uniclass_ss": "Ss_60_10_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
+      "cost_method": "清单"
+    },
     "08.02.01": {
-      "name": "园建材料",
+      "name": "园路铺装材料",
       "gb_50500": "050201",
-      "gb_50500_name": "园建材料",
+      "gb_50500_name": "园路铺装材料",
       "quota_ref": null,
       "ifc_class": "IfcSlab",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m²",
+      "billing_unit": "m²",
+      "cost_method": "清单"
+    },
+    "08.02.02": {
+      "name": "花池树池材料",
+      "gb_50500": "050202",
+      "gb_50500_name": "花池树池材料",
+      "quota_ref": null,
+      "ifc_class": "IfcWall",
+      "uniclass_ss": "Ss_20_50_95",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "m",
+      "billing_unit": "m",
+      "cost_method": "清单"
+    },
+    "08.02.03": {
+      "name": "木结构景观材料",
+      "gb_50500": "050203",
+      "gb_50500_name": "木结构景观材料",
+      "quota_ref": null,
+      "ifc_class": "IfcCovering",
       "uniclass_ss": "Ss_20_50_95",
       "eng_part": "装饰",
       "eng_stage": [
@@ -2371,6 +2616,23 @@
       "main_or_aux": "主材",
       "unit": "个",
       "billing_unit": "个",
+      "cost_method": "清单"
+    },
+    "08.03.02": {
+      "name": "水景设备",
+      "gb_50500": "050302",
+      "gb_50500_name": "水景设备",
+      "quota_ref": null,
+      "ifc_class": "IfcPump",
+      "uniclass_ss": "Ss_60_10_70",
+      "eng_part": "装饰",
+      "eng_stage": [
+        "设计",
+        "施工"
+      ],
+      "main_or_aux": "主材",
+      "unit": "套",
+      "billing_unit": "套",
       "cost_method": "清单"
     }
   }
