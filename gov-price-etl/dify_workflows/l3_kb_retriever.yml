@@ -1,0 +1,252 @@
+# Dify 工作流 DSL: l3_kb_retriever (v2 - 加调试输出)
+# 用途: 输入 breed (材料品种), 从知识库检索 top-K L3 候选, 格式化为 candidate_l3
+# 输出: candidate_l3 (多行字符串) + chunk_count + parsed_count + error (诊断用)
+# 调用方: gov-price-etl ETL (替换原来本地 find_top_l3_for_prompt)
+
+app:
+  description: '根据 breed 从知识库检索 top-K L3 候选，格式化为 candidate_l3'
+  icon: 📚
+  icon_background: '#E4F2EB'
+  mode: workflow
+  name: l3_kb_retriever
+  use_icon_as_answer_icon: false
+
+kind: app
+version: 0.2.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+      - data:
+          isInIteration: false
+          sourceType: start
+          targetType: knowledge-retrieval
+        id: edge-start-kr
+        source: start_node
+        sourceHandle: source
+        target: knowledge_retrieval_node
+        targetHandle: target
+      - data:
+          isInIteration: false
+          sourceType: knowledge-retrieval
+          targetType: code
+        id: edge-kr-code
+        source: knowledge_retrieval_node
+        sourceHandle: source
+        target: format_code_node
+        targetHandle: target
+      - data:
+          isInIteration: false
+          sourceType: code
+          targetType: answer
+        id: edge-code-end
+        source: format_code_node
+        sourceHandle: source
+        target: end_node
+        targetHandle: target
+    nodes:
+      # ============== 1. 开始节点: 接收 breed 输入 ==============
+      - data:
+          title: 开始
+          type: start
+          variables:
+            - allowed_file_types: []
+              allowed_file_upload_methods:
+                - local_file
+                - remote_url
+              description: 建筑材料品种名
+              human_description: 输入材料品种名
+              label: breed
+              max_length: 200
+              options: []
+              required: true
+              type: text-input
+              variable: breed
+        height: 90
+        id: start_node
+        position:
+          x: 80
+          y: 280
+        positionAbsolute:
+          x: 80
+          y: 280
+        type: custom
+        width: 244
+      # ============== 2. 知识检索节点 ==============
+      - data:
+          dataset_ids:
+            - '<REPLACE_WITH_KB_DATASET_ID>'
+          multiple_retrieval_config:
+            top_k: 10
+            score_threshold: 0.5
+            reranking_enable: false
+          query_variable_selector:
+            - start_node
+            - breed
+          title: 知识库检索 L3 候选
+          type: knowledge-retrieval
+          retrieval_mode: multiple
+        height: 100
+        id: knowledge_retrieval_node
+        position:
+          x: 400
+          y: 280
+        positionAbsolute:
+          x: 400
+          y: 280
+        type: custom
+        width: 244
+      # ============== 3. 代码节点: 解析 + 诊断 ==============
+      - data:
+          code_language: python3
+          code: |
+            import re
+            import json
+
+            def parse_l3_chunk(content):
+                """从 KB chunk content 提取 L3 编码 + L1/L2/L3 路径名
+
+                期望输入示例:
+                  **L3 编码**：`01.05.15`
+
+                  **分类路径**：L1 01 建筑工程 → L2 01.05 混凝土及钢筋混凝土工程 → L3 01.05.15 钢筋工程
+                """
+                if not content or not isinstance(content, str):
+                    return None
+
+                # 提取 L3 编码 (兼容全角/半角冒号)
+                code_match = re.search(r'\*\*L3 编码\*\*[：:]\s*`?([\d.]+)`?', content)
+                if not code_match:
+                    return None
+                l3_code = code_match.group(1)
+
+                # 提取分类路径
+                path_match = re.search(
+                    r'\*\*分类路径\*\*[：:]\s*'
+                    r'L1\s+\d+\s+(\S+?)\s*→\s*'
+                    r'L2\s+[\d.]+\s+(\S+?)\s*→\s*'
+                    r'L3\s+[\d.]+\s+(\S+?)(?=\s|$|\n|，)',
+                    content
+                )
+                if path_match:
+                    return (l3_code, path_match.group(1), path_match.group(2), path_match.group(3))
+                # fallback: 只有 L3 编码
+                return (l3_code, '', '', '')
+
+            def main(retrieval_result=None) -> dict:
+                """把 KB 检索结果格式化为 candidate_l3 多行字符串
+
+                输出 4 个变量供调用方诊断:
+                  - candidate_l3: 格式化后的多行字符串
+                  - chunk_count: KB 返回的 chunk 数
+                  - parsed_count: 成功解析的 chunk 数
+                  - error: 错误信息 (空表示成功)
+                  - first_chunk_sample: 第一个 chunk 的前 300 字符 (调试)
+                """
+                if not retrieval_result:
+                    return {
+                        'candidate_l3': '',
+                        'chunk_count': 0,
+                        'parsed_count': 0,
+                        'error': 'retrieval_result 为空 → 检查 KB dataset_id 是否填、索引是否完成、breed 是否有命中',
+                        'first_chunk_sample': ''
+                    }
+
+                lines = []
+                chunk_count = 0
+                parsed_count = 0
+                first_chunk_sample = ''
+
+                for item in retrieval_result:
+                    chunk_count += 1
+                    if not isinstance(item, dict):
+                        continue
+                    content = item.get('content', '')
+                    if not content:
+                        continue
+                    if not first_chunk_sample:
+                        first_chunk_sample = content[:300]
+                    parsed = parse_l3_chunk(content)
+                    if not parsed:
+                        continue
+                    parsed_count += 1
+                    l3_code, l1_name, l2_name, l3_name = parsed
+                    if l1_name and l2_name and l3_name:
+                        line = f'  {l3_code}  {l1_name}/{l2_name}/{l3_name}'
+                    else:
+                        line = f'  {l3_code}  (路径不完整)'
+                    if line not in lines:
+                        lines.append(line)
+
+                return {
+                    'candidate_l3': '\n'.join(lines),
+                    'chunk_count': chunk_count,
+                    'parsed_count': parsed_count,
+                    'error': '' if lines else f'KB 返回 {chunk_count} chunks 但全部解析失败, 检查 first_chunk_sample',
+                    'first_chunk_sample': first_chunk_sample
+                }
+          outputs:
+            - children: null
+              type: string
+              variable: candidate_l3
+            - children: null
+              type: number
+              variable: chunk_count
+            - children: null
+              type: number
+              variable: parsed_count
+            - children: null
+              type: string
+              variable: error
+            - children: null
+              type: string
+              variable: first_chunk_sample
+          title: 格式化 candidate_l3
+          type: code
+          variables:
+            - max_length: 102400
+              value_selector:
+                - knowledge_retrieval_node
+                - result
+              variable: retrieval_result
+        height: 120
+        id: format_code_node
+        position:
+          x: 720
+          y: 280
+        positionAbsolute:
+          x: 720
+          y: 280
+        type: custom
+        width: 244
+      # ============== 4. 结束节点: 输出 candidate_l3 ==============
+      - data:
+          answer: '{{format_code_node.candidate_l3}}'
+          title: 输出 candidate_l3
+          type: answer
+        height: 107
+        id: end_node
+        position:
+          x: 1040
+          y: 280
+        positionAbsolute:
+          x: 1040
+          y: 280
+        type: custom
+        width: 244
