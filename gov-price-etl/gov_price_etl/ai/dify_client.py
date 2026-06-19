@@ -80,11 +80,19 @@ DIFY_CONFIG_PATH = _resolve_config_path()
 KNOWN_APPS: Dict[str, Dict[str, str]] = {
     "etl-classify-v2": {
         "app_id": "app-YId5nS63bZnsEbjKA1GiPuep",
-        "purpose": "v2 4 层建材分类（17 字段 JSON）",
+        "purpose": "v2 4 层建材分类（17 字段 JSON）[已废弃]",
+    },
+    "etl-classify-deepseek": {
+        "app_id": "app-rUtcXqTyV8N8TY0s6RhSu0GB",
+        "purpose": "DeepSeek 版建材分类（含内置 L3 知识库）",
     },
     "etl-parse-spec": {
         "app_id": "app-kgaF6jNrpd4PytjhUk3VTCQ4",
         "purpose": "建材规格解析（diameter / length / thickness 等）",
+    },
+    "l3_kb_retriever": {
+        "app_id": "app-cdGwKghBxnTN0FDJQCNI8NKE",
+        "purpose": "L3 知识库语义检索（替代本地 n-gram 评分）",
     },
 }
 
@@ -349,13 +357,12 @@ def _self_test(app_id: str) -> int:
     print(f"─" * 60)
 
     # 最小测试输入（每个 app 给一条样例）
-    if "classify" in app_id or KNOWN_APPS.get("etl-classify-v2", {}).get("app_id") == app_id:
+    if "classify" in app_id:
         inputs = {
             "breed_list": "1. breed=HPB300 | spec=φ6 | unit=t | current_l3=",
             "batch_n": 1,
-            "total_l3": 64,
         }
-    elif "parse" in app_id or KNOWN_APPS.get("etl-parse-spec", {}).get("app_id") == app_id:
+    elif "parse" in app_id:
         inputs = {
             "specs_str": "[1] 规格: φ6 | 产品: HPB300 | 分类: 钢材",
             "ref_names": "diameter, length, width, thickness, grade, material",

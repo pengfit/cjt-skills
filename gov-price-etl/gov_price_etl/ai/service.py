@@ -6,8 +6,8 @@
      - 分类：category_v3_rules.db（精确 → 模糊 / Jaccard）
      - 解析：breed_spec_rules.db（VecStore.search 关键词相似度）
   3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
-     - 分类：app-YId5nS63bZnsEbjKA1GiPuep (etl-classify-v2)
-     - 解析：app-kgaF6jNrpd4PytjhUk3VTCQ4 (etl-parse-spec)
+     - 分类：etl-classify-deepseek (DeepSeek 版，内置 L3 知识库)
+     - 解析：etl-parse-spec (app-kgaF6jNrpd4PytjhUk3VTCQ4)
      - Dify base URL / api_key 走 ~/.openclaw/dify.json 或 env (DIFY_BASE_URL / DIFY_API_KEY_*)
   4. 统一重试：失败有 fallback（Dify client 内部 5xx 重试 + 业务层 fallback dict）
   5. 计量：每次调用都计入 stats
@@ -132,8 +132,8 @@ def _call_dify_workflow(app_id: str, inputs: dict, user: str,
     """调用 Dify workflow（同步 blocking），返回 (ok, content_str)。
 
     Args:
-        app_id:  app-YId5nS63bZnsEbjKA1GiPuep (classify-v2) / app-kgaF6jNrpd4PytjhUk3VTCQ4 (parse-spec)
-        inputs:  workflow start 节点的变量 dict（breed_list / batch_n / total_l3 等）
+        app_id:  app 完整 id 或 KNOWN_APPS 别名
+        inputs:  workflow start 节点的变量 dict（classify: breed_list / batch_n 等）
         user:    调用方标识（Dify 用于会话隔离 / 统计）
         timeout: 同步超时秒
 
@@ -194,7 +194,13 @@ def _ai_invoke(task: str, *, dify_inputs: dict, user: str,
         (ok, content_str) — ok=True 时 content 是 json.dumps(outputs['results'])
     """
     from gov_price_etl.ai.dify_client import KNOWN_APPS
-    alias = f"etl-{task}-v2" if task == "classify" else f"etl-{task}-spec"
+    # 2026-06-19: classify 用 DeepSeek 版（内置 L3 知识库，无需总列表数/候选 L3）
+    if task == "classify":
+        alias = "etl-classify-deepseek"
+    elif task == "parse":
+        alias = "etl-parse-spec"
+    else:
+        return False, f"未知 task: {task!r}（已知: classify / parse）"
     if alias not in KNOWN_APPS:
         return False, f"未知 task: {task!r}（alias 推断失败）"
     return _call_dify_workflow(alias, dify_inputs, user, timeout=timeout)
@@ -465,6 +471,65 @@ def find_top_l3_for_prompt(breed: str, spec: str = "", top_k: int = 10) -> list:
     return top
 
 
+def l3_kb_retriever(breed: str, spec: str = "", top_k: int = 10) -> list:
+    """使用 Dify l3_kb_retriever workflow 做语义检索，替代本地 n-gram 评分。
+
+    Dify workflow 以 l3_kb_doc.md 为知识库进行语义匹配，
+    返回 top-K L3（含 score）。失败时回退到本地 find_top_l3_for_prompt。
+
+    Args:
+        breed: 材料品种名（如 "热轧带肋钢筋"、"XPS挤塑板"）
+        spec: 规格（可选，如 "HRB400"、"C30"）
+        top_k: 返回 top-K
+
+    Returns:
+        list[dict] — 每项含 l1/l2/l3/name_l1/name_l2/name_l3，按 score 降序
+    """
+    import re as _re
+
+    # 调用 Dify workflow
+    from gov_price_etl.ai.dify_client import KNOWN_APPS, call_workflow
+    workflow_alias = "l3_kb_retriever"
+    if workflow_alias not in KNOWN_APPS:
+        return find_top_l3_for_prompt(breed, spec, top_k)
+
+    inputs = {"breed": breed, "spec": spec}
+    resp = call_workflow(workflow_alias, inputs, user="l3_kb_retriever", timeout_s=30)
+
+    if not resp.ok or not resp.outputs.get("result"):
+        return find_top_l3_for_prompt(breed, spec, top_k)
+
+    # 解析 KB chunk，提取 L3 编码
+    full_taxonomy = _load_taxonomy_for_prompt()
+    taxonomy_by_l3 = {t["l3"]: t for t in full_taxonomy}
+
+    results = []
+    seen_l3 = set()
+    for chunk in resp.outputs["result"]:
+        content = chunk.get("content", "")
+        score = chunk.get("metadata", {}).get("score", 0.0)
+        # 新格式: "## L3 XX.XX.XX 路径" - 只处理以 ## L3 开头的 chunk
+        # 跳过 检索说明 等非 L3 chunk
+        if not content.lstrip().startswith("## L3 ") and not _re.match(r"^##\s+L3\s+", content):
+            continue
+        m = _re.search(r"(\d{2}\.\d{2}\.\d{2})", content)
+        if not m:
+            continue
+        l3_code = m.group(1)
+        if l3_code in seen_l3:
+            continue
+        seen_l3.add(l3_code)
+        entry = taxonomy_by_l3.get(l3_code)
+        if entry:
+            results.append({**entry, "score": score})
+
+    results.sort(key=lambda x: -x.get("score", 0))
+    if not results:
+        return find_top_l3_for_prompt(breed, spec, top_k)
+
+    return results[:top_k]
+
+
 def classify_v3_batch(
     items: List[dict],
     city: str = "",
@@ -528,16 +593,8 @@ def classify_v3_batch(
     ai_results: Dict[str, dict] = {}
     if uncached_items:
         _stats["classify_v3_calls"] = _stats.get("classify_v3_calls", 0) + 1
-        # 加载 v2 字典全量（L1/L2/L3 + name）→ 喂给 AI，避免乱填编码
-        # 之前省略导致 AI 复用已有 L3 编码 + 改 name_l3（保温材料→01.04.01 钢构件）
-        # v0.4.1 优化: 不送全 145，改为 top-K 筛选（L1 关键词 + n-gram 评分）
-        # 节省 ~90% tokens（11K → 1K），且 L1 内 L3 集合更准
+        # DeepSeek 版 Dify workflow 内置 L3 知识库，不需前端传播 taxonomy
         from gov_price_etl.classify.utils import format_breed_list
-        _taxonomy = _load_taxonomy_for_prompt()
-        l3_list_str = "\n".join(
-            f"  {t['l3']}  {t['name_l1']}/{t['name_l2']}/{t['name_l3']}"
-            for t in _taxonomy
-        ) if _taxonomy else ""
 
         # 攒批去重：按 (breed_clean, spec, unit) 三元组只送一次 AI
         # v2 体系下 breed_clean 决定 l3，spec/unit 不影响分类，但为保幂等仍按三元组去重
@@ -623,32 +680,19 @@ def classify_v3_batch(
         _t_total = time.time()
         for batch_start in range(0, len(deduped_uncached), V2_AI_BATCH_SIZE):
             batch = deduped_uncached[batch_start:batch_start + V2_AI_BATCH_SIZE]
-            # v0.4.1: 按本批 breed 集算 top-K 候选 (代替全 145)
-            _batch_breeds = list({(it.get("breed",""), it.get("spec","")): None for it in batch}.keys())
-            _top_set = set()
-            for _b, _s in _batch_breeds:
-                for _t in find_top_l3_for_prompt(_b, _s, top_k=10):
-                    _top_set.add((_t['l1'], _t['l2'], _t['l3']))
-            _relevant_l3 = [
-                f"  {t['l3']}  {t['name_l1']}/{t['name_l2']}/{t['name_l3']}"
-                for t in _taxonomy if (t['l1'], t['l2'], t['l3']) in _top_set
-            ]
-            l3_list_str_batch = "\n".join(_relevant_l3) if _relevant_l3 else l3_list_str
             _t_batch = time.time()
             _batch_idx = batch_start // V2_AI_BATCH_SIZE + 1
             # 序列化为 prompt items（使用 utils.format_breed_list，含 spec/unit/current_l3）
             breed_list_str = format_breed_list(batch)
-            # 统一 AI 调度（仅 Dify workflow）
+            # 统一 AI 调度（仅 Dify workflow）—— DeepSeek 版内置 L3 知识库
             ok, content = _ai_invoke(
                 "classify",
                 dify_inputs={
                     "breed_list": breed_list_str,
                     "batch_n": len(batch),
-                    "total_l3": len(_taxonomy),
-                    "candidate_l3":l3_list_str_batch
                 },
-                user=f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
-                timeout=90,  # P0-2: 180s→30s 避免 keep-alive 卡死
+                user=f"etl-classify-deepseek-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
+                timeout=90,
             )
             if not ok:
                 # P0-2: AI 失败写 fallback dict，进 ai_results，让 commit 块处理（不 continue）
