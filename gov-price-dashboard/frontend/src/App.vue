@@ -377,7 +377,9 @@
   </div>
 
   <!-- Toast -->
-  <div v-if="toast.show" class="toast">{{ toast.msg }}</div>
+  <Transition name="toast">
+    <div v-if="toast.show" class="toast" :class="'toast--' + (toast.type || 'info')">{{ toast.msg }}</div>
+  </Transition>
 
   <!-- 命令面板 ⌘K -->
   <CmdPalette
@@ -518,7 +520,7 @@ const pricePresets = [
 ]
 
 // Toast
-const toast = ref({ show: false, msg: '' })
+const toast = ref({ show: false, msg: '', type: 'info' })
 const searchError = ref(false)
 const tabLoading = ref(false)
 
@@ -855,8 +857,8 @@ async function refreshAll() {
   showToast('数据已刷新')
 }
 
-function showToast(msg) {
-  toast.value = { show: true, msg }
+function showToast(msg, type = 'info') {
+  toast.value = { show: true, msg, type }
   setTimeout(() => { toast.value.show = false }, 3000)
 }
 

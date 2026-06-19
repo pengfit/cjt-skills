@@ -165,5 +165,5 @@ defineEmits(['close', 'fix'])
 .sk-meta { height: 10px; width: 40%; }
 
 /* Empty */
-.ss-empty { font-size: 12px; color: #334155; text-align: center; padding: 16px; }
+.ss-empty { font-size: 12px; color: var(--text-3, #94a3b8); text-align: center; padding: 16px; }
 </style>

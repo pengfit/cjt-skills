@@ -389,7 +389,7 @@ async function refreshSpecQualityCoverage() {
     })
     if (sq.data?.coverage) {
       const newCoverage = JSON.parse(JSON.stringify(sq.data.coverage))
-      console.log('[coverage] 刷新后钢材分类:', newCoverage.find(c => c.category.includes('钢材')), '城市:', dwdDrilldownCity.value)
+      // [coverage] refreshed
       specQuality.value = { ...specQuality.value, coverage: newCoverage }
       sqCatOptions.value = sq.data.coverage.map(c => c.category)
     }
@@ -658,7 +658,7 @@ onMounted(() => {
   margin-top: 8px;
 }
 .prov-city-select select {
-  background: #0f172a;
+  background: var(--surface, #ffffff);
   color: #1e293b;
   border: 1px solid rgba(15,23,42,0.12);
   border-radius: 6px;
@@ -734,7 +734,7 @@ onMounted(() => {
 .province-row.stale { background: rgba(248,113,113,0.06); }
 .province-row.old { background: rgba(245,158,11,0.04); }
 .province-info { display: flex; flex-direction: column; gap: 1px; }
-.province-name { font-size: 13px; font-weight: 500; color: #334155; }
+.province-name { font-size: 13px; font-weight: 500; color: var(--text-2, #475569); }
 .province-count { font-size: 10px; color: #475569; }
 .province-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .province-date { font-size: 11px; }
@@ -905,7 +905,7 @@ onMounted(() => {
 .chip-pct.running { color: var(--primary); }
 .chip-pct.completed { color: var(--status-ok); }
 .chip-pct.not-started { color: #475569; }
-.unified-county-empty { font-size: 10px; color: #334155; padding: 4px 0; }
+.unified-county-empty { font-size: 10px; color: var(--text-3, #94a3b8); padding: 4px 0; }
 
 @keyframes pulse-dot {
   0%   { box-shadow: 0 0 0 0 rgba(37,99,235,0.5); transform: scale(1); }
@@ -1066,7 +1066,7 @@ onMounted(() => {
   z-index: 9999;
 }
 .fix-success-content {
-  background: #0f172a;
+  background: var(--surface, #ffffff);
   border: 1px solid var(--status-ok);
   border-radius: 16px;
   padding: 40px 48px;
@@ -1123,10 +1123,10 @@ onMounted(() => {
   gap: 12px;
   padding: 14px 16px;
   margin: 8px 16px;
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--surface-3, #e2e8f0);
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow, 0 1px 2px rgba(15,23,42,0.04));
 }
 .sq-confirm-icon {
   font-size: 22px;
@@ -1156,7 +1156,7 @@ onMounted(() => {
 .sq-confirm-cancel {
   background: transparent;
   color: var(--text-3);
-  border: 1px solid #334155;
+  border: 1px solid var(--surface-3, #e2e8f0);
   border-radius: 8px;
   padding: 7px 14px;
   font-size: 13px;
@@ -1164,9 +1164,9 @@ onMounted(() => {
   transition: all 0.15s;
 }
 .sq-confirm-cancel:hover {
-  background: #0f172a;
+  background: var(--surface-2, #f1f5f9);
   color: var(--text-3);
-  border-color: #475569;
+  border-color: var(--surface-3, #e2e8f0);
 }
 .sq-confirm-ok {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -1268,7 +1268,7 @@ onMounted(() => {
 .vec-pattern {
   font-family: 'Courier New', monospace;
   font-size: 11px;
-  color: #a5f3fc;
+  color: var(--primary, #2563eb);
   background: rgba(37,99,235,0.06);
   border-radius: 3px;
   padding: 2px 5px;
@@ -1292,9 +1292,8 @@ onMounted(() => {
   display: block;
 }
 .vec-date { color: #475569; white-space: nowrap; font-size: 11px; }
-.vec-empty { text-align: center; color: #334155; padding: 20px; }
-.vec-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
-.vec-page-info { font-size: 12px; color: var(--text-3); }
+.vec-empty { text-align: center; color: var(--text-3, #94a3b8); padding: 20px; }
+/* vec-pagination removed — 统一使用 AppPagination */
 
 .scrape-stage { flex: 1; display: flex; align-items: center; background: rgba(15, 23, 42, 0.03); border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; gap: 4px; }
 

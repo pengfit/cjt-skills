@@ -1,47 +1,14 @@
 <template>
   <!-- Toolbar -->
   <div class="ctx-toolbar">
-    <div class="ctx-toolbar-left">
-      <div class="ctx-search-wrap">
-        <span class="ctx-search-icon">🔍</span>
-        <input
-          class="ctx-input"
-          v-model="mapKeyword"
-          placeholder="搜索品种名..."
-          @input="debounceLoadMap(1)"
-        />
-      </div>
-      <CustomSelect
-        v-model="mapL3Filter"
-        :options="mapL3Options.map(o => ({ key: o, label: o }))"
-        placeholder="全部 L3"
-        :searchable="true"
-        @change="loadMap(1)"
+    <div class="ctx-search-wrap">
+      <span class="ctx-search-icon">🔍</span>
+      <input
+        class="ctx-input"
+        v-model="mapKeyword"
+        placeholder="搜索品种名..."
+        @input="debounceLoadMap(1)"
       />
-      <CustomSelect
-        v-model="mapSourceFilter"
-        :options="mapSourceOptions.map(o => ({ key: o, label: o }))"
-        placeholder="全部来源"
-        :searchable="false"
-        @change="loadMap(1)"
-      />
-      <div class="ctx-conf-wrap">
-        <span class="ctx-conf-label">置信度 ≥</span>
-        <input
-          class="ctx-conf-input"
-          type="number"
-          step="0.05"
-          min="0"
-          max="1"
-          v-model.number="mapMinConf"
-          @change="loadMap(1)"
-        />
-      </div>
-    </div>
-    <div class="ctx-toolbar-right">
-      <button class="ctx-btn ctx-btn-red" @click="clearMapFilters" :disabled="mapLoading">
-        🗑️ 清空筛选
-      </button>
     </div>
   </div>
 
@@ -64,7 +31,12 @@
             <td colspan="6" class="ctx-empty">加载中...</td>
           </tr>
           <tr v-else-if="!mapRows.length">
-            <td colspan="6" class="ctx-empty">暂无映射</td>
+            <td colspan="6" class="ctx-empty">
+              <div class="ctx-empty-art">🗂️</div>
+              <div class="ctx-empty-title">暂无映射条目</div>
+              <div class="ctx-empty-hint">试试调整筛选条件或清空全部</div>
+              <button class="ctx-btn ctx-btn-cyan" @click="clearMapFilters" style="margin-top:12px">🔍 清空筛选</button>
+            </td>
           </tr>
           <tr v-for="r in mapRows" :key="r.breed_clean" class="ctx-row" v-show="!mapLoading && mapRows.length">
             <td class="text-left"><span class="ctx-breed-text">{{ r.breed_clean }}</span></td>
@@ -93,9 +65,12 @@
     <AppPagination
       :current="mapPage"
       :total="mapTotal"
-      :page-size="50"
+      :page-size="mapPageSize"
+      :page-size-options="mapPageSizeOptions"
+      show-size-changer
       info-template="第 {from}-{to} 条 / 共 {total} 条"
       @change="loadMap"
+      @update:page-size="mapPageSize = $event; loadMap(1)"
     />
   </div>
 </template>
@@ -103,7 +78,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
-import CustomSelect from './CustomSelect.vue'
+// import CustomSelect from './CustomSelect.vue' — unused filters removed
 import AppPagination from './AppPagination.vue'
 
 const props = defineProps({
@@ -114,11 +89,9 @@ const API = import.meta.env.VITE_API_URL || '/api'
 
 // ── 状态 ──
 const mapKeyword = ref('')
-const mapL3Filter = ref(props.initialL3Filter || '')
-const mapSourceFilter = ref('')
-const mapMinConf = ref(0)
-const mapL3Options = ref([])
-const mapSourceOptions = ref([])
+const mapPageSize = ref(50)
+const mapPageSizeOptions = [50, 100, 200]
+// mapL3Options / mapSourceOptions removed - unused
 const mapRows = ref([])
 const mapTotal = ref(0)
 const mapPage = ref(1)
@@ -149,35 +122,25 @@ function debounceLoadMap(p) {
 async function loadMap(p = 1) {
   mapLoading.value = true
   try {
-    const params = { page: p, page_size: 50 }
+    const params = { page: p, page_size: mapPageSize.value }
     if (mapKeyword.value.trim()) params.keyword = mapKeyword.value.trim()
-    if (mapL3Filter.value) params.l3 = mapL3Filter.value
-    if (mapSourceFilter.value) params.source = mapSourceFilter.value
-    if (mapMinConf.value && mapMinConf.value > 0) params.min_confidence = mapMinConf.value
     const { data } = await axios.get(`${API}/stats/category-v2-breed-map`, { params })
     mapRows.value = data.rows || []
     mapTotal.value = data.total || 0
     mapPage.value = p
-    if (!mapL3Options.value.length) {
-      mapL3Options.value = data.l3_options || []
-      mapSourceOptions.value = data.source_options || []
-    }
+    // filter options removed — unused
   } catch (e) { console.error(e) }
   finally { mapLoading.value = false }
 }
 
 function clearMapFilters() {
   mapKeyword.value = ''
-  mapL3Filter.value = ''
-  mapSourceFilter.value = ''
-  mapMinConf.value = 0
   loadMap(1)
 }
 
 // 监听外部 prop 变化（父组件切 tab 时预填筛选）
 watch(() => props.initialL3Filter, (v) => {
-  if (v && v !== mapL3Filter.value) {
-    mapL3Filter.value = v
+  if (v) {
     loadMap(1)
   }
 }, { immediate: false })
@@ -196,40 +159,36 @@ onMounted(() => {
   margin-bottom: 14px; gap: 12px;
 }
 .ctx-toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.ctx-toolbar-right { display: flex; gap: 8px; }
-.ctx-search-wrap { position: relative; }
-.ctx-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; }
-.ctx-input {
-  height: 36px; background: #e2e8f0; border: 1px solid rgba(241,245,249,0.6);
-  border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e293b; outline: none;
-  font-family: inherit;
-}
-.ctx-input::placeholder { color: #475569; }
-.ctx-input:focus { border-color: rgba(37,99,235,0.5); background: rgba(37,99,235,0.05); }
-.ctx-search-wrap .ctx-input { padding-left: 32px; width: 220px; }
-.ctx-conf-wrap {
-  display: flex; align-items: center; gap: 6px;
-  height: 36px; padding: 0 10px;
-  background: rgba(15,23,42,0.04); border: 1px solid rgba(15,23,42,0.08);
-  border-radius: 8px;
-}
-.ctx-conf-label { font-size: 12px; color: var(--text-3); }
-.ctx-conf-input {
-  width: 56px; height: 24px;
-  background: transparent; border: none; outline: none;
-  font-size: 13px; font-weight: 600; color: var(--primary);
-  font-family: 'Courier New', monospace;
-}
+.ctx-toolbar-right { display: flex; gap: 8px; align-items: center; }
 
-/* Buttons */
-.ctx-btn {
-  height: 36px; padding: 0 16px; border-radius: 8px; font-size: 13px;
-  font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
-  font-family: inherit;
+/* Search bar */
+.ctx-search-wrap { position: relative; }
+.ctx-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; pointer-events: none; opacity: 0.8;
 }
-.ctx-btn-red { background: rgba(248,113,113,0.1); color: var(--status-alert); border: 1px solid rgba(248,113,113,0.2); }
-.ctx-btn-red:hover { background: rgba(248,113,113,0.2); }
-.ctx-btn-red:disabled { opacity: 0.4; cursor: not-allowed; }
+.ctx-input {
+  height: 36px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--surface-3, #e2e8f0);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text, #0f172a);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.ctx-input::placeholder { color: var(--text-3, #94a3b8); }
+.ctx-input:hover { border-color: #cbd5e1; }
+.ctx-input:focus {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37,99,235,0.03);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.ctx-search-wrap .ctx-input { padding-left: 32px; width: 220px; }
+.ctx-btn-cyan { background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); }
+.ctx-btn-cyan:hover { background: rgba(37,99,235,0.2); }
 
 /* Card / Table */
 .ctx-card {
@@ -238,7 +197,10 @@ onMounted(() => {
 }
 .table-scroll { overflow-x: auto; }
 .ctx-row { cursor: pointer; }
-.ctx-empty { text-align: center; color: #475569; padding: 48px 36px !important; }
+.ctx-empty { text-align: center; color: var(--text-2, #475569); padding: 48px 36px !important; }
+.ctx-empty-art { font-size: 48px; opacity: 0.6; margin-bottom: 12px; }
+.ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text, #0f172a); margin-bottom: 6px; }
+.ctx-empty-hint { font-size: 12px; color: var(--text-3, #94a3b8); }
 
 /* Breed map-specific */
 .ctx-breed-text { color: #1e293b; font-weight: 600; font-size: 13px; }

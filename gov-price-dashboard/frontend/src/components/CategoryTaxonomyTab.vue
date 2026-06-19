@@ -1,40 +1,16 @@
 <template>
   <!-- Toolbar -->
   <div class="ctx-toolbar">
-    <div class="ctx-toolbar-left">
-      <div class="ctx-search-wrap">
-        <span class="ctx-search-icon">🔍</span>
-        <input
-          class="ctx-input"
-          v-model="taxKeyword"
-          placeholder="搜索名称 / 编码 / GB50500 / IFC..."
-          @input="debounceLoadTaxonomy(1)"
-        />
-      </div>
-      <CustomSelect
-        v-model="taxL1Filter"
-        :options="taxL1Options.map(o => ({ key: o, label: o }))"
-        placeholder="全部 L1"
-        :searchable="false"
-        @change="loadTaxonomy(1)"
-      />
-      <CustomSelect
-        v-model="taxL2Filter"
-        :options="taxL2FilteredOptions.map(o => ({ key: o, label: o }))"
-        placeholder="全部 L2"
-        :searchable="false"
-        @change="loadTaxonomy(1)"
+    <div class="ctx-search-wrap">
+      <span class="ctx-search-icon">🔍</span>
+      <input
+        class="ctx-input"
+        v-model="taxKeyword"
+        placeholder="搜索名称 / 编码 / GB50500 / IFC..."
+        @input="debounceLoadTaxonomy(1)"
       />
     </div>
     <div class="ctx-toolbar-right">
-      <div class="ctx-density-toggle" title="表格密度">
-        <button :class="{ active: taxDensity==='compact' }" @click="taxDensity='compact'">紧凑</button>
-        <button :class="{ active: taxDensity==='standard' }" @click="taxDensity='standard'">标准</button>
-        <button :class="{ active: taxDensity==='loose' }" @click="taxDensity='loose'">宽松</button>
-      </div>
-      <button class="ctx-btn ctx-btn-red" @click="clearTaxonomyFilters" :disabled="taxLoading">
-        🗑️ 清空筛选
-      </button>
       <button class="ctx-btn ctx-btn-cyan" @click="showHelp = !showHelp">
         {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
       </button>
@@ -42,19 +18,10 @@
   </div>
 
   <!-- Active Filter Chips -->
-  <div class="ctx-filter-chips" v-if="taxActiveChips.length || taxKeyword">
-    <span v-if="taxKeyword" class="ctx-chip">
+  <div class="ctx-filter-chips" v-if="taxKeyword">
+    <span class="ctx-chip">
       搜索: "{{ taxKeyword }}"
       <button class="ctx-chip-x" @click="taxKeyword=''; debounceLoadTaxonomy(1)" title="移除">×</button>
-    </span>
-    <span v-for="chip in taxActiveChips" :key="chip.key" class="ctx-chip">
-      {{ chip.label }}: {{ chip.value }}
-      <button class="ctx-chip-x" @click="chip.action" :title="`移除 ${chip.label}`">×</button>
-    </span>
-    <button class="ctx-chip-clear" @click="clearTaxonomyFilters">清空全部</button>
-    <span style="flex:1"></span>
-    <span style="font-size:11px;color:var(--text-3);font-family:'Courier New',monospace;">
-      排序: {{ taxSort.col === 'l3' ? 'L3' : taxSort.col }} {{ taxSort.dir==='asc'?'↑':'↓' }}
     </span>
   </div>
 
@@ -116,7 +83,7 @@
   </Transition>
 
   <!-- Table -->
-  <div class="ctx-card" :class="`ctx-density-${taxDensity}`">
+  <div class="ctx-card">
     <div class="table-scroll">
       <table class="data-table">
         <thead>
@@ -141,8 +108,7 @@
             <td colspan="10" class="ctx-empty">
               <div class="ctx-empty-art">🗂️</div>
               <div class="ctx-empty-title">暂无分类条目</div>
-              <div class="ctx-empty-hint">试试调整筛选条件或清空全部</div>
-              <button class="ctx-btn ctx-btn-cyan" @click="clearTaxonomyFilters" style="margin-top:12px">🔍 清空筛选</button>
+              <div class="ctx-empty-hint">试试调整搜索条件</div>
             </td>
           </tr>
           <tr v-for="r in taxRows" :key="`${r.l1}-${r.l2}-${r.l3}`" class="ctx-row" @click="drawerRow = r" style="cursor:pointer" v-show="!taxLoading && taxRows.length">
@@ -176,9 +142,12 @@
     <AppPagination
       :current="taxPage"
       :total="taxTotal"
-      :page-size="50"
+      :page-size="taxPageSize"
+      :page-size-options="taxPageSizeOptions"
+      show-size-changer
       info-template="第 {from}-{to} 条 / 共 {total} 条"
       @change="loadTaxonomy"
+      @update:page-size="taxPageSize = $event; loadTaxonomy(1)"
     />
   </div>
 
@@ -239,7 +208,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-import CustomSelect from './CustomSelect.vue'
+// import CustomSelect from './CustomSelect.vue' — unused filters removed
 import AppPagination from './AppPagination.vue'
 
 const emit = defineEmits(['jump-to-breed-map'])
@@ -249,12 +218,10 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // ── 状态 ──
 const showHelp = ref(false)
 const drawerRow = ref(null)
-const taxDensity = ref('standard')
 const taxKeyword = ref('')
-const taxL1Filter = ref('')
-const taxL2Filter = ref('')
-const taxL1Options = ref([])
-const taxL2OptionsRaw = ref([])
+const taxPageSize = ref(50)
+const taxPageSizeOptions = [50, 100, 200]
+// taxL1Options / taxL2OptionsRaw removed — unused
 const taxRows = ref([])
 const taxTotal = ref(0)
 const taxPage = ref(1)
@@ -271,29 +238,7 @@ function setTaxSort(col) {
   loadTaxonomy(1)
 }
 
-const taxActiveChips = computed(() => {
-  const chips = []
-  if (taxL1Filter.value) {
-    chips.push({
-      key: 'l1', label: 'L1', value: taxL1Filter.value,
-      action: () => { taxL1Filter.value = ''; loadTaxonomy(1) }
-    })
-  }
-  if (taxL2Filter.value) {
-    chips.push({
-      key: 'l2', label: 'L2', value: taxL2Filter.value,
-      action: () => { taxL2Filter.value = ''; loadTaxonomy(1) }
-    })
-  }
-  return chips
-})
-
-const taxL2FilteredOptions = computed(() => {
-  if (!taxL1Filter.value) {
-    return [...new Set(taxL2OptionsRaw.value.map(o => o.l2))]
-  }
-  return taxL2OptionsRaw.value.filter(o => o.l1 === taxL1Filter.value).map(o => o.l2)
-})
+// taxActiveChips / taxL2FilteredOptions removed — unused filters
 
 function debounceLoadTaxonomy(p) {
   clearTimeout(window._ctx_tax_debounce)
@@ -303,28 +248,20 @@ function debounceLoadTaxonomy(p) {
 async function loadTaxonomy(p = 1) {
   taxLoading.value = true
   try {
-    const params = { page: p, page_size: 50 }
+    const params = { page: p, page_size: taxPageSize.value }
     if (taxKeyword.value.trim()) params.keyword = taxKeyword.value.trim()
-    if (taxL1Filter.value) params.l1 = taxL1Filter.value
-    if (taxL2Filter.value) params.l2 = taxL2Filter.value
     params.sort_by = taxSort.value.col
     params.sort_dir = taxSort.value.dir
     const { data } = await axios.get(`${API}/stats/category-v2-taxonomy`, { params })
     taxRows.value = data.rows || []
     taxTotal.value = data.total || 0
     taxPage.value = p
-    if (!taxL1Options.value.length) {
-      taxL1Options.value = data.l1_options || []
-      taxL2OptionsRaw.value = data.l2_options || []
-    }
   } catch (e) { console.error(e) }
   finally { taxLoading.value = false }
 }
 
 function clearTaxonomyFilters() {
   taxKeyword.value = ''
-  taxL1Filter.value = ''
-  taxL2Filter.value = ''
   loadTaxonomy(1)
 }
 
@@ -348,30 +285,37 @@ onMounted(() => {
   margin-bottom: 14px; gap: 12px;
 }
 .ctx-toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.ctx-toolbar-right { display: flex; gap: 8px; }
+.ctx-toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+/* Search bar */
 .ctx-search-wrap { position: relative; }
-.ctx-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; }
-.ctx-input {
-  height: 36px; background: #e2e8f0; border: 1px solid rgba(241,245,249,0.6);
-  border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e293b; outline: none;
-  font-family: inherit;
+.ctx-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; pointer-events: none; opacity: 0.8;
 }
-.ctx-input::placeholder { color: #475569; }
-.ctx-input:focus { border-color: rgba(37,99,235,0.5); background: rgba(37,99,235,0.05); }
+.ctx-input {
+  height: 36px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--surface-3, #e2e8f0);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text, #0f172a);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.ctx-input::placeholder { color: var(--text-3, #94a3b8); }
+.ctx-input:hover { border-color: #cbd5e1; }
+.ctx-input:focus {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37,99,235,0.03);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
 .ctx-search-wrap .ctx-input { padding-left: 32px; width: 220px; }
 
 /* Density toggle */
-.ctx-density-toggle {
-  display: inline-flex; height: 36px; border-radius: 8px; overflow: hidden;
-  border: 1px solid rgba(15,23,42,0.08); background: var(--surface);
-}
-.ctx-density-toggle button {
-  padding: 0 12px; border: none; background: transparent;
-  font-size: 12px; color: var(--text-2); cursor: pointer;
-  font-family: inherit; transition: all 0.15s;
-}
-.ctx-density-toggle button:hover { background: var(--surface-2); }
-.ctx-density-toggle button.active { background: var(--primary); color: white; font-weight: 600; }
+/* .ctx-density-toggle removed — unused */
 
 /* Buttons */
 .ctx-btn {
@@ -381,9 +325,7 @@ onMounted(() => {
 }
 .ctx-btn-cyan { background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); }
 .ctx-btn-cyan:hover { background: rgba(37,99,235,0.2); }
-.ctx-btn-red { background: rgba(248,113,113,0.1); color: var(--status-alert); border: 1px solid rgba(248,113,113,0.2); }
-.ctx-btn-red:hover { background: rgba(248,113,113,0.2); }
-.ctx-btn-red:disabled { opacity: 0.4; cursor: not-allowed; }
+/* .ctx-btn-red removed — unused */
 
 /* Filter chips */
 .ctx-filter-chips {
@@ -393,13 +335,12 @@ onMounted(() => {
 }
 .ctx-chip {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 4px 4px 10px;
+  padding: 3px 4px 3px 10px;
   background: rgba(37,99,235,0.08);
-  color: var(--primary);
+  color: var(--primary, #2563eb);
   border: 1px solid rgba(37,99,235,0.18);
   border-radius: 14px;
   font-size: 11px; font-weight: 600;
-  font-family: 'Courier New', monospace;
 }
 .ctx-chip-x {
   width: 18px; height: 18px; border-radius: 50%;
@@ -408,13 +349,13 @@ onMounted(() => {
   display: inline-flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
-.ctx-chip-x:hover { background: var(--primary); color: white; }
+.ctx-chip-x:hover { background: var(--primary, #2563eb); color: white; }
 .ctx-chip-clear {
-  background: transparent; border: none; color: var(--text-3);
+  background: transparent; border: none; color: var(--text-3, #94a3b8);
   font-size: 11px; cursor: pointer; padding: 4px 8px;
   text-decoration: underline; text-underline-offset: 2px;
 }
-.ctx-chip-clear:hover { color: var(--text); }
+.ctx-chip-clear:hover { color: var(--text, #0f172a); }
 
 /* Help */
 .ctx-help {
@@ -434,7 +375,7 @@ onMounted(() => {
   color: var(--primary); background: rgba(37,99,235,0.08);
   border-radius: 3px; padding: 1px 4px; font-weight: 500;
 }
-.ctx-help-val strong { color: #1e293b; font-weight: 600; }
+.ctx-help-val strong { color: var(--text, #0f172a); font-weight: 600; }
 
 /* Card / Table */
 .ctx-card {
@@ -443,16 +384,11 @@ onMounted(() => {
 }
 .table-scroll { overflow-x: auto; }
 .ctx-row { cursor: pointer; }
-.ctx-density-compact.data-table td { padding: 5px 14px; }
-.ctx-density-compact.data-table th { padding: 7px 14px; }
-.ctx-density-compact.data-table { font-size: 12px; }
-.ctx-density-loose.data-table td { padding: 16px 14px; }
-.ctx-density-loose.data-table th { padding: 14px 14px; }
-.ctx-density-loose.data-table { font-size: 14px; }
-.ctx-empty { text-align: center; color: #475569; padding: 48px 36px !important; }
+/* .ctx-density-compact/loose removed — unused */
+.ctx-empty { text-align: center; color: var(--text-2, #475569); padding: 48px 36px !important; }
 .ctx-empty-art { font-size: 48px; opacity: 0.6; margin-bottom: 12px; }
-.ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.ctx-empty-hint { font-size: 12px; color: var(--text-3); }
+.ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text, #0f172a); margin-bottom: 6px; }
+.ctx-empty-hint { font-size: 12px; color: var(--text-3, #94a3b8); }
 
 /* Taxonomy-specific */
 .ctx-l1-tag {
@@ -479,7 +415,7 @@ onMounted(() => {
 .ctx-gb { color: var(--status-ok); font-weight: 600; }
 .ctx-name-stack { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(37,99,235,0.18); }
 .ctx-name-l1 { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
-.ctx-name-l3 { font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.3; }
+.ctx-name-l3 { font-size: 13px; font-weight: 600; color: var(--text, #0f172a); line-height: 1.3; }
 .ctx-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .ctx-tag {
   display: inline-block; padding: 1px 7px; border-radius: 3px;
@@ -512,7 +448,7 @@ onMounted(() => {
 
 /* Drawer */
 .ctx-drawer-mask {
-  position: fixed; inset: 0; background: rgba(15,23,42,0.4);
+  position: fixed; inset: 0; background: rgba(15,23,42,0.25);
   display: flex; justify-content: flex-end; z-index: 9999;
   backdrop-filter: blur(2px);
 }
@@ -533,7 +469,7 @@ onMounted(() => {
   font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700;
   color: var(--primary);
 }
-.ctx-drawer-name { font-size: 15px; font-weight: 600; color: #1e293b; }
+.ctx-drawer-name { font-size: 15px; font-weight: 600; color: var(--text, #0f172a); }
 .ctx-drawer-close {
   width: 28px; height: 28px; border-radius: 6px;
   background: transparent; border: 1px solid var(--border);
@@ -553,6 +489,6 @@ onMounted(() => {
 .ctx-drawer-field { display: flex; flex-direction: column; gap: 2px; }
 .ctx-drawer-field.ctx-drawer-wide { grid-column: 1 / -1; }
 .ctx-drawer-field label { font-size: 11px; color: var(--text-3); font-weight: 600; }
-.ctx-drawer-field span { font-size: 13px; color: #1e293b; font-weight: 500; }
+.ctx-drawer-field span { font-size: 13px; color: var(--text, #0f172a); font-weight: 500; }
 .ctx-drawer-actions { padding-top: 8px; border-top: 1px solid var(--border); }
 </style>

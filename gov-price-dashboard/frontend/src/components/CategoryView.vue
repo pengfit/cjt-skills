@@ -84,9 +84,9 @@
               <div class="spec-debug" style="display:none">currentUnitData={{ currentUnitData?.specs?.length }} pagedSpecs={{ pagedSpecs.length }} selectedUnit={{ selectedUnit }} currentSpecTotal={{ currentSpecTotal }}</div>
               <div class="spec-table-wrap">
                 <div class="spec-pagination" v-if="currentSpecTotal > pagedSpecs.length">
-                  <button class="page-btn" @click="loadBreedDetail(selectedCategory.key, expandedBreed, breedPage - 1)" :disabled="breedPage <= 1">上一页</button>
-                  <span class="page-info">{{ breedPage }}/{{ Math.ceil((currentSpecTotal || 0) / (breedPageSize.value || 1)) }}</span>
-                  <button class="page-btn" @click="loadBreedDetail(selectedCategory.key, expandedBreed, breedPage + 1)" :disabled="breedPage >= Math.ceil((currentSpecTotal || 0) / (breedPageSize.value || 1))">下一页</button>
+                  <button class="page-btn" @click="loadBreedDetail(selectedCategory.key, expandedBreed, breedPage - 1)" :disabled="breedPage <= 1">‹</button>
+                  <span class="page-info">{{ breedPage }}/{{ breedTotalPages }}</span>
+                  <button class="page-btn" @click="loadBreedDetail(selectedCategory.key, expandedBreed, breedPage + 1)" :disabled="breedPage >= breedTotalPages">›</button>
                 </div>
                 <div class="spec-table-header">
                   <span class="spec-th">规格</span>
@@ -174,6 +174,8 @@ const breedPageSize = ref(50)
 const pagedSpecs = ref([])
 // 当前 unit 的总规格数（不受分页替换影响）
 const currentSpecTotal = ref(0)
+
+const breedTotalPages = computed(() => Math.max(1, Math.ceil((currentSpecTotal.value || 0) / (breedPageSize.value || 1))))
 
 const currentUnitData = computed(() => {
   if (!breedDetail.value.units?.length) return null
@@ -429,34 +431,34 @@ async function loadMoreBreeds() {
 }
 
 async function loadBreedDetail(category, breed, page = 1) {
-  console.log('loadBreedDetail CALLED:', { category, breed, page })
+  // loadBreedDetail
   breedDetail.value.loading = true
   try {
     const res = await axios.get(`${API}/stats/breed-detail`, {
       params: { category, breed, page, page_size: breedPageSize.value }
     })
     const d = res.data?.data
-    console.log('loadBreedDetail resp:', JSON.stringify(d).slice(0,300))
+    // loadBreedDetail resp
     if (!d) { console.warn('loadBreedDetail: no data'); return }
     if (!d.units?.length) { console.warn('loadBreedDetail: no units'); return }
     // 始终更新 units（品种只有一个单位时也需要写入）
     breedDetail.value.units = d.units
-    console.log('set breedDetail.value.units, length:', d.units.length)
+    // set breedDetail.units
     // 选中的单位
     const targetUnit = selectedUnit.value
       ? (d.units.find(u => u.key === selectedUnit.value) || d.units[0])
       : d.units[0]
     if (!selectedUnit.value) {
       selectedUnit.value = targetUnit.key
-      console.log('set selectedUnit to:', selectedUnit.value)
+      // set selectedUnit
     }
-    console.log('targetUnit:', targetUnit.key, 'specs.length:', targetUnit.specs?.length)
+    // targetUnit info
     const newSpecs = targetUnit.specs || []
     const newTotal = targetUnit.spec_total || 0
     pagedSpecs.value = newSpecs
     currentSpecTotal.value = newTotal
     breedDetail.value.total_records = d.total_records ?? breedDetail.value.total_records
-    console.log('final pagedSpecs:', pagedSpecs.value.length, 'currentSpecTotal:', currentSpecTotal.value, 'expandedBreed:', expandedBreed.value)
+    // final pagedSpecs info
     breedPage.value = page
   } catch (e) {
     console.error('加载品种详情失败', e)
@@ -513,14 +515,14 @@ function renderPriceChart(ranges, stats) {
   const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   priceChartIns.value = chart
 
-  const colors = ['#6dd5ed','#4facfe','#6a85f5','#9b59b6','#7c3aed','#b45309','#f97316','#dc2626','#e11d48','#06b6d4','#84cc16']
+  const colors = ['var(--primary,#2563eb)','#3b82f6','#6366f1','#8b5cf6','#a855f7','#b45309','#f97316','#dc2626','#e11d48','#06b6d4','#84cc16']
 
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#1e293b',
-      borderColor: '#334155',
-      textStyle: { color: '#1e293b', fontSize: 12 },
+      backgroundColor: 'rgba(255,255,255,0.98)',
+      borderColor: '#cbd5e1',
+      textStyle: { color: '#0f172a', fontSize: 12 },
       formatter: params => {
         const p = params[0]
         return `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${p.value.toLocaleString()}</b>`
@@ -531,7 +533,7 @@ function renderPriceChart(ranges, stats) {
       type: 'category',
       data: ranges.map(r => r.range),
       axisLabel: { color: '#475569', fontSize: 10, rotate: 30, interval: 0 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
       axisTick: { show: false }
     },
     yAxis: {
@@ -539,7 +541,7 @@ function renderPriceChart(ranges, stats) {
       nameTextStyle: { color: '#64748b', fontSize: 10 },
       type: 'value',
       axisLabel: { color: '#64748b', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }
+      splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } }
     },
     series: [{
       type: 'bar',
@@ -549,7 +551,7 @@ function renderPriceChart(ranges, stats) {
         show: true, position: 'top',
         color: '#475569', fontSize: 9,
         formatter: p => p.value >= 1000 ? (p.value/1000).toFixed(0)+'k' : p.value
-      }
+    }
     }],
   }, true)
 
@@ -831,7 +833,7 @@ onMounted(() => loadCategories())
 
 .province-name {
   font-size: 12px;
-  color: #1e293b;
+  color: var(--text, #0f172a);
   font-weight: 500;
 }
 
@@ -895,7 +897,7 @@ onMounted(() => loadCategories())
 }
 
 .breed-td {
-  color: #1e293b;
+  color: var(--text, #0f172a);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -976,9 +978,11 @@ onMounted(() => loadCategories())
 .cat-list-pagination {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 12px;
   justify-content: center;
+  gap: 5px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(15,23,42,0.08);
+  background: rgba(241,245,249,0.8);
 }
 
 .page-info {
@@ -1180,7 +1184,7 @@ onMounted(() => loadCategories())
 .spec-td {
   padding: 4px 10px;
   font-size: 12px;
-  color: #1e293b;
+  color: var(--text, #0f172a);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1209,10 +1213,9 @@ onMounted(() => loadCategories())
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 10px;
-  border-bottom: 1px solid #e2e8f0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: rgba(241,245,249,0.8);
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -1220,8 +1223,10 @@ onMounted(() => loadCategories())
 }
 
 .page-info {
-  font-size: 11px;
-  color: var(--text-3);
+  font-size: 12px;
+  color: var(--text-2, #475569);
+  font-weight: 500;
+  margin: 0 4px;
 }
 
 .page-btn {
@@ -1294,7 +1299,7 @@ onMounted(() => loadCategories())
 
 .breed-name-text {
   font-size: 13px;
-  color: #1e293b;
+  color: var(--text, #0f172a);
   font-weight: 500;
 }
 

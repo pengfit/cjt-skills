@@ -218,7 +218,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 .card-bad .bar-fill { background: var(--status-alert); }
 
 .card-btm { display: flex; align-items: center; justify-content: space-between; }
-.card-count { font-size: 11px; color: #334155; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
+.card-count { font-size: 11px; color: var(--text-2, #475569); font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; }
 .card-actions { display: flex; gap: 4px; }
 
 .btn-icon {
@@ -257,7 +257,7 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Empty / Skeleton */
-.sq-empty { font-size: 12px; color: #334155; text-align: center; padding: 16px; }
+.sq-empty { font-size: 12px; color: var(--text-3, #94a3b8); text-align: center; padding: 16px; }
 .sq-card.sk-card { pointer-events: none; }
 .sk-line { background: #e2e8f0; border-radius: 3px; }
 .sk-title { height: 14px; width: 55%; margin-bottom: 6px; }
@@ -271,14 +271,14 @@ const redCount = computed(() => props.coverage.filter(c => c.rate < 30).length)
 
 /* Modal */
 .sq-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.1); display: flex; align-items: center; justify-content: center; z-index: 200; }
-.sq-confirm { display: flex; align-items: center; gap: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; max-width: 400px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); }
+.sq-confirm { display: flex; align-items: center; gap: 12px; background: var(--surface, #ffffff); border: 1px solid var(--surface-3, #e2e8f0); border-radius: 12px; padding: 20px 22px; max-width: 400px; box-shadow: var(--shadow-md, 0 2px 4px rgba(15,23,42,0.05)); }
 .confirm-icon { font-size: 26px; flex-shrink: 0; }
 .confirm-body { flex: 1; }
 .confirm-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
 .confirm-msg { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 .confirm-btns { display: flex; gap: 8px; flex-shrink: 0; }
-.btn-cancel { background: transparent; color: #475569; border: 1px solid #334155; border-radius: 7px; padding: 7px 16px; font-size: 12px; cursor: pointer; transition: all 0.12s; }
-.btn-cancel:hover { background: #263347; color: var(--text-3); }
+.btn-cancel { background: transparent; color: #475569; border: 1px solid var(--surface-3, #e2e8f0); border-radius: 7px; padding: 7px 16px; font-size: 12px; cursor: pointer; transition: all 0.12s; }
+.btn-cancel:hover { background: var(--surface-2, #f1f5f9); color: var(--text-3); }
 .btn-ok { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; border: none; border-radius: 7px; padding: 7px 20px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(37,99,235,0.3); transition: opacity 0.12s; }
 .btn-ok:hover { opacity: 0.88; }
 </style>

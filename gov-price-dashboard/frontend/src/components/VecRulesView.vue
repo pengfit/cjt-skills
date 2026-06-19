@@ -143,18 +143,32 @@
     <!-- Pagination -->
     <div class="vec-pagination" v-if="vecRules.pages > 1">
       <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
-      <div class="vec-page-info">
-        <span class="vec-page-current">{{ vecRules.page }}</span>
-        <span class="vec-page-sep">/</span>
-        <span class="vec-page-total">{{ vecRules.pages }}</span>
-      </div>
+      <button
+        v-for="p in vecPageRange" :key="p"
+        class="page-btn"
+        :class="{ active: Number(p) === Number(vecRules.page), ellipsis: p === '...' }"
+        :disabled="p === '...'"
+        @click="p !== '...' && loadVecRules(Number(p))"
+      >{{ p }}</button>
       <button class="page-btn nav" :disabled="vecRules.page >= vecRules.pages" @click="loadVecRules(vecRules.page + 1)">›</button>
+      <div class="page-jump-wrap">
+        <span>跳至</span>
+        <input class="page-jump" v-model.number="vecJumpPage" @keyup.enter="goToVecPage" type="number" min="1" :max="vecRules.pages" />
+        <span>页</span>
+      </div>
+      <div class="page-size-wrap">
+        <span>每页</span>
+        <select class="page-size-select" v-model.number="vecPageSize" @change="loadVecRules(1)">
+          <option v-for="s in vecPageSizeOptions" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <span>条</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
 import CustomSelect from './CustomSelect.vue'
@@ -163,6 +177,31 @@ import PageHeader from './PageHeader.vue'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [] })
+const vecPageSize = ref(50)
+const vecPageSizeOptions = [50, 100, 200]
+const vecJumpPage = ref(1)
+
+const vecPageRange = computed(() => {
+  const tp = vecRules.value.pages
+  const cur = vecRules.value.page
+  if (!tp) return []
+  if (tp <= 7) return Array.from({ length: tp }, (_, i) => i + 1)
+  const set = new Set([1, tp, cur, cur - 1, cur + 1])
+  const list = [...set].filter(n => n >= 1 && n <= tp).sort((a, b) => a - b)
+  const out = []
+  for (let i = 0; i < list.length; i++) {
+    if (i > 0 && list[i] - list[i - 1] > 1) out.push('...')
+    out.push(list[i])
+  }
+  return out
+})
+
+function goToVecPage() {
+  const p = Number(vecJumpPage.value)
+  if (p >= 1 && p <= vecRules.value.pages && p !== vecRules.value.page) {
+    loadVecRules(p)
+  }
+}
 const vecSearch = ref('')
 const vecAttrFilter = ref('')
 const vecCatFilter = ref('')
@@ -192,7 +231,7 @@ function highlightPy(code) {
 async function loadVecRules(page = 1) {
   vecLoading.value = true
   try {
-    const params = { page, page_size: 50, order: vecOrder.value }
+    const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
     if (vecSearch.value) params.search = vecSearch.value
     if (vecAttrFilter.value) params.attr = vecAttrFilter.value
     if (vecCatFilter.value) params.category = vecCatFilter.value
@@ -353,7 +392,7 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Cells */
-.vec-id { color: #334155; font-family: 'Courier New', monospace; font-size: 11px; }
+.vec-id { color: var(--text-2, #475569); font-family: 'Courier New', monospace; font-size: 11px; }
 .vec-attr-tag {
   display: inline-block;
   background: rgba(37,99,235,0.1);
@@ -399,31 +438,17 @@ onMounted(() => {
 .vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-pattern-cell { width: 160px; }
 .vec-breed { color: var(--text-3); font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vec-date { color: #334155; white-space: nowrap; font-size: 11px; }
-.vec-empty { text-align: center; color: #334155; padding: 32px; font-size: 12px; }
+.vec-date { color: var(--text-3, #94a3b8); white-space: nowrap; font-size: 11px; }
+.vec-empty { text-align: center; color: var(--text-3, #94a3b8); padding: 32px; font-size: 12px; }
 
-/* Pagination */
+/* Pagination — 沿用全局 `.pagination` / `.page-btn` 样式 */
 .vec-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 5px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(15,23,42,0.08);
+  background: rgba(241,245,249,0.8);
 }
-.page-btn {
-  background: #e2e8f0;
-  border: 1px solid rgba(241,245,249,0.6);
-  border-radius: 7px;
-  color: var(--text-3);
-  padding: 5px 14px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
-}
-.page-btn:hover:not(:disabled) { background: rgba(37,99,235,0.1); border-color: rgba(37,99,235,0.4); color: var(--primary); }
-.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.vec-page-info { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-.vec-page-current { color: #1e293b; font-weight: 600; }
-.vec-page-sep { color: #334155; }
-.vec-page-total { color: #475569; }
 </style>
