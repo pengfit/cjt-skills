@@ -645,7 +645,7 @@ def classify_v3_batch(
                     "breed_list": breed_list_str,
                     "batch_n": len(batch),
                     "total_l3": len(_taxonomy),
-                    "l3_list":l3_list_str_batch
+                    "candidate_l3":l3_list_str_batch
                 },
                 user=f"etl-classify-v2-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
                 timeout=90,  # P0-2: 180s→30s 避免 keep-alive 卡死
@@ -726,9 +726,12 @@ def classify_v3_batch(
                     )
                     conf = float(r.get("confidence", 0.7) or 0.7)
                     if conf < 0.70:
+                        # 低置信度不拒 (让 v2_dict 进入 DB 为'其他'，下次 ETL 会被 DB 预查)
+                        # 原逻辑会 ai_results[bc]=None → 被 batch_bc_valid 过滤掉
+                        # 改为 l3=空 → 下游写库时变'其他'占位
                         _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
-                        ai_results[breed_clean] = None
-                        continue
+                        _stats["classify_v3_low_conf"] = _stats.get("classify_v3_low_conf", 0) + 1
+                        # continue 到下面建 v2_dict (l3="")
                     l1, l2, l3, l4 = (
                         r.get("l1", ""), r.get("l2", ""), r.get("l3", ""),
                         r.get("l4", "UNCLASSIFIED"),
@@ -743,10 +746,10 @@ def classify_v3_batch(
                             # 动态扩展成功，合法化
                             pass
                         else:
+                            # 无效 L3 不拒 — l3=空 → 下游写库时变'其他'占位
                             _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
                             _stats["classify_v3_invalid_l3"] = _stats.get("classify_v3_invalid_l3", 0) + 1
-                            ai_results[breed_clean] = None
-                            continue
+                            # continue 到下面建 v2_dict (l3="")
                     # 强制 l4 = "UNCLASSIFIED"（除非是字典中真实存在的 L4）
                     l4 = "UNCLASSIFIED" if l4 in ("", breed_clean) else l4
                     # 从 v2 字典反查中文名（以字典为准，不信 AI 输出）
@@ -761,10 +764,10 @@ def classify_v3_batch(
                         or (name_l2_ai and name_l2_ai != name_l2)
                         or (name_l1_ai and name_l1_ai != name_l1)
                     ):
-                        _stats["classify_failed"] = _stats.get("classify_failed", 0) + 1
+                        # L3 编码合法但 name 与 taxonomy 不一致 (Dify 偶有口误)
+                        # 不再拒绝 — 改用 taxonomy 的 name 继续，统计 mismatch 供调试
                         _stats["classify_v3_name_mismatch"] = _stats.get("classify_v3_name_mismatch", 0) + 1
-                        ai_results[breed_clean] = None
-                        continue
+                        # 继续到下面建 v2_dict (name 来自 taxonomy, l3 是 AI 报的)
                     v2_dict = {
                         "l1": l1, "l2": l2, "l3": l3, "l4": l4,
                         "name_l1": name_l1, "name_l2": name_l2, "name_l3": name_l3,
