@@ -1,16 +1,13 @@
-# Dify 工作流 DSL: l3_kb_retriever (v3 - 修输出变量命名)
-# 关键改动: 删除 outputs 里的 children: null (会让 Dify 把输出当对象类型, 自动命名 0/1/2/3)
-
 app:
   description: '根据 breed 从知识库检索 top-K L3 候选，格式化为 candidate_l3'
-  icon: 📚
+  icon: book
   icon_background: '#E4F2EB'
   mode: workflow
   name: l3_kb_retriever
-  use_icon_as_answer_icon: false
 
 kind: app
-version: 0.3.0
+version: 0.1.5
+
 workflow:
   conversation_variables: []
   environment_variables: []
@@ -19,7 +16,7 @@ workflow:
       enabled: false
     opening_statement: ''
     retriever_resource:
-      enabled: true
+      enabled: false
     sensitive_word_avoidance:
       enabled: false
     speech_to_text:
@@ -36,30 +33,29 @@ workflow:
           sourceType: start
           targetType: knowledge-retrieval
         id: edge-start-kr
-        source: start_node
+        source: start
         sourceHandle: source
-        target: knowledge_retrieval_node
+        target: knowledge_retrieval
         targetHandle: target
       - data:
           isInIteration: false
           sourceType: knowledge-retrieval
           targetType: code
         id: edge-kr-code
-        source: knowledge_retrieval_node
+        source: knowledge_retrieval
         sourceHandle: source
-        target: format_code_node
+        target: format_code
         targetHandle: target
       - data:
           isInIteration: false
           sourceType: code
           targetType: answer
         id: edge-code-end
-        source: format_code_node
+        source: format_code
         sourceHandle: source
-        target: end_node
+        target: end
         targetHandle: target
     nodes:
-      # ============== 1. 开始 ==============
       - data:
           title: 开始
           type: start
@@ -69,7 +65,6 @@ workflow:
                 - local_file
                 - remote_url
               description: 建筑材料品种名
-              human_description: 输入材料品种名
               label: breed
               max_length: 200
               options: []
@@ -77,7 +72,7 @@ workflow:
               type: text-input
               variable: breed
         height: 90
-        id: start_node
+        id: start
         position:
           x: 80
           y: 280
@@ -86,22 +81,20 @@ workflow:
           y: 280
         type: custom
         width: 244
-      # ============== 2. 知识检索 ==============
       - data:
           dataset_ids:
-            - '<REPLACE_WITH_KB_DATASET_ID>'
+            - REPLACE_WITH_KB_DATASET_ID
           multiple_retrieval_config:
             top_k: 10
             score_threshold: 0.5
             reranking_enable: false
           query_variable_selector:
-            - start_node
+            - start
             - breed
-          title: 知识库检索 L3 候选
+          title: 知识库检索
           type: knowledge-retrieval
-          retrieval_mode: multiple
         height: 100
-        id: knowledge_retrieval_node
+        id: knowledge_retrieval
         position:
           x: 400
           y: 280
@@ -110,96 +103,30 @@ workflow:
           y: 280
         type: custom
         width: 244
-      # ============== 3. 代码节点: 解析 ==============
       - data:
           code_language: python3
-          code: |
-            import re
-            import json
-
-            def parse_l3_chunk(content):
-                if not content or not isinstance(content, str):
-                    return None
-                code_match = re.search(r'\*\*L3 编码\*\*[：:]\s*`?([\d.]+)`?', content)
-                if not code_match:
-                    return None
-                l3_code = code_match.group(1)
-                path_match = re.search(
-                    r'\*\*分类路径\*\*[：:]\s*'
-                    r'L1\s+\d+\s+(\S+?)\s*→\s*'
-                    r'L2\s+[\d.]+\s+(\S+?)\s*→\s*'
-                    r'L3\s+[\d.]+\s+(\S+?)(?=\s|$|\n|，)',
-                    content
-                )
-                if path_match:
-                    return (l3_code, path_match.group(1), path_match.group(2), path_match.group(3))
-                return (l3_code, '', '', '')
-
-            def main(retrieval_result=None) -> dict:
-                if not retrieval_result:
-                    return {
-                        'candidate_l3': '',
-                        'chunk_count': 0,
-                        'parsed_count': 0,
-                        'error': 'retrieval_result 为空 → 检查 KB dataset_id 是否填、索引是否完成',
-                        'first_chunk_sample': ''
-                    }
-
-                lines = []
-                chunk_count = 0
-                parsed_count = 0
-                first_chunk_sample = ''
-
-                for item in retrieval_result:
-                    chunk_count += 1
-                    if not isinstance(item, dict):
-                        continue
-                    content = item.get('content', '')
-                    if not content:
-                        continue
-                    if not first_chunk_sample:
-                        first_chunk_sample = content[:300]
-                    parsed = parse_l3_chunk(content)
-                    if not parsed:
-                        continue
-                    parsed_count += 1
-                    l3_code, l1_name, l2_name, l3_name = parsed
-                    if l1_name and l2_name and l3_name:
-                        line = f'  {l3_code}  {l1_name}/{l2_name}/{l3_name}'
-                    else:
-                        line = f'  {l3_code}  (路径不完整)'
-                    if line not in lines:
-                        lines.append(line)
-
-                return {
-                    'candidate_l3': '\n'.join(lines),
-                    'chunk_count': chunk_count,
-                    'parsed_count': parsed_count,
-                    'error': '' if lines else f'KB 返回 {chunk_count} chunks 但全部解析失败',
-                    'first_chunk_sample': first_chunk_sample
-                }
-          # ====== 关键改动: 去掉 children: null ======
+          code: "import re\n\ndef parse_l3_chunk(content):\n    if not content or not isinstance(content, str):\n        return None\n    code_match = re.search(r'\\*\\*L3 \\u7f16\\u7801\\*\\*[:\\uff1a]\\s*`?([\\d.]+)`?', content)\n    if not code_match:\n        return None\n    l3_code = code_match.group(1)\n    path_match = re.search(r'\\*\\*\\u5206\\u7c7b\\u8def\\u5f84\\*\\*[:\\uff1a]\\s*L1\\s+\\d+\\s+(\\S+?)\\s*\\u2192\\s*L2\\s+[\\d.]+\\s+(\\S+?)\\s*\\u2192\\s*L3\\s+[\\d.]+\\s+(\\S+?)(?=\\s|$|\\n)', content)\n    if path_match:\n        return (l3_code, path_match.group(1), path_match.group(2), path_match.group(3))\n    return (l3_code, '', '', '')\n\ndef main(retrieval_result=None):\n    if not retrieval_result:\n        return {'candidate_l3': '', 'chunk_count': 0, 'parsed_count': 0, 'error': 'retrieval_result empty', 'first_chunk_sample': ''}\n    lines = []\n    chunk_count = 0\n    parsed_count = 0\n    first_chunk_sample = ''\n    for item in retrieval_result:\n        chunk_count += 1\n        if not isinstance(item, dict):\n            continue\n        content = item.get('content', '')\n        if not content:\n            continue\n        if not first_chunk_sample:\n            first_chunk_sample = content[:300]\n        parsed = parse_l3_chunk(content)\n        if not parsed:\n            continue\n        parsed_count += 1\n        l3_code, l1_name, l2_name, l3_name = parsed\n        if l1_name and l2_name and l3_name:\n            line = '  ' + l3_code + '  ' + l1_name + '/' + l2_name + '/' + l3_name\n        else:\n            line = '  ' + l3_code\n        if line not in lines:\n            lines.append(line)\n    return {\n        'candidate_l3': '\\n'.join(lines),\n        'chunk_count': chunk_count,\n        'parsed_count': parsed_count,\n        'error': '' if lines else ('KB returned ' + str(chunk_count) + ' chunks, all parse failed'),\n        'first_chunk_sample': first_chunk_sample\n    }"
           outputs:
-            - type: string
-              variable: candidate_l3
-            - type: number
-              variable: chunk_count
-            - type: number
-              variable: parsed_count
-            - type: string
-              variable: error
-            - type: string
-              variable: first_chunk_sample
-          title: 格式化 candidate_l3
+            - variable: candidate_l3
+              type: string
+            - variable: chunk_count
+              type: number
+            - variable: parsed_count
+              type: number
+            - variable: error
+              type: string
+            - variable: first_chunk_sample
+              type: string
+          title: 格式化
           type: code
           variables:
             - max_length: 102400
               value_selector:
-                - knowledge_retrieval_node
+                - knowledge_retrieval
                 - result
               variable: retrieval_result
         height: 120
-        id: format_code_node
+        id: format_code
         position:
           x: 720
           y: 280
@@ -208,13 +135,12 @@ workflow:
           y: 280
         type: custom
         width: 244
-      # ============== 4. 结束: 输出 ==============
       - data:
-          answer: '== candidate_l3 ==\n{{format_code_node.candidate_l3}}\n\n== 诊断 ==\nchunks: {{format_code_node.chunk_count}} | parsed: {{format_code_node.parsed_count}} | error: {{format_code_node.error}}'
+          answer: '== candidate_l3 ==\n{{format_code.candidate_l3}}\n== 诊断 ==\nchunks: {{format_code.chunk_count}} | parsed: {{format_code.parsed_count}} | error: {{format_code.error}}'
           title: 输出
           type: answer
         height: 107
-        id: end_node
+        id: end
         position:
           x: 1040
           y: 280
