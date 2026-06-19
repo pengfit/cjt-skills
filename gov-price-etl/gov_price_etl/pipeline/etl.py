@@ -1,26 +1,23 @@
-"""pipeline/etl.py - ODS → DWD ETL（纯 DB 二段式，无 AI）
+"""pipeline/etl.py - ODS → DWD ETL（DB 二段式 + AI 在线缓存补全）
 
 流程：
-  ┌──────────────────────────────────────────────────────┐
-  │ ODS source                                           │
-  │   │                                                  │
-  │   └── 2 段式 classify_v3（breed_l3_map_v3 缓存）     │
-  │         - 阶段 1：精确匹配 (confidence >= 0.9)       │
-  │         - 阶段 2：Jaccard 模糊召回 (confidence >= 0.9)
-  │         - 命中 → transform_doc + bulk_index 写 DWD    │
-  │         - 未命中 → 跳过（等 breed 补入缓存后重跑）  │
-  └──────────────────────────────────────────────────────┘
+  1. 第一轮：DB 2 段式（breed_l3_map_v3 缓存，conf >= 0.9）
+     - 命中 → transform_doc + bulk_index 写 DWD
+     - 未命中 → 按 breed 去重攒批（存 breed_clean 列表）
+  2. 第二轮：未命中 breed → Dify 分类（classify_v3_batch）
+     - 结果写回 breed_l3_map_v3（conf ≥ 0.9）
+  3. 第三轮：重新匹配 ODS 中未命中 breed 的文档 → 写 DWD
 
 数据依赖：
   - gov_price_etl.classify.category_v3（2 段式，仅 breed_l3_map_v3 匹配）
-  - gov_price_etl.transform.transform_doc（ODS → DWD 单文档转换）
-
-DWD.category 字段保留兼容（值 = v3 L1 中文名，spec 规则库按此过滤）
+  - gov_price_etl.ai.service.classify_v3_batch（Dify AI, 动态补缓存）
+  - gov_price_etl.transform.transform_doc
 """
 import time
-from typing import List, Tuple
+from collections import Counter
+from typing import Dict, List, Tuple
 
-
+from gov_price_etl.ai.service import classify_v3_batch
 from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
@@ -29,8 +26,113 @@ from gov_price_etl.transform import transform_doc
 from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
 
-# DB 命中阈值：v2 阶段 1/2/3 都算本地命中，不送 AI
 _LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3"))
+
+
+def _count_ods(es_host: str, ods_idx: str) -> int:
+    """ES 索引文档数。"""
+    session = get_es_client(es_host)
+    r = session.get(f"{es_host}/{ods_idx}/_count")
+    return r.json()["count"] if r.status_code == 200 else 0
+
+
+def _scroll_ods(
+    es_host: str, ods_idx: str,
+    total: int, batch_size: int,
+    category: str, incremental: bool, since_date: str,
+):
+    """滚动 ODS 返回生成器 (doc_id, raw_source)。"""
+    session = get_es_client(es_host)
+    must = [{"match_all": {}}]
+    must_not = [
+        {"terms": {"spec.keyword": ["", "/"]}},
+        {"terms": {"breed.keyword": ["", "/"]}},
+    ]
+    if category and not (incremental and since_date):
+        must = [{"term": {"category": category}}]
+    elif incremental and since_date:
+        must = [{"range": {"update_date": {"gte": since_date}}}]
+
+    body = {
+        "query": {"bool": {"must": must, "must_not": must_not}},
+        "size": min(batch_size, total),
+        "sort": [{"update_date": "asc"}],
+    }
+    resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
+    if resp.status_code != 200:
+        return
+
+    data = resp.json()
+    scroll_id = data.get("_scroll_id", "")
+    hits = data["hits"]["hits"]
+
+    while hits:
+        for h in hits:
+            yield h["_id"], h["_source"]
+        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                            json={"scroll_id": scroll_id})
+        if resp.status_code != 200:
+            break
+        data = resp.json()
+        hits = data["hits"]["hits"]
+        scroll_id = data.get("_scroll_id", "")
+
+    if scroll_id:
+        session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
+
+
+def _fetch_ods_by_breeds(
+    es_host: str, ods_idx: str, breed_cleans: List[str],
+) -> List[Tuple[str, dict]]:
+    """按 breed_clean（ES 上即 breed.keyword）批量拉 ODS 文档。"""
+    if not breed_cleans:
+        return []
+    session = get_es_client(es_host)
+    results = []
+    # 分小批查（ES terms 查询有 max_terms_count 限制）
+    for i in range(0, len(breed_cleans), 100):
+        chunk = breed_cleans[i:i + 100]
+        body = {
+            "query": {"bool": {"must": [
+                {"terms": {"breed.keyword": chunk}},
+            ], "must_not": [
+                {"terms": {"spec.keyword": ["", "/"]}},
+                {"terms": {"breed.keyword": ["", "/"]}},
+            ]}},
+            "size": 1000,
+            "sort": [{"update_date": "asc"}],
+        }
+        resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
+        if resp.status_code != 200:
+            print(f"      [重捞] 查询失败: {resp.text[:100]}")
+            continue
+        data = resp.json()
+        scroll_id = data.get("_scroll_id", "")
+        hits = data["hits"]["hits"]
+        while hits:
+            for h in hits:
+                results.append((h["_id"], h["_source"]))
+            resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
+                                json={"scroll_id": scroll_id})
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            hits = data["hits"]["hits"]
+            scroll_id = data.get("_scroll_id", "")
+        if scroll_id:
+            session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
+    return results
+
+
+def _write_dwd_batch(
+    es_host: str, dwd_idx: str, docs: List[dict], doc_ids: List[str], stats: dict,
+):
+    """写 DWD 并更新 etled/failed。"""
+    ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
+    stats["etled"] += ok
+    stats["failed"] += fail
+    docs.clear()
+    doc_ids.clear()
 
 
 def etl_city(
@@ -44,165 +146,151 @@ def etl_city(
     category: str = "",
     mark_done: bool = False,
 ) -> Tuple[int, int]:
-    """单城市 ODS → DWD 纯 DB ETL。返回 (成功, 失败)。
-
-    流程：
-      1. 滚动 ODS 拉取
-         - 每条调 classify_v3()（2 段式：db_exact → db_fuzzy，confidence >= 0.9）
-         - DB 命中（db_exact_v3 / db_fuzzy_v3）→ 立即 transform_doc + bulk_index
-         - DB 未命中 → 跳过（等 breed 补入缓存后重跑）
-    """
+    """单城市 ODS → DWD ETL。返回 (成功, 失败)。"""
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
-
     ensure_indices(es_host, cfg)
-
-    session = get_es_client(es_host)
-    count_resp = session.get(f"{es_host}/{ods_idx}/_count")
-    if count_resp.status_code != 200:
-        print(f"  [ETL] {city}: 索引 {ods_idx} 不存在或查询失败，跳过")
-        return 0, 0
-
-    total = count_resp.json()["count"]
+    total = _count_ods(es_host, ods_idx)
     if total == 0:
         print(f"  [ETL] {city}: {ods_idx} 为空，跳过")
         return 0, 0
 
     print(f"  [ETL] {city}: {ods_idx} ({total:,} 条) → {dwd_idx}")
+    stats = {"etled": 0, "failed": 0}
 
-    # 构建查询
-    must = [{"match_all": {}}]
-    # spec 是 text 字段，对空字符串不过滤（term 在 text 字段上不匹配空串）
-    # 必须用 spec.keyword 子字段，term 才会把空串当作有效 token 匹配
-    # 所有城市统一过滤 spec='' 或 spec='/' 的脏数据文档（包括菏泽 229 条）
-    # 2026-06-15 扩展：breed='' 也作为脏数据过滤（河南 single_price_cont 续表 948 条 breed 字段丢失）
-    # 与 spec='' 规则同源：数据不完整 = 不进 DWD
-    # ODS 保留这 948 条作为原料，未来 sync 阶段修了 breed 后可重 ETL 恢复
-    must_not = [
-        {"terms": {"spec.keyword": ["", "/"]}},
-        {"terms": {"breed.keyword": ["", "/"]}},
-    ]
-    if category and not (incremental and since_date):
-        must = [{"term": {"category": category}}]
-    if incremental and since_date:
-        if category:
-            must = [{"term": {"category": category}}]
-        else:
-            must = [{"range": {"update_date": {"gte": since_date}}}]
-    body = {
-        "query": {"bool": {"must": must, "must_not": must_not}},
-        "size": min(batch_size, total),
-        "sort": [{"update_date": "asc"}],
-    }
-
-    resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
-    if resp.status_code != 200:
-        print(f"  [ETL] {city}: 查询失败: {resp.text[:200]}")
-        return 0, 0
-
-    data = resp.json()
-    hits = data["hits"]["hits"]
-    scroll_id = data.get("_scroll_id", "")
-
-    etled = failed = pages = 0
-
-    # ── 第一轮：滚动 ODS，DB 命中立即写，未命中攒批 ──
-    uncategorized_items: List[dict] = []   # DB 未命中的 items
-    uncategorized_meta: List[tuple] = []    # (doc_id, raw) 对齐 items
-
+    # ── 第一轮：DB 2 段式，命中写 DWD，未命中记录 breed ──
+    uncategorized_breeds = {}  # breed_clean -> {"breed": raw_breed, "spec": ..., "unit": ...}
     docs = []
     doc_ids = []
 
-    def _flush_buffer():
-        """把当前 docs buffer 写 DWD。"""
-        nonlocal etled, failed
-        if not docs:
-            return
-        ok, fail = bulk_index(es_host, dwd_idx, docs, doc_ids)
-        etled += ok
-        failed += fail
+    pages = 0
+    for doc_id, raw in _scroll_ods(es_host, ods_idx, total, batch_size,
+                                    category, incremental, since_date):
+        pages += 1
+        try:
+            breed_raw = raw.get("breed", "")
+            breed_clean = clean_breed(breed_raw)
+            if not breed_clean:
+                continue
+
+            v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean)
+            source = v2.get("category_v2_source", "")
+
+            if source in _LOCAL_HIT_SOURCES:
+                doc = transform_doc(raw, ods_idx, city, v2_override=v2)
+                if not doc.get("breed"):
+                    continue
+                if not dry_run:
+                    docs.append(doc)
+                    doc_ids.append(doc_id)
+                    if len(docs) >= batch_size:
+                        _write_dwd_batch(es_host, dwd_idx, docs, doc_ids, stats)
+            else:
+                stats["failed"] += 1
+                # 记录 breed 去重（用于后续 AI 补缓存）
+                if breed_clean not in uncategorized_breeds:
+                    uncategorized_breeds[breed_clean] = {
+                        "breed": breed_raw, "spec": "", "unit": "", "breed_clean": breed_clean,
+                    }
+
+            if pages % 500 == 0:
+                hit_count = stats["etled"]
+                print(f"    {pages}/{total}, hit={hit_count}, uncat_breeds={len(uncategorized_breeds)}")
+
+        except Exception as e:
+            stats["failed"] += 1
+            if stats["failed"] <= 3:
+                print(f"    转换失败: {e}")
+
+    # flush 最后一批
+    if not dry_run and docs:
+        _write_dwd_batch(es_host, dwd_idx, docs, doc_ids, stats)
+
+    round1_etled = stats["etled"]
+    round1_failed = stats["failed"]
+
+    # ── 第二轮：未命中 breed → AI 补缓存 ──
+    if uncategorized_breeds and not dry_run:
+        # 删除旧缓存记录（确保 classify_v3_batch 重新送 AI，不用 INSERT OR IGNORE）
+        import sqlite3 as _sqlite
+        from gov_price_etl.paths import PROJECT_ROOT as _pr
+        breed_cleans = list(uncategorized_breeds.keys())
+        _db_path = _pr / "data" / "category_v3_rules.db"
+        try:
+            _conn = _sqlite.connect(str(_db_path))
+            _ph = ",".join("?" * len(breed_cleans))
+            _conn.execute(
+                f"DELETE FROM breed_l3_map_v3 WHERE breed_clean IN ({_ph})",
+                breed_cleans,
+            )
+            _conn.commit()
+            _conn.close()
+            print(f"    [AI 补缓存] 删除 {len(breed_cleans)} 条旧缓存")
+        except Exception as _e:
+            print(f"    [AI 补缓存] 删除旧缓存失败: {_e}")
+
+        unique_breeds = list(uncategorized_breeds.values())
+        print(f"    [AI 补缓存] {len(unique_breeds)} 个 breed 送 Dify...")
+        t0 = time.time()
+        ai_results = classify_v3_batch(unique_breeds, city=city, write_rules=True)
+        elapsed = time.time() - t0
+        ai_ok = sum(1 for v in ai_results.values()
+                     if v.get("category_v2_source") == "ai_v3")
+        print(f"    [AI 补缓存] {ai_ok}/{len(unique_breeds)} 成功, {elapsed:.1f}s")
+
+        # 提置信度：AI 成功分类（有有效 L3）的 entry，强制 conf=0.95 确保 stage 1 命中
+        try:
+            _conn2 = _sqlite.connect(str(_db_path))
+            for bc, v in ai_results.items():
+                if v.get("category_v2_source") == "ai_v3" and v.get("l3"):
+                    _conn2.execute(
+                        "UPDATE breed_l3_map_v3 SET confidence=0.95, updated_at=datetime('now','localtime') WHERE breed_clean=?",
+                        (bc,),
+                    )
+            _conn2.commit()
+            _conn2.close()
+        except Exception as _e2:
+            print(f"    [AI 补缓存] 提置信度失败: {_e2}")
+
+        # ── 第三轮：从 ODS 拉回这组 breed 的文档，重新匹配写 DWD ──
+        breed_cleans = list(uncategorized_breeds.keys())
+        print(f"    [AI 重捞] 捞 {len(breed_cleans)} 个 breed...")
+        fetched = _fetch_ods_by_breeds(es_host, ods_idx, breed_cleans)
+
         docs.clear()
         doc_ids.clear()
-
-    while hits:
-        pages += 1
-        for h in hits:
-            try:
-                raw = h["_source"]
-                breed_raw = raw.get("breed", "")
-                breed_clean = clean_breed(breed_raw)
-                if not breed_clean:
-                    # 空 breed 跳过（跟原逻辑一致）
-                    continue
-
-                # 单条 DB-only v2 查表（阶段 4 占位 → 阶段 5 fallback）
-                v2 = classify_v3(
-                    breed=breed_raw,
-                    spec=raw.get("spec", ""),
-                    unit=raw.get("unit", ""),
-                    breed_clean=breed_clean,
-                )
-                source = v2.get("category_v2_source", "")
-
-                if source in _LOCAL_HIT_SOURCES:
-                    # DB 命中 → 立即构 doc + 攒批
-                    doc = transform_doc(raw, ods_idx, city, v2_override=v2)
-                    # transform_doc 内部已完成 spec='/' 规范化和空 spec 回填
-                    # 但空 breed 的空 spec 仍需跳过（doc.get('breed') 为空表示原料不合法）
-                    if not doc.get("breed"):
-                        continue
-
-                    if dry_run:
-                        print(f"    [dry-run DB-hit] {doc['breed_clean']} → {doc.get('category', '其他')} ({source})")
-                        continue
+        round2_hits = 0
+        for doc_id, raw in fetched:
+            breed_raw = raw.get("breed", "")
+            breed_clean = clean_breed(breed_raw)
+            if not breed_clean:
+                continue
+            v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean)
+            source = v2.get("category_v2_source", "")
+            if source in _LOCAL_HIT_SOURCES:
+                doc = transform_doc(raw, ods_idx, city, v2_override=v2)
+                if doc.get("breed"):
                     docs.append(doc)
-                    doc_ids.append(h["_id"])
-                else:
-                    # DB 未命中 → 跳过（等 breed 补入缓存后重跑 ETL）
-                    uncategorized_items.append({
-                        "breed": breed_raw,
-                        "spec": raw.get("spec", ""),
-                        "unit": raw.get("unit", ""),
-                        "breed_clean": breed_clean,
-                    })
-                    uncategorized_meta.append((h["_id"], raw))
+                    doc_ids.append(doc_id)
+                    round2_hits += 1
+                    if len(docs) >= batch_size:
+                        _write_dwd_batch(es_host, dwd_idx, docs, doc_ids, stats)
+            else:
+                stats["failed"] += 1
 
-                    if dry_run:
-                        print(f"    [dry-run DB-miss] {breed_clean} → {v2.get('category_v2_source')} → 攒批 AI")
-                        continue
-            except Exception as e:
-                failed += 1
-                if failed <= 3:
-                    print(f"    转换失败: {e}")
+        if docs:
+            _write_dwd_batch(es_host, dwd_idx, docs, doc_ids, stats)
 
-        # 每页 flush（DB 命中部分）
-        if not dry_run:
-            _flush_buffer()
+        print(f"    [AI 重捞] {round2_hits}/{len(fetched)} 命中写 DWD")
 
-        if pages % 20 == 0:
-            print(f"    pages={pages}, etled={etled}/{total}, uncategorized={len(uncategorized_items)}")
-
-        resp = session.post(f"{es_host}/_search/scroll?scroll=2m",
-                            json={"scroll_id": scroll_id})
-        if resp.status_code != 200:
-            break
-        result = resp.json()
-        hits = result["hits"]["hits"]
-        scroll_id = result.get("_scroll_id", "")
-
-    # ── 第二轮：未命中 DB 的项跳过（不写 DWD，等 breed 补入缓存后重跑 ETL）──
-    for (doc_id, raw), item in zip(uncategorized_meta, uncategorized_items):
-        failed += 1
-
-    if scroll_id:
-        session.delete(f"{es_host}/_search/scroll", json={"scroll_id": scroll_id})
-
+    round2_ai_breeds = len(uncategorized_breeds)
     print(
         f"  [ETL] {city} 完成: → {dwd_idx} | "
-        f"etled={etled}, "
-        f"failed={failed}, uncategorized={len(uncategorized_items)}"
+        f"第一轮 | hit={round1_etled}, miss_breeds={round2_ai_breeds}, "
+        f"第二轮(ai+重捞) | total_etled={stats['etled']}, "
+        f"total_failed={stats['failed']}"
     )
-    return etled, failed
+    return stats["etled"], stats["failed"]
 
 
 def run_etl(
@@ -216,7 +304,7 @@ def run_etl(
     mark_done: bool = False,
     with_dws: bool = True,
 ) -> Tuple[int, int]:
-    """跑全流程：每个城市先 ODS→DWD 二段式 ETL（v1 DB + v2 5 段），再 DWD→DWS 三段式同步。"""
+    """全流程：ODS→DWD（DB 2 段 + AI 补缓存），再 DWD→DWS。"""
     total_etled = 0
     total_failed = 0
 
