@@ -4,25 +4,25 @@
     <!-- ========== TOP BAR ========== -->
     <header class="top-bar">
       <div class="top-bar-left">
-        <span class="top-bar-brand">材价通</span>
+        <button class="hamburger" @click="mobileSidebarOpen = !mobileSidebarOpen" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
+        <span class="brand-logo">价</span>
+        <span class="top-bar-title">材价通</span>
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
           <span class="meta-label">数据总量</span>
           <span class="meta-value">{{ overview.total_docs.toLocaleString() }}</span>
         </span>
-        <span class="meta-sep">|</span>
         <span class="meta-item">
           <span class="meta-label">省份</span>
           <span class="meta-value">{{ overview.total_provinces }}</span>
         </span>
-        <span class="meta-sep">|</span>
         <span class="meta-item">
           <span class="meta-label">城市</span>
           <span class="meta-value">{{ overview.total_cities }}</span>
         </span>
-        <span class="meta-sep">|</span>
-
       </div>
     </header>
 
@@ -34,23 +34,47 @@
     <aside class="sidebar">
       <div class="sidebar-group">
         <div class="sidebar-group-label">总览</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">驾驶舱</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">
+          <span class="sidebar-icon">🛸</span>
+          <span class="sidebar-label">驾驶舱</span>
+        </button>
       </div>
       <div class="sidebar-group">
         <div class="sidebar-group-label">业务查价</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">全部数据</button>
-        <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">全部类别</button>
-        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">价格分布</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">
+          <span class="sidebar-icon">📋</span>
+          <span class="sidebar-label">全部数据</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">
+          <span class="sidebar-icon">📁</span>
+          <span class="sidebar-label">全部类别</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">
+          <span class="sidebar-icon">📊</span>
+          <span class="sidebar-label">价格分布</span>
+        </button>
       </div>
       <div class="sidebar-group">
         <div class="sidebar-group-label">系统监控</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'sync' }" @click="curTab = 'sync'; saveTab('sync')">数据同步</button>
-        <button class="sidebar-item" :class="{ active: curTab === 'health' }" @click="curTab = 'health'; saveTab('health')">数据健康</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'sync' }" @click="curTab = 'sync'; saveTab('sync')">
+          <span class="sidebar-icon">🔄</span>
+          <span class="sidebar-label">数据同步</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: curTab === 'health' }" @click="curTab = 'health'; saveTab('health')">
+          <span class="sidebar-icon">❤️</span>
+          <span class="sidebar-label">数据健康</span>
+        </button>
       </div>
       <div class="sidebar-group">
         <div class="sidebar-group-label">规则管理</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">规格解析</button>
-        <button class="sidebar-item" :class="{ active: curTab === 'taxonomy' }" @click="curTab = 'taxonomy'; saveTab('taxonomy')">分类体系</button>
+        <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">
+          <span class="sidebar-icon">⚙️</span>
+          <span class="sidebar-label">规格解析</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: curTab === 'taxonomy' }" @click="curTab = 'taxonomy'; saveTab('taxonomy')">
+          <span class="sidebar-icon">🏷️</span>
+          <span class="sidebar-label">分类体系</span>
+        </button>
       </div>
     </aside>
 
