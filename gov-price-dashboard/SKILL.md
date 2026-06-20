@@ -35,6 +35,19 @@ gov-price-dashboard API (FastAPI :5200)
 gov-price-dashboard 前端 (Vue3 :5300)
 ```
 
+## 侧栏导航
+
+| 标签 | 路由 | 说明 |
+|------|------|------|
+| 驾驶舱 | `cockpit` | 全局仪表盘，数据概览卡片 + 省份/城市/分类分布图 |
+| 全部数据 | `list` | 产品搜索/筛选/列表，支持分类树侧栏 |
+| 全部类别 | `category` | 类别下钻分析，品种列表 + 规格价格明细 |
+| 价格分布 | `dist` | 价格区间分布图表 |
+| 数据同步 | `sync` | 各城市抓取进度监控，ODS→DWD→DWS 同步状态 |
+| 数据健康 | `health` | 每日入库量、省份新鲜度、增量异常检测 |
+| 规格解析 | `rules` | 规格规则库查询/添加/测试，DWD 抽样质量报告 |
+| 分类体系 | `taxonomy` | 分类树浏览、品种→分类映射管理 |
+
 ## 项目结构
 
 ```
@@ -42,30 +55,66 @@ gov-price-dashboard/
 ├── start.sh                  # 一键启动脚本
 │
 ├── api/
-│   ├── main.py               # FastAPI 后端
+│   ├── main.py               # FastAPI 后端（搜索/统计/同步进度）
 │   ├── requirements.txt
+│   ├── skill_registry.py     # Skill 注册中心（自动扫 skill.yml）
 │   └── routes/
-│       └── provenance.py     # 数据溯源路由（含规格解析质量、AI规则生成）
+│       ├── provenance.py     # 数据溯源 + 规格解析 + 分类体系路由
+│       └── prompts.yml       # AI prompt 模板
 │
 └── frontend/
     ├── package.json
     ├── vite.config.js
     └── src/
-        ├── App.vue            # 主应用（搜索/列表/图表）
+        ├── App.vue            # 主布局（顶栏 + 侧栏 + 主内容区）
         ├── main.js
         ├── style.css
+        ├── composables/       # 可复用逻辑
+        │   ├── useColumnConfig.js
+        │   ├── useEchartsTheme.js
+        │   ├── useFilterOptions.js
+        │   ├── useOverview.js
+        │   ├── useProvinceColor.js
+        │   ├── useSearch.js
+        │   ├── useTabState.js
+        │   └── useToast.js
         └── components/
-            ├── AttrTags.vue                # 规格属性标签渲染
-            ├── BreedCategoryRulesView.vue  # 分类规则库视图
-            ├── CategoryView.vue            # 类别分析视图
-            ├── CustomSelect.vue            # 自定义下拉筛选
-            ├── DataHealthView.vue          # 数据健康视图
-            ├── DataProvenanceView.vue      # 数据溯源视图
-            ├── DistributionChart.vue       # 数据分布图
-            ├── ErrorBoundary.vue           # 错误边界
-            ├── SpecQualityPanel.vue        # 规格质量面板
-            ├── SpecSamplePanel.vue         # 规格抽样面板
-            └── VecRulesView.vue            # 规格规则库视图
+            ├── layout/
+            │   ├── Sidebar.vue         # 侧栏导航
+            │   └── TopBar.vue          # 顶栏（品牌 + 统计）
+            ├── AppButton.vue           # 通用按钮
+            ├── AppCard.vue             # 通用卡片
+            ├── AppPagination.vue       # 通用分页
+            ├── AttrTags.vue            # 规格属性标签渲染
+            ├── BreedMapTab.vue         # 品种→分类映射管理
+            ├── CategoryTaxonomyTab.vue # 分类体系标签页
+            ├── CategoryTaxonomyView.vue# 分类体系视图容器
+            ├── CategoryTreeBrowser.vue # 分类树浏览器
+            ├── CategoryTreeNav.vue     # 分类树导航
+            ├── CategoryTreeSidebar.vue # 分类树侧栏
+            ├── CategoryView.vue        # 类别分析视图
+            ├── CleanDimView.vue        # 清洗维度视图
+            ├── CmdPalette.vue          # ⌘K 命令面板
+            ├── CockpitView.vue         # 驾驶舱视图
+            ├── CustomSelect.vue        # 自定义下拉筛选
+            ├── DataHealthView.vue      # 数据健康视图
+            ├── DataProvenanceView.vue  # 数据溯源视图
+            ├── DistributionChart.vue   # 数据分布图表
+            ├── EmptyState.vue          # 空状态占位
+            ├── ErrorBoundary.vue       # 错误边界
+            ├── ErrorState.vue          # 错误状态占位
+            ├── PageHeader.vue          # 页面标题
+            ├── ScrapeView.vue          # 抓取进度视图
+            ├── SectionHeader.vue       # 区块标题
+            ├── SkeletonCard.vue        # 骨架屏卡片
+            ├── SkeletonChart.vue       # 骨架屏图表
+            ├── SpecQualityPanel.vue    # 规格质量面板
+            ├── SpecSamplePanel.vue     # 规格抽样面板
+            ├── StatCard.vue            # 统计卡片
+            ├── SyncCard.vue            # 同步进度卡片
+            ├── SyncView.vue            # 数据同步视图
+            ├── TreeNode.vue            # 树节点组件
+            └── VecRulesView.vue        # 规格规则库视图
 ```
 
 ## API 端点总览（FastAPI :5200）
@@ -108,18 +157,24 @@ gov-price-dashboard/
 |------|------|------|
 | `GET` | `/api/stats/scrape-progress` | 单城市抓取进度（`?city=xian`） |
 | `GET` | `/api/stats/scrape-progress-all` | 全部城市抓取进度汇总 |
+| `POST` | `/api/scrape/check` | 检查抓取进度增量状态 |
 | `GET` | `/api/stats/xian-sync-progress` | 西安同步进度（6区县） |
 | `GET` | `/api/stats/sichuan-sync-progress` | 四川同步进度（21地市） |
 | `GET` | `/api/stats/rizhao-sync-progress` | 日照同步进度（3类别） |
 | `GET` | `/api/stats/jinan-sync-progress` | 济南同步进度（41分类目录） |
 | `GET` | `/api/stats/chongqing-sync-progress` | 重庆同步进度（35区县） |
-| `GET` | `/api/stats/henan-sync-progress` | 河南同步进度（按月跟踪 period） |
+| `GET` | `/api/stats/heze-sync-progress` | 菏泽同步进度（按期期刊） |
+| `GET` | `/api/stats/henan-sync-progress` | 河南同步进度（18地市，按月跟踪 period） |
+| `GET` | `/api/stats/qingdao-sync-progress` | 青岛同步进度（月度期刊） |
 
-### 数据溯源
+### 数据溯源与清洗
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/api/stats/provenance` | 数据溯源（新鲜度/趋势/来源，`?city=all`） |
+| `POST` | `/api/stats/provenance/flush-city` | 触发城市数据刷新 |
+| `GET` | `/api/stats/clean-summary` | 清洗摘要统计 |
+| `GET` | `/api/skill-updates` | 各 skill 增量检测状态 |
 
 ### 规格解析质量
 
@@ -129,6 +184,17 @@ gov-price-dashboard/
 | `GET` | `/api/stats/spec-quality` | Spec 解析质量报告（抽样+分类覆盖率） |
 | `POST` | `/api/stats/spec-quality/fix-case` | 规则预览/确认（confirm=False 预览，confirm=True 写入） |
 | `POST` | `/api/stats/spec-quality/refresh-category` | 触发指定分类的 DWD→DWS 清洗重算 |
+| `POST` | `/api/stats/spec-quality/batch-spec-parse` | 批量规格解析 |
+
+### 分类体系
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/taxonomy/v3/tree` | v3 分类树（GB 章节体系） |
+| `GET` | `/api/stats/category-v2-stats` | v2 分类统计 |
+| `GET` | `/api/stats/category-v2-taxonomy` | v2 分类层级树 |
+| `GET` | `/api/stats/category-v2-breed-map` | v2 品种→分类映射 |
+| `GET` | `/api/stats/category-v2-l3-detail` | v2 L3 分类明细 |
 
 ### 品种分类规则
 
@@ -139,6 +205,14 @@ gov-price-dashboard/
 | `DELETE` | `/api/stats/breed-category-rules/{id}` | 删除指定规则 |
 | `POST` | `/api/stats/breed-category-rules/test` | 测试品种名 Jaccard 召回 |
 | `POST` | `/api/stats/spec-quality/classify-breed-batch` | 批量 AI 推断品种分类并写入规则库 |
+
+### 系统
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/skill-registry` | 返回所有已注册 skill 清单（skill.yml 扫盘结果） |
+| `POST` | `/api/skill-registry/reload` | 手动重新扫盘（加新 skill 后无重启生效） |
+| `POST` | `/api/prompts/reload` | 重新加载 AI prompt 模板 |
 
 ## 搜索 API 参数
 
@@ -207,6 +281,28 @@ GET /api/search?keyword=&province=&city=&county=&category=
 | `surface` | 表面处理 | `热镀锌` |
 | `fire_rating` | 耐火等级 | `A级` |
 
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `ES_HOST` | `http://localhost:59200` | Elasticsearch 地址 |
+| `ES_INDEX` | `dws_xian_price` | 默认查询 DWS 索引 |
+| `SKILLS_ROOT` | `~/.openclaw/workspace/skills` | skill.yml 扫描根目录 |
+| `CATEGORY_DB` | `../gov-price-etl/data/category_v3_rules.db` | v3 分类库 SQLite 路径 |
+
+## 支持城市（8 个）
+
+| City | Province | progress_mode | 说明 |
+|------|----------|---------------|------|
+| 西安 | 陕西 | county | 6 区县 |
+| 四川 | 四川 | catalogue | 21 地市/自治州 |
+| 重庆 | 重庆 | county | 35 区县 |
+| 济南 | 山东 | catalogue | 41 分类目录 |
+| 日照 | 山东 | catalogue | 3 类别 |
+| 菏泽 | 山东 | period | 按期期刊 |
+| 河南 | 河南 | period | 18 地市，按期期刊 |
+| 青岛 | 山东 | period | 月度期刊 |
+
 ## ES 索引结构
 
 | 城市 | ODS 层 | DWD 层 | DWS 层 | 进度索引 |
@@ -216,8 +312,9 @@ GET /api/search?keyword=&province=&city=&county=&category=
 | 重庆 | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` | `material_chongqing_price_sync_progress` |
 | 济南 | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` | `material_jinan_price_sync_progress` |
 | 日照 | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` | `material_rizhao_price_sync_progress` |
-| 雸泽 | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` | `ods_material_heze_price_sync_progress` |
+| 菏泽 | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` | `ods_material_heze_price_sync_progress` |
 | 河南 | `ods_material_henan_price` | `dwd_henan_price` | `dws_henan_price` | `ods_material_henan_price_sync_progress` |
+| 青岛 | `ods_material_qingdao_price` | `dwd_qingdao_price` | `dws_qingdao_price` | `ods_material_qingdao_price_sync_progress` |
 
 > 索引名由各 skill 的 `skill.yml` 声明，`api/skill_registry.py` 启动时扫盘生成 `ALL_INDICES`。
 
@@ -225,7 +322,7 @@ GET /api/search?keyword=&province=&city=&county=&category=
 
 ## 新增 skill 接入规范（v1）
 
-Dashboard 采用“声明式配置 + 自动发现”架构。加新 skill **零 dashboard 代码改动**，只需两步：
+Dashboard 采用"声明式配置 + 自动发现"架构。加新 skill **零 dashboard 代码改动**，只需两步：
 
 ### 1. 在 skill 目录下加 `skill.yml`
 
@@ -249,9 +346,9 @@ cities:                       # 可选：静态城市/区县列表
 - `ods_index` / `dws_index`：ES 索引名；`ALL_INDICES` 会自动拼入
 - `progress_index`：进度记录索引。命名不统一也无所谓，registry 会用此字段
 - `progress_mode`：决定 `<SyncCard>` 怎么渲染
-  - `county`：按区县分组，期望 county_details 字段
-  - `period`：按期期刊，期望 period_details 字段
-  - `catalogue`：按分类目录，期望 catalogue_details 字段
+  - `county`：按区县分组，期望 `county_details` 字段
+  - `period`：按期期刊，期望 `period_details` 字段
+  - `catalogue`：按分类目录，期望 `catalogue_details` 字段
 - `config_path`：用于读 `sync.last_period` / `last_update_date` 做增量检测
 
 ### 2. （可选）写一个 sync-progress 端点
@@ -273,7 +370,7 @@ def mycity_sync_progress():
     }
 ```
 
-**period 模式**（如 heze / henan）：
+**period 模式**（如 heze / henan / qingdao）：
 ```python
 @app.get("/api/stats/mycity-sync-progress")
 def mycity_sync_progress():
@@ -286,21 +383,34 @@ def mycity_sync_progress():
     }
 ```
 
-### 3. 重启 dashboard
+### 3. 热加载（无需重启）
+
+```bash
+curl -X POST http://localhost:5200/api/skill-registry/reload
+```
+
+或重启 dashboard：
 
 ```bash
 cd skills/gov-price-dashboard
 ./start.sh restart
 ```
 
-刷新页面，新 skill 卡片自动出现。“+”接入完成。
+刷新页面，新 skill 卡片自动出现。
 
-## API 端点补充（registry 相关）
+## 相关项目
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/skill-registry` | 返回所有已注册 skill 清单（skill.yml 扫盘结果） |
-| `POST` | `/api/skill-registry/reload` | 手动重新扫盘（加新 skill 后无重启生效） |
+| 项目 | 说明 |
+|------|------|
+| gov-price-etl | ODS→DWD→DWS 数据入仓 ETL |
+| xian-price | 西安数据同步（6 区县） |
+| sichuan-price | 四川数据同步（21 地市） |
+| chongqing-price | 重庆数据同步（35 区县） |
+| jinan-price | 济南数据同步（41 分类目录） |
+| rizhao-price | 日照数据同步（3 类别） |
+| heze-price | 菏泽数据同步（按期期刊） |
+| henan-price | 河南数据同步（18 地市，按期期刊） |
+| qingdao-price | 青岛数据同步（月度期刊） |
 
 ## 停止
 
