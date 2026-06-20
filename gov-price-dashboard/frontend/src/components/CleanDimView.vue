@@ -4,11 +4,10 @@
     <!-- Page header -->
     <PageHeader
       variant="flat"
-      title="清洗维度"
-      subtitle="按一级分类 / 规格型号 × 城市覆盖 × 解析率三个维度，横向看全国 8 城 DWD 数据清洗状况"
+      title="分类清洗"
+      subtitle="按一级分类 × 城市覆盖 × 解析率，横向看全国 8 城 DWD 数据分类清洗状况"
       :stats="cleanCategory.items.length ? [
-        { label: '分类清洗·文档数', value: cleanCategory.total.toLocaleString() },
-        { label: '规格清洗·文档数', value: cleanSpec.total.toLocaleString() },
+        { label: '清洗文档数', value: cleanCategory.total.toLocaleString() },
         { label: '覆盖分类数', value: cleanCategory.items.length },
       ] : []"
     ><template #icon>🧪</template></PageHeader>
@@ -55,54 +54,12 @@
       </div>
     </div>
 
-    <!-- 规格清洗 -->
-    <div class="chart-panel" v-if="cleanSpec.items.length">
-      <SectionHeader
-        title="规格清洗"
-        dot-color="green"
-        :subtitle="`top 规格 × 城市覆盖 · ${cleanSpec.total.toLocaleString()} 条`"
-        style="margin-bottom:12px"
-      />
-      <div class="clean-table">
-        <div class="clean-table-header">
-          <span class="clean-col-key">规格型号</span>
-          <span class="clean-col-count">文档数</span>
-          <span class="clean-col-cities">城市覆盖</span>
-          <span class="clean-col-parse">解析率</span>
-        </div>
-        <div
-          v-for="s in cleanSpec.items"
-          :key="s.key"
-          class="clean-table-row"
-        >
-          <span class="clean-col-key" :title="s.key">{{ s.key }}</span>
-          <span class="clean-col-count">{{ s.doc_count.toLocaleString() }}</span>
-          <span class="clean-col-cities">
-            <span
-              v-for="city in allCityKeys"
-              :key="city"
-              class="clean-city-dot"
-              :class="{ active: s.cities.includes(city) }"
-              :title="`${cityMap[city] || city}: ${s.cities.includes(city) ? '有数据' : '无数据'}`"
-            ></span>
-            <span class="clean-city-count">{{ s.city_count }}/{{ s.cities_total || 8 }}</span>
-          </span>
-          <span class="clean-col-parse">
-            <span class="clean-parse-bar">
-              <span class="clean-parse-fill" :style="{ width: (s.parse_rate * 100) + '%' }"></span>
-            </span>
-            <span class="clean-parse-num">{{ (s.parse_rate * 100).toFixed(1) }}%</span>
-          </span>
-        </div>
-      </div>
-    </div>
-
     <!-- 加载/空/错状态 -->
     <div v-if="loading" class="cleandim-loading">
       <SkeletonCard :lines="4" :hide-footer="true" />
     </div>
     <EmptyState
-      v-else-if="!cleanCategory.items.length && !cleanSpec.items.length"
+      v-else-if="!cleanCategory.items.length"
       icon="🧪" title="暂无数据" message="该页面需要先运行过 ETL 清洗任务"
     />
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
@@ -124,7 +81,6 @@ const loading = ref(false)
 const error = ref('')
 
 const cleanCategory = ref({ items: [], total: 0 })
-const cleanSpec = ref({ items: [], total: 0 })
 
 // 8 城 city key 列表（用于城市覆盖点）
 const cityMap = {
@@ -137,12 +93,8 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [catRes, specRes] = await Promise.all([
-      axios.get(`${API}/stats/clean-summary?dim=category&top_n=30`),
-      axios.get(`${API}/stats/clean-summary?dim=spec&top_n=10`),
-    ])
+    const catRes = await axios.get(`${API}/stats/clean-summary?dim=category&top_n=30`)
     cleanCategory.value = catRes.data || { items: [], total: 0 }
-    cleanSpec.value = specRes.data || { items: [], total: 0 }
   } catch (e) {
     error.value = '加载失败：' + (e.message || '网络错误')
   } finally {
