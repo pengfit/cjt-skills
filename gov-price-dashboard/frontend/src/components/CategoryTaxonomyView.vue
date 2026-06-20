@@ -20,15 +20,13 @@
 
     <!-- Sub Tabs (对齐 SyncView 的 sync-subtabs 导航模式) -->
     <div class="ctx-subtabs">
-      <button class="ctx-subtab" :class="{ active: subTab === 'taxonomy' }" @click="subTab = 'taxonomy'">
-        <span class="ctx-subtab-dot"></span>
-        分类法
-        <span class="ctx-subtab-hint">3 级分类体系 / 64 行</span>
-      </button>
       <button class="ctx-subtab" :class="{ active: subTab === 'map' }" @click="subTab = 'map'">
         <span class="ctx-subtab-dot"></span>
         品种映射
-        <span class="ctx-subtab-hint">breed → L3 / 4073 条</span>
+      </button>
+      <button class="ctx-subtab" :class="{ active: subTab === 'taxonomy' }" @click="subTab = 'taxonomy'">
+        <span class="ctx-subtab-dot"></span>
+        分类法
       </button>
     </div>
 
