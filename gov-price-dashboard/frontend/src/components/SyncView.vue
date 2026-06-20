@@ -122,11 +122,7 @@ onMounted(loadStats)
   gap: 4px;
   padding: 14px 20px 2px;
   border-bottom: 1px solid var(--border);
-  /* 粘性定位：跟顶栏下方吸顶（跟 CategoryTaxonomyView 的 .ctx-subtabs 一致） */
-  position: sticky;
-  top: var(--topbar-h, 60px);
   background: var(--bg);
-  z-index: 100;
 }
 
 .sync-subtab {

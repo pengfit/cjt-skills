@@ -216,9 +216,9 @@ body {
   border-right: 1px solid var(--border);
   padding: 12px 0;
   position: sticky;
-  top: var(--topbar-h, 56px);
+  top: 0;
   align-self: flex-start;
-  max-height: calc(100vh - var(--topbar-h, 56px));
+  height: 100vh;
   overflow-y: auto;
 }
 
@@ -311,8 +311,6 @@ body {
    TOP BAR — 更干净的顶部栏
    ============================================================ */
 .top-bar {
-  position: sticky;
-  top: 0;
   z-index: 200;
   display: flex;
   align-items: center;
@@ -563,6 +561,67 @@ body {
 .data-table.no-row-hover tbody tr:hover,
 .result-table.no-row-hover tbody tr:hover {
   background: inherit !important;
+}
+
+/* ── 数据行可点击 ── */
+.data-table tbody .data-row {
+  cursor: pointer;
+}
+.data-table tbody .data-row.row-expanded {
+  background: rgba(var(--primary-rgb), 0.06) !important;
+}
+
+/* ── 行展开详情面板 ── */
+.detail-row td {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.detail-panel {
+  padding: 14px 20px;
+  background: rgba(var(--primary-rgb), 0.02);
+  border-top: 1px solid var(--border-light);
+  animation: detailSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes detailSlideIn {
+  from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  to   { opacity: 1; max-height: 300px; padding-top: 14px; padding-bottom: 14px; }
+}
+.detail-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 20px;
+}
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-field.full-width {
+  grid-column: 1 / -1;
+}
+.detail-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.detail-field-value {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+.detail-field-value.spec-full {
+  font-family: var(--font-mono-num);
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.detail-field-value.price-em {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 /* ——— nav-tab ——— */
@@ -1662,6 +1721,39 @@ body {
   animation: cardIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ── 分类面包屑 ── */
+.category-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.breadcrumb-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.breadcrumb-sep {
+  color: var(--text-3);
+  font-size: 10px;
+  margin: 0 2px;
+}
+.breadcrumb-part {
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  transition: all var(--transition-fast);
+}
+.breadcrumb-part.active {
+  color: var(--primary);
+  font-weight: 700;
+  background: var(--primary-dim);
+}
+
 /* ============================================================
    FILTER BAR (top sticky bar)
    ============================================================ */
@@ -2114,16 +2206,116 @@ body {
   .detail-stats { grid-template-columns: 1fr 1fr !important; }
 }
 
-/* ——— 表格列响应式隐藏 ——— */
-/* 移动端隐藏部分非关键列，保留 breed/price/date */
+/* ── 移动端：桌面表格隐藏，卡片视图显示 ── */
 @media (max-width: 768px) {
-  .result-table th.col-attr,
-  .result-table td.col-attr,
-  .result-table th.col-category,
-  .result-table td.col-category,
-  .result-table th.col-unit,
-  .result-table td.col-unit { display: none; }
+  .table-desktop { display: none !important; }
+}
+@media (min-width: 769px) {
+  .table-mobile { display: none !important; }
+}
 
+/* ── 移动端卡片视图 ── */
+.table-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+.mobile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+.mobile-card:active {
+  transform: scale(0.98);
+  background: var(--surface-2);
+}
+.mobile-card-expanded {
+  border-color: var(--primary-soft);
+  box-shadow: 0 0 0 1px rgba(var(--primary-rgb), 0.2);
+}
+.mobile-card-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mobile-card-left {
+  flex: 1;
+  min-width: 0;
+}
+.mobile-card-breed {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+.mobile-card-spec {
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: var(--font-mono-num);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+.mobile-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.mobile-card-cat {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--primary-dim);
+  color: var(--primary);
+  border-radius: 3px;
+  font-weight: 500;
+}
+.mobile-card-loc {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.mobile-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.mobile-card-price {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+  font-family: var(--font-mono-num);
+  line-height: 1.2;
+}
+.mobile-card-unit {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.mobile-card-date {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.mobile-card-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 保留原有移动端规则（去掉列隐藏部分，因为移动端改用卡片视图） */
+@media (max-width: 768px) {
   .result-table { font-size: 12px; }
   .result-table th { padding: 6px 8px; }
   .result-table td { padding: 6px 8px; }
