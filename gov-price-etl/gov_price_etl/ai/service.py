@@ -872,7 +872,10 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
             continue
         breed = item.get("breed", "")
         category = item.get("category", "")
-        rules = vs.search(spec=spec, category=category, breed=breed, top_k=8)
+        # validate_spec: 对每个命中规则执行 code_block 校验，不产出结果的直接剔除
+        # 解决向量相似度误匹配（如 '1.5厚' → 匹配到 '真石漆' 的规则）
+        rules = vs.search(spec=spec, category=category, breed=breed, top_k=8,
+                          validate_spec=spec)
         if rules:
             # DB 字段是 code，suggestions 规范用 code_block
             suggestions = [

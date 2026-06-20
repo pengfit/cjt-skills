@@ -212,16 +212,46 @@ class VecStore:
         return dict(pattern=pat, attr=attr, note=note or "", code=code or "",
                     breed=breed or "", category=cat or "", tokens=tokens)
 
-    def search(self, spec: str = "", category: str = "", breed: str = "",
-               top_k: int = 8, attr_filter: str = "") -> list:
+    def _validate_rule_code(self, code: str, spec: str, attr: str) -> bool:
+        """执行校验：code_block 对给定 spec 能否产出目标 attr 的值。
+
+        解决 breed_spec_rules.db 中向量相似度误匹配问题：
+        如 '1.5厚' 匹配到 '真石漆' 的规则（token 交集非零），
+        但 code_block 执行后 result['thickness'] 为空的，校验不通过。
         """
-        Keyword similarity search.
-        过滤条件（必须同时满足）：
-          - category = 指定分类（空字串 = 不限制）
-          - breed    = 指定品类（空字串 = 不限制）
-          - attr_filter = 指定属性（空字串 = 不限制）
-        keyword score = 0 → 该规则不参与，直接丢弃。
-        无命中 → 返回空列表（不降级，不复用旧规则）。
+        if not code or not spec:
+            return False
+        try:
+            import re as _re
+            exec_globals = {"result": {}, "re": _re, "s": spec}
+            exec(code, exec_globals)
+            norm_a = attr[5:] if attr.startswith("attr_") else attr
+            v = exec_globals["result"].get(norm_a, "")
+            return bool(v)
+        except Exception:
+            return False
+
+    def search(self, spec: str = "", category: str = "", breed: str = "",
+               top_k: int = 8, attr_filter: str = "",
+               validate_spec: str = None) -> list:
+        """
+        Keyword similarity search with breed/category scoring + execution validation.
+
+        参数:
+          - spec / category / breed: 查询上下文（品种/分类用于加权）
+          - top_k: 返回数量
+          - attr_filter: 属性名过滤
+          - validate_spec: 执行校验用 spec 字符串（传入则对每个规则执行 code_block，
+            不产出结果的规则直接剔除，解决向量相似度误匹配问题）
+
+        评分规则:
+          - Jaccard 相似度 (0-1)
+          + breed 精确匹配: +0.30
+          + category 精确匹配: +0.20
+          × 空 breed 规则 + 有 breed 查询: ×0.80 (通用规则降权)
+
+        Returns:
+            [(score, rule_dict), ...] 按 score 降序，最多 top_k 条
         """
         spec_tokens = _build_spec_tokens(spec or "") or set()
         # _build_spec_tokens 对含字母的 spec（如 Φ14 HRB500E）返回空 set，
@@ -237,7 +267,7 @@ class VecStore:
                 if category:
                     base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
                     if breed:
-                        sql = base + " AND (breed='' OR breed=?)"
+                        sql = base + " AND breed=?"
                         rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
                     else:
                         rows = conn.execute(base, (attr_filter, category)).fetchall()
@@ -245,7 +275,7 @@ class VecStore:
                     # No category filter: match all categories
                     base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=?"
                     if breed:
-                        sql = base + " AND (breed='' OR breed=?)"
+                        sql = base + " AND breed=?"
                         rows = conn.execute(sql, (attr_filter, breed)).fetchall()
                     else:
                         rows = conn.execute(base, (attr_filter,)).fetchall()
@@ -253,14 +283,14 @@ class VecStore:
                 if category:
                     base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE category=?"
                     if breed:
-                        sql = base + " AND (breed='' OR breed=?)"
+                        sql = base + " AND breed=?"
                         rows = conn.execute(sql, (category, breed)).fetchall()
                     else:
                         rows = conn.execute(base, (category,)).fetchall()
                 else:
                     # No category filter: match all categories (skip AND category=? clause)
                     if breed:
-                        sql = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE breed='' OR breed=?"
+                        sql = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE breed=?"
                         rows = conn.execute(sql, (breed,)).fetchall()
                     else:
                         rows = conn.execute("SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules").fetchall()
@@ -283,6 +313,24 @@ class VecStore:
                     score = 0.0001
             else:
                 score = 1.0
+
+            # ═══ breed/category 加权 ═══
+            # breed 精确匹配 → +0.30（规则专为该品种设计，优先）
+            rule_breed = (rule.get("breed") or "").strip()
+            if breed and rule_breed and rule_breed == breed:
+                score += 0.30
+            # category 精确匹配 → +0.20
+            rule_cat = (rule.get("category") or "").strip()
+            if category and rule_cat and rule_cat == category:
+                score += 0.20
+
+            # ═══ 执行校验 ═══
+            if validate_spec is not None:
+                code = rule.get("code", "")
+                attr = rule.get("attr", "")
+                if not self._validate_rule_code(code, validate_spec, attr):
+                    continue  # 校验不通过 → 丢弃该规则
+
             results.append((score, rule))
 
         results.sort(key=lambda x: x[0], reverse=True)
