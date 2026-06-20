@@ -90,7 +90,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ctx-page { padding: 0 28px 28px; }
+.ctx-page { padding: 0 28px 64px; }
 
 /* Header（已迁移至 PageHeader flat 变体） */
 .ctx-subtitle code,
@@ -107,11 +107,6 @@ onMounted(() => {
   display: flex; gap: 4px;
   padding: 14px 0 0;
   border-bottom: 1px solid var(--border);
-  /* 粘性定位：滚动时 subtab 锁在顶部，让用户随时知道自己在哪个 tab。
-     top 设 60px 是因为 .top-bar（高 60px）也是 sticky top:0 z-index:200，
-     必须避开 top-bar 的位置。 */
-  position: sticky;
-  top: var(--topbar-h, 60px);
   background: var(--bg);
   z-index: 100;
   /* 让 border-bottom 与下方内容有间隙 */

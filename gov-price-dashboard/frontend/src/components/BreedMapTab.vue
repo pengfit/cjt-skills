@@ -193,7 +193,16 @@ onMounted(() => {
 /* Card / Table */
 .ctx-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+  border-radius: 12px; overflow: visible; box-shadow: var(--shadow);
+  padding-bottom: 16px;
+}
+.ctx-card :deep(.pagination) {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 0 0 12px 12px;
+  z-index: 5;
 }
 .table-scroll { overflow-x: auto; }
 .ctx-row { cursor: pointer; }

@@ -195,7 +195,8 @@ body {
   max-width: none;
   margin: 0 auto;
   padding: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -203,7 +204,8 @@ body {
 .dashboard-body {
   display: flex;
   flex: 1;
-  min-height: 0;  /* allow main-content to scroll */
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ========== SIDEBAR — 更精致的导航 ========== */
@@ -292,10 +294,17 @@ body {
 
 .main-content {
   flex: 1;
-  min-width: 0;  /* prevent overflow from tables */
-  /* overflow-x 不再放这里 — 表格横向滚动由 .table-scroll 内部处理。
-     否则 main-content 变成 sticky 滚动容器，会把 .filter-bar 多钉 60px。 */
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 通用页面滚动面板 */
+.scroll-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ============================================================
@@ -909,6 +918,35 @@ body {
   box-sizing: border-box;
 }
 
+/* 列表页专用：固定高度内容区，仅表格滚动 */
+.list-tree-layout .content-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 所有页面通用滚动面板 */
+.scroll-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: overlay;
+  overflow-y: scroll;
+}
+.scroll-panel::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-panel::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.15);
+  border-radius: 4px;
+}
+.scroll-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(15,23,42,0.25);
+}
+
 /* === Content Card — 纯白底 + 柔和阴影，去掉毛玻璃 === */
 .content-card {
   background: var(--surface);
@@ -919,6 +957,12 @@ body {
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
+}
+
+/* 列表页专用：表格卡片填充剩余空间 */
+.list-tree-layout .content-card {
+  flex: 1;
+  min-height: 0;
 }
 
 /* === Table Card === */
@@ -1647,6 +1691,7 @@ body {
   border-bottom: 1px solid var(--border-light);
   padding: 0 0 12px;
   margin-bottom: 6px;
+  flex-shrink: 0;
 }
 .filter-bar-input:focus {
   border-color: var(--primary);
@@ -1691,6 +1736,45 @@ body {
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.list-tree-panel.collapsed {
+  width: 36px;
+}
+.panel-toggle {
+  position: absolute;
+  bottom: 12px;
+  right: 4px;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  padding: 0;
+  line-height: 1;
+}
+.panel-toggle:hover {
+  background: var(--primary-dim);
+  color: var(--primary);
+  border-color: var(--primary-soft);
+}
+.list-tree-panel.collapsed .panel-toggle {
+  right: 6px;
+}
+.panel-inner {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }

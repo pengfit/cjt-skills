@@ -260,10 +260,11 @@ onMounted(() => {
 
 <style scoped>
 .vec-page {
-  padding: 16px 20px 80px;
-  min-height: 100vh;
+  display: block;
+  padding: 16px 20px 0;
   color: #1e293b;
   font-size: 13px;
+  padding-bottom: 64px;
 }
 
 /* Header（已迁移至 PageHeader flat 变体） */
@@ -364,9 +365,9 @@ onMounted(() => {
 .vec-table-wrap {
   border-radius: 10px;
   border: 1px solid var(--border);
-  overflow: hidden;
   background: var(--surface);
   box-shadow: var(--shadow);
+  overflow-x: hidden;
 }
 /* vec-table 已迁移至全局 .data-table */
 .vec-table td { padding: 8px 12px; }
@@ -443,12 +444,19 @@ onMounted(() => {
 
 /* Pagination — 沿用全局 `.pagination` / `.page-btn` 样式 */
 .vec-pagination {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   padding: 12px 18px;
   border-top: 1px solid rgba(15,23,42,0.08);
-  background: rgba(241,245,249,0.8);
+  background: rgba(241,245,249,0.95);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  margin-top: 12px;
+  border-radius: 10px;
+  z-index: 5;
 }
 </style>

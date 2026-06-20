@@ -177,11 +177,16 @@
 
       <!-- 列表页：左侧分类树 + 右侧产品表格 -->
       <div class="list-tree-layout" v-if="curTab === 'list'">
-        <aside class="list-tree-panel">
-          <CategoryTreeSidebar
-            :active-l3="searchCategoryCode"
-            @select="onCategoryTreeSelect"
-          />
+        <aside class="list-tree-panel" :class="{ collapsed: categoryPanelCollapsed }">
+          <button class="panel-toggle" @click="categoryPanelCollapsed = !categoryPanelCollapsed" :title="categoryPanelCollapsed ? '展开分类' : '收起分类'">
+            {{ categoryPanelCollapsed ? '▸' : '◂' }}
+          </button>
+          <div class="panel-inner" v-show="!categoryPanelCollapsed">
+            <CategoryTreeSidebar
+              :active-l3="searchCategoryCode"
+              @select="onCategoryTreeSelect"
+            />
+          </div>
         </aside>
 
       <!-- Content Area -->
@@ -371,40 +376,43 @@
     <!-- Distribution page -->
     <template v-if="curTab === 'dist'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <DistributionChart
-        v-else
-        :keyword="searchKeyword"
-        :province="searchProvince"
-        :city="searchCity"
-      />
+      <div v-else class="scroll-panel">
+        <DistributionChart
+          :keyword="searchKeyword"
+          :province="searchProvince"
+          :city="searchCity"
+        />
+      </div>
     </template>
 
     <template v-if="curTab === 'cockpit'">
-      <CockpitView />
+      <div class="scroll-panel">
+        <CockpitView />
+      </div>
     </template>
 
     <template v-if="curTab === 'category'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <CategoryView v-else />
+      <div v-else class="scroll-panel"><CategoryView /></div>
     </template>
 
     <template v-if="curTab === 'sync'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <SyncView v-else />
+      <div v-else class="scroll-panel"><SyncView /></div>
     </template>
 
     <template v-if="curTab === 'health'">
-      <DataHealthView />
+      <div class="scroll-panel"><DataHealthView /></div>
     </template>
 
     <template v-if="curTab === 'rules'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <VecRulesView v-else />
+      <div v-else class="scroll-panel"><VecRulesView /></div>
     </template>
 
     <template v-if="curTab === 'taxonomy'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <CategoryTaxonomyView v-else />
+      <div v-else class="scroll-panel"><CategoryTaxonomyView /></div>
     </template>
 
     </main>
@@ -474,6 +482,7 @@ function saveTab(tab) {
 }
 const mobileSidebarOpen = ref(false)
 const showCmdPalette = ref(false)  // ⌘K 命令面板
+const categoryPanelCollapsed = ref(false)  // 分类面板收起
 watch(curTab, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
 
 // ⌘K 命令面板项
