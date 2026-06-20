@@ -235,11 +235,9 @@
 
         <!-- Toolbar (standalone, outside Transition) -->
         <!-- ========== TABLE or CHART or LOADING or EMPTY ========== -->
-        <Transition name="content-fade">
-        <div>
 
         <!-- Skeleton loading — uses flex:0 0 Npx so widths always match table -->
-        <div class="content-card" v-if="loading">
+        <div class="content-card skeleton-card" v-if="loading">
           <div class="skeleton-header">
             <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
           </div>
@@ -366,8 +364,6 @@
             </div>
           </div>
         </div>
-        </div>
-        </Transition>
       </main>
       </div> <!-- /.list-tree-layout -->
     </template>
@@ -525,7 +521,7 @@ const categoryOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
 const searchPage = ref(1)
-const loading = ref(false)
+const loading = ref(true)  // 初始即加载态，避免首次渲染闪空态
 const searchResult = ref({})
 const cityOptions = ref([])
 const countyOptions = ref([])

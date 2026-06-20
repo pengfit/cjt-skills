@@ -555,6 +555,11 @@ onUnmounted(() => {
   border-radius: var(--radius);
   padding: 16px;
   box-shadow: var(--shadow-card);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.gauge-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04);
 }
 .gauge-card-main {
   border-color: rgba(var(--primary-rgb), 0.2);
@@ -676,12 +681,14 @@ onUnmounted(() => {
   padding: 12px;
   transition: all var(--transition-fast);
 }
-.city-card:hover,
-.skill-update-card:hover {
+.city-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
 }
+.skill-update-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
 .city-card.alert {
+  border-top-color: var(--danger);
   border-color: rgba(var(--danger-rgb), 0.4);
 }
 .skill-update-card.status-fresh { border-left: 3px solid var(--success); }

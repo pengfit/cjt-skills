@@ -281,6 +281,8 @@ body {
   color: var(--primary);
   background: rgba(var(--primary-rgb), 0.08);
   font-weight: 600;
+  border-left: 3px solid var(--primary);
+  padding-left: 13px;
 }
 
 .sidebar-item.active .sidebar-icon {
@@ -329,12 +331,13 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--primary);
+  background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
   color: #fff;
   font-size: 12px;
   font-weight: 800;
   flex-shrink: 0;
   letter-spacing: 0;
+  box-shadow: 0 2px 8px rgba(30,64,175,0.3);
 }
 
 .top-bar-title {
@@ -429,6 +432,7 @@ body {
   color: var(--primary);
   font-size: 13px;
   letter-spacing: 0.2px;
+  transition: all 0.3s ease;
 }
 
 /* ——— price-main: core numeric display ——— */
@@ -511,31 +515,40 @@ body {
 .result-table .col-price,
 .result-table .col-unit,
 .result-table .col-date {
-  text-align: right;
+  text-align: center;
   padding-right: 20px;
 }
 .data-table .col-price .price-main,
 .result-table .col-price .price-main {
-  text-align: right;
+  text-align: center;
+}
+.data-table .col-price .price-tax,
+.result-table .col-price .price-tax {
+  text-align: center;
 }
 
 /* ——— table row ——— */
 .data-table tbody tr,
 .result-table tbody tr {
   border-bottom: 1px solid var(--border-light);
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
   height: 44px;
   background: var(--surface);
   position: relative;
+  z-index: 1;
 }
 
 .data-table tbody tr:nth-child(even),
-.result-table tbody tr:nth-child(even) { background: rgba(var(--primary-rgb), 0.02); }
+.result-table tbody tr:nth-child(even) { background: rgba(var(--primary-rgb), 0.04); }
 .data-table tbody tr:last-child,
 .result-table tbody tr:last-child { border-bottom: none; }
 .data-table tbody tr:hover,
 .result-table tbody tr:hover {
-  background: rgba(var(--primary-rgb), 0.04) !important;
+  background: rgba(var(--primary-rgb), 0.06) !important;
+  transform: scale(1.002);
+  box-shadow: 0 1px 4px rgba(15,23,42,0.06);
+  transition: all var(--transition-fast);
+  z-index: 2;
 }
 /* 禁用 hover 效果（如详情行/抽屉内行） */
 .data-table.no-row-hover tbody tr:hover,
@@ -1121,10 +1134,11 @@ body {
   background: var(--surface);
   border-radius: var(--radius);
   border: 1px solid rgba(var(--danger-rgb), 0.2);
+  border-left: 4px solid var(--danger);
   text-align: center;
   box-shadow: var(--shadow-card);
 }
-.error-icon { font-size: 28px; }
+.error-icon { font-size: 48px; opacity: 0.4; }
 .error-title { font-size: 14px; color: var(--danger); font-weight: 600; }
 .error-hint { font-size: 12px; color: var(--text-3); }
 .error-retry-btn { margin-top: 8px; padding: 8px 20px; font-size: 13px; }
@@ -1202,12 +1216,14 @@ body {
 }
 
 .price-cell.price-high {
-  background: rgba(248,113,113,0.08) !important;
+  background: linear-gradient(90deg, rgba(248,113,113,0.12), rgba(248,113,113,0.02)) !important;
+  border-left: 2px solid #ef4444;
 }
 .price-cell.price-high .price-main { color: #ef4444 !important; }
 
 .price-cell.price-low {
-  background: rgba(37,99,235,0.08) !important;
+  background: linear-gradient(90deg, rgba(37,99,235,0.10), rgba(37,99,235,0.02)) !important;
+  border-left: 2px solid #2563eb;
 }
 .price-cell.price-low .price-main { color: #2563eb !important; }
 
@@ -1583,13 +1599,23 @@ body {
 
 
 /* Content fade transition */
-.content-fade-enter-active,
-.content-fade-leave-active {
-  transition: opacity 0.15s ease;
+/* 卡片弹性出现动画 */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.content-fade-enter-from,
-.content-fade-leave-to {
-  opacity: 0;
+.content-card {
+  animation: cardIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 300px;
+}
+.skeleton-card {
+  animation: cardIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.error-state {
+  animation: cardIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.empty-state {
+  animation: cardIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ============================================================
@@ -1624,7 +1650,7 @@ body {
 }
 .filter-bar-input:focus {
   border-color: var(--primary);
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px rgba(30,64,175,0.18), 0 0 12px rgba(30,64,175,0.1);
 }
 .filter-bar-input::placeholder { color: var(--text-3); }
 .filter-bar-select { width: 150px; flex-shrink: 0; }
@@ -2161,6 +2187,7 @@ body {
 
 /* Spec structural field tags - harmonious palette for dark navy background */
 /* 统一柔和的属性标签 — 去掉glow，统一饱和度，扁平干净 */
+.meta-tag { font-size: 11px; padding: 3px 8px; }
 span.meta-tag.tag-thickness   { background: rgba(37,99,235,0.12); color: #2563eb; border: 1px solid rgba(37,99,235,0.25); }
 span.meta-tag.tag-diameter     { background: rgba(167,139,250,0.12); color: #7c3aed; border: 1px solid rgba(167,139,250,0.25); }
 span.meta-tag.tag-grade        { background: rgba(96,165,250,0.12); color: #1d4ed8; border: 1px solid rgba(96,165,250,0.25); }
@@ -2613,4 +2640,155 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #0d9488
   border-radius: 16px; width: 100%; max-width: 720px; max-height: 80vh;
   display: flex; flex-direction: column;
   box-shadow: 0 24px 80px rgba(15,23,42,0.12); overflow: hidden;
+}
+
+/* ============================================================
+   UI ENHANCEMENTS — 按钮涟漪、页面切换、KPI 卡片
+   ============================================================ */
+
+/* ── 按钮涟漪效果 ── */
+.btn-primary, .btn-ghost, .toolbar-btn, .btn-more {
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after, .btn-ghost::after, .toolbar-btn::after, .btn-more::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,0.35) 10%, transparent 10.01%);
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(10);
+  opacity: 0;
+  transition: transform 0.35s, opacity 0.5s;
+}
+.btn-primary:active::after, .btn-ghost:active::after, .toolbar-btn:active::after, .btn-more:active::after {
+  transform: scale(0);
+  opacity: 0.3;
+  transition: 0s;
+}
+
+/* ── 页面切换动画 ── */
+.tab-content-enter-active,
+.tab-content-leave-active {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-content-enter-from,
+.tab-content-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* ── KPI 卡片通用悬浮提升 ── */
+.stat-card-inner,
+.cockpit-kpi-row > *,
+[class*="-kpi-card"],
+.ov-card {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stat-card-inner:hover,
+.cockpit-kpi-row > *:hover,
+[class*="-kpi-card"]:hover,
+.ov-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04);
+}
+
+/* ── Toast 右上角位置 ── */
+.toast {
+  top: calc(var(--topbar-h, 56px) + 16px);
+  right: 24px;
+  bottom: auto;
+  left: auto;
+}
+
+/* ── Pipeline 管道箭头连接 ── */
+.pipeline-stage::after {
+  content: '→';
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 14px;
+  font-weight: bold;
+}
+.pipeline-stage:last-child::after { content: none; }
+
+/* ── 城市状态彩色边框 ── */
+.sync-card.status-ok { border-top: 3px solid var(--status-ok); }
+.sync-card.status-warn { border-top: 3px solid var(--status-warn); }
+.sync-card.status-alert { border-top: 3px solid var(--status-alert); }
+
+/* ── 数据行 hover 浮起补强 ── */
+.data-table tbody tr,
+.result-table tbody tr {
+  transform: scale(1);
+  will-change: transform, box-shadow;
+}
+
+/* ============================================================
+   DARK MODE — 暗色主题
+   ============================================================ */
+[data-theme="dark"],
+.dark-mode {
+  --bg: #0f172a;
+  --bg-grad: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --surface: #1e293b;
+  --surface-2: #334155;
+  --surface-3: #475569;
+  --border: #334155;
+  --border-light: #2d3b4f;
+  --border-strong: #475569;
+
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+  --text-inverse: #0f172a;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4), 0 12px 28px rgba(0,0,0,0.3);
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-primary: 0 4px 14px rgba(37,99,235,0.3), 0 2px 6px rgba(37,99,235,0.15);
+
+  --primary-dim: rgba(59,130,246,0.15);
+  --primary-light: rgba(59,130,246,0.08);
+
+  --status-ok-bg: rgba(5,150,105,0.2);
+  --status-warn-bg: rgba(217,119,6,0.2);
+  --status-alert-bg: rgba(225,29,72,0.2);
+
+  --surface-rgb: 30, 41, 59;
+  --surface-2-rgb: 51, 65, 85;
+  --text-rgb: 241, 245, 249;
+  --text-2-rgb: 203, 213, 225;
+  --text-3-rgb: 148, 163, 184;
+  --border-rgb: 51, 65, 85;
+}
+
+/* 暗色模式下的数据表格暗底行 */
+[data-theme="dark"] .data-table tbody tr,
+[data-theme="dark"] .result-table tbody tr,
+.dark-mode .data-table tbody tr,
+.dark-mode .result-table tbody tr {
+  background: var(--surface);
+}
+[data-theme="dark"] .data-table tbody tr:nth-child(even),
+[data-theme="dark"] .result-table tbody tr:nth-child(even),
+.dark-mode .data-table tbody tr:nth-child(even),
+.dark-mode .result-table tbody tr:nth-child(even) {
+  background: rgba(148,163,184,0.04);
+}
+
+/* 暗色模式滚动条 */
+[data-theme="dark"] ::-webkit-scrollbar-thumb,
+.dark-mode ::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.2);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.35);
 }
