@@ -154,6 +154,8 @@ def _execute_suggestions(suggestions: list, spec: str) -> dict:
     """执行 AI 返回的建议列表，提取 attr dict。"""
     attrs: dict = {}
     for s in suggestions:
+        if not isinstance(s, dict):
+            continue
         a = s.get("attr", "")
         c = s.get("code_block", "")
         if not a or not c:
