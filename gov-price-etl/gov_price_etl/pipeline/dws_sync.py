@@ -164,7 +164,13 @@ def _execute_suggestions(suggestions: list, spec: str) -> dict:
         try:
             exec_globals = {"result": {}, "re": re, "s": spec}
             code = c if isinstance(c, str) else "\n".join(c)
-            exec(code, exec_globals)
+            # Python 3.12+ 对字符串中 \s 等非标注义序列产生 SyntaxWarning,
+            # Dify 返回的 code_block 含 raw string (r'...') 语义，
+            # compile 后 warnings.filterwarnings 静默处理
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", SyntaxWarning)
+                exec(code, exec_globals)
             val = exec_globals.get("result", {}).get(norm_a, "")
             if not val:
                 val = exec_globals.get("result", {}).get(a, "")

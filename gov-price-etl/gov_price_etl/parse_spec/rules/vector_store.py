@@ -223,8 +223,11 @@ class VecStore:
             return False
         try:
             import re as _re
+            import warnings as _w
             exec_globals = {"result": {}, "re": _re, "s": spec}
-            exec(code, exec_globals)
+            with _w.catch_warnings():
+                _w.simplefilter("ignore", SyntaxWarning)
+                exec(code, exec_globals)
             norm_a = attr[5:] if attr.startswith("attr_") else attr
             v = exec_globals["result"].get(norm_a, "")
             return bool(v)
