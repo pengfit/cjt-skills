@@ -66,7 +66,7 @@ const hitRate = computed(() => {
 })
 
 // ── Tab 状态 ──
-const subTab = ref('taxonomy')
+const subTab = ref('map')
 const mapInitialL3Filter = ref('')  // 用于跨 tab 跳转时预填
 
 async function loadStats() {
