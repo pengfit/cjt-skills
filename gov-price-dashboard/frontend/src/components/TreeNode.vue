@@ -20,6 +20,7 @@
             :depth="depth + 1"
             :active-l3="activeL3"
             :filter-mode="filterMode"
+            :parent-path="[...parentPath, { code: node.l1 || node.l2, name: node.name_l1 || node.name_l2 }]"
             @select="(n) => $emit('select', n)"
           />
         </div>
@@ -31,7 +32,7 @@
       <div
         class="tn-row tn-leaf"
         :class="{ 'tn-active': activeL3 === node.l3 }"
-        @click="$emit('select', node)"
+        @click="$emit('select', { ...node, parentPath })"
       >
         <span class="tn-arrow-placeholder"></span>
         <span class="tn-label">{{ node.name_l3 }}</span>
@@ -50,6 +51,7 @@ const props = defineProps({
   activeL3: { type: String, default: '' },
   highlight: { type: Boolean, default: false },
   filterMode: { type: Boolean, default: false },
+  parentPath: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['select'])
@@ -65,7 +67,7 @@ function toggle() {
 
 function onBranchClick() {
   toggle()
-  emit('select', props.node)
+  emit('select', { ...props.node, parentPath: props.parentPath })
 }
 </script>
 

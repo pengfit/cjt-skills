@@ -98,7 +98,7 @@
               :options="(overview.by_province || []).map(p => ({ key: p.province, count: p.count }))"
               placeholder="全部省份"
               :searchable="true"
-              @change="() => { onProvinceChange(); doSearch(); }"
+              @change="onProvinceChange"
             />
           </div>
           <div class="filter-group">
@@ -120,7 +120,6 @@
               :disabled="!searchProvince || !searchCity"
               placeholder="全部区县"
               :searchable="true"
-              @change="doSearch"
             />
           </div>
           <div class="filter-group">
@@ -130,7 +129,6 @@
               :options="categoryOptions"
               placeholder="全部分类"
               :searchable="true"
-              @change="doSearch"
             />
           </div>
           <!-- Price range presets exposed in drawer -->
@@ -142,7 +140,7 @@
                 :key="preset.label"
                 class="preset-chip"
                 :class="{ active: isPresetActive(preset) }"
-                @click="isPresetActive(preset) ? expandRange() : applyPreset(preset)"
+                @click="isPresetActive(preset) ? expandRange() : applyPreset(preset); /* 选中不搜索，等确定 */"
               >{{ preset.label }}</span>
             </div>
             <div class="price-range-row" style="margin-top:6px">
@@ -191,6 +189,15 @@
 
       <!-- Content Area -->
       <main class="content-area">
+
+      <!-- 分类面包屑 -->
+      <div class="category-breadcrumb" v-if="categoryBreadcrumb.length">
+        <span class="breadcrumb-icon">🏷️</span>
+        <template v-for="(part, i) in categoryBreadcrumb" :key="part.code">
+          <span v-if="i > 0" class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-part" :class="{ active: i === categoryBreadcrumb.length - 1 }">{{ part.name }}</span>
+        </template>
+      </div>
 
       <div class="filter-bar filter-bar-inside">
         <input
@@ -272,8 +279,8 @@
           </div>
         </div>
 
-        <!-- Data Table -->
-        <div class="content-card" v-else>
+          <!-- Data Table（桌面端） -->
+        <div class="content-card table-desktop" v-else>
           <div class="table-scroll">
             <table class="data-table">
               <thead>
@@ -293,11 +300,11 @@
                 </tr>
               </thead>
               <tbody>
+                <template v-for="(item, idx) in sortedData" :key="item.id || idx">
                 <tr
-                  v-for="(item, idx) in sortedData"
-                  :key="item.id || idx"
                   class="data-row"
-                  :class="{ 'stale-row': isStale(item.date) }"
+                  :class="{ 'stale-row': isStale(item.date), 'row-expanded': expandedRow === (item.id || idx) }"
+                  @click="toggleRow(item, idx)"
                 >
                   <td
                     v-for="col in visibleColumns"
@@ -339,8 +346,100 @@
                     <template v-else>{{ item[col.key] ?? '—' }}</template>
                   </td>
                 </tr>
+                <!-- 展开详情行 -->
+                <tr v-if="expandedRow === (item.id || idx)" class="detail-row">
+                  <td :colspan="visibleColumns.length">
+                    <div class="detail-panel">
+                      <div class="detail-panel-grid">
+                        <div class="detail-field full-width">
+                          <span class="detail-field-label">产品名称</span>
+                          <span class="detail-field-value">{{ item.breed }}</span>
+                        </div>
+                        <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
+                          <span class="detail-field-label">规格型号</span>
+                          <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '—' }}</span>
+                        </div>
+                        <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
+                          <span class="detail-field-label">规格属性</span>
+                          <span class="detail-field-value"><AttrTags :attr="item.attr" /></span>
+                        </div>
+                        <div class="detail-field">
+                          <span class="detail-field-label">价格</span>
+                          <span class="detail-field-value price-em">{{ fmtCell(item.price) }} 元</span>
+                        </div>
+                        <div class="detail-field" v-if="item.tax_price && Number(item.tax_price) > 0">
+                          <span class="detail-field-label">含税价</span>
+                          <span class="detail-field-value">{{ fmtCell(item.tax_price) }} 元</span>
+                        </div>
+                        <div class="detail-field">
+                          <span class="detail-field-label">单位</span>
+                          <span class="detail-field-value">{{ item.unit || '—' }}</span>
+                        </div>
+                        <div class="detail-field">
+                          <span class="detail-field-label">日期</span>
+                          <span class="detail-field-value">{{ item.date || '—' }}</span>
+                        </div>
+                        <div class="detail-field">
+                          <span class="detail-field-label">省份</span>
+                          <span class="detail-field-value">{{ item.province || '—' }}</span>
+                        </div>
+                        <div class="detail-field">
+                          <span class="detail-field-label">城市</span>
+                          <span class="detail-field-value">{{ item.city || '—' }}</span>
+                        </div>
+                        <div class="detail-field" v-if="item.county">
+                          <span class="detail-field-label">区县</span>
+                          <span class="detail-field-value">{{ item.county }}</span>
+                        </div>
+                        <div class="detail-field" v-if="item.category">
+                          <span class="detail-field-label">分类</span>
+                          <span class="detail-field-value"><span class="cat-badge">{{ item.category }}</span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
+          </div>
+
+          <!-- 移动端卡片视图 -->
+          <div class="table-mobile">
+            <div
+              v-for="(item, idx) in sortedData"
+              :key="'mob-' + (item.id || idx)"
+              class="mobile-card"
+              :class="{ 'mobile-card-expanded': expandedRow === (item.id || idx) }"
+              @click="toggleRow(item, idx)"
+            >
+              <div class="mobile-card-main">
+                <div class="mobile-card-left">
+                  <div class="mobile-card-breed" v-html="highlightKeyword(item.breed)"></div>
+                  <div class="mobile-card-spec" v-if="item.spec_clean || item.spec">{{ item.spec_clean || item.spec }}</div>
+                  <div class="mobile-card-meta">
+                    <span class="mobile-card-cat" v-if="item.category">{{ item.category }}</span>
+                    <span class="mobile-card-loc" v-if="item.city">{{ item.province }}{{ item.city }}{{ item.county ? '·' + item.county : '' }}</span>
+                  </div>
+                </div>
+                <div class="mobile-card-right">
+                  <div class="mobile-card-price">{{ fmtCell(item.price) }}</div>
+                  <div class="mobile-card-unit">{{ item.unit || '' }}</div>
+                  <div class="mobile-card-date" :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '—' }}</div>
+                </div>
+              </div>
+              <!-- 展开详情 -->
+              <div v-if="expandedRow === (item.id || idx)" class="mobile-card-detail">
+                <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
+                  <span class="detail-field-label">完整规格</span>
+                  <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec }}</span>
+                </div>
+                <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
+                  <span class="detail-field-label">属性</span>
+                  <span class="detail-field-value"><AttrTags :attr="item.attr" /></span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Pagination -->
@@ -545,6 +644,16 @@ const searchHistory = ref(JSON.parse(localStorage.getItem('gov_price_history') |
 const sortKey = ref('')
 const sortDir = ref('asc')
 
+// Row expand
+const expandedRow = ref(null)
+function toggleRow(item, idx) {
+  const key = item.id || idx
+  expandedRow.value = expandedRow.value === key ? null : key
+}
+
+// Category breadcrumb
+const categoryBreadcrumb = ref([])  // [{ code, name }]
+
 // Column config
 const showColConfig = ref(false)
 const showDrawer = ref(false)
@@ -675,7 +784,7 @@ function sortBy(key) {
 
 function onCityChange() {
   searchCounty.value = ''
-  doSearch()
+  // 不自动搜索，等用户点击「确定」
 }
 
 function onProvinceChange() {
@@ -688,12 +797,18 @@ function onCategoryTreeSelect(node) {
   if (node.l3) {
     searchCategoryCode.value = node.l3
     searchCategoryLevel.value = 'l3'
+    // 构建面包屑：parentPath + 当前节点
+    const parents = (node.parentPath || []).map(p => ({ code: p.code, name: p.name || p.code }))
+    categoryBreadcrumb.value = [...parents, { code: node.l3, name: node.name_l3 || node.l3 }]
   } else if (node.l2) {
     searchCategoryCode.value = node.l2
     searchCategoryLevel.value = 'l2'
+    const parents = (node.parentPath || []).map(p => ({ code: p.code, name: p.name || p.code }))
+    categoryBreadcrumb.value = [...parents, { code: node.l2, name: node.name_l2 || node.l2 }]
   } else if (node.l1) {
     searchCategoryCode.value = node.l1
     searchCategoryLevel.value = 'l1'
+    categoryBreadcrumb.value = [{ code: node.l1, name: node.name_l1 || node.l1 }]
   }
   doSearch()
 }
@@ -774,12 +889,12 @@ function resetSearch() {
   searchCategory.value = ''
   searchCategoryCode.value = ''
   searchCategoryLevel.value = ''
+  categoryBreadcrumb.value = []
   priceMin.value = ''
   priceMax.value = ''
   searchPage.value = '1'
   jumpPage.value = 1
   sortKey.value = ''
-  sortDir.value = 'asc'
   sortDir.value = 'asc'
   searchResult.value = {}
 }
@@ -887,7 +1002,7 @@ function isPresetActive(preset) {
 function applyPreset(preset) {
   priceMin.value = preset.min
   priceMax.value = preset.max
-  doSearch()
+  // 不自动搜索，等用户点击「确定」
 }
 
 function expandRange() {

@@ -27,65 +27,71 @@
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
 
     <template v-if="data.all_cities">
-      <!-- 主仪表盘：4 个大型圆形仪表 -->
+      <!-- 主仪表盘：1 个总量卡 + 3 个转化率圆环 -->
       <div class="gauge-row">
+        <!-- 入库总量：大数字卡，不用圆环 -->
+        <div class="gauge-card gauge-card-hero">
+          <div class="gauge-label">入库总量</div>
+          <div class="gauge-sub">ODS 原始数据量</div>
+          <div class="hero-stat">
+            <div class="hero-num">{{ kpi.ods.toLocaleString() }}</div>
+            <div class="hero-unit">条</div>
+          </div>
+          <div class="hero-meta">
+            <div class="hero-meta-row">
+              <span class="hero-meta-label">覆盖城市</span>
+              <span class="hero-meta-value">{{ cityCount }}</span>
+            </div>
+            <div class="hero-meta-row">
+              <span class="hero-meta-label">DWD 清洗</span>
+              <span class="hero-meta-value">{{ kpi.dwd.toLocaleString() }} 条</span>
+            </div>
+            <div class="hero-meta-row">
+              <span class="hero-meta-label">DWS 服务</span>
+              <span class="hero-meta-value">{{ kpi.dws.toLocaleString() }} 条</span>
+            </div>
+          </div>
+        </div>
+
         <div class="gauge-card">
-          <div class="gauge-label">数据采集</div>
-          <div class="gauge-sub">ODS 抓取总量</div>
+          <div class="gauge-label">清洗完成率</div>
+          <div class="gauge-sub">DWD / ODS</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill gauge-fill-green"
               cx="100" cy="100" r="80"
-              :stroke-dasharray="`${odsPct * 5.025}, 503`"
+              :stroke-dasharray="`${dwdPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num">{{ kpi.ods.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">条</text>
+            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwdPctAll.toFixed(1) }}</text>
+            <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-green">{{ cityCount }} 城市</span>
-            <span class="gauge-trend">+7日新增 {{ kpi.odsDelta }}</span>
+            <span class="gauge-tag tag-green">{{ dwdPctAll >= 90 ? '✓ 优秀' : dwdPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-trend">{{ kpi.dwd.toLocaleString() }} / {{ kpi.ods.toLocaleString() }}</span>
           </div>
         </div>
 
         <div class="gauge-card">
-          <div class="gauge-label">数据清洗</div>
-          <div class="gauge-sub">DWD 清洗总量</div>
+          <div class="gauge-label">服务覆盖率</div>
+          <div class="gauge-sub">DWS / DWD</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill gauge-fill-cyan"
               cx="100" cy="100" r="80"
-              :stroke-dasharray="`${kpi.dwd / kpi.ods * 100 * 5.025}, 503`"
+              :stroke-dasharray="`${dwsPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num">{{ kpi.dwd.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">条</text>
+            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwsPctAll.toFixed(1) }}</text>
+            <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-cyan">{{ (kpi.dwd / kpi.ods * 100).toFixed(1) }}%</span>
-            <span class="gauge-trend">三段式 ETL</span>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <div class="gauge-label">数据服务</div>
-          <div class="gauge-sub">DWS 服务总量</div>
-          <svg viewBox="0 0 200 200" class="gauge-svg">
-            <circle class="gauge-track" cx="100" cy="100" r="80" />
-            <circle class="gauge-fill gauge-fill-cyan"
-              cx="100" cy="100" r="80"
-              :stroke-dasharray="`${kpi.dws / kpi.ods * 100 * 5.025}, 503`"
-              transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num">{{ kpi.dws.toLocaleString() }}</text>
-            <text x="100" y="135" class="gauge-unit">条</text>
-          </svg>
-          <div class="gauge-foot">
-            <span class="gauge-tag tag-cyan">{{ (kpi.dws / kpi.ods * 100).toFixed(1) }}%</span>
-            <span class="gauge-trend">同步正常</span>
+            <span class="gauge-tag tag-cyan">{{ dwsPctAll >= 90 ? '✓ 优秀' : dwsPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-trend">{{ kpi.dws.toLocaleString() }} / {{ kpi.dwd.toLocaleString() }}</span>
           </div>
         </div>
 
         <div class="gauge-card gauge-card-main">
           <div class="gauge-label">属性解析覆盖率</div>
-          <div class="gauge-sub">质量指数</div>
+          <div class="gauge-sub">数据质量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill gauge-fill-amber"
@@ -96,8 +102,8 @@
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-amber">95.6% 均值</span>
-            <span class="gauge-trend">+ AI 批量</span>
+            <span class="gauge-tag" :class="kpi.attrRate >= 90 ? 'tag-green' : kpi.attrRate >= 70 ? 'tag-cyan' : 'tag-amber'">{{ kpi.attrRate >= 90 ? '✓ 优秀' : kpi.attrRate >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-trend">{{ cityCount }} 城实时</span>
           </div>
         </div>
       </div>
@@ -296,7 +302,9 @@ const kpi = computed(() => {
   return { ods, dwd, dws, attrRate: attrRateAvg, odsDelta: 0, lastUpdate: lastUpdate.slice(0, 19) }
 })
 
-const odsPct = computed(() => Math.min(100, kpi.value.ods / 1000))
+// 全局转化率（不含分母为 0 的 NaN 保护）
+const dwdPctAll = computed(() => kpi.value.ods > 0 ? (kpi.value.dwd / kpi.value.ods) * 100 : 0)
+const dwsPctAll = computed(() => kpi.value.dwd > 0 ? (kpi.value.dws / kpi.value.dwd) * 100 : 0)
 
 const cityCount = computed(() => Object.keys(data.all_cities || {}).length)
 
@@ -564,6 +572,54 @@ onUnmounted(() => {
 .gauge-card-main {
   border-color: rgba(var(--primary-rgb), 0.2);
 }
+
+/* ── Hero stat card (first gauge) ── */
+.gauge-card-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hero-stat {
+  text-align: center;
+  padding: 12px 0 8px;
+}
+.hero-num {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--font-mono-num);
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.hero-unit {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+  font-weight: 500;
+}
+.hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border-light);
+}
+.hero-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.hero-meta-label {
+  color: var(--text-3);
+  font-weight: 500;
+}
+.hero-meta-value {
+  color: var(--text);
+  font-weight: 600;
+  font-family: var(--font-mono-num);
+}
+
 .gauge-label {
   color: var(--text);
   font-size: 12px;

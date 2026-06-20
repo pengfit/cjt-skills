@@ -23,6 +23,7 @@
         :depth="0"
         :active-l3="activeL3"
         :filter-mode="!!filterText.trim()"
+        :parent-path="[]"
         @select="(n) => $emit('select', n)"
       />
     </div>
