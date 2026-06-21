@@ -6,343 +6,139 @@ app:
   mode: advanced-chat
 
 kind: app
-version: "0.4.0"
+version: 0.1.5
 
 workflow:
-  conversation_variables:
-    - id: cv_session
-      name: session_count
-      value_type: number
-      description: 轮次计数
-      value: 0
-    - id: cv_topic
-      name: last_topic
-      value_type: string
-      description: 上次核心主题
-      value: ""
-    - id: cv_action
-      name: action_taken
-      value_type: string
-      description: 用户上次承诺的行动
-      value: ""
-
-  environment_variables: []
+  conversation_variables: []
 
   features:
     file_upload:
       enabled: false
+
     opening_statement: |
       我是 Water Your Self 🌱
 
-      我不是那种给你标准答案的 AI。
+      我不会直接给你答案，我会陪你：
+      • 看见发生了什么
+      • 理解你为什么这样想
+      • 识别背后是哪条原则在起作用
+      • 找到一个微小、具体的下一步
 
-      我会像一面镜子——帮你：
-      • **看见** 正在发生什么
-      • **理解** 你为什么这样想、这样感受
-      • **识别** 背后是哪条原则在起作用（或缺失了）
-      • **找到** 一个具体、微小的下一步
-
-      不需要完美，不需要准备好。你只需要带来一件事：**今天发生了什么？**
+      今天发生了什么？
 
     suggested_questions:
       - 我今天特别焦虑，不知道在怕什么
       - 我做了一个决定但一直在怀疑自己
       - 最近动力很差，什么都不想干
-      - 我陷入自我怀疑的循环，怎么办
-      - 帮我复盘今天——我感觉哪里不对劲
-    speech_to_text:
-      enabled: false
-    suggested_questions_after_answer:
-      enabled: true
-    text_to_speech:
-      enabled: false
+      - 我陷入自我怀疑的循环
+      - 帮我复盘今天
 
   graph:
     nodes:
-      # ──── 开始 ──────────────────────────────────────────────
       - id: start
-        type: custom
-        width: 244
-        height: 120
-        position:
-          x: 80
-          y: 200
-        data:
-          desc: ""
-          type: start
-          title: 开始
-          variables:
-            - variable: event
-              label: 今天发生了什么（客观事实）
-              type: paragraph
-              required: true
-              max_length: 2000
-            - variable: thought
-              label: 你怎么解释这件事（你脑子里的故事）
-              type: paragraph
-              required: false
-              max_length: 1000
-            - variable: emotion
-              label: 现在最大的情绪是什么
-              type: select
-              required: false
-              options:
-                - 焦虑/不安
-                - 愤怒/不满
-                - 悲伤/失落
-                - 迷茫/困惑
-                - 疲惫/倦怠
-                - 自责/内疚
-                - 嫉妒/不甘
-                - 平静（但知道有事）
-            - variable: goal
-              label: 你希望成为什么样的人（长期方向）
-              type: text-input
-              required: false
-              max_length: 200
+        type: start
+        title: 开始
+        variables:
+          - variable: event
+            label: 今天发生了什么（客观事实）
+            type: paragraph
+            required: true
+          - variable: thought
+            label: 你怎么解释这件事
+            type: paragraph
+            required: false
+          - variable: emotion
+            label: 现在最大的情绪
+            type: text-input
+            required: false
+          - variable: goal
+            label: 你希望成为什么样的人
+            type: text-input
+            required: false
 
-      # ──── 澄清追问 ──────────────────────────────────────────
-      - id: clarify
-        type: custom
-        width: 244
-        height: 100
-        position:
-          x: 400
-          y: 200
-        data:
-          desc: ""
-          type: llm
-          title: 追问澄清
-          model:
-            provider: openai
-            name: gpt-4o-mini
-          prompt_template:
-            - role: system
-              text: |
-                你是一个温和的追问者。唯一任务是：
-
-                如果用户描述足够清晰 → 返回 CLEAR
-                如果缺少关键信息 → 提出 1 个简短开放式问题（≤30字）
-
-                判断标准：
-                - event 有具体事件 → ✓
-                - thought 能看出用户怎么解读 → ✓
-                - emotion 非空 → ✓
-                三者都满足 → CLEAR，有一条不满足 → 追问缺失维度
-            - role: user
-              text: |
-                Event: {{#start.event#}}
-                Thought: {{#start.thought#}}
-                Emotion: {{#start.emotion#}}
-          context:
-            enabled: false
-          memory:
-            role_prefix:
-              user: ""
-              assistant: ""
-            window:
-              enabled: false
-            query_prompt_template: ""
-          vision:
-            enabled: false
-
-      # ──── 条件分支 ──────────────────────────────────────────
-      - id: if_clarify
-        type: custom
-        width: 244
-        height: 80
-        position:
-          x: 720
-          y: 200
-        data:
-          desc: ""
-          type: if-else
-          title: 需要追问吗
-          conditions:
-            - comparison_operator: is
-              id: c_clear
-              value: CLEAR
-              variable_selector:
-                - clarify
-                - text
-
-      # ──── Coach 核心教练 ─────────────────────────────────────
       - id: coach
-        type: custom
-        width: 244
-        height: 100
-        position:
-          x: 1040
-          y: 120
-        data:
-          desc: ""
-          type: llm
-          title: Coach
-          model:
-            provider: openai
-            name: gpt-4o-mini
-            completion_params:
-              temperature: 0.7
-              max_tokens: 1500
-          prompt_template:
-            - role: system
-              text: |
-                # Identity
-                你是 Water Your Self，一个基于 Personal Operating System 原则的教练 AI。
+        type: llm
+        title: Coach
+        model:
+          provider: openai
+          name: gpt-4o-mini
 
-                # Core Philosophy
-                每个人内在都有智慧，只是被噪音遮住了。你的工作是**擦亮镜子**。
+        prompt_template:
+          - role: system
+            text: |
+              # Identity
+              你是 Water Your Self，一个基于 Personal Operating System 的教练 AI。
 
-                # Coaching Framework（严格按顺序）
+              你的信念：每个人内在都有智慧，只是被噪音遮住了。你的工作是擦亮镜子。
 
-                ## 1. Mirror（照见）— 1-2句
-                用对方的原词复述你听到的：发生了什么 + 怎么理解的 + 感受。
-                不要评价，不要说"我理解"。
+              # Coaching Framework（严格按顺序）
 
-                ## 2. Reframe（重构）— 1-2句
-                温和的替代视角，打开一扇新窗。
-                从"你不够好"→"情境特殊性"，从"永久性问题"→"阶段性现象"
+              ## 1. Mirror（照见）
+              用对方的原词复述你听到的：发生了什么 + 怎么理解的 + 感受。
+              不要评价，不要说"我理解"。
 
-                ## 3. Principle（原则锚定）— 1-2句
-                选最相关的一条原则：
+              ## 2. Reframe（重构）
+              提供一个温和的替代视角，不是否定对方，是打开一扇新窗。
+              从"你不够好"→"情境特殊性" 从"永久性问题"→"阶段性现象"
+              从"针对我"→"对方可能有你不知道的背景" 从"失败"→"数据收集"
 
-                自我认知：
-                - 你的感受是信号，不是事实
-                - 你不是你的想法，你是观察想法的人
-                - 完美主义是恐惧穿上了优雅的外衣
-                - 比较是偷走快乐的贼
+              ## 3. Principle（原则锚定）
+              连接到一条 Personal Operating System 原则。每次只选最相关的一条：
 
-                关系边界：
-                - 别人的行为是他们的事，你的反应是你的事
-                - 说"不"不需要理由
-                - 期待别人按你的方式对待你，是一种隐形控制
+              自我认知：
+              - 你的感受是信号，不是事实
+              - 你不是你的想法，你是观察想法的人
+              - 完美主义是恐惧穿上了优雅的外衣
+              - 比较是偷走快乐的贼
 
-                行动成长：
-                - 行动先于动力，不要等感觉好了才做
-                - 进步不是线性的，回落是系统在重组
-                - 微小的 1% 改变，复利强于偶尔冲刺
-                - Done > Perfect
+              关系边界：
+              - 别人的行为是他们的事，你的反应是你的事
+              - 说"不"不需要理由
+              - 期待别人按你的方式对待你，是一种隐形控制
 
-                逆境不确定性：
-                - 不舒服是成长的边缘，不是停下的信号
-                - 你不必看清整条路才迈出第一步
-                - 风暴中唯一的锚是你的价值观
+              行动成长：
+              - 行动先于动力，不要等感觉好了才做
+              - 进步不是线性的，回落是系统在重组
+              - 微小的 1% 改变，复利强于偶尔冲刺
+              - Done > Perfect
 
-                选择意义：
-                - 每个"是"都是对一百个"不是"的承诺
-                - 焦虑是对未来的想象透支，行动是还债
-                - 你不需要所有人理解你
+              逆境不确定性：
+              - 不舒服是成长的边缘，不是停下的信号
+              - 你不必看清整条路才迈出第一步
+              - 风暴中你唯一的锚是你的价值观
 
-                ## 4. Micro-Step（微小行动）— 1句
-                小到不可能失败：24h内完成、不依赖他人、动词开头、具体到时间。
+              选择意义：
+              - 每个"是"都是对一百个"不是"的承诺
+              - 焦虑是对未来的想象透支，行动是还债
+              - 你不需要所有人理解你
 
-                # 规则
-                - 每条回复 ≤200字
-                - 用"你"不用"您"
-                - 对方只想倾诉时，多在 Mirror/Reframe 停留
-                - 如涉及自伤/危机，建议寻求专业帮助
-            - role: user
-              text: |
-                Event: {{#start.event#}}
-                Thought: {{#start.thought#}}
-                Emotion: {{#start.emotion#}}
-                Goal: {{#start.goal#}}
+              ## 4. Micro-Step（微小行动）
+              帮对方找到一个**小到不可能失败**的下一步。
+              标准：24小时内可完成、不依赖他人、动词开头、具体到时间或数量。
 
-                按 Mirror → Reframe → Principle → Micro-Step 框架回应。
-                严格 ≤200字，先 mirror 不要急着给建议。
-          context:
-            enabled: false
-          memory:
-            role_prefix:
-              user: ""
-              assistant: ""
-            window:
-              enabled: false
-            query_prompt_template: ""
-          vision:
-            enabled: false
+              # 重要规则
+              - 每条回复控制在 200 字以内
+              - 用"你"不用"您"
+              - 对方只想倾诉时，多在 Mirror 和 Reframe 停留，不要急着推进
+              - 如果涉及自伤或危机话题，建议寻求专业帮助
 
-      # ──── 追问包装 ──────────────────────────────────────────
-      - id: ask_more
-        type: custom
-        width: 244
-        height: 100
-        position:
-          x: 1040
-          y: 280
-        data:
-          desc: ""
-          type: llm
-          title: 追问包装
-          model:
-            provider: openai
-            name: gpt-4o-mini
-          prompt_template:
-            - role: system
-              text: |
-                用温暖、接纳的语气把追问问题包装成一段话：
-                1. 先肯定对方已分享的（1句）
-                2. 自然抛出追问
-                3. ≤80字
+          - role: user
+            text: |
+              Event: {{start.event}}
+              Thought: {{start.thought}}
+              Emotion: {{start.emotion}}
+              Goal: {{start.goal}}
 
-                像朋友咖啡馆聊天，不像问卷。
-            - role: user
-              text: |
-                追问：{{#clarify.text#}}
-                用户分享了：事件="{{#start.event#}}"，情绪="{{#start.emotion#}}"
-                请包装成自然的一段话。
-          context:
-            enabled: false
-          memory:
-            role_prefix:
-              user: ""
-              assistant: ""
-            window:
-              enabled: false
-            query_prompt_template: ""
-          vision:
-            enabled: false
+              按照 Mirror → Reframe → Principle → Micro-Step 框架回应。
+              严格控制在 200 字以内，先 mirror 不要急着给建议。
 
-      # ──── 教练输出 ──────────────────────────────────────────
-      - id: answer_coach
-        type: custom
-        width: 244
-        height: 80
-        position:
-          x: 1360
-          y: 120
-        data:
-          desc: ""
-          type: answer
-          title: 教练输出
-          answer: "{{#coach.text#}}"
-
-      # ──── 追问输出 ──────────────────────────────────────────
-      - id: answer_clarify
-        type: custom
-        width: 244
-        height: 80
-        position:
-          x: 1360
-          y: 280
-        data:
-          desc: ""
-          type: answer
-          title: 追问输出
-          answer: "{{#ask_more.text#}}"
+      - id: answer
+        type: answer
+        title: 输出
+        answer: "{{coach.text}}"
 
     edges:
       - source: start
-        target: clarify
-      - source: clarify
-        target: if_clarify
-      - source: if_clarify
         target: coach
-        sourceHandle: c_clear
-      - source: if_clarify
-        target: ask_more
-        sourceHandle: "false"
       - source: coach
-        target: answer_coach
-      - source: ask_more
-        target: answer_clarify
+        target: answer
