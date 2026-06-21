@@ -1,157 +1,49 @@
-"""日照工程造价材料信息 - 增量检测与触发同步"""
-import sys, os, yaml, json, subprocess
+"""日照 - 增量检测：对比 ES 最新 update_date vs 源站最新周期"""
+import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import requests
-from commands.utils import TAB_TYPES, load_config
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.yml')
 
-ES_HOST = 'http://localhost:59200'
-JS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       'commands', 'fetch_data.js')
-
-
-def get_website_counts():
-    """通过 Playwright 获取各 tab 的 totalCount"""
-    counts = {}
-    for tab_type, tab_name in TAB_TYPES.items():
-        try:
-            proc = subprocess.run(
-                ['node', JS_PATH, 'paginate', tab_type, '1'],
-                capture_output=True, text=True, timeout=120,
-                env={**os.environ, 'PATH': os.environ.get('PATH', '')}
-            )
-            first_line = proc.stdout.strip().split('\n')[0]
-            data = json.loads(first_line)
-            counts[tab_type] = {
-                'tab_name': tab_name,
-                'total': data.get('totalCount', 0),
-                'period': data.get('periods', ''),
-            }
-        except Exception:
-            counts[tab_type] = {'tab_name': tab_name, 'total': 0, 'period': ''}
-    return counts
-
-
-def get_es_counts(es_host, es_index):
-    """从 ES 查询各 tab 的文档数"""
-    counts = {}
-    for tab_type, tab_name in TAB_TYPES.items():
-        try:
-            r = requests.post(
-                f'{es_host}/{es_index}/_count',
-                json={'query': {'bool': {'must': [
-                    {'term': {'tab_type': tab_type}},
-                    {'term': {'period': _get_current_period()}}
-                ]}}},
-                timeout=15, verify=False
-            )
-            counts[tab_type] = {
-                'tab_name': tab_name,
-                'es_count': r.json().get('count', 0),
-            }
-        except Exception:
-            counts[tab_type] = {'tab_name': tab_name, 'es_count': 0}
-    return counts
-
-
-def _get_current_period():
-    """获取网站当前期数"""
-    try:
-        proc = subprocess.run(
-            ['node', JS_PATH, 'metadata'],
-            capture_output=True, text=True, timeout=120,
-            env={**os.environ, 'PATH': os.environ.get('PATH', '')}
-        )
-        data = json.loads(proc.stdout)
-        return data.get('periods', '')
-    except Exception:
-        return ''
+from commands.utils import load_config
+from elasticsearch import Elasticsearch
 
 
 def main():
-    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    cfg_path = os.path.join(script_dir, 'config.yml')
-    cfg = load_config(cfg_path)
+    cfg = load_config(CONFIG_PATH)
+    es = Elasticsearch(cfg['es']['host'])
+    ods_index = cfg['es']['index']
+    sync_cfg = cfg.get('sync', {})
 
-    print('[i] 增量检测开始...')
+    # 1. 获取 ES 最新 update_date
+    es_latest = ''
+    try:
+        r = es.search(index=ods_index, size=1, sort=[{'update_date': 'desc'}],
+                       _source=['update_date', 'period'])
+        hits = r['hits']['hits']
+        if hits:
+            es_latest = hits[0]['_source'].get('update_date', '') or ''
+    except Exception as e:
+        print(f'[日照] ES 查询失败: {e}')
 
-    # 网站各 tab 总数
-    web_counts = get_website_counts()
-    current_period = web_counts.get('1', {}).get('period', '') or _get_current_period()
-    saved_period = cfg.get('sync', {}).get('last_period', '')
+    # 2. 获取源站最新周期
+    last_period = sync_cfg.get('last_period', '')
 
-    print(f'[i] 网站当前期数: {current_period}')
+    print(f'[日照] 源站最新周期: {last_period}')
+    print(f'[日照] ES 最新入库:   {es_latest or "无"}')
 
-    # 情况1：新周期出现
-    if current_period and saved_period and current_period != saved_period:
-        print(f'[i] 新周期出现: {current_period} (上次: {saved_period})')
-        print('[→] 触发全量同步（所有 tab）...')
-        for tab_type, tab_name in TAB_TYPES.items():
-            print(f'[→] 同步 tab {tab_type} {tab_name}...')
-            ret = os.system(f'cd {script_dir} && python3 commands/sync.py --type {tab_type} --force --no-check')
-            print(f'[✓] tab {tab_type} 完成' if ret == 0 else f'[!] tab {tab_type} 失败')
-        return
-
-    # 情况2：同周期，检测各 tab 是否有新增
-    print(f'[i] 当前周期无变化: {current_period}，检测各 tab 增量...')
-
-    es_host = cfg.get('es', {}).get('host', 'http://localhost:59200')
-    es_index = cfg.get('es', {}).get('index', 'ods_material_rizhao_price')
-
-    changed = []
-    for tab_type, info in web_counts.items():
-        web_total = info.get('total', 0)
-        # ES 中该 tab 该周期的记录数
-        try:
-            r = requests.post(
-                f'{es_host}/{es_index}/_count',
-                json={
-                    'query': {
-                        'bool': {
-                            'must': [
-                                {'term': {'tab_type': tab_type}},
-                                {'term': {'period': current_period}} if current_period else {'match_all': {}}
-                            ]
-                        }
-                    }
-                },
-                timeout=15, verify=False
-            )
-            es_count = r.json().get('count', 0)
-        except Exception:
-            es_count = 0
-
-        diff = web_total - es_count
-        if diff > 0:
-            changed.append({
-                'tab_type': tab_type,
-                'tab_name': info['tab_name'],
-                'web_total': web_total,
-                'es_count': es_count,
-                'diff': diff,
-            })
-
-    if not changed:
-        print('[—] 无新增记录')
-        return
-
-    print(f'[i] 发现 {len(changed)} 个 tab 有新数据:')
-    for c in changed:
-        print(f'  {c["tab_name"]}: 网站 {c["web_total"]} > ES {c["es_count"]}  (+{c["diff"]})')
-
-    print('[→] 触发增量同步（逐 tab）...')
-    # 逐 tab 触发同步，每个 tab 幂等写入自动补漏
-    for c in changed:
-        tab_type = c['tab_type']
-        tab_name = c['tab_name']
-        print(f'[→] 同步 tab {tab_type} {tab_name}...')
-        ret = os.system(f'cd {script_dir} && python3 commands/sync.py --type {tab_type} --force --no-check')
-        if ret != 0:
-            print(f'[!] tab {tab_type} 同步失败，exit code {ret}')
+    if es_latest:
+        # 简单日期对比：ES 最新日期 vs 当日
+        from datetime import datetime
+        es_str = str(es_latest)[:10]
+        es_dt = datetime.strptime(es_str, '%Y-%m-%d')
+        days_ago = (datetime.now() - es_dt).days
+        if days_ago > 30:
+            print(f'[日照] ⚠️ 最新入库 {days_ago} 天前，可能需检查')
         else:
-            print(f'[✓] tab {tab_type} {tab_name} 完成')
-
-    print('[i] 增量同步全部完成')
+            print(f'[日照] ✅ 最新入库 {days_ago} 天前')
+    else:
+        print(f'[日照] 🔔 ES 无数据，需首次同步')
 
 
 if __name__ == '__main__':

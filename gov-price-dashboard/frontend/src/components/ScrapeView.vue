@@ -2,7 +2,25 @@
   <div class="scrape-page">
 
     <!-- All Cities Scrape Cards -->
-    <SectionHeader title="数据抓取（全部城市）" dot-color="purple" style="margin-bottom:12px" />
+    <!-- 定时检查状态 -->
+    <SectionHeader title="定时检查状态" dot-color="green" style="margin-bottom:8px; margin-top:12px" />
+    <div class="check-status-bar" v-if="checkStatus.cities">
+      <div
+        v-for="(cs, key) in checkStatus.cities"
+        :key="key"
+        class="check-status-chip"
+        :class="cs.status"
+        :title="cs.output"
+      >
+        <span class="chip-dot-sm" :class="cs.status"></span>
+        <span class="chip-label">{{ cs.label }}</span>
+        <span class="chip-badge" v-if="cs.has_update">更新</span>
+        <span class="chip-time" v-if="cs.time">{{ cs.time.slice(11,16) }}</span>
+      </div>
+    </div>
+    <div v-if="loadingCheck" class="prov-loading" style="padding:8px">加载检查状态...</div>
+
+    <SectionHeader title="数据抓取（全部城市）" dot-color="purple" style="margin-bottom:12px; margin-top:16px" />
 
     <div class="scrape-grid" v-if="data.all_cities">
       <div
@@ -73,6 +91,17 @@
             {{ scrapeRunning[key] ? '检查中...' : '检查更新' }}
           </button>
         </div>
+
+        <!-- 检查结果 -->
+        <div v-if="scrapeCheckResults[key]" class="scrape-check-result" :class="{ ok: scrapeCheckResults[key].ok, fail: !scrapeCheckResults[key].ok }">
+          <div class="check-result-header">
+            <span :class="scrapeCheckResults[key].ok ? 'check-ok' : 'check-fail'">
+              {{ scrapeCheckResults[key].ok ? '✓' : '✗' }}
+            </span>
+            <span class="check-time">{{ scrapeCheckResults[key].time }}</span>
+          </div>
+          <pre class="check-stdout">{{ scrapeCheckResults[key].stdout }}</pre>
+        </div>
       </div>
     </div>
 
@@ -99,6 +128,9 @@ const loading = ref(false)
 const error = ref('')
 const scrapeExpandedCity = ref('')
 const scrapeRunning = ref({})
+const scrapeCheckResults = ref({})  // city -> { stdout, ok, time }
+const checkStatus = ref({ cities: {} })
+const loadingCheck = ref(false)
 const data = ref({ all_cities: {} })
 
 function scrapePct(scrape) {
@@ -133,13 +165,29 @@ function expandLabel(pipe) {
 async function runScrapeCheck(city) {
   scrapeRunning.value = { ...scrapeRunning.value, [city]: true }
   try {
-    await axios.post(`${API}/scrape/check`, { city })
+    const { data: res } = await axios.post(`${API}/scrape/check`, { city })
+    scrapeCheckResults.value = {
+      ...scrapeCheckResults.value,
+      [city]: {
+        stdout: res.stdout || '',
+        ok: res.returncode === 0,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      }
+    }
   } catch (e) {
-    console.error('scrape check failed', e)
+    scrapeCheckResults.value = {
+      ...scrapeCheckResults.value,
+      [city]: {
+        stdout: e?.response?.data?.detail || e.message || '请求失败',
+        ok: false,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      }
+    }
   } finally {
     scrapeRunning.value = { ...scrapeRunning.value, [city]: false }
   }
   loadData()
+  loadCheckStatus()
 }
 
 async function loadData() {
@@ -155,8 +203,18 @@ async function loadData() {
   }
 }
 
+async function loadCheckStatus() {
+  loadingCheck.value = true
+  try {
+    const { data } = await axios.get(`${API}/stats/check-status`)
+    if (data.ok) checkStatus.value = data
+  } catch (e) { console.error(e) }
+  finally { loadingCheck.value = false }
+}
+
 onMounted(() => {
   loadData()
+  loadCheckStatus()
 })
 </script>
 
@@ -165,6 +223,56 @@ onMounted(() => {
   padding: 16px 20px 80px;
   min-height: 100vh;
   color: #1e293b;
+}
+
+/* === Check status bar === */
+.check-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+.check-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  color: var(--text-3);
+  cursor: default;
+  transition: all 0.2s;
+}
+.check-status-chip:hover { border-color: #cbd5e1; }
+.check-status-chip.ok    { border-color: rgba(16,185,129,0.2); color: var(--status-ok); }
+.check-status-chip.update{ border-color: rgba(245,158,11,0.3); color: #d97706; background: rgba(245,158,11,0.05); }
+.check-status-chip.error { border-color: rgba(239,68,68,0.2); color: var(--status-alert); }
+.check-status-chip.pending{ opacity: 0.5; }
+
+.chip-dot-sm {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #94a3b8;
+}
+.chip-dot-sm.ok     { background: var(--status-ok); }
+.chip-dot-sm.update { background: #f59e0b; animation: dot-pulse 2s infinite; }
+.chip-dot-sm.error  { background: var(--status-alert); }
+.chip-dot-sm.pending{ background: #94a3b8; }
+
+.chip-badge {
+  font-size: 9px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: rgba(245,158,11,0.15);
+  color: #d97706;
+  font-weight: 700;
+}
+.chip-time {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 400;
 }
 
 /* panel-header / panel-title / panel-dot 已迁移至 SectionHeader.vue */
@@ -372,6 +480,43 @@ onMounted(() => {
 .scrape-action-btn .spin {
   animation: spin 1s linear infinite;
   display: inline-block;
+}
+
+/* === Check result === */
+.scrape-check-result {
+  margin-top: 2px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.scrape-check-result.ok {
+  background: rgba(16,185,129,0.06);
+  border: 1px solid rgba(16,185,129,0.15);
+}
+.scrape-check-result.fail {
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.15);
+}
+.check-result-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.check-ok { color: var(--status-ok); font-weight: 700; }
+.check-fail { color: var(--status-alert); font-weight: 700; }
+.check-time { color: var(--text-3); font-size: 10px; }
+.check-stdout {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-2);
+  font-family: 'SF Mono', Consolas, monospace;
+  line-height: 1.4;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 /* === Loading / error === */

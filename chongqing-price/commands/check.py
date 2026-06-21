@@ -1,41 +1,17 @@
 #!/usr/bin/env python3
-"""重庆工程造价材料信息 - 增量检测与触发同步
+"""重庆 - 增量检测：对比 ES 最新入库日期 vs 源站最新月份
 
-检测逻辑：
-1. 用 browser 提取当前页面显示的周期下拉框，找到最新周期
-2. 对比 config 中 last_period：不同 → 有新周期，触发全量同步
-3. 对比 ES 中最新已完成周期：比 config 更新 → 网站已有新数据，触发增量
-4. 当前周期未完成 → 触发断点续传
-
-前置条件：browser 已打开目标页面并聚焦在正确 tab
+前置条件：browser 已打开目标页面
 """
-import sys, os, json, time, subprocess, re
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import warnings
-warnings.filterwarnings('ignore')
-import requests
-import yaml
-
-ES_HOST = "http://localhost:59200"
+import sys, os, json, time, re
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.yml")
 
-def _es_config():
-    with open(CONFIG_PATH, encoding='utf-8') as f:
-        return yaml.safe_load(f) or {}
-
-_es_cfg = _es_config()
-
-ALL_COUNTIES = [
-    "主城区", "万州区", "涪陵区", "黔江区", "长寿区", "江津区", "合川区",
-    "永川区", "南川区", "梁平区", "城口县", "丰都县", "垫江县", "忠县",
-    "开州区", "云阳县", "奉节县", "巫山县", "巫溪县", "石柱县", "秀山县",
-    "酉阳县", "大足区", "綦江区", "万盛经开区", "双桥经开区", "铜梁区",
-    "璧山区", "彭水县1", "彭水县2", "彭水县3", "荣昌区1", "荣昌区2",
-    "潼南区", "武隆区",
-]
+import warnings
+warnings.filterwarnings('ignore')
+import yaml
+from elasticsearch import Elasticsearch
 
 
 def _run_cli(args, timeout=30):
@@ -53,16 +29,13 @@ def _eval_js(js_body: str) -> str:
     s = out.strip()
     if s.startswith('"') and s.endswith('"'):
         s = s[1:-1]
-    s = s.replace('\\"', '"')
-    return s
+    return s.replace('\\"', '"')
 
 
 def _check_browser_tab(tab_label="重庆市建设工程造价信息网") -> str | None:
-    """检查 browser tab 是否存在，返回 tab_id 或 None"""
     out, _ = _run_cli(["browser", "tabs"])
     for line in out.splitlines():
         if tab_label in line:
-            # 从 "tab: t1" 或 "[t1]" 提取 tab id
             m = re.search(r'\[?t(\d+)\]?', line)
             if m:
                 return f"t{m.group(1)}"
@@ -74,8 +47,8 @@ def _focus_tab(tab_id: str) -> bool:
     return "focused" in out.lower() or "ok" in out.lower()
 
 
-def get_current_period_from_page() -> str | None:
-    """从页面提取当前选中的周期名称（从周期下拉框）"""
+def get_current_year_from_page() -> str | None:
+    """提取下拉框当前选中的年份"""
     js = '''(function(){
 var selects = document.querySelectorAll("select");
 for(var i=0;i<selects.length;i++){
@@ -85,229 +58,133 @@ for(var i=0;i<selects.length;i++){
       return opts[j].text.trim();
     }
   }
-  if(selects[i].value){
-    return selects[i].selectedOptions[0].text.trim();
-  }
 }
 return null;
 })()'''
     try:
-        result = _eval_js(js)
-        if result and result != "null":
-            return result.strip()
+        r = _eval_js(js)
+        if r and r != "null":
+            return r.strip()
     except Exception:
         pass
     return None
 
 
-def get_all_period_options() -> list[str]:
-    """提取页面所有周期选项（从下拉框）"""
+def get_month_options() -> list[str]:
+    """提取页面上 class='month' 元素的所有月份文本"""
     js = '''(function(){
-var selects = document.querySelectorAll("select");
-var periods = [];
-for(var i=0;i<selects.length;i++){
-  var opts = selects[i].options;
-  for(var j=0;j<opts.length;j++){
-    if(opts[j].value && opts[j].value.trim()){
-      periods.push(opts[j].text.trim());
-    }
-  }
+var els = document.querySelectorAll(".month");
+var months = [];
+for(var i=0;i<els.length;i++){
+  var t = els[i].textContent.trim();
+  if(t && /\\d+月/.test(t)) months.push(t);
 }
-return JSON.stringify(periods);
+return JSON.stringify(months);
 })()'''
     try:
         raw = _eval_js(js)
         if raw and raw != "null":
-            periods = json.loads(raw)
-            return periods
+            return json.loads(raw)
     except Exception:
         pass
     return []
 
 
-def get_es_last_completed_period() -> str | None:
-    """从 ES 查最新已完成周期的 period 字段"""
-    try:
-        r = requests.get(
-            f"{ES_HOST}/{PROGRESS_INDEX}/_search?size=200&sort=last_updated:desc",
-            timeout=15, verify=False
-        )
-        if r.status_code != 200:
-            return None
-        hits = r.json().get("hits", {}).get("hits", [])
-        periods = set()
-        for h in hits:
-            src = h.get("_source", {})
-            if src.get("status") == "completed" and src.get("period"):
-                periods.add(src["period"])
-        if periods:
-            # 取最新的 period（格式如 2026-01-01）
-            sorted_periods = sorted(periods)
-            return sorted_periods[-1]
-    except Exception:
-        pass
-    return None
-
-
-def get_es_completed_county_count(period: str) -> int:
-    """统计 ES 中某周期已完成区县数量"""
-    try:
-        body = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {"term": {"status": "completed"}},
-                        {"term": {"period": period}},
-                    ]
-                }
-            }
-        }
-        r = requests.post(
-            f"{ES_HOST}/{PROGRESS_INDEX}/_count",
-            json=body, timeout=15, verify=False
-        )
-        if r.status_code == 200:
-            return r.json().get("count", 0)
-    except Exception:
-        pass
-    return 0
-
-
-def load_config() -> dict:
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    return {}
-
-
-def save_config(cfg: dict):
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
-
-
-def trigger_sync(period: str, tab_id: str, reset: bool = False):
-    """触发后台同步"""
-    log_file = f"/tmp/chongqing-incremental-sync-{int(time.time())}.log"
-    cmd = ["python3", "commands/sync.py"]
-    if reset:
-        cmd.append("--reset")
-    cmd.extend(["--period", period, "--tab-id", tab_id])
-    ret = subprocess.Popen(
-        cmd,
-        cwd=SCRIPT_DIR,
-        env={**os.environ},
-        stdout=open(log_file, "w"),
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
-    return ret.pid, log_file
+def parse_month_to_period(year: str, month_str: str) -> str:
+    """将 '04月' 或 '01月02月...05月' 转为最新 '2026-05-01'"""
+    # class='month' 可能把多个月份连在一起，如 '01月02月03月04月05月'
+    all_months = re.findall(r'(\d+)月', month_str)
+    if not all_months:
+        return ""
+    # 取最大月份
+    max_m = max(int(m) for m in all_months)
+    return f"{year}-{max_m:02d}-01"
 
 
 def main():
     print("[i] 重庆增量检测开始...")
 
-    # 1. 检查 browser tab
-    tab_id = _check_browser_tab()
-    if not tab_id:
-        print("[!] browser 未打开或目标 tab 不存在，请先运行：")
-        print("    openclaw browser open 'http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx'")
-        print("[!] 跳过本次检测")
+    # 0. 加载配置
+    with open(CONFIG_PATH, encoding='utf-8') as f:
+        cfg = yaml.safe_load(f) or {}
+    es = Elasticsearch(cfg['es']['host'])
+    ods_index = cfg['es']['index']
+
+    # 1. 获取 ES 最新数据
+    es_latest = ''
+    es_latest_period = ''
+    try:
+        r = es.search(index=ods_index, size=1, sort=[{'create_time': 'desc'}],
+                       _source=['create_time', 'period'])
+        hits = r['hits']['hits']
+        if hits:
+            es_latest = hits[0]['_source'].get('create_time', '') or ''
+            es_latest_period = hits[0]['_source'].get('period', '') or ''
+    except Exception as e:
+        print(f'[重庆] ES 查询失败: {e}')
         return
 
-    print(f"[*] 找到 browser tab: {tab_id}")
+    # 2. 检查 browser
+    tab_id = _check_browser_tab()
+    if not tab_id:
+        print("[!] browser 未打开")
+        print(f'[重庆] ES 最新入库: {es_latest or "无"} ({es_latest_period})')
+        return
 
-    # 2. 聚焦 tab
+    print(f"[*] browser tab: {tab_id}")
     if not _focus_tab(tab_id):
-        print("[!] 聚焦 browser tab 失败")
+        print("[!] 聚焦失败")
         return
     time.sleep(1)
 
-    # 3. 提取 config 中的 last_period
-    cfg = load_config()
-    last_period_cfg = cfg.get("sync", {}).get("last_period", "") or ""
-    print(f"[*] config last_period: {last_period_cfg or '(空)'}")
-
-    # 4. 点击「材料信息价」标签页（只关注该分类的数据）
-    print("[*] 点击'材料信息价'标签页...")
-    js_click_tab = '''(function(){
+    # 3. 点击'材料信息价'
+    click_js = '''(function(){
 var navs = document.querySelectorAll(".priceNav");
 for(var i=0;i<navs.length;i++){
   if(navs[i].innerText.trim()==="材料信息价"){navs[i].click();return"OK";}
 }
 return"NOT_FOUND";
 })()'''
-    click_out, _ = _run_cli(["browser", "evaluate", "--fn", js_click_tab])
-    if "OK" not in click_out:
-        print("[!] 未找到'材料信息价'标签页，跳过")
+    out, _ = _run_cli(["browser", "evaluate", "--fn", click_js])
+    if "OK" not in out:
+        print("[!] 未找到'材料信息价'标签页")
         return
-    print("[*] 已点击'材料信息价'")
     time.sleep(2)
 
-
-    # 5. 从 browser 提取页面当前周期和所有周期选项
-    current_period = get_current_period_from_page()
-    all_periods = get_all_period_options()
-
-    if not current_period:
-        print("[!] 无法从页面提取当前周期，可能页面未加载完成")
-        print("[!] 跳过本次检测")
+    # 4. 提取年份
+    current_year = get_current_year_from_page()
+    if not current_year:
+        print("[!] 无法提取年份")
         return
 
-    print(f"[*] 页面当前周期: {current_period}")
-    if all_periods:
-        latest_site_period = all_periods[0]  # 下拉框第一个通常是最新
-        print(f"[*] 网站最新周期: {latest_site_period}")
-        print(f"[*] 全部周期选项: {', '.join(all_periods[:5])}{'...' if len(all_periods) > 5 else ''}")
-    else:
-        latest_site_period = current_period
-        print(f"[*] 无法获取周期下拉列表，使用当前周期: {current_period}")
+    # 5. 提取 class='month' 的月份列表
+    months = get_month_options()
 
-    # 5. 判断：config.last_period vs 页面当前周期
-    needs_full_sync = False
-    target_period = current_period
+    print(f'[*] 年份: {current_year}')
+    print(f'[*] 可用月份: {months}')
 
-    if last_period_cfg and current_period != last_period_cfg:
-        # config 有记录但与页面当前周期不同 → 有新周期
-        print(f"\n[✓] 发现新周期: {current_period} (旧: {last_period_cfg})")
-        needs_full_sync = True
-        target_period = current_period
-    elif not last_period_cfg:
-        # 从未同步过
-        print(f"\n[✓] 首次同步，周期: {current_period}")
-        needs_full_sync = True
-    else:
-        # config 与当前周期一致，检查 ES 中最新已完成周期
-        es_last = get_es_last_completed_period()
-        print(f"[*] ES 最新已完成周期: {es_last or '(无)'}")
+    # 6. 取最大月份作为源站最新
+    site_latest_period = ''
+    site_latest_month = ''
+    if months:
+        # months 数组中每个元素可能是连在一起的 '01月02月...05月'
+        site_latest_period = parse_month_to_period(current_year, months[0] if months else '')
+        if site_latest_period:
+            site_latest_month = site_latest_period[5:7] + '月'
 
-        if es_last and es_last > last_period_cfg:
-            print(f"\n[✓] ES 已有新数据: {es_last} > config.last_period ({last_period_cfg})")
-            needs_full_sync = True
-            target_period = es_last
+    print(f'[重庆] 源站最新: {current_year}年{site_latest_month} ({site_latest_period})')
+    print(f'[重庆] ES 最新:   {es_latest_period or "无"} (入库 {str(es_latest)[:19] if es_latest else "无"})')
+
+    # 7. 对比
+    if site_latest_period:
+        if not es_latest_period:
+            print(f'[重庆] 🔔 ES 无数据，需首次同步')
+        elif site_latest_period > es_latest_period:
+            print(f'[重庆] 🔔 有更新！源站 {site_latest_period} > ES {es_latest_period}')
         else:
-            # 检查当前周期是否完成
-            completed = get_es_completed_county_count(last_period_cfg)
-            total = len(ALL_COUNTIES)
-            if completed < total:
-                print(f"\n[✓] 当前周期 {last_period_cfg} 未完成: {completed}/{total} 区县")
-                needs_full_sync = True
-                target_period = last_period_cfg
-            else:
-                print(f"\n[—] 无新增数据，当前周期 {last_period_cfg} 已全部完成 ({completed}/{total} 区县)")
-                return
-
-    # 6. 更新 config.last_period
-    if needs_full_sync and target_period != last_period_cfg:
-        cfg.setdefault("sync", {})["last_period"] = target_period
-        save_config(cfg)
-        print(f"[*] config.last_period 已更新为: {target_period}")
-
-    # 7. 触发同步
-    print(f"\n[→] 触发同步: 周期={target_period}, tab={tab_id}（后台运行）...")
-    pid, log_file = trigger_sync(target_period, tab_id, reset=(not last_period_cfg))
-    print(f"[→] 同步已在后台启动 (PID {pid})")
-    print(f"[→] 日志: {log_file}")
-    print("[✓] check.py 完成，sync.py 继续在后台运行")
+            print(f'[重庆] ✅ 无新数据')
+    else:
+        print(f'[重庆] ⚠️ 无法解析源站月份')
 
 
 if __name__ == "__main__":

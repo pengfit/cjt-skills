@@ -176,12 +176,14 @@ def api_scrape_check(city: str = Body("...", embed=True)):
     实际执行 skill 目录下的 check.py 脚本。
     """
     city_script_map = {
-        "xian":      ("xian-price",   "check"),
-        "sichuan":   ("sichuan-price",        "check"),
-        "chongqing": ("chongqing-price",      "check"),
-        "jinan":     ("jinan-price",          "check"),
-        "rizhao":    ("rizhao-price",         "check"),
-        "henan":     ("henan-price",          "check"),
+        "xian":      ("xian-price",      "check"),
+        "sichuan":   ("sichuan-price",   "check"),
+        "chongqing": ("chongqing-price", "check"),
+        "jinan":     ("jinan-price",     "check"),
+        "rizhao":    ("rizhao-price",    "check"),
+        "henan":     ("henan-price",     "check"),
+        "heze":      ("heze-price",      "check"),
+        "qingdao":   ("qingdao-price",   "check"),
     }
     if city not in city_script_map:
         raise HTTPException(status_code=400, detail=f"未知城市: {city}")
@@ -3019,3 +3021,32 @@ def category_v2_l3_detail(l3: str = Query(...)):
         "breed_count": breed_count,
         "avg_confidence": round(avg_conf, 4),
     }
+
+
+# ── 定时检查任务状态 ────────────────────────────────────────────────────
+
+STATUS_DIR = "/tmp/gov-check-status"
+
+CITY_CHECK_LABELS = {
+    "xian": "西安", "sichuan": "四川", "chongqing": "重庆",
+    "jinan": "济南", "rizhao": "日照", "henan": "河南",
+    "heze": "菏泽", "qingdao": "青岛",
+}
+
+
+@router.get("/api/stats/check-status")
+def api_check_status():
+    """返回各城市定时检查任务的最新状态"""
+    import glob
+    results = {}
+    for city, label in CITY_CHECK_LABELS.items():
+        fpath = os.path.join(STATUS_DIR, f"{city}.json")
+        if os.path.exists(fpath):
+            try:
+                with open(fpath) as f:
+                    results[city] = json.load(f)
+            except Exception:
+                results[city] = {"city": city, "label": label, "status": "error", "output": "读取失败"}
+        else:
+            results[city] = {"city": city, "label": label, "status": "pending", "output": ""}
+    return {"ok": True, "cities": results}
