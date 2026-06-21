@@ -81,26 +81,6 @@
           >
             {{ scrapeExpandedCity === key ? '▴ 收起' : expandLabel(pipe) }}
           </button>
-          <button
-            class="scrape-action-btn primary"
-            :disabled="scrapeRunning[key]"
-            @click="runScrapeCheck(key)"
-          >
-            <span v-if="scrapeRunning[key]" class="spin">↻</span>
-            <span v-else>⟳</span>
-            {{ scrapeRunning[key] ? '检查中...' : '检查更新' }}
-          </button>
-        </div>
-
-        <!-- 检查结果 -->
-        <div v-if="scrapeCheckResults[key]" class="scrape-check-result" :class="{ ok: scrapeCheckResults[key].ok, fail: !scrapeCheckResults[key].ok }">
-          <div class="check-result-header">
-            <span :class="scrapeCheckResults[key].ok ? 'check-ok' : 'check-fail'">
-              {{ scrapeCheckResults[key].ok ? '✓' : '✗' }}
-            </span>
-            <span class="check-time">{{ scrapeCheckResults[key].time }}</span>
-          </div>
-          <pre class="check-stdout">{{ scrapeCheckResults[key].stdout }}</pre>
         </div>
       </div>
     </div>
@@ -127,8 +107,6 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
 const error = ref('')
 const scrapeExpandedCity = ref('')
-const scrapeRunning = ref({})
-const scrapeCheckResults = ref({})  // city -> { stdout, ok, time }
 const checkStatus = ref({ cities: {} })
 const loadingCheck = ref(false)
 const data = ref({ all_cities: {} })
@@ -160,34 +138,6 @@ const EXPAND_LABELS = {
 }
 function expandLabel(pipe) {
   return EXPAND_LABELS[pipe.city_label] || '▾ 任务详情'
-}
-
-async function runScrapeCheck(city) {
-  scrapeRunning.value = { ...scrapeRunning.value, [city]: true }
-  try {
-    const { data: res } = await axios.post(`${API}/scrape/check`, { city })
-    scrapeCheckResults.value = {
-      ...scrapeCheckResults.value,
-      [city]: {
-        stdout: res.stdout || '',
-        ok: res.returncode === 0,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      }
-    }
-  } catch (e) {
-    scrapeCheckResults.value = {
-      ...scrapeCheckResults.value,
-      [city]: {
-        stdout: e?.response?.data?.detail || e.message || '请求失败',
-        ok: false,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      }
-    }
-  } finally {
-    scrapeRunning.value = { ...scrapeRunning.value, [city]: false }
-  }
-  loadData()
-  loadCheckStatus()
 }
 
 async function loadData() {
@@ -464,59 +414,9 @@ onMounted(() => {
   border-color: #cbd5e1;
   color: #1e293b;
 }
-.scrape-action-btn.primary {
-  background: rgba(168,85,247,0.12);
-  border: 1px solid rgba(168,85,247,0.3);
-  color: #7c3aed;
-}
-.scrape-action-btn.primary:hover:not(:disabled) {
-  background: rgba(168,85,247,0.2);
-  border-color: #a855f7;
-}
 .scrape-action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-.scrape-action-btn .spin {
-  animation: spin 1s linear infinite;
-  display: inline-block;
-}
-
-/* === Check result === */
-.scrape-check-result {
-  margin-top: 2px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 10px;
-  max-height: 120px;
-  overflow-y: auto;
-}
-.scrape-check-result.ok {
-  background: rgba(16,185,129,0.06);
-  border: 1px solid rgba(16,185,129,0.15);
-}
-.scrape-check-result.fail {
-  background: rgba(239,68,68,0.06);
-  border: 1px solid rgba(239,68,68,0.15);
-}
-.check-result-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-.check-ok { color: var(--status-ok); font-weight: 700; }
-.check-fail { color: var(--status-alert); font-weight: 700; }
-.check-time { color: var(--text-3); font-size: 10px; }
-.check-stdout {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--text-2);
-  font-family: 'SF Mono', Consolas, monospace;
-  line-height: 1.4;
-  max-height: 80px;
-  overflow-y: auto;
 }
 
 /* === Loading / error === */
