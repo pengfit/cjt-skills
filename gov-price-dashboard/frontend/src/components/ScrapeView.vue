@@ -27,7 +27,6 @@
         v-for="(pipe, key) in data.all_cities"
         :key="key"
         class="scrape-card"
-        :class="{ running: scrapeRunning[key] }"
       >
         <div class="scrape-card-header">
           <div class="scrape-card-title">
