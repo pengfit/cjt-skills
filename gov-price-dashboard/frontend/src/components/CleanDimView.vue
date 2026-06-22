@@ -38,10 +38,10 @@
             <span
               v-for="city in allCityKeys"
               :key="city"
-              class="clean-city-dot"
+              class="clean-city-chip"
               :class="{ active: c.cities.includes(city) }"
               :title="`${cityMap[city] || city}: ${c.cities.includes(city) ? '有数据' : '无数据'}`"
-            ></span>
+            >{{ cityMap[city] || city }}</span>
             <span class="clean-city-count">{{ c.city_count }}/{{ c.cities_total || cityCount }}</span>
           </span>
           <span class="clean-col-parse">
@@ -173,19 +173,28 @@ onMounted(() => {
   font-weight: 600;
   text-align: right;
 }
-.clean-col-cities { display: flex; align-items: center; gap: 3px; }
-.clean-city-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  transition: background 0.15s;
+.clean-col-cities { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.clean-city-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  transition: all 0.15s;
 }
-.clean-city-dot.active { background: #2563eb; }
+.clean-city-chip.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  font-weight: 500;
+}
 .clean-city-count {
   font-size: 11px;
   color: #94a3b8;
-  margin-left: 6px;
+  margin-left: 4px;
   font-variant-numeric: tabular-nums;
 }
 .clean-col-parse { display: flex; align-items: center; gap: 8px; }
