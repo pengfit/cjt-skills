@@ -12,250 +12,16 @@
       "duration_sec": 3.9,
       "created_at": "2026-06-15T09:12:24"
     },
-    "2014615948102918144": {
-      "period": "2025.4期",
-      "publish_date": "2026-01-23",
-      "xxid": "2014615948102918144",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/2014615948102918144.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY2015625081111318528.pdf",
-      "minio_key": "heze-price/《工程造价信息》2025年第4期.pdf",
-      "docs_written": 762,
-      "status": "ok",
-      "duration_sec": 4.3,
-      "created_at": "2026-06-20T10:31:47"
-    },
-    "1980925141777059840": {
-      "period": "2025.3期",
-      "publish_date": "2025-10-22",
-      "xxid": "1980925141777059840",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1980925141777059840.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1980925128090980352.pdf",
-      "minio_key": "heze-price/《工程造价信息》2025年第3期.pdf",
-      "docs_written": 701,
-      "status": "ok",
-      "duration_sec": 4.3,
-      "created_at": "2026-06-20T10:31:51"
-    },
     "1970045212168437760": {
       "publish_date": "2025-09-22",
       "xxid": "1970045212168437760",
       "status": "failed",
       "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1945768306216677376": {
-      "period": "2025.2期",
-      "publish_date": "2025-07-17",
-      "xxid": "1945768306216677376",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1945768306216677376.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1948637189416030208.pdf",
-      "minio_key": "heze-price/《工程造价信息》2025年第2期.pdf",
-      "docs_written": 728,
-      "status": "ok",
-      "duration_sec": 5.1,
-      "created_at": "2026-06-20T10:31:57"
-    },
-    "1914216766813478912": {
-      "period": "2025.1期",
-      "publish_date": "2025-04-21",
-      "xxid": "1914216766813478912",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1914216766813478912.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1914216760471588864.pdf",
-      "minio_key": "heze-price/《工程造价信息》2025年第1期.pdf",
-      "docs_written": 0,
-      "status": "ok",
-      "duration_sec": 2.0,
-      "created_at": "2026-06-20T10:31:59"
-    },
-    "1878623942642675712": {
-      "period": "2024.4期",
-      "publish_date": "2025-01-13",
-      "xxid": "1878623942642675712",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1878623942642675712.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1878623989274906624.pdf",
-      "minio_key": "heze-price/2024年第四期.pdf",
-      "docs_written": 767,
-      "status": "ok",
-      "duration_sec": 6.3,
-      "created_at": "2026-06-20T10:32:05"
-    },
-    "1851180565009702912": {
-      "period": "2024.3期",
-      "publish_date": "2024-10-29",
-      "xxid": "1851180565009702912",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1851180565009702912.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1851180565068386304.pdf",
-      "minio_key": "heze-price/《工程造价信息》2024年第3期.pdf",
-      "docs_written": 767,
-      "status": "ok",
-      "duration_sec": 7.8,
-      "created_at": "2026-06-20T10:32:13"
-    },
-    "1811235082183286785": {
-      "publish_date": "2024-07-11",
-      "xxid": "1811235082183286785",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1780128326036373504": {
-      "publish_date": "2024-04-16",
-      "xxid": "1780128326036373504",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1746805932760944640": {
-      "publish_date": "2024-01-15",
-      "xxid": "1746805932760944640",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
       "duration_sec": 0.2
-    },
-    "1712660923031994368": {
-      "period": "2023.3期",
-      "publish_date": "2023-10-13",
-      "xxid": "1712660923031994368",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1712660923031994368.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1712660918376206336.pdf",
-      "minio_key": "heze-price/《工程造价信息》2023年第3期.pdf",
-      "docs_written": 724,
-      "status": "ok",
-      "duration_sec": 2.9,
-      "created_at": "2026-06-20T10:32:16"
-    },
-    "1678229128584855552": {
-      "publish_date": "2023-07-10",
-      "xxid": "1678229128584855552",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
     },
     "1669162733553229824": {
       "publish_date": "2023-06-15",
       "xxid": "1669162733553229824",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1645282226537230336": {
-      "period": "2023.1期",
-      "publish_date": "2023-04-10",
-      "xxid": "1645282226537230336",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1645282226537230336.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1645281627833765888.pdf",
-      "minio_key": "heze-price/《工程造价信息》2023年第1期.pdf",
-      "docs_written": 682,
-      "status": "ok",
-      "duration_sec": 8.1,
-      "created_at": "2026-06-20T10:32:24"
-    },
-    "1611278539372498944": {
-      "period": "2022.4期",
-      "publish_date": "2023-01-06",
-      "xxid": "1611278539372498944",
-      "detail_url": "http://hzszjj.heze.gov.cn/2c908088819842f701819a1a962f0005/1611278539372498944.html",
-      "pdf_url": "http://hzszjj.heze.gov.cn/upload-service/0530/2c908088819842f701819a1a962f0005/WY1611277880359260160.pdf",
-      "minio_key": "heze-price/2022年第四期.pdf",
-      "docs_written": 0,
-      "status": "ok",
-      "duration_sec": 3.1,
-      "created_at": "2026-06-20T10:32:27"
-    },
-    "1584711763255885824": {
-      "publish_date": "2022-10-11",
-      "xxid": "1584711763255885824",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711764056997888": {
-      "publish_date": "2022-07-11",
-      "xxid": "1584711764056997888",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711765155905536": {
-      "publish_date": "2022-04-11",
-      "xxid": "1584711765155905536",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711765667610624": {
-      "publish_date": "2022-01-06",
-      "xxid": "1584711765667610624",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711766397419520": {
-      "publish_date": "2021-10-09",
-      "xxid": "1584711766397419520",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711767009787904": {
-      "publish_date": "2021-07-21",
-      "xxid": "1584711767009787904",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711767601184768": {
-      "publish_date": "2021-04-19",
-      "xxid": "1584711767601184768",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711768066752512": {
-      "publish_date": "2021-02-04",
-      "xxid": "1584711768066752512",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.2
-    },
-    "1584711769253740544": {
-      "publish_date": "2020-10-26",
-      "xxid": "1584711769253740544",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711769635422208": {
-      "publish_date": "2020-07-28",
-      "xxid": "1584711769635422208",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711770239401984": {
-      "publish_date": "2020-04-21",
-      "xxid": "1584711770239401984",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.2
-    },
-    "1584711770637860864": {
-      "publish_date": "2020-01-21",
-      "xxid": "1584711770637860864",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
-    },
-    "1584711771040514048": {
-      "publish_date": "2019-10-18",
-      "xxid": "1584711771040514048",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.2
-    },
-    "1584711771413807104": {
-      "publish_date": "2019-07-29",
-      "xxid": "1584711771413807104",
       "status": "failed",
       "error": "详情页未找到 PDF 链接",
       "duration_sec": 0.1
@@ -265,21 +31,14 @@
       "xxid": "1584711771757740032",
       "status": "failed",
       "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.2
-    },
-    "1584711772353331200": {
-      "publish_date": "2019-04-22",
-      "xxid": "1584711772353331200",
-      "status": "failed",
-      "error": "详情页未找到 PDF 链接",
       "duration_sec": 0.1
     },
     "1584711772890202112": {
       "publish_date": "2019-01-23",
       "xxid": "1584711772890202112",
       "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
+      "error": "404 Client Error: Not Found for url: http://hzszjj.heze.gov.cn/jcms/jcms_files/jcms1/web118/site/picture/old/www/ueditor/php/upload/file/20190122/1548145954413793.pdf",
+      "duration_sec": 0.2
     },
     "1584711773074751488": {
       "publish_date": "2018-11-09",
@@ -292,8 +51,8 @@
       "publish_date": "2018-11-09",
       "xxid": "1584711773309632512",
       "status": "failed",
-      "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
+      "error": "404 Client Error: Not Found for url: http://hzszjj.heze.gov.cn/jcms/jcms_files/jcms1/web118/site/picture/old/www/ueditor/php/upload/file/20181109/1541753233987708.pdf",
+      "duration_sec": 0.2
     },
     "1584711773582262272": {
       "publish_date": "2018-08-09",
@@ -342,7 +101,7 @@
       "xxid": "1584711775046074368",
       "status": "failed",
       "error": "详情页未找到 PDF 链接",
-      "duration_sec": 0.1
+      "duration_sec": 0.2
     },
     "1584711775297732608": {
       "publish_date": "2015-09-11",
