@@ -170,6 +170,14 @@ def _call_dify_workflow(app_id: str, inputs: dict, user: str,
         wf_err = resp.outputs.get("err_msg") if isinstance(resp.outputs, dict) else None
         return False, wf_err or resp.error or f"Dify workflow status={resp.workflow_status!r}"
 
+    # 业务级失败：Dify workflow status=succeeded 但 outputs.ok=false（例 "empty LLM output"）
+    # 这种场景下 workflow API 返回 ok=True，但 Code 节点在 outputs 里写了 ok=false。
+    # 之前 ETL 会当作成功 → 拿到空 results → 每个 breed l3 为空 → 入不入缓存。
+    # 修复：检测 outputs.ok=false 视为失败，让上层 fallback / 重试。
+    if isinstance(resp.outputs, dict) and resp.outputs.get("ok") is False:
+        wf_err = resp.outputs.get("err_msg", "") or "outputs.ok=false"
+        return False, f"Dify 业务失败（outputs.ok=false）: {wf_err}"
+
     # 成功：把 results 序列化为字符串（与 _call_gateway 行为一致，下游统一 json.loads）
     results = resp.outputs.get("results")
     if results is None:
@@ -608,6 +616,7 @@ def classify_v3_batch(
             # 序列化为 prompt items（使用 utils.format_breed_list，含 spec/unit/current_l3）
             breed_list_str = format_breed_list(batch)
             # 统一 AI 调度（仅 Dify workflow）—— DeepSeek 版内置 L3 知识库
+            # 业务级失败（outputs.ok=false，例 "empty LLM output"）是偶发的 Dify 抖，重试即可。
             ok, content = _ai_invoke(
                 "classify",
                 dify_inputs={
@@ -617,6 +626,23 @@ def classify_v3_batch(
                 user=f"etl-classify-category-agent-{int(time.time()*1000)}",  # 动态 user 避免会话记忆污染
                 timeout=180,
             )
+            # 业务失败（"Dify 业务失败（outputs.ok=false）..."）重试 2 次
+            _business_retry = 0
+            while not ok and content and "outputs.ok=false" in content and _business_retry < 2:
+                _business_retry += 1
+                _stats["classify_v3_business_retry"] = _stats.get("classify_v3_business_retry", 0) + 1
+                print(f"    [AI] batch {_batch_idx}/{_total_batches} 业务失败重试 {_business_retry}/2: {content[:120]}")
+                sys.stdout.flush()
+                time.sleep(2)
+                ok, content = _ai_invoke(
+                    "classify",
+                    dify_inputs={
+                        "breed_list": breed_list_str,
+                        "batch_n": len(batch),
+                    },
+                    user=f"etl-classify-category-retry-{int(time.time()*1000)}",
+                    timeout=180,
+                )
             if not ok:
                 # P0-2: AI 失败写 fallback dict，进 ai_results，让 commit 块处理（不 continue）
                 _stats["classify_failed"] = _stats.get("classify_failed", 0) + len(batch)
