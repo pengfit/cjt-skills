@@ -278,7 +278,7 @@ function dwdPct(pipe) {
 /** DWD 同步率（ODS 分类成功比例）数值，供 DWD 卡片 coverage 环使用 */
 function dwdSyncRate(pipe) {
   if (!pipe.ods?.count) return 0
-  return Math.round((pipe.dwd?.count || 0) / pipe.ods.count * 100)
+  return Number(((pipe.dwd?.count || 0) / pipe.ods.count * 100).toFixed(2))
 }
 
 /** DWD 同步率颜色档位 */
@@ -297,7 +297,7 @@ function dwsPct(pipe) {
 /** DWS 同步率数值（DWS/DWD 同步完成度 %）*/
 function dwsSyncRate(pipe) {
   if (!pipe.dwd?.count) return 0
-  return Math.round((pipe.dws?.count || 0) / pipe.dwd.count * 100)
+  return Number(((pipe.dws?.count || 0) / pipe.dwd.count * 100).toFixed(2))
 }
 
 /** DWS 同步率颜色档位 */
@@ -1317,8 +1317,8 @@ onMounted(() => {
 
 .coverage-ring {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 76px;
+  height: 76px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1327,8 +1327,8 @@ onMounted(() => {
 }
 .coverage-ring:hover { transform: scale(1.08); }
 .coverage-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.coverage-track { fill: none; stroke: rgba(15,23,42,0.08); stroke-width: 3; }
-.coverage-fill  { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 0.6s ease, stroke 0.3s; }
+.coverage-track { fill: none; stroke: rgba(15,23,42,0.08); stroke-width: 2.5; }
+.coverage-fill  { fill: none; stroke-width: 2.5; stroke-linecap: round; transition: stroke-dasharray 0.6s ease, stroke 0.3s; }
 
 .coverage-text {
   position: absolute;
@@ -1339,8 +1339,8 @@ onMounted(() => {
   font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   line-height: 1;
 }
-.coverage-pct { font-size: 12px; font-weight: 800; color: var(--text-3); }
-.coverage-unit { font-size: 8px; font-weight: 600; color: var(--text-3); margin-left: 0.5px; margin-top: 1px; }
+.coverage-pct { font-size: 17px; font-weight: 800; color: var(--text-3); }
+.coverage-unit { font-size: 10px; font-weight: 600; color: var(--text-3); margin-left: 1px; margin-top: 3px; }
 
 .coverage-ring.cov-good .coverage-fill  { stroke: var(--status-ok); }
 .coverage-ring.cov-good .coverage-pct   { color: var(--status-ok); }

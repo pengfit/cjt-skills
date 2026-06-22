@@ -62,7 +62,7 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${dwdPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwdPctAll.toFixed(1) }}</text>
+            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwdPctAll.toFixed(2) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
@@ -80,7 +80,7 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${dwsPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwsPctAll.toFixed(1) }}</text>
+            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwsPctAll.toFixed(2) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
@@ -98,7 +98,7 @@
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${kpi.attrRate * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="108" class="gauge-num gauge-num-big">{{ kpi.attrRate.toFixed(1) }}</text>
+            <text x="100" y="108" class="gauge-num gauge-num-big">{{ kpi.attrRate.toFixed(2) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">

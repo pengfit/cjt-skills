@@ -27,15 +27,15 @@
     ><template #icon>🔄</template></PageHeader>
 
     <div class="sync-subtabs">
-      <button class="sync-subtab" :class="{ active: subTab === 'scrape' }" @click="subTab = 'scrape'">
-        <span class="sync-subtab-dot"></span>
-        抓取任务
-        <span class="sync-subtab-hint">各城市 ODS 抓取进度</span>
-      </button>
       <button class="sync-subtab" :class="{ active: subTab === 'clean' }" @click="subTab = 'clean'">
         <span class="sync-subtab-dot"></span>
         数据清洗
         <span class="sync-subtab-hint">ODS → DWD → DWS 链路</span>
+      </button>
+      <button class="sync-subtab" :class="{ active: subTab === 'scrape' }" @click="subTab = 'scrape'">
+        <span class="sync-subtab-dot"></span>
+        抓取任务
+        <span class="sync-subtab-hint">各城市 ODS 抓取进度</span>
       </button>
       <button class="sync-subtab" :class="{ active: subTab === 'cleandim' }" @click="subTab = 'cleandim'">
         <span class="sync-subtab-dot"></span>
@@ -59,7 +59,7 @@ import CleanDimView from './CleanDimView.vue'
 import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
-const subTab = ref('scrape')
+const subTab = ref('clean')
 
 // ── 顶部 stats（与 CategoryTaxonomyView 的 .ctx-header-stats 同构）──
 // 数据源：/api/stats/provenance（ODS / DWD / DWS 三层索引的 count）
