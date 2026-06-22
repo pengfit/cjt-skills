@@ -2,10 +2,17 @@ key: chongqing
 label: 重庆
 province: 重庆
 ods_index: ods_material_chongqing_price
+dwd_index: dwd_chongqing_price
 dws_index: dws_chongqing_price
 # 注意：重庆的 progress_index 命名跟其他 skill 不一致，registry 会用此字段覆盖默认推断
 progress_index: material_chongqing_price_sync_progress
 progress_mode: county
+# county 模式主字段：chongqing 用 area（区县）
+county_field: area
+# progress 文档里的"全部完成"汇总占位记录（按 area 过滤）
+summary_marker: "全部完成"
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 区县详情"
 config_path: config.yml
 cities:
   - 主城区

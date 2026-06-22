@@ -2,10 +2,15 @@ key: rizhao
 label: 日照
 province: 山东
 ods_index: ods_material_rizhao_price
+dwd_index: dwd_rizhao_price
 dws_index: dws_rizhao_price
 # 注意：日照的 progress_index 命名也不一致
 progress_index: material_rizhao_price_sync_progress
 progress_mode: catalogue
+# catalogue 模式主字段：rizhao 用 tab_type
+catalogue_field: tab_type
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 分类详情"
 config_path: config.yml
 cities:
   - 日照市

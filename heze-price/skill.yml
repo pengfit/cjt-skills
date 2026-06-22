@@ -2,9 +2,12 @@ key: heze
 label: 菏泽
 province: 山东
 ods_index: ods_material_heze_price
+dwd_index: dwd_heze_price
 dws_index: dws_heze_price
 progress_index: ods_material_heze_price_sync_progress
 progress_mode: period
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
 config_path: config.yml
 cities:
   - 菏泽

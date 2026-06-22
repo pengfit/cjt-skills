@@ -2,9 +2,14 @@ key: jinan
 label: 济南
 province: 山东
 ods_index: ods_material_jinan_price
+dwd_index: dwd_jinan_price
 dws_index: dws_jinan_price
 progress_index: material_jinan_price_sync_progress
 progress_mode: catalogue   # 按分类目录跟踪
+# catalogue 模式主字段：jinan 用 catalogue（分类目录名）
+catalogue_field: catalogue
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 分类详情"
 config_path: config.yml
 # 济南无区县概念，按分类目录组织
 cities:

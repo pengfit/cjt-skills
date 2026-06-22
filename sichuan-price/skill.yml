@@ -2,9 +2,14 @@ key: sichuan
 label: 四川
 province: 四川
 ods_index: ods_material_sichuan_price
+dwd_index: dwd_sichuan_price
 dws_index: dws_sichuan_price
 progress_index: material_sichuan_price_sync_progress
 progress_mode: catalogue
+# catalogue 模式主字段：sichuan 用 area（地市）
+catalogue_field: area
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 地市详情"
 config_path: config.yml
 cities:
   - 成都市

@@ -2,9 +2,12 @@ key: henan
 label: 河南
 province: 河南
 ods_index: ods_material_henan_price
+dwd_index: dwd_henan_price
 dws_index: dws_henan_price
 progress_index: ods_material_henan_price_sync_progress
 progress_mode: period
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
 config_path: config.yml
 cities:
   - 郑州
