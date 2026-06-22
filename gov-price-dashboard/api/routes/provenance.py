@@ -51,12 +51,13 @@ CITY_INDEXES = {
     "henan":     {"dws": "dws_henan_price",     "ods": "ods_material_henan_price",     "dwd": "dwd_henan_price",     "label": "河南"},
     "heze":      {"dws": "dws_heze_price",      "ods": "ods_material_heze_price",      "dwd": "dwd_heze_price",      "label": "菏泽"},
     "qingdao":   {"dws": "dws_qingdao_price",   "ods": "ods_material_qingdao_price",   "dwd": "dwd_qingdao_price",   "label": "青岛"},
+    "weihai":    {"dws": "dws_weihai_price",    "ods": "ods_material_weihai_price",    "dwd": "dwd_weihai_price",    "label": "威海"},
 }
 
 # 全部城市索引汇总
-ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price"
-ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price,ods_material_heze_price,ods_material_qingdao_price"
-ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price"
+ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price,dwd_weihai_price"
+ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price,ods_material_heze_price,ods_material_qingdao_price,ods_material_weihai_price"
+ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price,dwd_weihai_price"
 
 # 各城市配置的区县数量（从 config.yml 读取，作为 total_counties 基准）
 CITY_COUNTY_COUNTS = {
@@ -68,6 +69,7 @@ CITY_COUNTY_COUNTS = {
     "henan":     18,   # 河南18个地级市（郑州/濮阳/.../商丘）
     "heze":      1,    # 菏泽为市级期刊，无区县，按期跟踪（默认 1 期）
     "qingdao":   1,    # 青岛为市级期刊，全市统一价，按月发布
+    "weihai":    1,    # 威海为市级期刊，全市统一价，按季度发布（1-3 / 4-6 / 7-9 / 10-12 月）
 }
 
 # 进度索引 map
@@ -80,6 +82,7 @@ PROGRESS_INDEXES = {
     "henan":     "ods_material_henan_price_sync_progress",
     "heze":      "ods_material_heze_price_sync_progress",
     "qingdao":   "ods_material_qingdao_price_sync_progress",
+    "weihai":    "ods_material_weihai_price_sync_progress",
 }
 
 es = Elasticsearch([ES_HOST])
@@ -184,6 +187,7 @@ def api_scrape_check(city: str = Body("...", embed=True)):
         "henan":     ("henan-price",     "check"),
         "heze":      ("heze-price",      "check"),
         "qingdao":   ("qingdao-price",   "check"),
+        "weihai":    ("weihai-price",    "check"),
     }
     if city not in city_script_map:
         raise HTTPException(status_code=400, detail=f"未知城市: {city}")
@@ -223,6 +227,7 @@ def stats_scrape_progress_all(year: int = 2026):
             use_henan_periods = (city == "henan")
             use_heze_periods = (city == "heze")
             use_qingdao_periods = (city == "qingdao")
+            use_weihai_periods = (city == "weihai")
             if use_heze_periods:
                 # 菏泽进度索引无 run_id 字段，用专属 heze 块（带 continue 跳过后续通用分支）
                 heze_body = {
@@ -476,6 +481,88 @@ def stats_scrape_progress_all(year: int = 2026):
                         comp += 1
                     counties.append({
                         "county": b["key"],
+                        "status": primary_status,
+                        "percent": 100.0 if primary_status == "completed" else 0,
+                        "docs_written": doc.get("docs_written", 0),
+                        "current_page": 0,
+                        "total_pages": 0,
+                    })
+                    created = doc.get("created_at", "")
+                    period_created[b["key"]] = created
+                    if created and created > lu_str:
+                        lu_str = created
+                        lu = created[:19]
+                        run_id = doc.get("period")
+                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+                # 跳过下面通用/rizhao 分支（直接赋值 ch/td/comp...）
+                ch = []
+                results[city] = {
+                    "city": city,
+                    "city_label": CITY_INDEXES[city]["label"],
+                    "latest_run_id": run_id,
+                    "last_updated": lu,
+                    "total_docs": td,
+                    "total_records": tr,
+                    "completed": comp,
+                    "running": run,
+                    "error": err,
+                    "total_counties": len(counties),
+                    "counties": counties,
+                }
+                continue
+            elif use_weihai_periods:
+                # Weihai: 按季度期期刊同步进度（同 qingdao 结构，period 字段为 'YYYY.X-Y月' 季度格式）
+                # 一年 4 期（1-3 / 4-6 / 7-9 / 10-12 月），按 year 过滤
+                # size=200 足够覆盖历史多年
+                period_body = {
+                    "size": 0,
+                    "query": {
+                        "prefix": {"period": f"{year}."}
+                    },
+                    "aggs": {
+                        "periods": {
+                            "terms": {"field": "period", "size": 200},
+                            "aggs": {
+                                "docs_sum": {"sum": {"field": "docs_written"}},
+                                "latest_doc": {
+                                    "top_hits": {
+                                        "size": 1,
+                                        "sort": [{"created_at": "desc"}],
+                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at", "pdf_url", "minio_key"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                period_r = es.search(index=idx, body=period_body)
+                period_buckets = period_r["aggregations"]["periods"]["buckets"]
+                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
+                tr = 0
+                counties = []
+                run_id = None
+                lu = ""
+                lu_str = ""
+                comp = 0
+                run = 0
+                err = 0
+                period_created = {}
+                for b in period_buckets:
+                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                    raw_status = doc.get("status", "ok")
+                    if raw_status == "ok":
+                        primary_status = "completed"
+                        comp += 1
+                    elif raw_status in ("running", "in_progress"):
+                        primary_status = "running"
+                        run += 1
+                    else:
+                        primary_status = raw_status or "completed"
+                        comp += 1
+                    counties.append({
+                        "county": b["key"],
+                        "period": b["key"],
+                        "publish_date": doc.get("publish_date", ""),
                         "status": primary_status,
                         "percent": 100.0 if primary_status == "completed" else 0,
                         "docs_written": doc.get("docs_written", 0),

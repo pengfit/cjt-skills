@@ -108,7 +108,7 @@
         </div>
       </div>
 
-      <!-- 全链路管道：7 城 × ODS→DWD→DWS -->
+      <!-- 全链路管道：城市 × ODS→DWD→DWS（动态，从 data.all_cities 取） -->
       <div class="pipeline-section">
         <div class="section-title">
           <span class="section-dot"></span>
@@ -244,11 +244,11 @@
         </div>
         <div class="footer-cell">
           <span class="footer-label">城市</span>
-          <span class="footer-value mono">{{ Object.keys(data.all_cities).length }} / 7</span>
+          <span class="footer-value mono">{{ Object.keys(data.all_cities).length }}</span>
         </div>
         <div class="footer-cell">
           <span class="footer-label">属性 OK</span>
-          <span class="footer-value mono">{{ syncOkCount }} / 7</span>
+          <span class="footer-value mono">{{ syncOkCount }}</span>
         </div>
         <div class="footer-cell">
           <span class="footer-label">过期</span>

@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="分类清洗"
-      subtitle="按一级分类 × 城市覆盖 × 解析率，横向看全国 8 城 DWD 数据分类清洗状况"
+      subtitle="按一级分类 × 城市覆盖 × 解析率，横向看全国 9 城 DWD 数据分类清洗状况"
       :stats="cleanCategory.items.length ? [
         { label: '清洗文档数', value: cleanCategory.total.toLocaleString() },
         { label: '覆盖分类数', value: cleanCategory.items.length },
@@ -82,10 +82,11 @@ const error = ref('')
 
 const cleanCategory = ref({ items: [], total: 0 })
 
-// 8 城 city key 列表（用于城市覆盖点）
+// 9 城 city key 列表（用于城市覆盖点）
 const cityMap = {
   xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南',
   rizhao: '日照', henan: '河南', heze: '菏泽', qingdao: '青岛',
+  weihai: '威海',
 }
 const allCityKeys = Object.keys(cityMap)
 

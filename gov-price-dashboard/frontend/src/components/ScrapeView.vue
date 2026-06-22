@@ -134,6 +134,7 @@ const EXPAND_LABELS = {
   '河南': '▾ 期数详情',  // 按 PDF 期数
   '菏泽': '▾ 期数详情',  // 按期刊期数
   '青岛': '▾ 期数详情',  // 按 PDF 期数
+  '威海': '▾ 期数详情',  // 按季度期数（1-3 / 4-6 / 7-9 / 10-12 月）
 }
 function expandLabel(pipe) {
   return EXPAND_LABELS[pipe.city_label] || '▾ 任务详情'
