@@ -4,7 +4,7 @@
     <PageHeader
       variant="flat"
       title="数据同步"
-      subtitle="9 城市材料价格抓取 / ODS → DWD → DWS 清洗链路 / 进度监控与运行状况"
+      :subtitle="`${stats.cities} 城市材料价格抓取 / ODS → DWD → DWS 清洗链路 / 进度监控与运行状况`"
       :stats="[
         { label: '同步城市', value: stats.cities },
         {

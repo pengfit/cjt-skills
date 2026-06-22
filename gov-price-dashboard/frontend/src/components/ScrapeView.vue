@@ -124,20 +124,25 @@ function toggleScrapeCounties(city, pipe) {
   scrapeExpandedCity.value = (scrapeExpandedCity.value === city) ? '' : city
 }
 
-// 各城市拓展按钮的文案（按数据维度命名）
-const EXPAND_LABELS = {
-  '西安': '▾ 区县记录',  // 6 区县 × 期数
-  '四川': '▾ 地市详情',  // 21 地级市/自治州
-  '重庆': '▾ 区县详情',  // 35 区县
-  '济南': '▾ 分类详情',  // 41 产品分类
-  '日照': '▾ 分类详情',  // 3 产品分类
-  '河南': '▾ 期数详情',  // 按 PDF 期数
-  '菏泽': '▾ 期数详情',  // 按期刊期数
-  '青岛': '▾ 期数详情',  // 按 PDF 期数
-  '威海': '▾ 期数详情',  // 按季度期数（1-3 / 4-6 / 7-9 / 10-12 月）
+// 拓展按钮文案从 /api/skill-registry 动态拉（每个 skill 在 skill.yml 声明 expand_label）
+// 加新 skill：只需在 skill.yml 加 expand_label 字段，无需改前端
+const expandLabels = ref({})
+
+async function loadExpandLabels() {
+  try {
+    const { data } = await axios.get(`${API}/skill-registry`)
+    const m = {}
+    for (const s of (data?.skills || [])) {
+      if (s.expand_label) m[s.label] = s.expand_label
+    }
+    expandLabels.value = m
+  } catch (e) {
+    console.error('loadExpandLabels failed', e)
+  }
 }
+
 function expandLabel(pipe) {
-  return EXPAND_LABELS[pipe.city_label] || '▾ 任务详情'
+  return expandLabels.value[pipe.city_label] || '▾ 任务详情'
 }
 
 async function loadData() {
@@ -165,6 +170,7 @@ async function loadCheckStatus() {
 onMounted(() => {
   loadData()
   loadCheckStatus()
+  loadExpandLabels()
 })
 </script>
 

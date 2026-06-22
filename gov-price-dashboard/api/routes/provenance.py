@@ -34,6 +34,12 @@ try:
 except Exception:
     get_vec_store = None
 
+# 集中引用 skill registry（避免 hardcode 城市 / 索引 / 进度表）
+from api.skill_registry import (
+    get_all as _registry_get_all,
+    get as _registry_get,
+)
+
 router = APIRouter()
 
 
@@ -41,49 +47,86 @@ ES_HOST = "http://localhost:59200"
 
 # ── ETL classify/jaccard 批量写入接口 ──────────────
 
-# 城市配置：city key → (dws_idx, ods_idx, dwd_idx, 标签)
-CITY_INDEXES = {
-    "xian":      {"dws": "dws_xian_price",      "ods": "ods_material_xian_price",      "dwd": "dwd_xian_price",      "label": "西安"},
-    "sichuan":   {"dws": "dws_sichuan_price",   "ods": "ods_material_sichuan_price",   "dwd": "dwd_sichuan_price",   "label": "四川"},
-    "chongqing": {"dws": "dws_chongqing_price", "ods": "ods_material_chongqing_price", "dwd": "dwd_chongqing_price", "label": "重庆"},
-    "jinan":     {"dws": "dws_jinan_price",     "ods": "ods_material_jinan_price",     "dwd": "dwd_jinan_price",     "label": "济南"},
-    "rizhao":    {"dws": "dws_rizhao_price",    "ods": "ods_material_rizhao_price",    "dwd": "dwd_rizhao_price",    "label": "日照"},
-    "henan":     {"dws": "dws_henan_price",     "ods": "ods_material_henan_price",     "dwd": "dwd_henan_price",     "label": "河南"},
-    "heze":      {"dws": "dws_heze_price",      "ods": "ods_material_heze_price",      "dwd": "dwd_heze_price",      "label": "菏泽"},
-    "qingdao":   {"dws": "dws_qingdao_price",   "ods": "ods_material_qingdao_price",   "dwd": "dwd_qingdao_price",   "label": "青岛"},
-    "weihai":    {"dws": "dws_weihai_price",    "ods": "ods_material_weihai_price",    "dwd": "dwd_weihai_price",    "label": "威海"},
-}
+# 5 个动态字典：全部从 skill_registry 生成。
+# 加新 skill：仅需在 skill.yml 配置 progress_mode / county_field / catalogue_field，
+# 不再需要改 provenance.py。
 
-# 全部城市索引汇总
-ALL_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price,dwd_weihai_price"
-ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_henan_price,ods_material_heze_price,ods_material_qingdao_price,ods_material_weihai_price"
-ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_henan_price,dwd_heze_price,dwd_qingdao_price,dwd_weihai_price"
+def _city_indexes() -> dict:
+    """city key → {dws, ods, dwd, label, progress_index, progress_mode, skill_dir}"""
+    out = {}
+    for s in _registry_get_all():
+        dws = s.get("dws_index")
+        if not dws:
+            continue  # ETL 还没起就跳过
+        out[s["key"]] = {
+            "dws": dws,
+            "ods": s.get("ods_index"),
+            "dwd": s.get("dwd_index"),
+            "label": s.get("label", s["key"]),
+            "progress_index": s.get("progress_index"),
+            "progress_mode": s.get("progress_mode", "period"),
+            "skill_dir": s.get("skill_dir"),
+            "cities": s.get("cities", []),
+        }
+    return out
 
-# 各城市配置的区县数量（从 config.yml 读取，作为 total_counties 基准）
-CITY_COUNTY_COUNTS = {
-    "xian":      6,    # 阎良区/临潼区/高陵区/鄠邑区/蓝田县/周至县
-    "sichuan":   21,   # 四川21个地级市/自治州（川A~川Z缺川G）
-    "chongqing": 35,   # 重庆区县（材料信息价）
-    "jinan":     41,   # 济南41个分类目录
-    "rizhao":    3,    # 日照3个类别
-    "henan":     18,   # 河南18个地级市（郑州/濮阳/.../商丘）
-    "heze":      1,    # 菏泽为市级期刊，无区县，按期跟踪（默认 1 期）
-    "qingdao":   1,    # 青岛为市级期刊，全市统一价，按月发布
-    "weihai":    1,    # 威海为市级期刊，全市统一价，按季度发布（1-3 / 4-6 / 7-9 / 10-12 月）
-}
 
-# 进度索引 map
-PROGRESS_INDEXES = {
-    "xian":      "ods_material_xian_price_sync_progress",
-    "sichuan":   "ods_material_sichuan_price_sync_progress",
-    "chongqing": "ods_chongqing_price_progress",
-    "jinan":     "ods_material_jinan_price_sync_progress",
-    "rizhao":    "material_rizhao_price_sync_progress",
-    "henan":     "ods_material_henan_price_sync_progress",
-    "heze":      "ods_material_heze_price_sync_progress",
-    "qingdao":   "ods_material_qingdao_price_sync_progress",
-    "weihai":    "ods_material_weihai_price_sync_progress",
-}
+def _city_county_counts() -> dict:
+    """city key → cities 列表长度（period 模式默认 1；catalogue 模式默认 0，
+    前端会 fallback 到 len(counties)）"""
+    out = {}
+    for s in _registry_get_all():
+        mode = s.get("progress_mode", "period")
+        cities = s.get("cities") or []
+        if mode == "period":
+            out[s["key"]] = 1
+        elif mode == "catalogue":
+            # catalogue 模式下 cities 写的是"地市级”，与实际 catalogue 数不一定一致
+            # 返回 0 让前端 fallback 到进度索引实际的 catalogue 数
+            out[s["key"]] = 0
+        else:  # county
+            out[s["key"]] = len(cities) if cities else 0
+    return out
+
+
+def _progress_indexes() -> dict:
+    """city key → progress_index"""
+    out = {}
+    for s in _registry_get_all():
+        pi = s.get("progress_index")
+        if pi:
+            out[s["key"]] = pi
+    return out
+
+
+def _all_ods_indices_csv() -> str:
+    return ",".join(s["ods_index"] for s in _registry_get_all() if s.get("ods_index"))
+
+
+def _all_dwd_indices_csv() -> str:
+    return ",".join(s.get("dwd_index", "") for s in _registry_get_all() if s.get("dwd_index"))
+
+
+# 兼容别名：所有调用方仍可走 CITY_INDEXES()[city]["label"] 语法
+def CITY_INDEXES():
+    return _city_indexes()
+
+
+def CITY_COUNTY_COUNTS():
+    return _city_county_counts()
+
+
+def PROGRESS_INDEXES():
+    return _progress_indexes()
+
+
+def ALL_ODS_INDICES():
+    return _all_ods_indices_csv()
+
+
+def ALL_DWD_INDICES():
+    return _all_dwd_indices_csv()
+
 
 es = Elasticsearch([ES_HOST])
 
@@ -178,22 +221,13 @@ def api_scrape_check(city: str = Body("...", embed=True)):
     触发指定城市的增量检测（check），判断源站是否有更新。
     实际执行 skill 目录下的 check.py 脚本。
     """
-    city_script_map = {
-        "xian":      ("xian-price",      "check"),
-        "sichuan":   ("sichuan-price",   "check"),
-        "chongqing": ("chongqing-price", "check"),
-        "jinan":     ("jinan-price",     "check"),
-        "rizhao":    ("rizhao-price",    "check"),
-        "henan":     ("henan-price",     "check"),
-        "heze":      ("heze-price",      "check"),
-        "qingdao":   ("qingdao-price",   "check"),
-        "weihai":    ("weihai-price",    "check"),
-    }
-    if city not in city_script_map:
+    cfg = _registry_get(city)
+    if not cfg:
         raise HTTPException(status_code=400, detail=f"未知城市: {city}")
 
-    skill_name, cmd = city_script_map[city]
-    script_dir = f"/Users/pengfit/.openclaw/workspace/skills/{skill_name}"
+    skill_name = cfg.get("skill_dir") or f"{city}-price"
+    script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                              "skills", skill_name)
     run_sh = os.path.join(script_dir, "run.sh")
 
     try:
@@ -217,621 +251,324 @@ def api_scrape_check(city: str = Body("...", embed=True)):
 
 @router.get("/api/stats/scrape-progress-all")
 def stats_scrape_progress_all(year: int = 2026):
-    """
-    所有城市 ODS 抓取进度汇总（一次性返回全部城市）
+    """所有城市 ODS 抓取进度汇总（一次性返回全部城市）
+
+    路由：每城 cfg["progress_mode"] → _scrape_period_progress / _scrape_county_progress / _scrape_catalogue_progress
+    加新 skill：仅需在 skill.yml 配 progress_mode + (county_field | catalogue_field) + 可选 group_by。
     """
     results = {}
-    for city, idx in PROGRESS_INDEXES.items():
+    for city in PROGRESS_INDEXES().keys():
+        cfg = _registry_get(city) or {}
+        mode = cfg.get("progress_mode", "period")
+        idx = PROGRESS_INDEXES().get(city)
         try:
-            use_cq = (city == "chongqing")
-            use_henan_periods = (city == "henan")
-            use_heze_periods = (city == "heze")
-            use_qingdao_periods = (city == "qingdao")
-            use_weihai_periods = (city == "weihai")
-            if use_heze_periods:
-                # 菏泽进度索引无 run_id 字段，用专属 heze 块（带 continue 跳过后续通用分支）
-                heze_body = {
-                    "size": 0,
-                    "aggs": {
-                        "periods": {
-                            "terms": {"field": "period", "size": 20},
-                            "aggs": {
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "latest_doc": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"created_at": "desc"}],
-                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at", "pdf_url", "minio_key"]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                heze_r = es.search(index=idx, body=heze_body)
-                heze_buckets = heze_r["aggregations"]["periods"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in heze_buckets)
-                tr = 0
-                counties = []
-                run_id = None
-                lu = ""
-                lu_str = ""
-                comp = 0
-                run = 0
-                err = 0
-                period_created = {}
-                for b in heze_buckets:
-                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                    raw_status = doc.get("status", "ok")
-                    if raw_status == "ok":
-                        primary_status = "completed"
-                        comp += 1
-                    elif raw_status in ("running", "in_progress"):
-                        primary_status = "running"
-                        run += 1
-                    else:
-                        primary_status = raw_status or "completed"
-                        comp += 1
-                    counties.append({
-                        "county": b["key"],
-                        "period": b["key"],
-                        "publish_date": doc.get("publish_date", ""),
-                        "status": primary_status,
-                        "percent": 100.0 if primary_status == "completed" else 0,
-                        "docs_written": doc.get("docs_written", 0),
-                        "current_page": 0,
-                        "total_pages": 0,
-                    })
-                    created = doc.get("created_at", "")
-                    period_created[b["key"]] = created
-                    if created and created > lu_str:
-                        lu_str = created
-                        lu = created[:19]
-                        run_id = doc.get("period")
-                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
-                # 填充 results[city] 后跳出本次循环
-                results[city] = {
-                    "city": city,
-                    "city_label": CITY_INDEXES[city]["label"],
-                    "latest_run_id": run_id,
-                    "last_updated": lu,
-                    "total_docs": td,
-                    "total_records": tr,
-                    "completed": comp,
-                    "running": run,
-                    "error": err,
-                    "total_counties": CITY_COUNTY_COUNTS.get(city, 0),
-                    "counties": counties,
-                }
-                continue
-            if use_cq:
-                run_body = {
-                    "size": 0,
-                    "aggs": {
-                        "runs": {
-                            "terms": {"field": "run_id", "size": 5},
-                            "aggs": {
-                                "latest": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"last_updated": "desc"}],
-                                        "_source": ["last_updated"]
-                                    }
-                                },
-                                "counties": {
-                                    "top_hits": {
-                                        "size": 100,
-                                        "sort": [{"last_updated": "desc"}],
-                                        "_source": [
-                                            "county", "run_id", "status", "current_county",
-                                            "current_page", "total_pages", "total_records",
-                                            "docs_written", "percent", "duration_sec",
-                                            "update_date", "last_updated", "error", "spot_check_ok",
-                                            "area", "catalogue_name", "tab_name",
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                r = es.search(index=idx, body=run_body)
-                buckets = r["aggregations"]["runs"]["buckets"]
-
-                def sort_key(b):
-                    h = b.get("latest", {}).get("hits", {}).get("hits", [])
-                    return (h[0].get("_source", {}).get("last_updated", "") or "") if h else ""
-
-                buckets.sort(key=sort_key, reverse=True)
-                if buckets:
-                    lat = buckets[0]
-                    lh = lat.get("latest", {}).get("hits", {}).get("hits", [])
-                    lu = (lh[0].get("_source", {}).get("last_updated", "") or "")[:19] if lh else ""
-                    ch = lat.get("counties", {}).get("hits", {}).get("hits", [])
-                else:
-                    lu, ch = "", []
-                run_id = buckets[0]["key"] if buckets else None
-            elif use_henan_periods:
-                # Henan: 按 period 跟踪同步进度（created_at 是 keyword 不能 max 聚合）
-                # 按 year 过滤（period 字段格式 YYYY.M月）
-                period_body = {
-                    "size": 0,
-                    "query": {
-                        "prefix": {"period": f"{year}."}
-                    },
-                    "aggs": {
-                        "periods": {
-                            "terms": {"field": "period", "size": 20},
-                            "aggs": {
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "latest_doc": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"created_at": "desc"}],
-                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                period_r = es.search(index=idx, body=period_body)
-                period_buckets = period_r["aggregations"]["periods"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
-                tr = 0
-                counties = []
-                run_id = None
-                lu = ""
-                lu_str = ""
-                comp = 0
-                run = 0
-                err = 0
-                period_created = {}
-                for b in period_buckets:
-                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                    raw_status = doc.get("status", "ok")
-                    if raw_status == "ok":
-                        primary_status = "completed"
-                        comp += 1
-                    elif raw_status in ("running", "in_progress"):
-                        primary_status = "running"
-                        run += 1
-                    else:
-                        primary_status = raw_status or "completed"
-                        comp += 1
-                    counties.append({
-                        "county": b["key"],
-                        "status": primary_status,
-                        "percent": 100.0 if primary_status == "completed" else 0,
-                        "docs_written": doc.get("docs_written", 0),
-                        "current_page": 0,
-                        "total_pages": 0,
-                    })
-                    created = doc.get("created_at", "")
-                    period_created[b["key"]] = created
-                    if created and created > lu_str:
-                        lu_str = created
-                        lu = created[:19]
-                        run_id = doc.get("period")
-                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
-                # 跳过下面通用/rizhao 分支（直接赋值 ch/td/comp...）
-                ch = []
-                results[city] = {
-                    "city": city,
-                    "city_label": CITY_INDEXES[city]["label"],
-                    "latest_run_id": run_id,
-                    "last_updated": lu,
-                    "total_docs": td,
-                    "total_records": tr,
-                    "completed": comp,
-                    "running": run,
-                    "error": err,
-                    "total_counties": len(counties),
-                    "counties": counties,
-                }
-                continue
-            elif use_qingdao_periods:
-                # Qingdao: 按 period 跟踪同步进度（同 henan 结构，但索引字段一致；created_at 是 keyword）
-                # 按 year 过滤（period 字段格式 YYYY.M月）
-                # 按 year 过滤（period 字段格式 YYYY.M月）
-                period_body = {
-                    "size": 0,
-                    "query": {
-                        "prefix": {"period": f"{year}."}
-                    },
-                    "aggs": {
-                        "periods": {
-                            "terms": {"field": "period", "size": 20},
-                            "aggs": {
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "latest_doc": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"created_at": "desc"}],
-                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                period_r = es.search(index=idx, body=period_body)
-                period_buckets = period_r["aggregations"]["periods"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
-                tr = 0
-                counties = []
-                run_id = None
-                lu = ""
-                lu_str = ""
-                comp = 0
-                run = 0
-                err = 0
-                period_created = {}
-                for b in period_buckets:
-                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                    raw_status = doc.get("status", "ok")
-                    if raw_status == "ok":
-                        primary_status = "completed"
-                        comp += 1
-                    elif raw_status in ("running", "in_progress"):
-                        primary_status = "running"
-                        run += 1
-                    else:
-                        primary_status = raw_status or "completed"
-                        comp += 1
-                    counties.append({
-                        "county": b["key"],
-                        "status": primary_status,
-                        "percent": 100.0 if primary_status == "completed" else 0,
-                        "docs_written": doc.get("docs_written", 0),
-                        "current_page": 0,
-                        "total_pages": 0,
-                    })
-                    created = doc.get("created_at", "")
-                    period_created[b["key"]] = created
-                    if created and created > lu_str:
-                        lu_str = created
-                        lu = created[:19]
-                        run_id = doc.get("period")
-                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
-                # 跳过下面通用/rizhao 分支（直接赋值 ch/td/comp...）
-                ch = []
-                results[city] = {
-                    "city": city,
-                    "city_label": CITY_INDEXES[city]["label"],
-                    "latest_run_id": run_id,
-                    "last_updated": lu,
-                    "total_docs": td,
-                    "total_records": tr,
-                    "completed": comp,
-                    "running": run,
-                    "error": err,
-                    "total_counties": len(counties),
-                    "counties": counties,
-                }
-                continue
-            elif use_weihai_periods:
-                # Weihai: 按季度期期刊同步进度（同 qingdao 结构，period 字段为 'YYYY.X-Y月' 季度格式）
-                # 一年 4 期（1-3 / 4-6 / 7-9 / 10-12 月），按 year 过滤
-                # size=200 足够覆盖历史多年
-                period_body = {
-                    "size": 0,
-                    "query": {
-                        "prefix": {"period": f"{year}."}
-                    },
-                    "aggs": {
-                        "periods": {
-                            "terms": {"field": "period", "size": 200},
-                            "aggs": {
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "latest_doc": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"created_at": "desc"}],
-                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at", "pdf_url", "minio_key"]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                period_r = es.search(index=idx, body=period_body)
-                period_buckets = period_r["aggregations"]["periods"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
-                tr = 0
-                counties = []
-                run_id = None
-                lu = ""
-                lu_str = ""
-                comp = 0
-                run = 0
-                err = 0
-                period_created = {}
-                for b in period_buckets:
-                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                    raw_status = doc.get("status", "ok")
-                    if raw_status == "ok":
-                        primary_status = "completed"
-                        comp += 1
-                    elif raw_status in ("running", "in_progress"):
-                        primary_status = "running"
-                        run += 1
-                    else:
-                        primary_status = raw_status or "completed"
-                        comp += 1
-                    counties.append({
-                        "county": b["key"],
-                        "period": b["key"],
-                        "publish_date": doc.get("publish_date", ""),
-                        "status": primary_status,
-                        "percent": 100.0 if primary_status == "completed" else 0,
-                        "docs_written": doc.get("docs_written", 0),
-                        "current_page": 0,
-                        "total_pages": 0,
-                    })
-                    created = doc.get("created_at", "")
-                    period_created[b["key"]] = created
-                    if created and created > lu_str:
-                        lu_str = created
-                        lu = created[:19]
-                        run_id = doc.get("period")
-                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
-                # 跳过下面通用/rizhao 分支（直接赋值 ch/td/comp...）
-                ch = []
-                results[city] = {
-                    "city": city,
-                    "city_label": CITY_INDEXES[city]["label"],
-                    "latest_run_id": run_id,
-                    "last_updated": lu,
-                    "total_docs": td,
-                    "total_records": tr,
-                    "completed": comp,
-                    "running": run,
-                    "error": err,
-                    "total_counties": len(counties),
-                    "counties": counties,
-                }
-                continue
+            if mode == "period":
+                results[city] = _scrape_period_progress(idx, year, cfg)
+            elif mode == "county":
+                results[city] = _scrape_county_progress(idx, year, cfg)
+            elif mode == "catalogue":
+                results[city] = _scrape_catalogue_progress(idx, cfg)
             else:
-                # 修复 xian 通用分支（v0.2）：最新 run 可能是 interrupted/error，
-                # 按 last_updated desc 取会把脏 run 当"最新进度"展示。
-                # 改为：只数 status=completed 的 records，按 run_id 分组，按
-                # 该 run 内 completed record 的最新 last_updated 降序取第一个。
-                run_body = {
-                    "size": 0,
-                    "query": {"term": {"status": "completed"}},
-                    "aggs": {
-                        "runs": {
-                            "terms": {
-                                "field": "run_id", "size": 5,
-                                "order": {"latest_completed_ts": "desc"}
-                            },
-                            "aggs": {
-                                "latest_completed_ts": {"max": {"field": "last_updated"}},
-                                "counties": {
-                                    "top_hits": {
-                                        "size": 100,
-                                        "sort": [{"last_updated": "desc"}],
-                                        "_source": [
-                                            "county", "run_id", "status", "current_county",
-                                            "current_page", "total_pages", "total_records",
-                                            "docs_written", "percent", "duration_sec",
-                                            "update_date", "last_updated", "error", "spot_check_ok",
-                                            "area", "catalogue_name", "tab_name",
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                r = es.search(index=idx, body=run_body)
-                runs_buckets = r["aggregations"]["runs"]["buckets"]
-
-                if runs_buckets:
-                    lat = runs_buckets[0]
-                    lu = (lat.get("latest_completed_ts", {}).get("value_as_string", "") or "")[:19]
-                    ch = lat.get("counties", {}).get("hits", {}).get("hits", [])
-                    run_id = lat["key"]
-                else:
-                    lu, ch = "", []
-                    run_id = None
-
-            ch = [h for h in ch if (h["_source"].get("county") or h["_source"].get("current_county") or h["_source"].get("area") or h["_source"].get("catalogue_name") or h["_source"].get("tab_name"))]
-
-            if city == "rizhao":
-                # For rizhao: use terms aggregation on tab_name to aggregate across ALL runs
-                # Use a filter to separate completed/running/error, then nest top_hits for latest run_id
-                tabs_body = {
-                    "size": 0,
-                    "aggs": {
-                        "tabs": {
-                            "terms": {"field": "tab_name", "size": 20},
-                            "aggs": {
-                                "latest_ts": {"max": {"field": "last_updated"}},
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "completed": {
-                                    "filter": {"term": {"status": "completed"}},
-                                    "aggs": {
-                                        "status_count": {"value_count": {"field": "status"}}
-                                    }
-                                },
-                                "running": {
-                                    "filter": {"term": {"status": "running"}},
-                                    "aggs": {
-                                        "latest_doc": {
-                                            "top_hits": {
-                                                "size": 1,
-                                                "sort": [{"last_updated": "desc"}],
-                                                "_source": ["tab_name", "status", "docs_written", "percent", "run_id", "last_updated", "current_page", "total_pages"]
-                                            }
-                                        }
-                                    }
-                                },
-                                "error": {
-                                    "filter": {"term": {"status": "error"}}
-                                }
-                            }
-                        }
-                    }
-                }
-                tabs_r = es.search(index=idx, body=tabs_body)
-                tabs_buckets = tabs_r["aggregations"]["tabs"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in tabs_buckets)
-                tr = 0
-                comp = sum(1 for b in tabs_buckets if b.get("completed", {}).get("doc_count", 0) > 0)
-                run = sum(1 for b in tabs_buckets if b.get("running", {}).get("doc_count", 0) > 0)
-                err = sum(1 for b in tabs_buckets if b.get("error", {}).get("doc_count", 0) > 0)
-                counties = []
-                run_id = None
-                lu = ""
-                lu_ts = None
-                for b in tabs_buckets:
-                    # Determine primary status by doc_count of each bucket
-                    comp_count = b.get("completed", {}).get("doc_count", 0)
-                    run_count = b.get("running", {}).get("doc_count", 0)
-                    err_count = b.get("error", {}).get("doc_count", 0)
-                    if run_count > 0:
-                        primary_status = "running"
-                        primary_docs = b.get("running", {}).get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                        percent = primary_docs.get("percent", 0)
-                        docs_written = primary_docs.get("docs_written", 0)
-                        current_page = primary_docs.get("current_page", 0)
-                        total_pages = primary_docs.get("total_pages", 0)
-                        if not run_id:
-                            run_id = primary_docs.get("run_id")
-                    elif comp_count > 0:
-                        primary_status = "completed"
-                        percent = 100.0
-                        docs_written = b.get("docs_sum", {}).get("value", 0)
-                        current_page = 0
-                        total_pages = 0
-                    else:
-                        primary_status = "unknown"
-                        percent = 0
-                        docs_written = 0
-                        current_page = 0
-                        total_pages = 0
-                    counties.append({
-                        "county": b["key"],
-                        "status": primary_status,
-                        "percent": round(percent, 1),
-                        "docs_written": docs_written,
-                        "current_page": current_page,
-                        "total_pages": total_pages,
-                    })
-                    ts = b.get("latest_ts", {}).get("value")
-                    if ts and (lu == "" or ts > (lu_ts or 0)):
-                        lu_ts = ts
-                        lu = b.get("latest_ts", {}).get("value_as_string", "")[:19]
-            else:
-                td = sum(h["_source"].get("docs_written", 0) for h in ch)
-                tr = sum(h["_source"].get("total_records", 0) for h in ch)
-                comp = sum(1 for h in ch if h["_source"].get("status") == "completed")
-                run = sum(1 for h in ch if h["_source"].get("status") == "running")
-                err = sum(1 for h in ch if h["_source"].get("status") == "error")
-                counties = [{
-                    "county": h["_source"].get("county", "") or h["_source"].get("current_county", "") or h["_source"].get("area", "") or h["_source"].get("catalogue_name", "") or h["_source"].get("tab_name", ""),
-                    "status": h["_source"].get("status", ""),
-                    "percent": round(h["_source"].get("percent", 0), 1),
-                    "docs_written": h["_source"].get("docs_written", 0),
-                } for h in ch]
-
-            if city == "henan":
-                # Henan: 按 period 跟踪同步进度（每期 PDF 一个记录）
-                # created_at 是 keyword，不能直接 max 聚合。改用 top_hits 取最新一条记录排序。
-                period_body = {
-                    "size": 0,
-                    "aggs": {
-                        "periods": {
-                            "terms": {"field": "period", "size": 20},
-                            "aggs": {
-                                "docs_sum": {"sum": {"field": "docs_written"}},
-                                "latest_doc": {
-                                    "top_hits": {
-                                        "size": 1,
-                                        "sort": [{"created_at": "desc"}],
-                                        "_source": ["period", "publish_date", "status", "docs_written", "duration_sec", "created_at"]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                period_r = es.search(index=idx, body=period_body)
-                period_buckets = period_r["aggregations"]["periods"]["buckets"]
-                td = sum(b.get("docs_sum", {}).get("value", 0) for b in period_buckets)
-                tr = 0
-                counties = []
-                run_id = None
-                lu = ""
-                lu_str = ""
-                comp = 0
-                run = 0
-                err = 0
-                period_created = {}  # period → created_at，用于排序
-                for b in period_buckets:
-                    doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
-                    raw_status = doc.get("status", "ok")
-                    if raw_status == "ok":
-                        primary_status = "completed"
-                        comp += 1
-                    elif raw_status in ("running", "in_progress"):
-                        primary_status = "running"
-                        run += 1
-                    else:
-                        primary_status = raw_status or "completed"
-                        comp += 1
-                    counties.append({
-                        "county": b["key"],
-                        "status": primary_status,
-                        "percent": 100.0 if primary_status == "completed" else 0,
-                        "docs_written": doc.get("docs_written", 0),
-                        "current_page": 0,
-                        "total_pages": 0,
-                    })
-                    created = doc.get("created_at", "")
-                    period_created[b["key"]] = created
-                    if created and created > lu_str:
-                        lu_str = created
-                        lu = created[:19]
-                        run_id = doc.get("period")
-                # 按 created_at 倒序排列 counties（最新期在前）
-                counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
-
-            if city == "heze":
-                # 已在上方 use_heze_periods 分支处理，此处不需重复
-                pass
-
-            results[city] = {
-                "city": city,
-                "city_label": CITY_INDEXES[city]["label"],
-                "latest_run_id": run_id,
-                "last_updated": lu,
-                "total_docs": td,
-                "total_records": tr,
-                "completed": comp,
-                "running": run,
-                "error": err,
-                "total_counties": CITY_COUNTY_COUNTS.get(city, len(ch)),
-                "counties": counties,
-            }
+                results[city] = _scrape_error_result(city, f"未知 progress_mode: {mode}")
         except Exception as e:
-            results[city] = {
-                "city": city,
-                "city_label": CITY_INDEXES[city]["label"],
-                "latest_run_id": None,
-                "last_updated": "",
-                "total_docs": 0,
-                "total_records": 0,
-                "completed": 0,
-                "running": 0,
-                "error": 0,
-                "total_counties": 0,
-                "status": "error",
-                "counties": [],
-            }
+            results[city] = _scrape_error_result(city, e)
     return results
+
+
+def _scrape_error_result(city, err) -> dict:
+    label = (CITY_INDEXES().get(city) or {}).get("label", city)
+    return {
+        "city": city, "city_label": label, "latest_run_id": None, "last_updated": "",
+        "total_docs": 0, "total_records": 0, "completed": 0, "running": 0, "error": 0,
+        "total_counties": 0, "status": "error", "counties": [], "error_msg": str(err),
+    }
+
+
+def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
+    """period 模式：heze / henan / qingdao / weihai 等按 PDF 期刊跟踪的 skill
+
+    按 period 字段 terms agg，按 year 过滤；返回该年各期状态。
+    """
+    period_size = cfg.get("period_size", 20)
+    period_field = cfg.get("period_field", "period")
+    body = {
+        "size": 0,
+        "query": {"prefix": {period_field: f"{year}."}},
+        "aggs": {
+            "periods": {
+                "terms": {"field": period_field, "size": period_size},
+                "aggs": {
+                    "docs_sum": {"sum": {"field": "docs_written"}},
+                    "latest_doc": {
+                        "top_hits": {
+                            "size": 1, "sort": [{"created_at": "desc"}],
+                            "_source": ["period", "publish_date", "status", "docs_written",
+                                        "duration_sec", "created_at", "pdf_url", "minio_key"],
+                        }
+                    }
+                }
+            }
+        }
+    }
+    r = es.search(index=idx, body=body)
+    buckets = r["aggregations"]["periods"]["buckets"]
+    td = sum(b.get("docs_sum", {}).get("value", 0) for b in buckets)
+    counties = []
+    period_created = {}
+    comp = run = err = 0
+    run_id = None
+    lu = ""
+    lu_str = ""
+    for b in buckets:
+        doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+        raw_status = doc.get("status", "ok")
+        if raw_status == "ok":
+            primary_status = "completed"; comp += 1
+        elif raw_status in ("running", "in_progress"):
+            primary_status = "running"; run += 1
+        else:
+            primary_status = raw_status or "completed"; comp += 1
+        counties.append({
+            "county": b["key"], "period": b["key"],
+            "publish_date": doc.get("publish_date", ""),
+            "status": primary_status,
+            "percent": 100.0 if primary_status == "completed" else 0,
+            "docs_written": doc.get("docs_written", 0),
+            "current_page": 0, "total_pages": 0,
+        })
+        created = doc.get("created_at", "")
+        period_created[b["key"]] = created
+        if created and created > lu_str:
+            lu_str = created
+            lu = created[:19]
+            run_id = doc.get("period")
+    counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
+    return {
+        "city": cfg["key"], "city_label": cfg.get("label", cfg["key"]),
+        "latest_run_id": run_id, "last_updated": lu,
+        "total_docs": td, "total_records": 0,
+        "completed": comp, "running": run, "error": err,
+        "total_counties": len(counties), "counties": counties,
+    }
+
+
+def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
+    """county 模式：xian / chongqing 等按区县抓取的 skill
+
+    按 run_id group 取最新一个 completed run，再列其下 county_field 详情。
+    xian 用 county_field=current_county；chongqing 用 county_field=area，
+    还可有 summary_marker（如 area="全部完成"）。
+    注意：某些 skill（chongqing）的 last_updated 是 keyword 不能 max agg，改用 top_hits sort。
+    """
+    county_field = cfg.get("county_field", "current_county")
+    summary_marker = cfg.get("summary_marker")
+    body = {
+        "size": 0,
+        "query": {"term": {"status": "completed"}},
+        "aggs": {
+            "runs": {
+                "terms": {"field": "run_id", "size": 5},
+                "aggs": {
+                    "latest_completed_doc": {
+                        "top_hits": {
+                            "size": 1, "sort": [{"last_updated": "desc"}],
+                            "_source": ["last_updated"],
+                        }
+                    },
+                    "counties": {
+                        "top_hits": {
+                            "size": 100, "sort": [{"last_updated": "desc"}],
+                            "_source": [
+                                "county", "run_id", "status", "current_county",
+                                "current_page", "total_pages", "total_records",
+                                "docs_written", "percent", "duration_sec",
+                                "update_date", "last_updated", "error", "spot_check_ok",
+                                "area", "catalogue_name", "tab_name",
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+    r = es.search(index=idx, body=body)
+    # 按 last_updated desc 排序 bucket（top_hits sort 兜底）
+    def _bucket_lu(b):
+        lh = b.get("latest_completed_doc", {}).get("hits", {}).get("hits", [])
+        return lh[0]["_source"].get("last_updated", "") if lh else ""
+    runs = sorted(r["aggregations"]["runs"]["buckets"], key=_bucket_lu, reverse=True)
+
+    if not runs:
+        return {
+            "city": cfg["key"], "city_label": cfg.get("label", cfg["key"]),
+            "latest_run_id": None, "last_updated": "", "total_docs": 0, "total_records": 0,
+            "completed": 0, "running": 0, "error": 0,
+            "total_counties": CITY_COUNTY_COUNTS().get(cfg["key"], 0), "counties": [],
+        }
+    lat = runs[0]
+    lu = _bucket_lu(lat)[:19]
+    ch = lat.get("counties", {}).get("hits", {}).get("hits", [])
+    run_id = lat["key"]
+
+    if summary_marker:
+        ch = [h for h in ch if h["_source"].get(county_field) != summary_marker]
+
+    ch = [h for h in ch if (h["_source"].get("county") or h["_source"].get("current_county")
+                            or h["_source"].get("area") or h["_source"].get("catalogue_name")
+                            or h["_source"].get("tab_name"))]
+    td = sum(h["_source"].get("docs_written", 0) for h in ch)
+    tr = sum(h["_source"].get("total_records", 0) for h in ch)
+    comp = sum(1 for h in ch if h["_source"].get("status") == "completed")
+    run = sum(1 for h in ch if h["_source"].get("status") == "running")
+    err = sum(1 for h in ch if h["_source"].get("status") == "error")
+    counties = [{
+        "county": h["_source"].get("county", "") or h["_source"].get("current_county", "")
+                or h["_source"].get("area", "") or h["_source"].get("catalogue_name", "")
+                or h["_source"].get("tab_name", ""),
+        "status": h["_source"].get("status", ""),
+        "percent": round(h["_source"].get("percent", 0), 1),
+        "docs_written": h["_source"].get("docs_written", 0),
+    } for h in ch]
+    return {
+        "city": cfg["key"], "city_label": cfg.get("label", cfg["key"]),
+        "latest_run_id": run_id, "last_updated": lu,
+        "total_docs": td, "total_records": tr,
+        "completed": comp, "running": run, "error": err,
+        "total_counties": CITY_COUNTY_COUNTS().get(cfg["key"], len(ch)),
+        "counties": counties,
+    }
+
+
+def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
+    """catalogue 模式：sichuan / jinan / rizhao 等按分类目录抓取的 skill
+
+    - sichuan：catalogue_field=area, group_by=run_id
+    - jinan / rizhao：group_by=latest（按最新 last_updated 去重）
+    """
+    catalogue_field = cfg.get("catalogue_field", "catalogue")
+    group_by = cfg.get("group_by", "run_id")
+
+    if catalogue_field == "tab_name":
+        # 兼容 rizhao 旧聚合（terms agg + completed/running 桶）
+        body = {
+            "size": 0,
+            "aggs": {
+                "tabs": {
+                    "terms": {"field": "tab_name", "size": 20},
+                    "aggs": {
+                        "latest_ts": {"max": {"field": "last_updated"}},
+                        "docs_sum": {"sum": {"field": "docs_written"}},
+                        "completed": {"filter": {"term": {"status": "completed"}},
+                                       "aggs": {"status_count": {"value_count": {"field": "status"}}}},
+                        "running": {"filter": {"term": {"status": "running"}},
+                                    "aggs": {"latest_doc": {
+                                        "top_hits": {"size": 1, "sort": [{"last_updated": "desc"}],
+                                                     "_source": ["tab_name", "status", "docs_written", "percent", "run_id", "last_updated", "current_page", "total_pages"]}}}},
+                        "error": {"filter": {"term": {"status": "error"}}},
+                    }
+                }
+            }
+        }
+        r = es.search(index=idx, body=body)
+        buckets = r["aggregations"]["tabs"]["buckets"]
+        td = sum(b.get("docs_sum", {}).get("value", 0) for b in buckets)
+        comp = sum(1 for b in buckets if b.get("completed", {}).get("doc_count", 0) > 0)
+        run = sum(1 for b in buckets if b.get("running", {}).get("doc_count", 0) > 0)
+        err = sum(1 for b in buckets if b.get("error", {}).get("doc_count", 0) > 0)
+        counties = []
+        run_id = None
+        lu = ""
+        lu_ts = None
+        for b in buckets:
+            comp_count = b.get("completed", {}).get("doc_count", 0)
+            run_count = b.get("running", {}).get("doc_count", 0)
+            if run_count > 0:
+                primary_status = "running"
+                primary_docs = b.get("running", {}).get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+                percent = primary_docs.get("percent", 0)
+                docs_written = primary_docs.get("docs_written", 0)
+                current_page = primary_docs.get("current_page", 0)
+                total_pages = primary_docs.get("total_pages", 0)
+                if not run_id:
+                    run_id = primary_docs.get("run_id")
+            elif comp_count > 0:
+                primary_status = "completed"
+                percent = 100.0
+                docs_written = b.get("docs_sum", {}).get("value", 0)
+                current_page = 0
+                total_pages = 0
+            else:
+                primary_status = "unknown"
+                percent = docs_written = current_page = total_pages = 0
+            counties.append({
+                "county": b["key"], "status": primary_status,
+                "percent": round(percent, 1), "docs_written": docs_written,
+                "current_page": current_page, "total_pages": total_pages,
+            })
+            ts = b.get("latest_ts", {}).get("value")
+            if ts and (lu == "" or ts > (lu_ts or 0)):
+                lu_ts = ts
+                lu = b.get("latest_ts", {}).get("value_as_string", "")[:19]
+    else:
+        body = {
+            "size": 0,
+            "aggs": {
+                "cats": {
+                    "terms": {"field": catalogue_field, "size": 100, "exclude": ""},
+                    "aggs": {
+                        "latest_ts": {"max": {"field": "last_updated"}},
+                        "latest_doc": {
+                            "top_hits": {
+                                "size": 1, "sort": [{"last_updated": "desc"}],
+                                "_source": [catalogue_field, "status", "docs_written", "percent",
+                                            "last_updated", "current_page", "total_pages", "total_records",
+                                            "run_id"],
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        r = es.search(index=idx, body=body)
+        buckets = r["aggregations"]["cats"]["buckets"]
+        td = sum((b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {}).get("docs_written", 0)) for b in buckets)
+        counties = []
+        run_id = None
+        lu = ""
+        lu_ts = None
+        comp = run = err = 0
+        for b in buckets:
+            doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
+            status = doc.get("status", "completed")
+            if status == "completed":
+                comp += 1
+            elif status == "running":
+                run += 1
+            else:
+                err += 1
+            counties.append({
+                "county": b["key"], "status": status,
+                "percent": round(doc.get("percent", 0), 1),
+                "docs_written": doc.get("docs_written", 0),
+                "current_page": doc.get("current_page", 0),
+                "total_pages": doc.get("total_pages", 0),
+            })
+            ts = b.get("latest_ts", {}).get("value")
+            if ts and (lu == "" or ts > (lu_ts or 0)):
+                lu_ts = ts
+                lu = b.get("latest_ts", {}).get("value_as_string", "")[:19]
+                run_id = doc.get("run_id")
+
+    return {
+        "city": cfg["key"], "city_label": cfg.get("label", cfg["key"]),
+        "latest_run_id": run_id, "last_updated": lu,
+        "total_docs": td, "total_records": 0,
+        "completed": comp, "running": run, "error": err,
+        "total_counties": (CITY_COUNTY_COUNTS().get(cfg["key"], 0) or len(counties)),
+        "counties": counties,
+    }
+
+
 
 
 @router.get("/api/stats/scrape-progress")
@@ -839,7 +576,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
     """
     ODS 层抓取进度：最近一次同步 run 的各区县进度
     """
-    PROGRESS_INDEX = PROGRESS_INDEXES.get(city, PROGRESS_INDEXES["xian"])
+    PROGRESS_INDEX = PROGRESS_INDEXES().get(city, PROGRESS_INDEXES()["xian"])
     use_chongqing_workaround = (city == "chongqing")
     use_henan_periods = (city == "henan")
 
@@ -915,7 +652,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
             return {
                 "city": city,
-                "city_label": CITY_INDEXES.get(city, {}).get("label", city),
+                "city_label": CITY_INDEXES().get(city, {}).get("label", city),
                 "latest_run_id": run_id,
                 "last_updated": lu,
                 "total_docs": total_docs,
@@ -968,7 +705,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             run_buckets.sort(key=sort_key, reverse=True)
             if not run_buckets:
                 return {"runs": [], "latest_run_id": None, "city": city,
-                        "city_label": CITY_INDEXES.get(city, {}).get("label", city)}
+                        "city_label": CITY_INDEXES().get(city, {}).get("label", city)}
             latest = run_buckets[0]
             latest_run_id = latest["key"]
             latest_hit = latest.get("latest", {}).get("hits", {}).get("hits", [])
@@ -1006,7 +743,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             run_buckets = run_result["aggregations"]["runs"]["buckets"]
             if not run_buckets:
                 return {"runs": [], "latest_run_id": None, "city": city,
-                        "city_label": CITY_INDEXES.get(city, {}).get("label", city)}
+                        "city_label": CITY_INDEXES().get(city, {}).get("label", city)}
             latest = run_buckets[0]
             latest_run_id = latest["key"]
             last_updated = (latest.get("latest_ts", {}).get("value_as_string", "") or "")[:19]
@@ -1038,7 +775,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
                 if "index_not_found_exception" in str(e) or "no such index" in str(e):
                     return {
                         "city": city,
-                        "city_label": CITY_INDEXES.get(city, {}).get("label", city),
+                        "city_label": CITY_INDEXES().get(city, {}).get("label", city),
                         "latest_run_id": None,
                         "last_updated": "",
                         "total_docs": 0,
@@ -1046,7 +783,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
                         "completed": 0,
                         "running": 0,
                         "error": 0,
-                        "total_counties": CITY_COUNTY_COUNTS.get(city, 0),
+                        "total_counties": CITY_COUNTY_COUNTS().get(city, 0),
                         "counties": [],
                     }
                 raise
@@ -1075,7 +812,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             err = sum(1 for c in counties if c.get("status") == "error")
             return {
                 "city": city,
-                "city_label": CITY_INDEXES.get(city, {}).get("label", city),
+                "city_label": CITY_INDEXES().get(city, {}).get("label", city),
                 "latest_run_id": counties[0]["last_updated"] if counties else None,
                 "last_updated": counties[0]["last_updated"] if counties else "",
                 "total_docs": total_docs,
@@ -1083,7 +820,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
                 "completed": completed,
                 "running": running,
                 "error": err,
-                "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+                "total_counties": CITY_COUNTY_COUNTS().get(city, len(counties)),
                 "counties": counties,
             }
 
@@ -1117,7 +854,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
 
         return {
             "city": city,
-            "city_label": CITY_INDEXES.get(city, {}).get("label", city),
+            "city_label": CITY_INDEXES().get(city, {}).get("label", city),
             "latest_run_id": latest_run_id,
             "last_updated": last_updated,
             "total_docs": total_docs,
@@ -1125,7 +862,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             "completed": completed,
             "running": running,
             "error": err,
-            "total_counties": CITY_COUNTY_COUNTS.get(city, len(counties)),
+            "total_counties": CITY_COUNTY_COUNTS().get(city, len(counties)),
             "counties": counties,
         }
     except Exception as e:
@@ -1138,17 +875,17 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
     """
     数据溯源：来源分布 + 各省新鲜度 + 近30天入库趋势
     """
-    if city not in CITY_INDEXES and city != "all":
-        raise HTTPException(status_code=400, detail=f"未知城市: {city}，可用: {', '.join(CITY_INDEXES.keys())}, all")
+    if city not in CITY_INDEXES() and city != "all":
+        raise HTTPException(status_code=400, detail=f"未知城市: {city}，可用: {', '.join(CITY_INDEXES().keys())}, all")
 
     is_all = (city == "all")
     if is_all:
-        ods_idx = ALL_ODS_INDICES
-        dwd_idx = ALL_DWD_INDICES
+        ods_idx = ALL_ODS_INDICES()
+        dwd_idx = ALL_DWD_INDICES()
         dws_idx = dwd_idx
         city_label = "全部城市"
     else:
-        cfg = CITY_INDEXES[city]
+        cfg = CITY_INDEXES()[city]
         ods_idx = cfg["ods"]
         dwd_idx = cfg["dwd"]
         dws_idx = cfg["dws"]
@@ -1303,7 +1040,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         # ── 8.5. 各城市 7 日 sparkline（一次性复合聚合）───────
         sparkline_all = {}
         try:
-            # 用 city 字段聚合，但匹配 CITY_INDEXES 的 label（部分同省同 key 的合并需要去重）
+            # 用 city 字段聚合，但匹配 CITY_INDEXES() 的 label（部分同省同 key 的合并需要去重）
             # size 必须足够大以包含所有 7 个城市（四川有 30+ 个区县 city 字段）
             sparkline_body = {
                 "size": 0,
@@ -1327,8 +1064,8 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
             sparkline_result = es.search(index=dwd_idx, body=sparkline_body, ignore_unavailable=True)
 
             # 反向映射：ES 返回的是中文 label，存到 sparkline_all 时用 city key
-            # ES 的 city 字段是"市"级（如"重庆市"、"乐山市"、"日照市"），与 CITY_INDEXES 的 label 可能差一字
-            label_to_key = {v["label"]: k for k, v in CITY_INDEXES.items()}
+            # ES 的 city 字段是"市"级（如"重庆市"、"乐山市"、"日照市"），与 CITY_INDEXES() 的 label 可能差一字
+            label_to_key = {v["label"]: k for k, v in CITY_INDEXES().items()}
             # ES 实际可能出现的别名 → city key
             city_alias = {
                 "重庆市": "chongqing", "乐山市": "sichuan", "五通": "sichuan",
@@ -1362,7 +1099,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
         all_pipelines = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
             futures = {}
-            for k, v in CITY_INDEXES.items():
+            for k, v in CITY_INDEXES().items():
                 futures[k] = {
                     "ods": pool.submit(_index_stats, v["ods"]),
                     "dwd": pool.submit(_index_stats, v["dwd"]),
@@ -1389,7 +1126,7 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 scrape_fresh_c = (_sc_total > 0 and _sc_done >= _sc_total and _sc_running == 0 and _sc_error == 0)
                 all_pipelines[k] = {
                     "city": k,
-                    "city_label": CITY_INDEXES[k]["label"],
+                    "city_label": CITY_INDEXES()[k]["label"],
                     "ods": ods_s,
                     "dwd": dwd_s,
                     "dws": dws_s,
@@ -2761,7 +2498,7 @@ def clean_summary(
 
     # 8 城并行查（每城一个 DWD 索引）
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        futures = [pool.submit(_query_city, k, v["dwd"]) for k, v in CITY_INDEXES.items()]
+        futures = [pool.submit(_query_city, k, v["dwd"]) for k, v in CITY_INDEXES().items()]
         # 每线程先聚合自己城市的数据，最后主线程串行 merge（避免 race）
         per_city: dict = {}
         for f in concurrent.futures.as_completed(futures):
@@ -2805,7 +2542,7 @@ def clean_summary(
         "dim": dim,
         "total": sum(v["doc_count"] for v in sorted_merged),  # 全国全量（不仅 top_n）
         "items": items,
-        "cities_total": len(CITY_INDEXES),
+        "cities_total": len(CITY_INDEXES()),
     }
 
 
@@ -3142,3 +2879,406 @@ def api_check_status():
         else:
             results[city] = {"city": city, "label": label, "status": "pending", "output": ""}
     return {"ok": True, "cities": results}
+
+
+# ── 通用 sync-progress 端点（按 progress_mode 分发）──────────────────────
+# 替代原 main.py 中 9 个手写 *sync-progress 端点
+# 加新 skill：只需在 skill.yml 设 progress_mode + (county_field|catalogue_field) + 可选 group_by/summary_marker
+# 不再需要改 dashboard 代码
+
+def _read_last_period_from_cfg(cfg_path: str, key: str = "last_period") -> str:
+    """从 skill config.yml 读 last_period / last_update_date"""
+    if not cfg_path or not os.path.exists(cfg_path):
+        return ""
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        return (cfg.get("sync", {}) or {}).get(key, "") or ""
+    except Exception:
+        return ""
+
+
+def _period_sync_progress(cfg: dict) -> dict:
+    """period 模式：heze / henan / qingdao / weihai 等按 PDF 期刊跟踪的 skill
+
+    进度索引里每期一条 status=ok 的记录，按 created_at 倒序列出详情。
+    """
+    progress_index = cfg.get("progress_index")
+    data_index = cfg.get("ods_index")
+    cfg_path = cfg.get("config_path", "")
+
+    all_hits = es.search(index=progress_index, body={
+        "size": 50,
+        "sort": [{"created_at": "desc"}],
+        "query": {"match_all": {}}
+    }, ignore_unavailable=True)
+    records = all_hits.get("hits", {}).get("hits", [])
+
+    period_details = []
+    total_docs = 0
+    completed = 0
+    running = 0
+    errored = 0
+    latest_period = ""
+    latest_created_at = ""
+    latest_doc = None
+
+    for h in records:
+        src = h["_source"]
+        raw_status = src.get("status", "ok")
+        if raw_status == "ok":
+            status_norm = "completed"
+            completed += 1
+        elif raw_status in ("running", "in_progress"):
+            status_norm = "running"
+            running += 1
+        else:
+            status_norm = raw_status or "completed"
+            completed += 1
+        docs_written = src.get("docs_written", 0) or 0
+        total_docs += docs_written
+        period_details.append({
+            "period": src.get("period", ""),
+            "publish_date": src.get("publish_date", ""),
+            "status": status_norm,
+            "percent": 100.0 if status_norm == "completed" else 0,
+            "docs_written": docs_written,
+            "duration_sec": src.get("duration_sec", 0),
+            "created_at": src.get("created_at", ""),
+            "pdf_url": src.get("pdf_url", ""),
+            "minio_key": src.get("minio_key", ""),
+        })
+        ca = src.get("created_at", "")
+        if ca and ca > latest_created_at:
+            latest_created_at = ca
+            latest_period = src.get("period", "")
+            latest_doc = src
+
+    overall_status = "ok" if running == 0 and errored == 0 else ("running" if running else "error")
+    last_updated = latest_created_at[:19] if latest_created_at else ""
+
+    last_sync_period = _read_last_period_from_cfg(cfg_path, "last_period")
+    es_latest_period = latest_period
+    if last_sync_period and es_latest_period:
+        has_incremental = es_latest_period > last_sync_period
+    elif es_latest_period and not last_sync_period:
+        has_incremental = True
+    else:
+        has_incremental = False
+
+    period_doc_count: dict = {}
+    try:
+        cnt = es.search(index=data_index, body={
+            "size": 0,
+            "aggs": {"by_period": {"terms": {"field": "period", "size": 20}}}
+        })
+        period_doc_count = {b["key"]: b["doc_count"] for b in cnt.get("aggregations", {}).get("by_period", {}).get("buckets", [])}
+    except Exception:
+        pass
+
+    return {
+        "run_id": latest_period,
+        "status": overall_status,
+        "period": latest_period,
+        "duration_sec": (latest_doc or {}).get("duration_sec", 0),
+        "last_updated": last_updated,
+        "error": (latest_doc or {}).get("error", ""),
+        "total_docs": total_docs,
+        "total_written": total_docs,
+        "current_page": 0,
+        "total_pages": 0,
+        "current_period": latest_period,
+        "completed_periods": completed,
+        "total_periods": len(period_details),
+        "period_details": period_details,
+        "has_incremental": has_incremental,
+        "last_sync_period": last_sync_period,
+        "es_latest_period": es_latest_period,
+        "period_doc_count": period_doc_count,
+    }
+
+
+def _county_sync_progress(cfg: dict) -> dict:
+    """county 模式：xian / chongqing 等按区县抓取的 skill
+
+    - 多数 skill（xian 等）：county_field 标记主键（current_county / area），group_by=run_id
+    - chongqing：progress 文档有"汇总"占位（area="全部完成"），用 summary_marker 区分
+    """
+    progress_index = cfg.get("progress_index")
+    data_index = cfg.get("ods_index")
+    cfg_path = cfg.get("config_path", "")
+    county_field = cfg.get("county_field", "current_county")
+    group_by = cfg.get("group_by", "run_id")
+    summary_marker = cfg.get("summary_marker")
+    county_total = len(cfg.get("cities", []) or [0])
+
+    total_docs = 0
+    try:
+        total_docs = es.count(index=data_index).get("count", 0)
+    except Exception:
+        pass
+
+    all_hits = es.search(index=progress_index, body={
+        "size": 200,
+        "query": {
+            "bool": {
+                "must": [{"exists": {"field": county_field}}],
+                "must_not": [{"term": {county_field: ""}}],
+            }
+        }
+    }, ignore_unavailable=True).get("hits", {}).get("hits", [])
+
+    if not all_hits:
+        return {
+            "run_id": "", "status": "", "current_county": "",
+            "current_page": 0, "total_pages": 0, "total_records": 0,
+            "docs_written": 0, "percent": 0, "duration_sec": 0,
+            "update_date": "", "last_updated": "", "error": "",
+            "completed_counties": 0, "total_counties": county_total,
+            "total_docs": total_docs, "county_details": [],
+            "has_incremental": False,
+        }
+
+    # 取最新 run_id / 最新 last_updated
+    if group_by == "run_id":
+        # 按 run_id 倒序取最新一个
+        all_hits.sort(key=lambda r: (r["_source"].get("run_id", ""), r["_source"].get("last_updated", "")), reverse=True)
+        latest_run_id = all_hits[0]["_source"].get("run_id", "")
+        run_records = [r for r in all_hits if r["_source"].get("run_id", "") == latest_run_id]
+    else:
+        # 按 last_updated desc 取最新一条
+        all_hits.sort(key=lambda r: r["_source"].get("last_updated", ""), reverse=True)
+        run_records = all_hits
+
+    # 分离 summary（可选，chongqing 用 area="全部完成"）
+    summary_record = None
+    county_records = run_records
+    if summary_marker:
+        for r in run_records:
+            if r["_source"].get(county_field) == summary_marker:
+                summary_record = r
+                break
+        county_records = [r for r in run_records if r["_source"].get(county_field) != summary_marker]
+
+    # 去重（county_field 相同取最新）
+    seen = set()
+    unique = []
+    for r in county_records:
+        c = r["_source"].get(county_field, "")
+        if c and c not in seen:
+            seen.add(c)
+            unique.append(r)
+    county_records = unique
+
+    county_details = sorted([{
+        "county": r["_source"].get(county_field, ""),
+        "status": r["_source"].get("status", ""),
+        "current_page": r["_source"].get("current_page", 0),
+        "total_pages": r["_source"].get("total_pages", 0),
+        "total_records": r["_source"].get("total_records", 0),
+        "docs_written": r["_source"].get("docs_written", 0),
+        "doc_count": r["_source"].get("docs_written", 0),
+        "percent": round(r["_source"].get("percent", 0), 2),
+        "period": r["_source"].get("period", ""),
+        "update_date": r["_source"].get("update_date", ""),
+        "last_updated": r["_source"].get("last_updated", ""),
+        "duration_sec": round(r["_source"].get("duration_sec", 0), 2),
+        "error": r["_source"].get("error", ""),
+    } for r in county_records], key=lambda x: x["county"])
+
+    # 整体状态
+    if summary_record:
+        overall_status = summary_record["_source"].get("status", "completed")
+        overall_duration = round(summary_record["_source"].get("duration_sec", 0), 2)
+        overall_last_updated = summary_record["_source"].get("last_updated", "")
+    else:
+        overall_status = "completed"
+        for d in county_details:
+            if d["status"] == "running":
+                overall_status = "running"
+                break
+            if d["status"] == "interrupted":
+                overall_status = "interrupted"
+        overall_duration = 0
+        overall_last_updated = county_details[-1]["last_updated"] if county_details else ""
+
+    completed_counties = sum(1 for d in county_details if d.get("status") == "completed")
+    running = next((d for d in county_details if d["status"] == "running"), None)
+    current_county = running.get("county", "") if running else ""
+    current_page = running.get("current_page", 0) if running else 0
+    total_pages = running.get("total_pages", 0) if running else 0
+
+    # 增量检测：last_period 对比 ES 最新 period
+    last_sync_period = _read_last_period_from_cfg(cfg_path, "last_period")
+    es_latest_period = ""
+    if county_details:
+        for d in reversed(county_details):
+            if d.get("period"):
+                es_latest_period = d["period"]
+                break
+    if last_sync_period and es_latest_period:
+        has_incremental = es_latest_period > last_sync_period
+    elif es_latest_period and not last_sync_period:
+        has_incremental = True
+    else:
+        has_incremental = False
+
+    return {
+        "run_id": (summary_record or run_records[0])["_source"].get("run_id", "") if run_records else "",
+        "status": overall_status,
+        "period": (summary_record or run_records[0])["_source"].get("period", "") if run_records else "",
+        "current_county": current_county,
+        "current_page": current_page,
+        "total_pages": total_pages,
+        "docs_written": sum(d.get("docs_written", 0) for d in county_details),
+        "duration_sec": overall_duration,
+        "last_updated": overall_last_updated,
+        "error": (summary_record or {}).get("_source", {}).get("error", "") if summary_record else "",
+        "completed_counties": completed_counties,
+        "total_counties": county_total,
+        "total_docs": total_docs,
+        "county_details": county_details,
+        "has_incremental": has_incremental,
+        "last_sync_period": last_sync_period,
+        "es_latest_period": es_latest_period,
+        # 兼容 xian 旧字段（spot_check）
+        "spot_check_ok": (run_records[0]["_source"].get("spot_check_ok") if run_records else None) if county_field == "current_county" else None,
+        "spot_check_details": (run_records[0]["_source"].get("spot_check_details", "") if run_records else "") if county_field == "current_county" else "",
+    }
+
+
+def _catalogue_sync_progress(cfg: dict) -> dict:
+    """catalogue 模式：sichuan / jinan / rizhao 等按分类目录抓取的 skill
+
+    - sichuan：catalogue_field=area, group_by=run_id
+    - jinan / rizhao：group_by=latest（按最新 last_updated 去重）
+    """
+    progress_index = cfg.get("progress_index")
+    data_index = cfg.get("ods_index")
+    cfg_path = cfg.get("config_path", "")
+    catalogue_field = cfg.get("catalogue_field", "catalogue")
+    group_by = cfg.get("group_by", "run_id")
+
+    total_docs = 0
+    try:
+        total_docs = es.count(index=data_index).get("count", 0)
+    except Exception:
+        pass
+
+    all_hits = es.search(index=progress_index, body={
+        "size": 100,
+        "query": {
+            "bool": {
+                "must": [{"exists": {"field": catalogue_field}}],
+                "must_not": [{"term": {catalogue_field: ""}}],
+            }
+        }
+    }, ignore_unavailable=True).get("hits", {}).get("hits", [])
+
+    if not all_hits:
+        return {
+            "run_id": "", "status": "", "period": "", "duration_sec": 0,
+            "last_updated": "", "error": "", "total_docs": total_docs,
+            "catalogue_details": [],
+        }
+
+    if group_by == "run_id":
+        all_hits.sort(key=lambda r: (r["_source"].get("run_id", ""), r["_source"].get("last_updated", "")), reverse=True)
+        latest_run_id = all_hits[0]["_source"].get("run_id", "")
+        records = [r for r in all_hits if r["_source"].get("run_id", "") == latest_run_id]
+    else:
+        all_hits.sort(key=lambda r: r["_source"].get("last_updated", ""), reverse=True)
+        records = all_hits
+
+    # 去重（catalogue_field 相同取最新）
+    seen = set()
+    unique = []
+    for r in records:
+        c = r["_source"].get(catalogue_field, "")
+        if c and c not in seen:
+            seen.add(c)
+            unique.append(r)
+
+    # 详情字段映射：默认 "catalogue_details" 列表元素以 catalogue/catalogue_name 为 id
+    cat_details = sorted([{
+        "catalogue": r["_source"].get(catalogue_field, ""),
+        "catalogue_name": r["_source"].get(f"{catalogue_field}_name", "") or r["_source"].get("catalogue_name", "") or r["_source"].get("tab_name", ""),
+        "tab_type": r["_source"].get("tab_type", ""),
+        "tab_name": r["_source"].get("tab_name", ""),
+        "status": r["_source"].get("status", ""),
+        "period": r["_source"].get("period", ""),
+        "current_page": r["_source"].get("current_page", 0),
+        "total_pages": r["_source"].get("total_pages", 0),
+        "total_records": r["_source"].get("total_records", 0) or r["_source"].get("total_count", 0),
+        "docs_written": r["_source"].get("docs_written", 0),
+        "percent": round(r["_source"].get("percent", 0), 2),
+        "last_updated": r["_source"].get("last_updated", ""),
+        "duration_sec": round(r["_source"].get("duration_sec", 0), 2),
+    } for r in unique], key=lambda x: x.get("catalogue_name") or x.get("catalogue"))
+
+    latest_record = all_hits[0]["_source"]
+    overall_status = latest_record.get("status", "completed")
+    overall_run_id = latest_record.get("run_id", "")
+    overall_duration = round(latest_record.get("duration_sec", 0), 2)
+    last_updated = latest_record.get("last_updated", "")
+    total_written = sum(d.get("docs_written", 0) for d in cat_details)
+
+    running_cat = next((d for d in cat_details if d["status"] == "running"), None)
+    current_page = running_cat.get("current_page", 0) if running_cat else 0
+    total_pages = running_cat.get("total_pages", 0) if running_cat else 0
+
+    # 增量检测
+    last_sync_period = _read_last_period_from_cfg(cfg_path, "last_period")
+    es_latest_period = ""
+    try:
+        es_res = es.search(index=data_index, body={
+            "size": 1, "sort": [{"update_date": "desc"}], "_source": ["period"]
+        })
+        es_h = es_res.get("hits", {}).get("hits", [])
+        if es_h:
+            es_latest_period = es_h[0]["_source"].get("period", "")
+    except Exception:
+        pass
+    if last_sync_period and es_latest_period:
+        has_incremental = es_latest_period > last_sync_period
+    elif es_latest_period and not last_sync_period:
+        has_incremental = True
+    else:
+        has_incremental = False
+
+    return {
+        "run_id": overall_run_id,
+        "status": overall_status,
+        "period": latest_record.get("period", ""),
+        "duration_sec": overall_duration,
+        "last_updated": last_updated,
+        "error": latest_record.get("error", ""),
+        "total_docs": total_docs,
+        "total_written": total_written,
+        "current_page": current_page,
+        "total_pages": total_pages,
+        "current_catalogue": running_cat.get("catalogue", "") if running_cat else "",
+        "current_catalogue_name": running_cat.get("catalogue_name", "") if running_cat else "",
+        "current_tab": latest_record.get("tab_name", ""),
+        "catalogue_details": cat_details,
+        "has_incremental": has_incremental,
+        "last_sync_period": last_sync_period,
+        "es_latest_period": es_latest_period,
+    }
+
+
+# 模式分发
+_MODE_DISPATCH = {
+    "period": _period_sync_progress,
+    "county": _county_sync_progress,
+    "catalogue": _catalogue_sync_progress,
+}
+
+
+def sync_progress(cfg: dict) -> dict:
+    """通用 sync-progress 入口：按 cfg["progress_mode"] 分发到对应 mode 函数"""
+    mode = cfg.get("progress_mode", "period")
+    fn = _MODE_DISPATCH.get(mode)
+    if not fn:
+        raise HTTPException(status_code=400, detail=f"未知 progress_mode: {mode}")
+    return fn(cfg)

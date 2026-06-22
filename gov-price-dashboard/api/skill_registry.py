@@ -94,6 +94,32 @@ def _discover() -> list[dict]:
         # 补默认值
         data.setdefault("label", key)
         data.setdefault("skill_dir", skill_dir)
+        # 推断默认 dwd_index（dwd_<key>_price 约定），yml 写了就以 yml 为准
+        if not data.get("dwd_index"):
+            data["dwd_index"] = f"dwd_{key}_price"
+        # 推断默认 progress_mode（county | period | catalogue）
+        data.setdefault("progress_mode", "county")
+        # 推断默认 expand_label（前端 ScrapeView 展开按钮文案）
+        mode = data.get("progress_mode")
+        if not data.get("expand_label"):
+            if mode == "period":
+                data["expand_label"] = "▾ 期数详情"
+            elif mode == "catalogue":
+                data["expand_label"] = "▾ 分类详情"
+            else:  # county
+                data["expand_label"] = "▾ 区县记录"
+        # 推断默认 county_field（county 模式用：current_county | area | county）
+        if mode == "county" and not data.get("county_field"):
+            # 约定：xian 用 current_county，其余 city（chongqing）默认 area
+            data["county_field"] = "current_county" if key == "xian" else "area"
+        # 推断默认 catalogue_field（catalogue 模式用：area | catalogue | tab_type）
+        if mode == "catalogue" and not data.get("catalogue_field"):
+            default_cat_field = {
+                "sichuan": "area",
+                "jinan": "catalogue",
+                "rizhao": "tab_type",
+            }.get(key, "catalogue")
+            data["catalogue_field"] = default_cat_field
         # 若 yml 没写 cities，尝试从 config.yml 读
         if not data.get("cities"):
             cfg_cities = _read_cities_from_config(
@@ -167,6 +193,43 @@ def all_ods_indices() -> list[str]:
 def ods_indices_csv() -> str:
     """逗号分隔形式，给 es.search(index=...) 用"""
     return ",".join(all_ods_indices())
+
+
+def all_dwd_indices() -> list[str]:
+    """返回所有 skill 的 dwd_index（去重，过滤空值）"""
+    seen: set[str] = set()
+    out: list[str] = []
+    for s in get_all():
+        idx = s.get("dwd_index")
+        if idx and idx not in seen:
+            seen.add(idx)
+            out.append(idx)
+    return out
+
+
+def dwd_indices_csv() -> str:
+    """逗号分隔形式，给 es.search(index=...) 用"""
+    return ",".join(all_dwd_indices())
+
+
+def all_dws_indices_for_dashboard() -> list[dict]:
+    """返回 dashboard 用的 dws city config（{key, dws, ods, dwd, label, ...}）"""
+    out = []
+    for s in get_all():
+        out.append({
+            "key": s["key"],
+            "label": s.get("label", s["key"]),
+            "ods": s.get("ods_index"),
+            "dwd": s.get("dwd_index"),
+            "dws": s.get("dws_index"),
+            "progress_index": s.get("progress_index"),
+            "progress_mode": s.get("progress_mode"),
+            "county_field": s.get("county_field"),
+            "catalogue_field": s.get("catalogue_field"),
+            "skill_dir": s.get("skill_dir"),
+            "cities": s.get("cities", []),
+        })
+    return out
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="分类清洗"
-      subtitle="按一级分类 × 城市覆盖 × 解析率，横向看全国 9 城 DWD 数据分类清洗状况"
+      :subtitle="subtitle"
       :stats="cleanCategory.items.length ? [
         { label: '清洗文档数', value: cleanCategory.total.toLocaleString() },
         { label: '覆盖分类数', value: cleanCategory.items.length },
@@ -42,7 +42,7 @@
               :class="{ active: c.cities.includes(city) }"
               :title="`${cityMap[city] || city}: ${c.cities.includes(city) ? '有数据' : '无数据'}`"
             ></span>
-            <span class="clean-city-count">{{ c.city_count }}/{{ c.cities_total || 8 }}</span>
+            <span class="clean-city-count">{{ c.city_count }}/{{ c.cities_total || cityCount }}</span>
           </span>
           <span class="clean-col-parse">
             <span class="clean-parse-bar">
@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
@@ -82,13 +82,27 @@ const error = ref('')
 
 const cleanCategory = ref({ items: [], total: 0 })
 
-// 9 城 city key 列表（用于城市覆盖点）
-const cityMap = {
-  xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南',
-  rizhao: '日照', henan: '河南', heze: '菏泽', qingdao: '青岛',
-  weihai: '威海',
+// city key → 中文 label，从 /api/skill-registry 动态拉
+// 加新 skill：只需加 skill.yml，前端自动适配
+const cityMap = ref({})
+const cityCount = computed(() => Object.keys(cityMap.value).length)
+const allCityKeys = computed(() => Object.keys(cityMap.value))
+const subtitle = computed(() =>
+  `按一级分类 × 城市覆盖 × 解析率，横向看全国 ${cityCount.value} 城 DWD 数据分类清洗状况`
+)
+
+async function loadSkillRegistry() {
+  try {
+    const { data } = await axios.get(`${API}/skill-registry`)
+    const m = {}
+    for (const s of (data?.skills || [])) {
+      m[s.key] = s.label
+    }
+    cityMap.value = m
+  } catch (e) {
+    console.error('loadSkillRegistry failed', e)
+  }
 }
-const allCityKeys = Object.keys(cityMap)
 
 async function loadData() {
   loading.value = true
@@ -104,6 +118,7 @@ async function loadData() {
 }
 
 onMounted(() => {
+  loadSkillRegistry()
   loadData()
 })
 </script>
