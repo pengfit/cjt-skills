@@ -2856,19 +2856,14 @@ def category_v2_l3_detail(l3: str = Query(...)):
 
 STATUS_DIR = "/tmp/gov-check-status"
 
-CITY_CHECK_LABELS = {
-    "xian": "西安", "sichuan": "四川", "chongqing": "重庆",
-    "jinan": "济南", "rizhao": "日照", "henan": "河南",
-    "heze": "菏泽", "qingdao": "青岛",
-}
-
 
 @router.get("/api/stats/check-status")
 def api_check_status():
-    """返回各城市定时检查任务的最新状态"""
-    import glob
+    """返回各城市定时检查任务的最新状态（从 skill registry 动态发现城市）"""
     results = {}
-    for city, label in CITY_CHECK_LABELS.items():
+    for s in _registry_get_all():
+        city = s["key"]
+        label = s.get("label", city)
         fpath = os.path.join(STATUS_DIR, f"{city}.json")
         if os.path.exists(fpath):
             try:
