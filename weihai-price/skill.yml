@@ -1,0 +1,14 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: weihai                # URL slug，用于 sync-progress 端点路径
+label: 威海                 # 卡片显示名
+province: 山东              # 省（用于筛选下拉）
+ods_index: ods_material_weihai_price
+dws_index: dws_weihai_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_weihai_price_sync_progress
+progress_mode: period       # 威海是季度期刊（2026 起改"信息价"，无区县/无分类）
+config_path: config.yml
+# 威海为市级期刊，全市统一价
+cities:
+  - 威海

@@ -1,0 +1,41 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_weihai_price
+  progress_index: ods_material_weihai_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: weihai-price
+  secure: false
+
+site:
+  base_url: https://zjj.weihai.gov.cn
+  list_path: /col/col28584/index.html
+  # 列表通过 dataproxy.jsp POST 抓取（jpage 插件）
+  list_proxy: /module/web/jpage/dataproxy.jsp
+  list_webid: 93
+  list_columnid: 28584
+  list_unitid: 428350
+  list_webname: 威海市住房和城乡建设局
+  list_per_page: 15
+  # 通知公告共 301 条（21 页）
+  list_total_record: 301
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""   # 增量起点；空=全量
+  last_publish_date: ""  # 增量同步只用比这新的
+  # 默认只同步指定年份（道友好 2026）
+  default_year: 2026
+
+# 威海是市级期刊，全市统一价
+city: 威海
+province: 山东
+
+# 价格类型：威海 PDF 是"信息价"（不含税价），无需反推
+price_type: info_price_excl_tax
