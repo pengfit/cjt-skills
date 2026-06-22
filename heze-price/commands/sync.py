@@ -85,18 +85,88 @@ def fetch_all_periods(cfg):
     return uniq
 
 
+# 老期数详情页把 PDF 链接塞在 JS 字符串 memo 里，有几种格式：
+#   1. /upload-service/0530/{dwid}/WY{fileid}.pdf                （较新的老期数）
+#   2. /0530/222/{md5hash}.pdf                                   （更老的期数）
+#   3. /jcms/.../downfile.jsp?classid=0&filename={hash}.pdf      （最老的期数，memo 拼接后才能用）
+#      详情页 JS 会执行 split/join：memo.split('.../downfile.jsp?classid=0&filename=').join('/0530/222/')
+# 新期数则在 <a class="media" href="…pdf"> 节点里。所有格式都需支持。
+# 注意 JS 字符串里 / 被转义为 \/、双引号转义为 \"，需先标准化。
+_PDF_HREF_RE_UPLOAD = re.compile(r'href="([^"]*?/upload-service/[^"]+?/WY\d+\.pdf)"')
+_PDF_HREF_RE_0530 = re.compile(r'href="([^"]*?/0530/222/[^"]+?\.pdf)"')
+# 最老的 downfile.jsp 格式：提取 filename 参数，拼接为 /0530/222/{filename}
+_PDF_HREF_RE_DOWNFILE = re.compile(r'href="[^"]*?downfile\.jsp\?[^"]*?filename=([^"\s&]+\.pdf)"')
+# 2018 年期 memo 用的是 UEditor 上传路径 /jcms/.../upload/file/{yyyymmdd}/{hash}.pdf
+_PDF_HREF_RE_JCMS = re.compile(r'href="([^"]*?/jcms/[^"]+?/upload/file/\d+/\w+\.pdf)"')
+
+
 def fetch_detail_pdf(cfg, xxid):
-    """访问详情页 HTML，提取 PDF 链接 + 标题"""
+    """访问详情页 HTML，提取 PDF 链接 + 标题。
+
+    解析顺序：
+      1. <a class="media" href="…pdf"> 或 <div class="pdf-box"> 内的 PDF 链接
+      2. 整页正则 fallback（应对老期数 JS 字符串 memo 形式）
+    返回 (title, pdf_url, pdf_name, detail_url)。找不到 PDF 时 pdf_url 为空。
+    """
     site = cfg['site']
     detail_url = f"{site['base_url']}/{site['dwid']}/{xxid}.html"
     html = fetch_html(detail_url, timeout=site['timeout_sec'])
     soup = BeautifulSoup(html, 'html.parser')
     title_el = soup.select_one('title')
     title = title_el.get_text(strip=True) if title_el else ''
+
+    pdf_url = ''
+    pdf_name = ''
+
+    # 1. 新版结构：DOM 节点
     pdf_a = soup.select_one('a.media[href*=".pdf"]') or soup.select_one('div.pdf-box a[href*=".pdf"]')
-    pdf_href = pdf_a.get('href', '') if pdf_a else ''
-    pdf_url = urljoin(detail_url, pdf_href) if pdf_href else ''
-    pdf_name = pdf_a.get_text(strip=True) if pdf_a else ''
+    if pdf_a:
+        href = pdf_a.get('href', '')
+        # 排除 doc/docx/xls 等非 PDF（按扩展名严格过滤）
+        if href.lower().endswith('.pdf'):
+            pdf_url = urljoin(detail_url, href)
+            pdf_name = pdf_a.get_text(strip=True) or ''
+
+    # 2. fallback：整页正则（处理老期数 JS 字符串）
+    if not pdf_url:
+        # 先去掉 JS 字符串里的转义：\/ → / ，\" → "
+        # 顺序很重要：必须先处理 \/ 再处理 \"
+        html_norm = html.replace(r'\/', '/').replace(r'\"', '"')
+        # 2a. /upload-service/.../WY{fileid}.pdf（新一些的老期数）
+        m = _PDF_HREF_RE_UPLOAD.search(html_norm)
+        if m:
+            href = m.group(1)
+            if href.lower().endswith('.pdf'):
+                pdf_url = urljoin(detail_url, href)
+        # 2b. /0530/222/{md5}.pdf（更老的期数，JSP 下载页直链）
+        if not pdf_url:
+            m = _PDF_HREF_RE_0530.search(html_norm)
+            if m:
+                href = m.group(1)
+                if href.lower().endswith('.pdf'):
+                    pdf_url = urljoin(detail_url, href)
+        # 2c. downfile.jsp?filename={hash}.pdf（最老的期数，模拟 JS split/join）
+        if not pdf_url:
+            m = _PDF_HREF_RE_DOWNFILE.search(html_norm)
+            if m:
+                filename = m.group(1)
+                if filename.lower().endswith('.pdf'):
+                    pdf_url = urljoin(detail_url, f'/0530/222/{filename}')
+        # 2d. /jcms/.../upload/file/{yyyymmdd}/{hash}.pdf（2018 年的期数）
+        if not pdf_url:
+            m = _PDF_HREF_RE_JCMS.search(html_norm)
+            if m:
+                href = m.group(1)
+                if href.lower().endswith('.pdf'):
+                    pdf_url = urljoin(detail_url, href)
+
+    # 3. PDF 文件名从 PDF URL 里推断（如果还没拿到）
+    if pdf_url and not pdf_name:
+        # 文件名 = last path segment（不带 query）
+        from urllib.parse import urlparse
+        path = urlparse(pdf_url).path
+        pdf_name = path.rsplit('/', 1)[-1] if path else ''
+
     return {
         'title': title,
         'pdf_url': pdf_url,
@@ -113,6 +183,14 @@ def extract_period_from_title(title):
     if not m:
         return ''
     return f'{m.group(1)}.{int(m.group(2))}期'
+
+
+def period_to_display_name(period):
+    """'2024.1期' → '《工程造价信息》2024年第1期'，用于 minio 文件名"""
+    m = re.match(r'(\d{4})\.(\d{1,2})期', period or '')
+    if not m:
+        return period or 'source'
+    return f'《工程造价信息》{m.group(1)}年第{int(m.group(2))}期'
 
 
 # ─── PDF 解析（4 列单价表，全市统一价） ────────────────────────────────────
@@ -350,10 +428,16 @@ def main():
     # 2. 过滤
     todo = []
     for it in items:
+        # 1) 用户指定的 period 关键字过滤
         if args.period and args.period not in it['title']:
             continue
+        # 2) 年份过滤（仅当 args.year != 0）
         if args.year and f'{args.year}年' not in it['title']:
             continue
+        # 3) 列表 API catas 过滤不严格，混入"竣工验收备案表"等无关文档，按标题关键字排除
+        if '工程造价信息' not in it['title']:
+            continue
+        # 4) 跳过已成功入库的
         if it['xxid'] in progress['done'] and progress['done'][it['xxid']].get('status') == 'ok':
             continue
         todo.append(it)
@@ -386,9 +470,11 @@ def main():
                     raise ValueError(f'无法从标题推断周期: {detail["title"]}')
                 print(f'  period: {period}')
 
-                minio_key = (f'{cfg["minio"]["prefix"]}/{detail["pdf_name"]}'
-                             if detail['pdf_name']
-                             else f'{cfg["minio"]["prefix"]}/{period}/source.pdf')
+                # minio_key: 优先用详情页中的可读文件名，老期数没可读名则统一为《工程造价信息》{period}.pdf
+                if detail['pdf_name'] and not detail['pdf_name'].startswith('WY'):
+                    minio_key = f'{cfg["minio"]["prefix"]}/{detail["pdf_name"]}'
+                else:
+                    minio_key = f'{cfg["minio"]["prefix"]}/{period_to_display_name(period)}.pdf'
                 if not args.dry_run:
                     upload_to_minio(s3, cfg['minio']['bucket'], minio_key, local_pdf)
                 print(f'  minio: {minio_key}')
