@@ -33,6 +33,9 @@ CITY_PARSERS = {
     "jinan":     ("base", None),
     "rizhao":    ("base", None),
     "henan":     ("base", None),
+    "heze":      ("base", None),
+    "qingdao":   ("base", None),
+    "weihai":    ("base", None),
 }
 
 
