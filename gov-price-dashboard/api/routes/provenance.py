@@ -506,16 +506,21 @@ def stats_scrape_progress_all(year: int = 2026):
                 }
                 continue
             else:
+                # 修复 xian 通用分支（v0.2）：最新 run 可能是 interrupted/error，
+                # 按 last_updated desc 取会把脏 run 当"最新进度"展示。
+                # 改为：只数 status=completed 的 records，按 run_id 分组，按
+                # 该 run 内 completed record 的最新 last_updated 降序取第一个。
                 run_body = {
                     "size": 0,
+                    "query": {"term": {"status": "completed"}},
                     "aggs": {
                         "runs": {
                             "terms": {
                                 "field": "run_id", "size": 5,
-                                "order": {"latest_ts": "desc"}
+                                "order": {"latest_completed_ts": "desc"}
                             },
                             "aggs": {
-                                "latest_ts": {"max": {"field": "last_updated"}},
+                                "latest_completed_ts": {"max": {"field": "last_updated"}},
                                 "counties": {
                                     "top_hits": {
                                         "size": 100,
@@ -538,7 +543,7 @@ def stats_scrape_progress_all(year: int = 2026):
 
                 if runs_buckets:
                     lat = runs_buckets[0]
-                    lu = (lat.get("latest_ts", {}).get("value_as_string", "") or "")[:19]
+                    lu = (lat.get("latest_completed_ts", {}).get("value_as_string", "") or "")[:19]
                     ch = lat.get("counties", {}).get("hits", {}).get("hits", [])
                     run_id = lat["key"]
                 else:
