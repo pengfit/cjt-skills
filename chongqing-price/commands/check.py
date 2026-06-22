@@ -33,6 +33,35 @@ def _eval_js(js_body: str) -> str:
 
 
 def _check_browser_tab(tab_label="重庆市建设工程造价信息网") -> str | None:
+    """查找已打开的 tab；没有则从 config.yml.site.url 主动打开，再返回新 tab id"""
+    out, _ = _run_cli(["browser", "tabs"])
+    for line in out.splitlines():
+        if tab_label in line:
+            m = re.search(r'\[?t(\d+)\]?', line)
+            if m:
+                return f"t{m.group(1)}"
+    # tab 不存在 → 主动打开（适用于 cron 场景下无人预开 tab）
+    site_url = "http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx"
+    try:
+        with open(CONFIG_PATH, encoding='utf-8') as _f:
+            site_url = (yaml.safe_load(_f) or {}).get("site", {}).get("url", site_url)
+    except Exception:
+        pass
+    print(f"[*] 未找到已开 tab，主动打开: {site_url}")
+    out, err = _run_cli(["browser", "open", site_url], timeout=60)
+    if not out and err:
+        print(f"[!] open 失败: {err.strip()[:200]}")
+        return None
+    # open 返回 JSON {targetId, tabId}；提取 tabId
+    try:
+        j = json.loads(out) if out.strip().startswith("{") else None
+    except Exception:
+        j = None
+    if j and j.get("tabId"):
+        return j["tabId"]
+    # fallback: 重新 tabs
+    import time as _t
+    _t.sleep(2)
     out, _ = _run_cli(["browser", "tabs"])
     for line in out.splitlines():
         if tab_label in line:
