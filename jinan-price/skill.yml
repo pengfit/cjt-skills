@@ -8,6 +8,8 @@ progress_index: material_jinan_price_sync_progress
 progress_mode: catalogue   # 按分类目录跟踪
 # catalogue 模式主字段：jinan 用 catalogue（分类目录名）
 catalogue_field: catalogue
+# 实际是月度发布（每月发上月数据），不是不规则
+period_granularity: monthly
 # 前端 ScrapeView 展开按钮文案
 expand_label: "▾ 分类详情"
 config_path: config.yml
