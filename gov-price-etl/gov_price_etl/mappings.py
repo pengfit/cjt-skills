@@ -87,6 +87,13 @@ def build_dws_mapping() -> dict:
         "etl_time":          {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
         "create_time":       {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
         "publish_time":      {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        # ── 时序分析专用字段（2026-06-23 补充，跨周期时序查询需要）──
+        "source_publish_date": {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},  # 源站实际发布日期
+        "period_granularity":  {"type": "keyword"},  # monthly / quarterly / bimonthly / half_yearly / irregular
+        "period_start":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},  # 期间起始日
+        "period_end":          {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},  # 期间结束日
+        "period_days":         {"type": "integer"},  # 期间天数（yearly_normalized 折算用）
+        "period_id":           {"type": "keyword"},  # 源站原始期间名（如 '2026.5月' / '2026.1-3月' / '2026-04-01'）
         "code":              {"type": "keyword"},
         "tab_type":          {"type": "keyword"},
         "tab_name":          {"type": "keyword"},

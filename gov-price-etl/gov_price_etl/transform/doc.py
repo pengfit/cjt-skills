@@ -94,7 +94,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
     # DWD 统一用 nested attr 格式存储，与 DWS 保持一致
     nested_attr = [{"k": k, "v": v} for k, v in flat_attr.items()]
 
-    return {
+    doc = {
         "breed": breed_raw,
         "breed_clean": breed_clean,
         "spec": spec_clean,
@@ -127,10 +127,63 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "update_date": raw.get("update_date", ""),
         "publish_time": raw.get("publish_time", ""),
         "period": raw.get("period", ""),
-        "code": raw.get("code", ""),
-        "source": raw.get("source", ""),
-        "citywide_category": raw.get("category", ""),  # 城市材料分类（建安工程材料等），区别于 classify_breed 的 category
-        "source_index": source_index,
+        # ── 时序分析字段（2026-06-23 补充，跨周期时序查询）──
+        # create_time：透传 ODS（如有），fallback etl_time
+        "create_time":  raw.get("create_time") or "",
+        # source_publish_date：优先 create_time，fallback update_date + T00:00:00
+        "source_publish_date": (
+            raw.get("create_time")
+            or (raw.get("update_date") + "T00:00:00" if raw.get("update_date") else "")
+            or ""
+        ),
+        # period_granularity：ODS 已写则取 ODS，默认 monthly
+        "period_granularity": raw.get("period_granularity") or "monthly",
+        # period_id：源站原命名（period 或 update_date）
+        "period_id":  raw.get("period_id") or raw.get("period") or raw.get("update_date") or "",
+        # period_start / end / days：按 granularity 派生（与 reindex script 逻辑一致）
+        "_raw_update_date": raw.get("update_date", ""),
+        "_raw_period_start": raw.get("period_start", ""),
+        "_raw_period_end": raw.get("period_end", ""),
+        "_raw_period_days": raw.get("period_days", ""),
         "etl_time": datetime.now().isoformat(),
         "attr": nested_attr,
     }
+
+    # 派生 period_start / end / days（如果 ODS 已有则用，否则按 update_date + granularity 派生）
+    granularity = doc.get("period_granularity", "monthly")
+    _ud = doc.pop("_raw_update_date", "")
+    raw_ps = doc.pop("_raw_period_start", "")
+    raw_pe = doc.pop("_raw_period_end", "")
+    raw_pd = doc.pop("_raw_period_days", "")
+    if raw_ps:
+        doc["period_start"] = raw_ps
+        doc["period_end"] = raw_pe or raw_ps
+        doc["period_days"] = raw_pd or 30
+    else:
+        if _ud and len(_ud) >= 7:
+            try:
+                mo = int(_ud[5:7])
+            except (ValueError, IndexError):
+                mo = 1
+            if granularity == "quarterly":
+                q = (mo - 1) // 3 + 1
+                sm = (q - 1) * 3 + 1
+                em = q * 3
+                doc["period_start"] = f"{_ud[:4]}-{sm:02d}-01"
+                doc["period_end"] = f"{_ud[:4]}-{em:02d}-30"
+                doc["period_days"] = 90
+            else:
+                # monthly: period_start = 月首, period_end = 月末, period_days = 当月天数
+                last_day = 31
+                if mo == 2:
+                    last_day = 28
+                elif mo in (4, 6, 9, 11):
+                    last_day = 30
+                doc["period_start"] = f"{_ud[:4]}-{mo:02d}-01"
+                doc["period_end"] = f"{_ud[:4]}-{mo:02d}-{last_day:02d}"
+                doc["period_days"] = last_day
+        else:
+            doc["period_start"] = _ud or ""
+            doc["period_end"] = _ud or ""
+            doc["period_days"] = 1
+    return doc
