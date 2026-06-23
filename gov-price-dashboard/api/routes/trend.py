@@ -53,6 +53,8 @@ def price_trend(
     series = []
     all_months = set()
     for mat in mat_list:
+        # 优先用 source_publish_date（date 类型），fallback update_date（keyword）
+        time_field = "source_publish_date" if es.indices.exists(index=dws_index) else "update_date"
         r = es.search(
             index=dws_index,
             body={
@@ -105,5 +107,10 @@ def price_trend(
         "label": cfg.get("label", city),
         "dws_index": dws_index,
         "months": sorted(all_months),
+        "granularity": next((g for k, g in [
+            ("xian", "monthly"), ("sichuan", "monthly"), ("chongqing", "monthly"),
+            ("jinan", "irregular"), ("rizhao", "monthly"), ("heze", "monthly"),
+            ("henan", "monthly"), ("qingdao", "monthly"), ("weihai", "quarterly"),
+        ] if k == city), "monthly"),
         "series": series,
     }
