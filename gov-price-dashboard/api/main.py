@@ -57,6 +57,8 @@ app.add_middleware(
 
 from api.routes.provenance import router as provenance_router
 app.include_router(provenance_router)
+from api.routes.trend import router as trend_router
+app.include_router(trend_router)
 
 es = Elasticsearch([ES_HOST])
 
