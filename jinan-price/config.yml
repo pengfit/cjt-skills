@@ -9,6 +9,6 @@ site:
   base_url: http://jnxxj.jngczjxh.com:5020
   data_type: '2'
 sync:
-  last_period: 2026年04月材料价格信息
-  last_period_id: '800251371103429'
+  last_period: 2026年02月材料价格信息
+  last_period_id: '779382749029573'
   size_per_page: 100
