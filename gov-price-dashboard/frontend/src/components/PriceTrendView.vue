@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 update_date 聚合`"
+      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合`"
       :stats="topStats"
     ><template #icon>📈</template></PageHeader>
 
@@ -15,10 +15,14 @@
         v-model="city"
         :options="cityOptions"
         placeholder="选城市"
-        @change="onChange"
+      />
+      <CustomSelect
+        v-model="periodsLimit"
+        :options="periodOptions"
+        placeholder="期数"
       />
       <div class="filter-meta">
-        <span class="meta-pill">📅 跨度：<strong>{{ monthRangeText }}</strong></span>
+        <span class="meta-pill">📅 跨度：<strong>{{ periodRangeText }}</strong></span>
         <span class="meta-pill">📦 文档：<strong>{{ data.total_docs || 0 }}</strong></span>
         <span class="meta-pill">🔍 材料：<strong>{{ selectedMaterials.length }} / {{ allMaterials.length }}</strong></span>
       </div>
@@ -46,35 +50,37 @@
         <div class="error-title">{{ error }}</div>
         <button class="btn-primary" @click="loadData">🔄 重试</button>
       </div>
-      <div v-else-if="!allMonths.length" class="trend-empty">
+      <div v-else-if="!allPeriods.length" class="trend-empty">
         <div class="empty-icon">📭</div>
         <div class="empty-title">该城市暂无可用时序数据</div>
-        <div class="empty-hint">DWS 索引里没有按 update_date 可聚合的多期数据</div>
+        <div class="empty-hint">DWS 索引里没有按 period_start 可聚合的多期数据</div>
       </div>
       <div v-else ref="chartEl" class="trend-chart"></div>
     </div>
 
     <!-- 数据表（每材料 × 每期均价） -->
-    <div v-if="!loading && allMonths.length" class="trend-table-card">
-      <SectionHeader title="时序数据表" dot-color="blue" subtitle="每行=一个材料，每列=一个 update_date" />
+    <div v-if="!loading && allPeriods.length" class="trend-table-card">
+      <SectionHeader title="时序数据表" dot-color="blue" subtitle="每行=一个材料，每列=一个业务期" />
       <div class="trend-table-scroll">
         <table class="trend-table">
           <thead>
             <tr>
               <th>材料</th>
               <th>单位</th>
-              <th v-for="m in allMonths" :key="m">{{ m.slice(5) }}</th>
-              <th class="th-trend">5月涨幅</th>
+              <th v-for="p in allPeriods" :key="p.start" :title="`${p.start} ~ ${p.end}`">
+                {{ p.start.slice(5) }}
+              </th>
+              <th class="th-trend">环比</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="s in activeSeries" :key="s.material">
               <td class="cell-material">{{ s.material }}</td>
               <td class="cell-unit">{{ s.unit || '—' }}</td>
-              <td v-for="m in allMonths" :key="m" class="cell-price">
-                <template v-if="getPoint(s, m)">
-                  <div class="price-val">{{ getPoint(s, m).avg.toFixed(2) }}</div>
-                  <div class="price-meta">{{ getPoint(s, m).n }}规格</div>
+              <td v-for="p in allPeriods" :key="p.start" class="cell-price">
+                <template v-if="getPoint(s, p.start)">
+                  <div class="price-val">{{ getPoint(s, p.start).avg.toFixed(2) }}</div>
+                  <div class="price-meta">{{ getPoint(s, p.start).n }}规格</div>
                 </template>
                 <template v-else><span class="no-data">—</span></template>
               </td>
@@ -104,16 +110,26 @@ import SkeletonCard from './SkeletonCard.vue'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ── 状态 ──
-const city = ref('qingdao')
+// city 不写死：onMounted 拉完 cityOptions 后从列表动态选默认（拼音第一个 = chongqing）
+const city = ref('')
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
 const selectedMaterials = ref([])    // 当前显示的材料
-const allMonths = ref([])            // 全局时间轴
-const data = ref({ series: [], total_docs: 0 })
+const allPeriods = ref([])           // 业务期数组 [{start, end, label}]
+const data = ref({ series: [], total_docs: 0, periods: [] })
 const loading = ref(false)
 const error = ref('')
 const chartEl = ref(null)
 let chartInstance = null
+
+// 期数筛选
+const periodsLimit = ref(12)
+const periodOptions = ref([
+  { key: 6, label: '最近 6 期' },
+  { key: 12, label: '最近 12 期' },
+  { key: 24, label: '最近 24 期' },
+  { key: 36, label: '最近 36 期' },
+])
 
 // 颜色（按材料在数据里出现的位置分配稳定色）
 const COLOR_POOL = [
@@ -135,27 +151,31 @@ const cityLabel = computed(() => cityOptions.value.find(c => c.key === city.valu
 
 const topStats = computed(() => {
   if (loading.value) return []
-  const monthCount = allMonths.value.length
   return [
     { label: '城市', value: cityLabel.value },
-    { label: '期数', value: monthCount },
+    { label: '期数', value: allPeriods.value.length },
     { label: '材料', value: selectedMaterials.value.length },
   ]
 })
 
-const monthRangeText = computed(() => {
-  if (allMonths.value.length === 0) return '—'
-  if (allMonths.value.length === 1) return allMonths.value[0]
-  return `${allMonths.value[0]} ~ ${allMonths.value.at(-1)}`
+const periodRangeText = computed(() => {
+  if (allPeriods.value.length === 0) return '—'
+  if (allPeriods.value.length === 1) return allPeriods.value[0].label
+  return `${allPeriods.value[0].label} ~ ${allPeriods.value.at(-1).label}`
 })
 
 // ── 方法 ──
 async function loadCityOptions() {
   try {
     const { data: d } = await axios.get(`${API}/skill-registry`)
-    cityOptions.value = (d?.skills || [])
+    const opts = (d?.skills || [])
       .map(s => ({ key: s.key, label: s.label }))
       .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+    cityOptions.value = opts
+    // 动态选默认 city：未设置时用拼音第一个（保证不写死、且一定是 registry 里存在的）
+    if (!city.value && opts.length) {
+      city.value = opts[0].key
+    }
   } catch (e) {
     error.value = '加载城市列表失败：' + e.message
   }
@@ -163,17 +183,24 @@ async function loadCityOptions() {
 
 async function loadData() {
   if (!city.value) return
+  // 切城市/期数前 dispose 旧 echarts 实例：
+  // loading=true 会卸载 chartEl DOM（template 切到 trend-loading），
+  // 旧 chartInstance 还指向已卸载的 DOM，setOption 上去 canvas 不会显示
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
   loading.value = true
   error.value = ''
-  data.value = { series: [], total_docs: 0 }
-  allMonths.value = []
+  data.value = { series: [], total_docs: 0, periods: [] }
+  allPeriods.value = []
   allMaterials.value = []
   try {
-    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=*`
+    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=*&periods=${periodsLimit.value}`
     const { data: d } = await axios.get(url)
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d
-    allMonths.value = d.months || []
+    allPeriods.value = d.periods || []
     // 默认选前 4 个材料
     allMaterials.value = (d.series || []).map(s => s.material)
     selectedMaterials.value = allMaterials.value.slice(0, 4)
@@ -197,10 +224,11 @@ function toggleMaterial(m) {
   renderChart()
 }
 
-function getPoint(s, month) {
-  return s.points.find(p => p.month === month)
+function getPoint(s, periodStart) {
+  return s.points.find(p => p.period_start === periodStart)
 }
 
+// 环比：首末两期
 function trendPct(s) {
   const pts = s.points
   if (pts.length < 2) return null
@@ -216,7 +244,7 @@ function trendClass(pct) {
 }
 
 function renderChart() {
-  if (!chartEl.value || !allMonths.value.length) {
+  if (!chartEl.value || !allPeriods.value.length) {
     if (chartInstance) { chartInstance.dispose(); chartInstance = null }
     return
   }
@@ -224,7 +252,11 @@ function renderChart() {
     chartInstance = echarts.init(chartEl.value)
     window.addEventListener('resize', chartInstance.resize)
   }
-  const months = allMonths.value
+  const periodMap = {}
+  allPeriods.value.forEach(p => { periodMap[p.start] = p })
+
+  const xData = allPeriods.value.map(p => p.label)
+
   const option = {
     tooltip: {
       trigger: 'axis',
@@ -232,7 +264,10 @@ function renderChart() {
       borderColor: '#cbd5e1',
       textStyle: { color: '#0f172a' },
       formatter: (params) => {
-        let html = `<b>${params[0].axisValue}</b><br/>`
+        const head = params[0].axisValue
+        const period = periodMap[Object.keys(periodMap).find(k => periodMap[k].label === head)] || {}
+        const range = period.start && period.end ? `（${period.start} ~ ${period.end}）` : ''
+        let html = `<b>${head}</b>${range}<br/>`
         params.forEach(p => {
           const d = p.data
           if (d && d.avg != null) {
@@ -245,38 +280,47 @@ function renderChart() {
     },
     legend: { top: 0, type: 'scroll', textStyle: { color: '#475569' } },
     grid: { left: 80, right: 30, top: 50, bottom: 60 },
-    xAxis: { type: 'category', data: months, axisLine: { lineStyle: { color: '#cbd5e1' } } },
+    xAxis: { type: 'category', data: xData, axisLine: { lineStyle: { color: '#cbd5e1' } } },
     yAxis: { type: 'value', name: '价格', nameTextStyle: { color: '#64748b' },
              axisLabel: { color: '#475569' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
     series: activeSeries.value.map(s => ({
       name: s.material + (s.unit ? ` (${s.unit})` : ''),
       type: 'line',
-      data: s.points.map(p => ({ value: p.avg, avg: p.avg, min: p.min, max: p.max, n: p.n, unit: s.unit })),
+      data: allPeriods.value.map(p => {
+        const pt = getPoint(s, p.start)
+        if (!pt) return { value: null, avg: null, min: null, max: null, n: 0, unit: s.unit }
+        return { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n, unit: s.unit }
+      }),
       smooth: false,
       symbol: 'circle',
       symbolSize: 8,
       lineStyle: { width: 2.5, color: colorOf(s.material) },
       itemStyle: { color: colorOf(s.material) },
       emphasis: { focus: 'series' },
+      connectNulls: true,
     })),
   }
   chartInstance.setOption(option, true)
 }
 
-function onChange() {
-  loadData()
-}
+// 注意：v-model="city" 双向绑定会让 city.value 变化时同步更新，watch(city) 统一负责触发 loadData
+// 因此 CustomSelect 不再需要 @change 回调
 
 onMounted(async () => {
   await loadCityOptions()
-  await loadData()
+  // loadData 由 watch(city) 触发（city.value 在 loadCityOptions 内被 set）
+})
+
+// city 变化时（包括初次从 '' 切到首个 city）自动 loadData
+watch(city, (newCity) => {
+  if (newCity) loadData()
 })
 
 onBeforeUnmount(() => {
   if (chartInstance) chartInstance.dispose()
 })
 
-watch(city, () => loadData())
+watch(periodsLimit, () => loadData())
 </script>
 
 <style scoped>
