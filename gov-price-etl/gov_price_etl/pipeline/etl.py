@@ -253,9 +253,11 @@ def etl_city(
             print(f"    [AI 补缓存] 提置信度失败: {_e2}")
 
         # ── 第三轮：从 ODS 拉回这组 breed 的文档，重新匹配写 DWD ──
-        breed_cleans = list(uncategorized_breeds.keys())
-        print(f"    [AI 重捞] 捞 {len(breed_cleans)} 个 breed...")
-        fetched = _fetch_ods_by_breeds(es_host, ods_idx, breed_cleans)
+        # 注意：uncategorized_breeds 的 key 是 breed_clean（规范化后），但 _fetch_ods_by_breeds 查的是 breed.keyword（原始）
+        # 必须从 value 里拿 raw breed 才能捞到文档（2026-06-24 bug fix）
+        raw_breeds = [v["breed"] for v in uncategorized_breeds.values() if v.get("breed")]
+        print(f"    [AI 重捞] 捞 {len(raw_breeds)} 个 raw breed...")
+        fetched = _fetch_ods_by_breeds(es_host, ods_idx, raw_breeds)
 
         docs.clear()
         doc_ids.clear()
