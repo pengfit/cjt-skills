@@ -24,6 +24,10 @@ def build_dwd_mapping() -> dict:
         "code":            {"type": "keyword"},
         "source_index":    {"type": "keyword"},
         "etl_time":        {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+        # ── 时序字段（2026-06-24 ES 实测 DWD 索引里有这些 dynamic 推断的脏字段，补上声明以对齐）──
+        "period_start":    {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},  # 期间起始日
+        "period_end":      {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},  # 期间结束日
+        "period_days":     {"type": "integer"},  # 期间天数
         "attr": {
             "type": "nested",
             "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
