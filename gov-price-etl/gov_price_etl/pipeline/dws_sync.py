@@ -47,6 +47,20 @@ AI_PARSE_BATCH_SIZE = 20
 AI_PARSE_BATCH_SLEEP_S = 0.5  # 批间限速
 
 
+def _is_price_valid(d: dict) -> bool:
+    """价格有效性检查：price 和 tax_price 任一不为 None/0 才算有效。
+
+    背景：甘孜州偏远区县 (sichuan) 、绿化苗木 (chongqing) 、造型树 (jinan) 等场景
+    数据源未发布价格，被存为 0；这类文档写入 DWS 后会污染价格走势 / 排序 / 统计。
+    返回 True 表示文档价格有效。
+    """
+    p = d.get("price")
+    t = d.get("tax_price")
+    p_valid = (p is not None) and (p != 0) and (p != 0.0)
+    t_valid = (t is not None) and (t != 0) and (t != 0.0)
+    return p_valid or t_valid
+
+
 def _source_to_dws(d: dict) -> dict:
     """DWD source → DWS doc：转换 attr 字段，清理空值。"""
     dws_doc = dict(d)
@@ -280,6 +294,9 @@ def _dwd_to_dws_three_stages(
             doc_id = h["_id"]
             d = dict(h["_source"])
             hits_by_id[doc_id] = h
+            # 价格过滤：price 和 tax_price 都为空/0 → 跳过（2026-06-24 道友需求）
+            if not _is_price_valid(d):
+                continue
             spec = d.get("spec", "")
             breed = d.get("breed", "")
             cat = d.get("category", "")
@@ -408,6 +425,9 @@ def _flush_ai_batch_to_dws(
         h = hits_by_id.get(doc_id)
         if not h:
             continue
+        # 价格过滤：price 和 tax_price 都为空/0 → 跳过（2026-06-24 道友需求）
+        if not _is_price_valid(dict(h["_source"])):
+            continue
         src_doc = dict(h["_source"])
         # 合并 src nested attr（如已有顶层 attr_*）
         if not attrs:
@@ -515,6 +535,10 @@ def sync_dws(es_host: str, city: str, cfg: dict, *,
         for h in hits:
             d = dict(h["_source"])
             if not source_filter(d, h):
+                skipped += 1
+                continue
+            # 价格过滤：price 和 tax_price 都为空/0 → 跳过（2026-06-24 道友需求）
+            if not _is_price_valid(d):
                 skipped += 1
                 continue
             if enrich_attr is not None:
