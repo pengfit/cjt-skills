@@ -1002,8 +1002,12 @@ def stats_data_health():
     """
     try:
         # 1. 每日数据量（最近30天）
-        # ODS 索引里没 date 字段（只有 update_date 是 keyword），
-        # 用 runtime_mappings 转成 date，再做 date_histogram + range 过滤。
+        # ODS 各城 update_date 字段类型不一致：xian/jinan/sichuan/chongqing/rizhao 是
+        # `date` 类型（doc value 返回 ISO 8601 字符串如 "2026-06-24T00:00Z"），
+        # qingdao/henan/heze/weihai 是 `keyword` 类型（doc value 返回 "2026-05-25"）。
+        # 用 runtime_mappings 统一转 date，对两种情况分别处理：
+        #   - date 类型：value.toString() 已经是带 T 的完整时间串，直接 parse
+        #   - keyword 类型：value 是纯日期串，补 T00:00:00Z 再 parse
         daily_body = {
             "size": 0,
             "runtime_mappings": {
@@ -1011,7 +1015,7 @@ def stats_data_health():
                     "type": "date",
                     "script": {
                         "lang": "painless",
-                        "source": "if (doc['update_date'].size() > 0) { def s = doc['update_date'].value; def zdt = ZonedDateTime.parse(s + 'T00:00:00Z'); emit(zdt.toInstant().toEpochMilli()); }"
+                        "source": "if (doc['update_date'].size() > 0) { String s = doc['update_date'].value.toString(); if (!s.contains('T')) { s = s + 'T00:00:00Z'; } emit(ZonedDateTime.parse(s).toInstant().toEpochMilli()); }"
                     }
                 }
             },
