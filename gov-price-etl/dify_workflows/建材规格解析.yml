@@ -1,0 +1,313 @@
+app:
+  description: '建材规格解析 ETL 工作流。
+
+
+    用途：从建材规格文本（如 2000×1000×10、DN80、C30、Φ25×12m）提取结构化业务属性（diameter / length / width
+    / thickness / grade / material 等），并生成可执行的 Python 正则解析规则（pattern + code_block）。
+
+
+    输入：1~20 条规格文本（按行分隔）
+
+    输出：results 数组（每条规格一个解析对象，含 attr/note/pattern/code_block）、ok/err_msg/raw 可观测字段
+
+    优先级：本地 breed_spec_rules.db 精确匹配 > 本地关键词相似度 > LLM 推理
+
+
+    适用场景：gov-price-etl 价格入库后的规格归一化与解析规则沉淀。
+
+    维护：scripts/dify_export.py 从 prompts.yml 自动生成（不要手工改本 DSL）。'
+  icon: 🔧
+  icon_background: '#D1E9FF'
+  icon_type: emoji
+  mode: workflow
+  name: 建材规格解析
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/minimax:0.0.21@ccfbb9b4f38d35b1daa2483daaad5ed5402896d1119d68601a820a806910bf87
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: end
+      id: 006bf74405524dcd
+      source: start
+      sourceHandle: source
+      target: llm_parse
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        sourceType: start
+        targetType: end
+      id: 8721a2f4840b4c16
+      source: llm_parse
+      sourceHandle: source
+      target: code_parse2
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        sourceType: start
+        targetType: end
+      id: 36ae704ee3d44367
+      source: code_parse2
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 定义工作流输入参数与入参约束（类型、必填、默认值）
+        selected: false
+        title: 输入参数
+        type: start
+        variables:
+        - label: 规格文本列表（待解析项）
+          max_length: 50000
+          options: []
+          placeholder: '每行格式：[N] 规格: <规格文本> | 产品: <产品提示> | 分类: <分类提示>'
+          required: true
+          type: text-input
+          variable: specs_str
+        - default: diameter, length, width, height, thickness, grade, material, pressure,
+            voltage, power
+          label: 属性命名参考集
+          max_length: 5000
+          options: []
+          placeholder: 逗号分隔的属性名候选（如 diameter, length, thickness）
+          required: true
+          type: text-input
+          variable: ref_names
+        - default: 20
+          label: 批大小（本次规格条数）
+          options: []
+          required: true
+          type: number
+          variable: batch_size
+      height: 205
+      id: start
+      position:
+        x: 30
+        y: 300
+      positionAbsolute:
+        x: 30
+        y: 300
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 依据 prompts.yml/batch_spec_parse 调用 LLM 从规格文本中抽取结构化业务属性与解析规则
+        model:
+          completion_params:
+            temperature: 0.1
+          mode: chat
+          name: minimax-m2.7
+          provider: langgenius/minimax/minimax
+        prompt_template:
+        - id: cf5f95d8-3b5e-40d7-b032-54df8c7d1cb9
+          role: system
+          text: "你是建材规格解析引擎。\n\n任务：\n根据规格文本生成解析规则。\n\n输出要求：\n\n1. 只输出合法 JSON。\n2.\
+            \ 禁止输出 markdown。\n3. 禁止输出解释、注释、思考过程。\n4. 输入几条输出几条，顺序保持一致。\n\n重要规则：\n\n\
+            【属性】\n- 一个业务属性对应一个 suggestion\n- 同一属性只能出现一次\n- 复合规格必须拆分\n- 不允许 suggestion\
+            \ 为空\n\n示例：\n\nΦ20 Q235\n→ diameter\n→ material\n\n2000×1000×10\n→ length\n\
+            → width\n→ thickness\n\n200×100×6\n→ height\n→ width\n→ thickness\n\n\
+            3×2.5\n→ core_count\n→ cross_section_area\n\n【Pattern】\n- 一个 pattern 对应一个\
+            \ attr\n- pattern 只能有一个捕获组\n- 必须直接捕获最终值\n- 优先使用业务关键字：\n   DN、Φ、δ、电压、功率、频率\n\
+            \n尺寸分隔符：\n\n[×xX＊*╳]\n\n\n【单位】\n\n钢材：\nmm\n\n管材：\nmm\n\n电缆截面积：\nmm²\n\n\
+            等级：\ngrade\n不补长度单位\n\n生成 JSON 后立即结束回答。\n\n\n【CodeBlock】\n\nnote：\n规则说明\n\
+            \npattern：\n\n^DN(\\\\d+)$\n\ncode_block：\n\nm = re.search(r'^DN(\\\\\
+            d+)$', s)\nif m:\n    result['diameter'] = m.group(1) + 'mm'"
+        - id: 1109866a-14ab-4c99-8609-adcc06503dbd
+          role: user
+          text: "规格列表：\n{{#start.specs_str#}}\n\n参考属性：\n{{#start.ref_names#}}\n\n\n\
+            输出格式：\n\n[\n  {\n    \"spec\": \"\",\n    \"ok\": true,\n    \"suggestions\"\
+            : [\n       {\n         \"attr\": \"attr\",\n         \"pattern\": \"\
+            pattern\",\n         \"note\": \"规则说明\",\n          \"code_block\": \"\
+            \"\n        }\n     ]\n  }\n]"
+        selected: true
+        structured_output_enabled: false
+        title: 规格解析推理（LLM）
+        type: llm
+        variables:
+        - value_selector:
+          - start
+          - specs_str
+          variable: specs_str
+        - value_selector:
+          - start
+          - ref_names
+          variable: ref_names
+        - value_selector:
+          - start
+          - batch_size
+          variable: batch_size
+        vision:
+          enabled: false
+      height: 148
+      id: llm_parse
+      position:
+        x: 334
+        y: 321
+      positionAbsolute:
+        x: 334
+        y: 321
+      selected: true
+      type: custom
+      width: 242
+    - data:
+        code: "import json\nimport re\n\n\ndef _extract_json(text: str) -> str:\n\
+          \    text = (text or \"\").strip()\n\n    # 去掉 think 标签\n    text = re.sub(\n\
+          \        r\"<think>.*?</think>\",\n        \"\",\n        text,\n      \
+          \  flags=re.S | re.I,\n    ).strip()\n\n    # 去掉 markdown json\n    m =\
+          \ re.search(\n        r\"```(?:json)?\\s*([\\s\\S]*?)```\",\n        text,\n\
+          \        re.I,\n    )\n    if m:\n        text = m.group(1).strip()\n\n\
+          \    # 优先找 JSON 数组：[ { ... } ]\n    m = re.search(\n        r\"(\\[\\s*\\\
+          {[\\s\\S]*\\}\\s*\\])\",\n        text,\n        re.S,\n    )\n    if m:\n\
+          \        return m.group(1).strip()\n\n    # 再找 JSON 对象：{ ... }\n    m =\
+          \ re.search(\n        r\"(\\{[\\s\\S]*\\})\",\n        text,\n        re.S,\n\
+          \    )\n    if m:\n        return m.group(1).strip()\n\n    return \"\"\n\
+          \n\ndef _repair_json(text: str) -> str:\n    text = text or \"\"\n\n   \
+          \ # 去掉尾逗号\n    text = re.sub(\n        r\",\\s*([\\]}])\",\n        r\"\\\
+          1\",\n        text,\n    )\n\n    return text\n\n\ndef main(llm_output):\n\
+          \    out = {\n        \"ok\": False,\n        \"results\": [],\n       \
+          \ \"err_msg\": \"\",\n    }\n\n    try:\n        raw = _extract_json(llm_output)\n\
+          \n        if not raw:\n            out[\"err_msg\"] = \"json not found\"\
+          \n            return out\n\n        raw = _repair_json(raw)\n\n        try:\n\
+          \            data = json.loads(raw)\n        except Exception:\n       \
+          \     # 再尝试修一次\n            raw = re.sub(\n                r\",\\s*([\\\
+          ]}])\",\n                r\"\\1\",\n                raw,\n            )\n\
+          \            data = json.loads(raw)\n\n        # 顶层数组\n        if isinstance(data,\
+          \ list):\n            out[\"ok\"] = True\n            out[\"results\"] =\
+          \ data\n            return out\n\n        # {\"results\":[...]}\n      \
+          \  if (\n            isinstance(data, dict)\n            and isinstance(data.get(\"\
+          results\"), list)\n        ):\n            out[\"ok\"] = True\n        \
+          \    out[\"results\"] = data[\"results\"]\n            return out\n\n  \
+          \      # 单个对象\n        if isinstance(data, dict):\n            out[\"ok\"\
+          ] = True\n            out[\"results\"] = [data]\n            return out\n\
+          \n        out[\"err_msg\"] = (\n            \"unexpected type: \"\n    \
+          \        + type(data).__name__\n        )\n        return out\n\n    except\
+          \ Exception as e:\n        out[\"err_msg\"] = str(e)\n        return out"
+        code_language: python3
+        desc: 从 LLM 输出中健壮提取 JSON（剥离 ``` 围栏、前缀说明、尾部注释），并按 Dify 声明类型反序列化
+        outputs:
+          err_msg:
+            children: null
+            type: string
+          ok:
+            children: null
+            type: boolean
+          results:
+            children: null
+            type: array[object]
+        selected: false
+        title: JSON 提取与结构化
+        type: code
+        variables:
+        - value_selector:
+          - llm_parse
+          - text
+          variable: llm_output
+      height: 112
+      id: code_parse2
+      position:
+        x: 642.1472
+        y: 321
+      positionAbsolute:
+        x: 642.1472
+        y: 321
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 对外暴露的工作流输出：results 为规格解析结果数组，ok/err_msg/raw 用于调用方可观测性
+        outputs:
+        - value_selector:
+          - code_parse2
+          - ok
+          variable: ok
+        - value_selector:
+          - code_parse2
+          - results
+          variable: results
+        - value_selector:
+          - code_parse2
+          - err_msg
+          variable: err_msg
+        selected: false
+        title: 工作流输出
+        type: end
+      height: 200
+      id: end
+      position:
+        x: 958.4449866354487
+        y: 321
+      positionAbsolute:
+        x: 958.4449866354487
+        y: 321
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 95.86864714945125
+      y: 177.44290123456778
+      zoom: 0.9645061728395065
+  rag_pipeline_variables: []

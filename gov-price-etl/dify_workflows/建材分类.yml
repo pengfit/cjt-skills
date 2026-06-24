@@ -1,0 +1,750 @@
+app:
+  description: GB/T 50856-2024
+  icon: 🔧
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: 建材分类
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/minimax:0.0.21@ccfbb9b4f38d35b1daa2483daaad5ed5402896d1119d68601a820a806910bf87
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: end
+      id: e2c059005e764011
+      selected: false
+      source: llm_classify
+      sourceHandle: source
+      target: code_parse
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        sourceType: start
+        targetType: end
+      id: f4702693985f41b0
+      selected: false
+      source: code_parse
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-llm_classify-target
+      source: start
+      sourceHandle: source
+      target: llm_classify
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 定义工作流输入参数与入参约束（类型、必填、默认值）
+        selected: false
+        title: 输入参数
+        type: start
+        variables:
+        - label: 品种列表（待分类项）
+          max_length: 50000
+          options: []
+          placeholder: 每行格式：N. breed=<品种名> | spec=<规格> | unit=<单位> | current_l3=<v1
+            翻译结果或空>
+          required: true
+          type: text-input
+          variable: breed_list
+        - default: 10
+          label: 批大小（本次品种数）
+          options: []
+          required: true
+          type: number
+          variable: batch_n
+      height: 179
+      id: start
+      position:
+        x: -122.68179487338301
+        y: 285.68608173062034
+      positionAbsolute:
+        x: -122.68179487338301
+        y: 285.68608173062034
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.1
+          mode: chat
+          name: minimax-m2.7
+          provider: langgenius/minimax/minimax
+        prompt_template:
+        - id: 57b872b4-9e4f-4d04-a596-c79448f983e2
+          role: system
+          text: '你是建筑工程材料分类助手。
+
+
+            任务：
+
+            请根据《L3速查表》将输入的材料名称映射到最匹配的三级分类，并输出标准 JSON。
+
+
+            《L3速查表》
+
+
+            | L3 编码 | L1 | L2 | L3 名称 |
+
+            |---|---|---|---|
+
+            | 01.01.01 | 建筑工程 | 土石方工程 | 挖一般土方 |
+
+            | 01.01.02 | 建筑工程 | 土石方工程 | 挖沟槽土方 |
+
+            | 01.01.03 | 建筑工程 | 土石方工程 | 挖基坑土方 |
+
+            | 01.01.04 | 建筑工程 | 土石方工程 | 回填方 |
+
+            | 01.01.05 | 建筑工程 | 土石方工程 | 石方工程 |
+
+            | 01.02.01 | 建筑工程 | 地基处理与边坡支护 | 地基处理 |
+
+            | 01.02.02 | 建筑工程 | 地基处理与边坡支护 | 基坑与边坡支护 |
+
+            | 01.03.01 | 建筑工程 | 桩基工程 | 打桩 |
+
+            | 01.03.02 | 建筑工程 | 桩基工程 | 灌注桩 |
+
+            | 01.04.01 | 建筑工程 | 砌筑工程 | 砖砌体 |
+
+            | 01.04.02 | 建筑工程 | 砌筑工程 | 砌块砌体 |
+
+            | 01.04.03 | 建筑工程 | 砌筑工程 | 石砌体 |
+
+            | 01.04.04 | 建筑工程 | 砌筑工程 | 垫层 |
+
+            | 01.05.01 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土基础 |
+
+            | 01.05.02 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土柱 |
+
+            | 01.05.03 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土梁 |
+
+            | 01.05.04 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土墙 |
+
+            | 01.05.05 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土板 |
+
+            | 01.05.06 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土楼梯 |
+
+            | 01.05.07 | 建筑工程 | 混凝土及钢筋混凝土工程 | 现浇混凝土其他构件 |
+
+            | 01.05.08 | 建筑工程 | 混凝土及钢筋混凝土工程 | 后浇带 |
+
+            | 01.05.09 | 建筑工程 | 混凝土及钢筋混凝土工程 | 预制混凝土柱 |
+
+            | 01.05.10 | 建筑工程 | 混凝土及钢筋混凝土工程 | 预制混凝土梁 |
+
+            | 01.05.11 | 建筑工程 | 混凝土及钢筋混凝土工程 | 预制混凝土屋架 |
+
+            | 01.05.12 | 建筑工程 | 混凝土及钢筋混凝土工程 | 预制混凝土板 |
+
+            | 01.05.13 | 建筑工程 | 混凝土及钢筋混凝土工程 | 预制混凝土楼梯 |
+
+            | 01.05.14 | 建筑工程 | 混凝土及钢筋混凝土工程 | 其他预制构件 |
+
+            | 01.05.15 | 建筑工程 | 混凝土及钢筋混凝土工程 | 钢筋工程 |
+
+            | 01.05.16 | 建筑工程 | 混凝土及钢筋混凝土工程 | 螺栓铁件 |
+
+            | 01.06.01 | 建筑工程 | 金属结构工程 | 钢网架 |
+
+            | 01.06.02 | 建筑工程 | 金属结构工程 | 钢屋架钢桁架 |
+
+            | 01.06.03 | 建筑工程 | 金属结构工程 | 钢柱 |
+
+            | 01.06.04 | 建筑工程 | 金属结构工程 | 钢梁 |
+
+            | 01.06.05 | 建筑工程 | 金属结构工程 | 钢板楼板墙板 |
+
+            | 01.06.06 | 建筑工程 | 金属结构工程 | 钢构件 |
+
+            | 01.06.07 | 建筑工程 | 金属结构工程 | 金属制品 |
+
+            | 01.07.01 | 建筑工程 | 木结构工程 | 木屋架 |
+
+            | 01.07.02 | 建筑工程 | 木结构工程 | 木构件 |
+
+            | 01.07.03 | 建筑工程 | 木结构工程 | 屋面木基层 |
+
+            | 01.08.01 | 建筑工程 | 屋面及防水工程 | 瓦型材及其他屋面 |
+
+            | 01.08.02 | 建筑工程 | 屋面及防水工程 | 屋面防水 |
+
+            | 01.08.03 | 建筑工程 | 屋面及防水工程 | 墙面防水防潮 |
+
+            | 01.08.04 | 建筑工程 | 屋面及防水工程 | 楼地面防水防潮 |
+
+            | 01.09.01 | 建筑工程 | 保温隔热防腐工程 | 保温隔热 |
+
+            | 01.09.02 | 建筑工程 | 保温隔热防腐工程 | 防腐面层 |
+
+            | 01.09.03 | 建筑工程 | 保温隔热防腐工程 | 其他防腐 |
+
+            | 02.01.01 | 装饰工程 | 楼地面装饰工程 | 整体面层 |
+
+            | 02.01.02 | 装饰工程 | 楼地面装饰工程 | 块料面层 |
+
+            | 02.01.03 | 装饰工程 | 楼地面装饰工程 | 橡塑面层 |
+
+            | 02.01.04 | 装饰工程 | 楼地面装饰工程 | 其他材料面层 |
+
+            | 02.01.05 | 装饰工程 | 楼地面装饰工程 | 踢脚线 |
+
+            | 02.01.06 | 装饰工程 | 楼地面装饰工程 | 楼梯面层 |
+
+            | 02.01.07 | 装饰工程 | 楼地面装饰工程 | 台阶装饰 |
+
+            | 02.01.08 | 装饰工程 | 楼地面装饰工程 | 零星装饰 |
+
+            | 02.02.01 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 墙面抹灰 |
+
+            | 02.02.02 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 柱面抹灰 |
+
+            | 02.02.03 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 零星抹灰 |
+
+            | 02.02.04 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 墙面块料面层 |
+
+            | 02.02.05 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 柱面镶贴块料 |
+
+            | 02.02.06 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 镶贴零星块料 |
+
+            | 02.02.07 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 墙饰面 |
+
+            | 02.02.08 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 柱饰面 |
+
+            | 02.02.09 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 幕墙工程（含密封胶） |
+
+            | 02.02.10 | 装饰工程 | 墙柱面装饰与隔断幕墙 | 隔断 |
+
+            | 02.03.01 | 装饰工程 | 天棚工程 | 天棚抹灰 |
+
+            | 02.03.02 | 装饰工程 | 天棚工程 | 天棚吊顶 |
+
+            | 02.03.03 | 装饰工程 | 天棚工程 | 采光天棚 |
+
+            | 02.03.04 | 装饰工程 | 天棚工程 | 天棚其他装饰 |
+
+            | 02.04.01 | 装饰工程 | 门窗工程 | 木门 |
+
+            | 02.04.02 | 装饰工程 | 门窗工程 | 金属门 |
+
+            | 02.04.03 | 装饰工程 | 门窗工程 | 金属卷帘门 |
+
+            | 02.04.04 | 装饰工程 | 门窗工程 | 厂库房大门特种门（含防火门） |
+
+            | 02.04.05 | 装饰工程 | 门窗工程 | 其他门 |
+
+            | 02.04.06 | 装饰工程 | 门窗工程 | 木窗 |
+
+            | 02.04.07 | 装饰工程 | 门窗工程 | 金属窗 |
+
+            | 02.04.08 | 装饰工程 | 门窗工程 | 门窗套 |
+
+            | 02.04.09 | 装饰工程 | 门窗工程 | 窗台板 |
+
+            | 02.04.10 | 装饰工程 | 门窗工程 | 窗帘窗帘盒轨 |
+
+            | 02.05.01 | 装饰工程 | 油漆涂料裱糊工程 | 门油漆 |
+
+            | 02.05.02 | 装饰工程 | 油漆涂料裱糊工程 | 窗油漆 |
+
+            | 02.05.03 | 装饰工程 | 油漆涂料裱糊工程 | 木材面油漆 |
+
+            | 02.05.04 | 装饰工程 | 油漆涂料裱糊工程 | 金属面油漆 |
+
+            | 02.05.05 | 装饰工程 | 油漆涂料裱糊工程 | 抹灰面油漆 |
+
+            | 02.05.06 | 装饰工程 | 油漆涂料裱糊工程 | 喷刷涂料 |
+
+            | 02.05.07 | 装饰工程 | 油漆涂料裱糊工程 | 裱糊 |
+
+            | 02.06.01 | 装饰工程 | 其他装饰工程 | 柜类货架 |
+
+            | 02.06.02 | 装饰工程 | 其他装饰工程 | 压条装饰线 |
+
+            | 02.06.03 | 装饰工程 | 其他装饰工程 | 扶手栏杆栏板装饰 |
+
+            | 02.06.04 | 装饰工程 | 其他装饰工程 | 暖气罩 |
+
+            | 03.01.01 | 安装工程-给排水 | 给水管道 | 金属给水管 |
+
+            | 03.01.02 | 安装工程-给排水 | 给水管道 | 塑料给水管 |
+
+            | 03.01.03 | 安装工程-给排水 | 给水管道 | 复合给水管 |
+
+            | 03.01.04 | 安装工程-给排水 | 给水管道 | 给水管道附件 |
+
+            | 03.01.05 | 安装工程-给排水 | 给水管道 | 给水阀门 |
+
+            | 03.02.01 | 安装工程-给排水 | 排水管道 | 金属排水管 |
+
+            | 03.02.02 | 安装工程-给排水 | 排水管道 | 塑料排水管 |
+
+            | 03.02.03 | 安装工程-给排水 | 排水管道 | 排水管道附件 |
+
+            | 03.03.01 | 安装工程-给排水 | 燃气管道 | 燃气管道 |
+
+            | 03.03.02 | 安装工程-给排水 | 燃气管道 | 燃气管道附件 |
+
+            | 03.04.01 | 安装工程-给排水 | 采暖管道 | 采暖管道 |
+
+            | 03.04.02 | 安装工程-给排水 | 采暖管道 | 采暖管道附件 |
+
+            | 03.05.01 | 安装工程-给排水 | 阀门 | 通用阀门 |
+
+            | 03.06.01 | 安装工程-给排水 | 卫生器具 | 卫生洁具 |
+
+            | 03.06.02 | 安装工程-给排水 | 卫生器具 | 给排水配件 |
+
+            | 04.01.01 | 安装工程-电气 | 变压器 | 变压器安装 |
+
+            | 04.02.01 | 安装工程-电气 | 配电装置 | 成套配电箱 |
+
+            | 04.02.02 | 安装工程-电气 | 配电装置 | 配电柜 |
+
+            | 04.03.01 | 安装工程-电气 | 母线 | 母线安装 |
+
+            | 04.04.01 | 安装工程-电气 | 控制保护装置 | 控制保护装置 |
+
+            | 04.04.02 | 安装工程-电气 | 控制保护装置 | 开关插座 |
+
+            | 04.05.01 | 安装工程-电气 | 电机 | 电机检查接线 |
+
+            | 04.06.01 | 安装工程-电气 | 电缆 | 电力电缆 |
+
+            | 04.06.02 | 安装工程-电气 | 电缆 | 控制电缆 |
+
+            | 04.06.03 | 安装工程-电气 | 电缆 | 电缆附件 |
+
+            | 04.07.01 | 安装工程-电气 | 电线 | 电气电线 |
+
+            | 04.07.02 | 安装工程-电气 | 电线 | 电气配管 |
+
+            | 04.08.01 | 安装工程-电气 | 防雷及接地装置 | 接闪器 |
+
+            | 04.08.02 | 安装工程-电气 | 防雷及接地装置 | 接地装置 |
+
+            | 04.09.01 | 安装工程-电气 | 照明器具 | 照明灯具 |
+
+            | 04.10.01 | 安装工程-电气 | 光伏设备 | 光伏组件设备 |
+
+            | 05.01.01 | 安装工程-暖通 | 通风管道 | 通风管道 |
+
+            | 05.02.01 | 安装工程-暖通 | 通风空调设备 | 风机盘管 |
+
+            | 05.02.02 | 安装工程-暖通 | 通风空调设备 | 空调机组 |
+
+            | 05.02.03 | 安装工程-暖通 | 通风空调设备 | 通风设备 |
+
+            | 05.02.04 | 安装工程-暖通 | 通风空调设备 | 风口风阀 |
+
+            | 05.03.01 | 安装工程-暖通 | 采暖设备 | 散热器 |
+
+            | 05.03.02 | 安装工程-暖通 | 采暖设备 | 地暖管 |
+
+            | 06.01.01 | 安装工程-智能化 | 综合布线 | 网络线缆 |
+
+            | 06.01.02 | 安装工程-智能化 | 综合布线 | 光纤线缆 |
+
+            | 06.01.03 | 安装工程-智能化 | 综合布线 | 综合布线配件 |
+
+            | 06.02.01 | 安装工程-智能化 | 安防系统 | 视频监控 |
+
+            | 06.02.02 | 安装工程-智能化 | 安防系统 | 门禁对讲 |
+
+            | 06.03.01 | 安装工程-智能化 | 消防报警 | 火灾探测器 |
+
+            | 06.03.02 | 安装工程-智能化 | 消防报警 | 报警联动设备 |
+
+            | 06.04.01 | 安装工程-智能化 | 楼宇自控 | 建筑设备监控 |
+
+            | 07.01.01 | 市政工程 | 道路工程 | 路面材料 |
+
+            | 07.01.02 | 市政工程 | 道路工程 | 路基材料 |
+
+            | 07.01.03 | 市政工程 | 道路工程 | 道路附属设施 |
+
+            | 07.02.01 | 市政工程 | 桥涵工程 | 桥涵构件 |
+
+            | 07.02.02 | 市政工程 | 桥涵工程 | 桥梁支座及伸缩缝 |
+
+            | 07.03.01 | 市政工程 | 管网工程 | 市政给水管 |
+
+            | 07.03.02 | 市政工程 | 管网工程 | 市政排水管 |
+
+            | 07.03.03 | 市政工程 | 管网工程 | 市政检查井 |
+
+            | 07.03.04 | 市政工程 | 管网工程 | 市政井盖及雨水篦 |
+
+            | 07.04.01 | 市政工程 | 隧道工程 | 隧道衬砌材料 |
+
+            | 07.04.02 | 市政工程 | 隧道工程 | 隧道防火材料 |
+
+            | 07.05.01 | 市政工程 | 交通设施 | 交通标志标线 |
+
+            | 07.05.02 | 市政工程 | 交通设施 | 交通信号灯设施 |
+
+            | 07.06.01 | 市政工程 | 路灯工程 | 路灯灯杆灯具 |
+
+            | 07.06.02 | 市政工程 | 路灯工程 | 路灯电缆 |
+
+            | 08.01.01 | 园林景观 | 绿化工程 | 苗木 |
+
+            | 08.01.02 | 园林景观 | 绿化工程 | 草坪 |
+
+            | 08.01.03 | 园林景观 | 绿化工程 | 花卉 |
+
+            | 08.01.04 | 园林景观 | 绿化工程 | 地被植物 |
+
+            | 08.01.05 | 园林景观 | 绿化工程 | 攀缘植物 |
+
+            | 08.01.06 | 园林景观 | 绿化工程 | 绿地灌溉系统 |
+
+            | 08.02.01 | 园林景观 | 园建工程 | 园路铺装材料 |
+
+            | 08.02.02 | 园林景观 | 园建工程 | 花池树池材料 |
+
+            | 08.02.03 | 园林景观 | 园建工程 | 木结构景观材料 |
+
+            | 08.03.01 | 园林景观 | 小品水景 | 景观小品 |
+
+            | 08.03.02 | 园林景观 | 小品水景 | 水景设备 |
+
+            | 09.01.01 | 其他材料 | 施工工具耗材 | 钻头/钎头 |
+
+            | 09.01.02 | 其他材料 | 施工工具耗材 | 砂轮/磨具 |
+
+            | 09.01.03 | 其他材料 | 施工工具耗材 | 喷头喷洒 |
+
+            | 09.02.01 | 其他材料 | 化工辅材 | 化学试剂 |
+
+            | 09.02.02 | 其他材料 | 化工辅材 | 工业气体 |
+
+            | 09.02.03 | 其他材料 | 化工辅材 | 润滑油品 |
+
+            | 09.03.01 | 其他材料 | 消耗及防护材料 | 纸张/胶带 |
+
+            | 09.03.02 | 其他材料 | 消耗及防护材料 | 防护/清洁用品 |
+
+            | 09.03.03 | 其他材料 | 消耗及防护材料 | 编织袋草绳 |
+
+            | 09.04.01 | 其他材料 | 辅助构件 | 塑料件/接头 |
+
+            | 09.04.02 | 其他材料 | 辅助构件 | 其他辅助构件 |
+
+            | 09.05.01 | 其他材料 | 消防器材 | 灭火器 |
+
+            | 09.05.02 | 其他材料 | 消防器材 | 消火栓 |
+
+            | 09.05.03 | 其他材料 | 消防器材 | 消防水泵结合器 |
+
+            | 09.05.04 | 其他材料 | 消防器材 | 消防箱柜 |
+
+            | 09.05.05 | 其他材料 | 消防器材 | 其他消防器材 |
+
+            | 09.06.01 | 其他材料 | 焊接与切割材料 | 电焊条 |
+
+            | 09.06.02 | 其他材料 | 焊接与切割材料 | 焊丝 |
+
+            | 09.06.03 | 其他材料 | 焊接与切割材料 | 焊接辅料 |
+
+            | 09.07.01 | 其他材料 | 建材添加剂 | 防水防腐剂 |
+
+            | 09.07.02 | 其他材料 | 建材添加剂 | 膨胀抗裂剂 |
+
+            | 09.07.03 | 其他材料 | 建材添加剂 | 粘合胶结剂 |
+
+            | 09.07.04 | 其他材料 | 建材添加剂 | 混凝土外加剂 |
+
+            | 09.08.01 | 其他材料 | 杂项五金 | 紧固件 |
+
+            | 09.08.02 | 其他材料 | 杂项五金 | 支架夹具 |
+
+            | 09.08.03 | 其他材料 | 杂项五金 | 其他五金 |
+
+            | 09.09.01 | 其他材料 | 施工机械 | 土方机械 |
+
+            | 09.09.02 | 其他材料 | 施工机械 | 起重机械 |
+
+            | 09.09.03 | 其他材料 | 施工机械 | 凿岩排水机械 |
+
+            | 09.99.01 | 其他材料 | 其他辅材 | 其他 |
+
+
+            分类原则：
+
+            1.breed 是主要分类依据。
+
+            2.spec 用于消除歧义。
+
+            3.unit 仅用于辅助判断或排除明显不合理的候选。
+
+            4.必须先比较全部候选，再输出最终结果，不得在看到第一个相似候选后立即决定。
+
+            5.当 breed 的语义能够明确定位到某一类工程材料或分部分项工程，但仅缺少进一步细分所需的信息（如具体构件、部位、用途等），应在该语义所属类别内选择最合理的默认或兜底
+            L3 分类，不得直接输出“候选不足或信息不足”。
+
+            6.对于存在“其他”“其他构件”“其他材料”“其他装饰”等兜底类目的 L3，应优先使用该类目承接无法进一步细分但专业类别明确的输入。
+
+
+            编码约束：
+
+            1.l3 必须从 L3 编码 中选择。
+
+            2.禁止生成 L3 编码 之外的编码。
+
+            3.L3 编码已经是完整编码，例如 "01.04.01"，禁止拼接、截断、补零、修改或推导编码。
+
+            l1、l2、name_l1、name_l2、name_l3、gb_50500、quota_ref、ifc_class、uniclass_ss、eng_part、eng_stage、main_or_aux 必须与最终选定的 l3 保持一致，禁止编造或输出与 l3 不一致的信息。
+
+            4.l4 固定输出 "UNCLASSIFIED"。
+
+
+            字符约束：
+
+            1.breed_clean 必须与输入的 breed 保持字符级完全一致。
+
+            2.禁止修改大小写、空格、符号、括号、斜杠、智能引号或任何特殊字符。
+
+
+            无法判断时：
+
+            1."l3": ""
+
+            2.所有依赖 L3 的字段输出空字符串。
+
+            3."confidence" < 0.70
+
+            4."reason": "候选不足或信息不足"
+
+
+            输出要求：
+
+            1.仅输出合法 JSON。
+
+            2.不得输出 Markdown、解释文字、注释或额外字段。
+
+            3.results 顺序必须与输入顺序完全一致。
+
+            4.所有字符串字段必须使用双引号。
+
+            5.JSON 必须可直接被标准 JSON 解析器解析。
+
+            6.不允许输出 <think>
+
+            7.数组元素必须是 JSON Object
+
+            8.禁止把 Object 包成字符串'
+        - id: 1e534fe9-7d73-455b-9561-059772df6892
+          role: user
+          text: "待分类的 {{#start.batch_n#}} 条品种：\n{{#start.breed_list#}}\n\n每行格式：\n\
+            N. breed=<品种名> | spec=<规格> | unit=<单位> \n\n请按照输入顺序输出：\n{\n\"ok\": true,\n\
+            \"results\": [\n{\n\"breed_clean\": \"...\",\n\"current_l3\": \"...\"\
+            ,\n\"l1\": \"...\",\n\"l2\": \"...\",\n\"l3\": \"...\",\n\"name_l1\":\
+            \ \"...\",\n\"name_l2\": \"...\",\n\"name_l3\": \"...\",\n\"l4\": \"UNCLASSIFIED\"\
+            ,\n\"gb_50500\": \"...\",\n\"quota_ref\": \"...\",\n\"ifc_class\": \"\
+            ...\",\n\"uniclass_ss\": \"...\",\n\"eng_part\": \"...\",\n\"eng_stage\"\
+            : \"...\",\n\"main_or_aux\": \"...\",\n\"unit\": \"...\",\n\"confidence\"\
+            : 0.90,\n\"reason\": \"...\"\n}\n]\n}"
+        selected: false
+        title: v2 分类推理（LLM）
+        type: llm
+        variables:
+        - value_selector:
+          - start
+          - breed_list
+          variable: breed_list
+        - value_selector:
+          - start
+          - batch_n
+          variable: batch_n
+        - value_selector:
+          - start
+          - total_l3
+          variable: total_l3
+        vision:
+          enabled: false
+      height: 88
+      id: llm_classify
+      position:
+        x: 273.1658473551365
+        y: 300
+      positionAbsolute:
+        x: 273.1658473551365
+        y: 300
+      selected: true
+      type: custom
+      width: 242
+    - data:
+        code: "import json\nimport re\n\n\ndef _extract_json(text: str) -> str:\n\
+          \    \"\"\"健壮提取 JSON 字符串：处理 ```json``` / 前缀说明 / 尾部注释。\"\"\"\n    text =\
+          \ (text or \"\").strip()\n    # 抠 ```json ... ``` 块\n    if text.startswith(\"\
+          ```\"):\n        parts = text.split(\"```\")\n        if len(parts) >= 3:\n\
+          \            text = parts[1]\n            if text.startswith(\"json\"):\n\
+          \                text = text[4:]\n    # 找第一个完整 {...} 或 [...] 块（用 stack 计数）\n\
+          \    starts = [i for i, c in enumerate(text) if c in \"[{\"]\n    for s\
+          \ in starts:\n        opener = text[s]\n        closer = \"}\" if opener\
+          \ == \"{\" else \"]\"\n        depth = 0\n        in_str = False\n     \
+          \   esc = False\n        for i in range(s, len(text)):\n            c =\
+          \ text[i]\n            if esc:\n                esc = False\n          \
+          \      continue\n            if c == \"\\\\\":\n                esc = True\n\
+          \                continue\n            if c == '\"':\n                in_str\
+          \ = not in_str\n                continue\n            if in_str:\n     \
+          \           continue\n            if c == opener:\n                depth\
+          \ += 1\n            elif c == closer:\n                depth -= 1\n    \
+          \            if depth == 0:\n                    return text[s : i + 1]\n\
+          \    return text\n\n\ndef main(llm_output):\n    \"\"\"解析 LLM 输出为结构化 dict。\n\
+          \n    返回 4 个字段（与 Code 节点 outputs 字典 key 严格对应）：\n      - ok          (bool):\
+          \ 解析是否成功\n      - results     (list): 分类/解析结果数组\n      - raw         (str):\
+          \  LLM 原始输出（调试用）\n      - err_msg     (str): 错误信息（成功时空字符串）— 不用 error（Dify\
+          \ 保留字）\n    \"\"\"\n    out = {\"ok\": False, \"results\": [], \"err_msg\"\
+          : \"\"}\n    raw = _extract_json(llm_output or \"\")\n    if not raw:\n\
+          \        out[\"err_msg\"] = \"empty LLM output\"\n        return out\n \
+          \   try:\n        data = json.loads(raw)\n    except Exception as e:\n \
+          \       out[\"err_msg\"] = f\"json.loads failed: {e}\"\n        return out\n\
+          \    # 兼容三种顶层结构\n    if isinstance(data, dict) and isinstance(data.get(\"\
+          results\"), list):\n        out[\"ok\"] = True\n        out[\"results\"\
+          ] = data[\"results\"]\n        return out\n    if isinstance(data, dict)\
+          \ and \"suggestions\" in data:\n        # parse_spec 任务：{suggestions: [...]}\
+          \ 包一层\n        out[\"ok\"] = True\n        out[\"results\"] = [data]\n \
+          \       return out\n    if isinstance(data, list):\n        out[\"ok\"]\
+          \ = True\n        out[\"results\"] = data\n        return out\n    out[\"\
+          err_msg\"] = f\"unexpected top-level type: {type(data).__name__}\"\n   \
+          \ return out"
+        code_language: python3
+        desc: 从 LLM 输出中健壮提取 JSON（剥离 ``` 围栏、前缀说明、尾部注释），并按 Dify 声明类型反序列化
+        outputs:
+          err_msg:
+            children: null
+            type: string
+          ok:
+            children: null
+            type: boolean
+          results:
+            children: null
+            type: array[object]
+        selected: false
+        title: JSON 提取与结构化
+        type: code
+        variables:
+        - value_selector:
+          - llm_classify
+          - text
+          variable: llm_output
+      height: 112
+      id: code_parse
+      position:
+        x: 647.5426121795865
+        y: 300
+      positionAbsolute:
+        x: 647.5426121795865
+        y: 300
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 对外暴露的工作流输出：results 为分类结果数组，ok/err_msg/raw 用于调用方可观测性
+        outputs:
+        - value_selector:
+          - code_parse
+          - ok
+          variable: ok
+        - value_selector:
+          - code_parse
+          - results
+          variable: results
+        - value_selector:
+          - code_parse
+          - err_msg
+          variable: err_msg
+        selected: false
+        title: 工作流输出
+        type: end
+      height: 200
+      id: end
+      position:
+        x: 1050
+        y: 300
+      positionAbsolute:
+        x: 1050
+        y: 300
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: -9.701846800400176
+      y: 253.1620506232621
+      zoom: 0.8383448734418447
+  rag_pipeline_variables: []
