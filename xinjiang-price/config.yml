@@ -1,0 +1,46 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_xinjiang_price
+  progress_index: ods_material_xinjiang_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: xinjiang-price
+  secure: false
+
+site:
+  base_url: https://www.xjzj.com
+  list_api: /Home/GetPoliciesListBy
+  detail_path: /Home/PoliciesDetail/      # 详情页路径前缀
+  detail_menu_id: c8df326e-cf0e-494d-b643-bd45cdb32773   # "价格信息"菜单 guid
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+  page_size: 50
+
+sync:
+  year: 2026                # 只同步指定年份（道友指定 2026）
+  last_period: ""           # 增量起点；空=全量
+
+# 16 个地州（市）→ areaid 映射（来自 div.quickLinkDiv，areaid=6 缺号）
+# 排序与新疆行政区划一致
+areas:
+  - { areaid: 1,  name: 伊犁,    city: 伊犁哈萨克自治州 }
+  - { areaid: 2,  name: 乌鲁木齐, city: 乌鲁木齐市 }
+  - { areaid: 3,  name: 昌吉,    city: 昌吉回族自治州 }
+  - { areaid: 4,  name: 克拉玛依, city: 克拉玛依市 }
+  - { areaid: 5,  name: 石河子,   city: 石河子市 }
+  - { areaid: 7,  name: 塔城,    city: 塔城地区 }
+  - { areaid: 8,  name: 阿勒泰,   city: 阿勒泰地区 }
+  - { areaid: 9,  name: 哈密,    city: 哈密市 }
+  - { areaid: 10, name: 巴州,    city: 巴音郭楞蒙古自治州 }
+  - { areaid: 11, name: 阿克苏,   city: 阿克苏地区 }
+  - { areaid: 12, name: 喀什,    city: 喀什地区 }
+  - { areaid: 13, name: 五家渠市, city: 五家渠市 }
+  - { areaid: 14, name: 博州,    city: 博尔塔拉蒙古自治州 }
+  - { areaid: 15, name: 克州,    city: 克孜勒苏柯尔克孜自治州 }
+  - { areaid: 16, name: 和田地区, city: 和田地区 }
+  - { areaid: 17, name: 吐鲁番,   city: 吐鲁番市 }

@@ -1,0 +1,27 @@
+key: xinjiang
+label: 新疆
+province: 新疆
+ods_index: ods_material_xinjiang_price
+dwd_index: dwd_xinjiang_price
+dws_index: dws_xinjiang_price
+progress_index: ods_material_xinjiang_price_sync_progress
+progress_mode: county
+expand_label: "▾ 地区详情"
+config_path: config.yml
+cities:
+  - 伊犁
+  - 乌鲁木齐
+  - 昌吉
+  - 克拉玛依
+  - 石河子
+  - 塔城
+  - 阿勒泰
+  - 哈密
+  - 巴州
+  - 阿克苏
+  - 喀什
+  - 五家渠市
+  - 博州
+  - 克州
+  - 和田地区
+  - 吐鲁番
