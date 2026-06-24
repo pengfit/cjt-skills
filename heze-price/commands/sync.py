@@ -195,12 +195,18 @@ def period_to_display_name(period):
 
 # ─── PDF 解析（4 列单价表，全市统一价） ────────────────────────────────────
 def _parse_price(s):
-    """提取 float，失败返回 None"""
+    """提取 float，失败返回 None。
+
+    处理多价格并列的字符串（如 '15.11/18.28/18.86'）：取首个有效价格。
+    """
     if s is None:
         return None
     s = str(s).strip()
     if not s:
         return None
+    # 多价格取首个（取/分隔的第一段）
+    if '/' in s:
+        s = s.split('/')[0]
     s = s.replace('￥', '').replace('¥', '').replace(',', '').replace(' ', '')
     try:
         v = float(s)
@@ -282,60 +288,177 @@ def _split_breed_spec(name_spec):
     return (s, '')
 
 
+# ─── 表格 schema 推断 ─────────────────────────────────────────────────────────
+# 价格列表头匹配：覆盖"价格/单价/除税价/不含税单价/含税单价/建议零售价/SN8价"
+_PRICE_HEADER_RE = re.compile(r'(价|单价|price)', re.IGNORECASE)
+# breed 列：含"名称/品名/类型/品种/品牌/材料名/玻璃型号/产品名称/品牌型号/产品型号/接口型式"
+_BREED_HEADER_RE = re.compile(r'(名称|品名|类型|品种|品牌|材料名|材料名称|玻璃型号|产品名称|品牌型号|产品型号|型式)')
+# 单独的"型号"列作为 fallback
+_BARE_MODEL_HEADER_RE = re.compile(r'型号')
+# spec 列：含"规格"（注意"规格型号"也命中）
+_SPEC_HEADER_RE = re.compile(r'规格')
+# unit 列：含"单位"
+_UNIT_HEADER_RE = re.compile(r'单位')
+
+
+def _infer_table_schema(header):
+    """根据表头推断 schema，返回 [(col_idx, type)]。
+
+    type: 'price' / 'breed' / 'spec' / 'unit' / 'seq' / 'note'
+
+    优先级：price > unit > breed > spec > seq
+    - 多 breed 列时只保留第一个为 breed，其余降级为 note（避免"产品名称/型号"
+      两个 breed 列同时抽取造成错位）
+    - 多 spec 列时全部保留（拼接为完整规格描述）
+    """
+    schema = []
+    breed_seen = False
+    for i, h in enumerate(header):
+        h_norm = h.replace(' ', '').replace('\n', '')
+        if _PRICE_HEADER_RE.search(h_norm):
+            schema.append((i, 'price'))
+        elif _UNIT_HEADER_RE.search(h_norm):
+            schema.append((i, 'unit'))
+        elif _SPEC_HEADER_RE.search(h_norm) and not _BREED_HEADER_RE.search(h_norm):
+            schema.append((i, 'spec'))
+        elif _BREED_HEADER_RE.search(h_norm):
+            if not breed_seen:
+                schema.append((i, 'breed'))
+                breed_seen = True
+            else:
+                # 第二个及以后的 breed 列（如"型号"列）→ 降级为 spec
+                schema.append((i, 'spec'))
+        elif _BARE_MODEL_HEADER_RE.search(h_norm):
+            if not breed_seen:
+                schema.append((i, 'breed'))
+                breed_seen = True
+            else:
+                # 多个型号列（罕见）→ 降级为 spec
+                schema.append((i, 'spec'))
+        else:
+            schema.append((i, 'seq' if i == 0 else 'note'))
+    return schema
+
+
+def _row_cells(row, ncols_raw):
+    """规范化一行数据：trim、合并空。"""
+    cells = [str(c or '').replace('\n', ' ').strip() for c in row]
+    while len(cells) < ncols_raw:
+        cells.append('')
+    return cells[:ncols_raw]
+
+
+def _extract_row_data(cells, schema):
+    """根据 schema 从一行抽取 (breed, spec, unit, price_str)。
+
+    多 breed 列时只取 schema 中第一个 breed 列（避免"产品名称/型号"两个 breed 列错位）。
+    多 spec 列时拼接（兼容"规格/型号"两列都是规格描述的情况）。
+    """
+    breed, spec, unit, price_str = '', '', '', ''
+    breed_seen = False  # 是否已遇过第一个 breed 列
+    spec_parts = []
+    for idx, typ in schema:
+        if typ == 'breed':
+            if not breed_seen and cells[idx]:
+                breed = cells[idx]
+                breed_seen = True
+        elif typ == 'spec':
+            if cells[idx]:
+                spec_parts.append(cells[idx])
+        elif typ == 'unit':
+            if not unit and cells[idx]:
+                unit = cells[idx]
+        elif typ == 'price':
+            if not price_str and cells[idx]:
+                price_str = cells[idx]
+    spec = ' '.join(spec_parts) if spec_parts else ''
+    return breed, spec, unit, price_str
+
+
 def parse_pdf_tables(pdf_path, cities=None):
     """解析 PDF → 长表 [(breed, spec, unit, city, price, category?)]
 
-    菏泽 PDF 表格格式：
-      A. 4 列单价表：序号 | 名称规格 | 单位 | 价格（元）   （钢材/水泥/管材/电气等大部分类目）
-      B. 5 列苗木表：序号 | 品名 | 规格 | 单位 | 价格（元）  （苗木、花卉信息价格类目）
-         苗木表中"品名"列存在跨行合并（同品种多规格），序号/品名为 None 时继承上一行。
+    菏泽 PDF 表格多种 schema，本函数按表头自动识别：
+
+      A. 单价表（4/6/7 列）：序号 | 名称规格 | 单位 | 价格（元）       ← 钢材/水泥/管材/电气等
+         6/7 列扩展：产品名称 | 规格型号 | 接口型式 | 单位 | 单价（元）| 备注
+                    产品名称 | 规格 | 型号 | 单位 | 单价 | 检测规范号
+      B. 苗木表（5 列）：序号 | 品名 | 规格 | 单位 | 价格（元）        ← 仅当表头含"品名"才走苗木
+         跨行合并：序号/品名为 None 时继承上一行。
+      C. 跨页续表：表头行缺失（如 p54/p55 洁润/金潮牌续表），按上一张表的 schema 继承。
 
     全市统一价，city='菏泽'。
     """
     rows = []
     city = cities[0] if cities else '菏泽'
+    last_schema = None  # 用于跨页续表继承
+
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             tables = page.extract_tables() or []
             for tbl in tables:
                 if not tbl or len(tbl) < 2:
                     continue
+                ncols_raw = len(tbl[0])
                 header = [str(c or '').replace('\n', '').strip() for c in tbl[0]]
-                if not any('价格' in h or '单价' in h for h in header):
+                # 推断表头 schema：是否有价格列
+                has_price = any(_PRICE_HEADER_RE.search(h.replace(' ', '')) for h in header)
+
+                # ── 续表识别 ──
+                # 条件：表头无价格列 & 行内容看起来像数据行（第一行 4 列长度匹配、是数字/中文）
+                if not has_price and last_schema is not None and ncols_raw >= 4:
+                    first_row = _row_cells(tbl[0], ncols_raw)
+                    # 探测：第一行第二列是否像"数据"（含中文或数字+字母），且第一列像序号
+                    looks_like_data = (
+                        bool(re.match(r'^\d{1,4}$', first_row[0]))  # 首列是数字序号
+                        and any(_PRICE_HEADER_RE.search(h.replace(' ', '')) for h in ['']) is False  # 头无价格
+                        and bool(re.search(r'[\u4e00-\u9fa5A-Za-z0-9]', first_row[1] or first_row[2] or ''))
+                    )
+                    if looks_like_data:
+                        # 续表：当数据行处理，继承 last_schema
+                        schema = last_schema
+                        data_rows = tbl  # 没有表头行
+                        is_tree = False  # 续表不会是苗木
+                        # 用 last_schema 处理所有行
+                        for row in data_rows:
+                            cells = _row_cells(row, ncols_raw)
+                            breed, spec, unit, price_str = _extract_row_data(cells, schema)
+                            if not breed or not unit:
+                                continue
+                            price = _parse_price(price_str)
+                            if price is None:
+                                continue
+                            breed_clean, spec_clean = _split_breed_spec(breed + (' ' + spec if spec else ''))
+                            rows.append({
+                                'breed': breed_clean,
+                                'spec': spec_clean,
+                                'unit': unit,
+                                'city': city,
+                                'price': price,
+                            })
+                        continue  # 处理完，跳到下个表
+
+                if not has_price:
                     continue
-                ncols = len(header)
-                if ncols == 4:
-                    # A. 4 列单价表：序号 | 名称规格 | 单位 | 价格
-                    for row in tbl[1:]:
-                        cells = [str(c or '').replace('\n', ' ').strip() for c in row]
-                        if len(cells) < 4:
-                            continue
-                        seq, name_spec, unit, price_str = cells[:4]
-                        if not seq or not name_spec:
-                            continue
-                        if not unit:
-                            continue
-                        price = _parse_price(price_str)
-                        if price is None:
-                            continue
-                        breed, spec = _split_breed_spec(name_spec)
-                        rows.append({
-                            'breed': breed,
-                            'spec': spec,
-                            'unit': unit,
-                            'city': city,
-                            'price': price,
-                        })
-                elif ncols == 5:
+
+                schema = _infer_table_schema(header)
+                last_schema = schema  # 缓存以备续表用
+                is_tree = any(
+                    typ == 'breed' and header[idx].replace(' ', '').replace('\n', '') in ('品名', '苗木', '树种', '绿化苗木')
+                    for idx, typ in schema
+                )
+
+                if is_tree:
                     # B. 5 列苗木表：序号 | 品名 | 规格 | 单位 | 价格
-                    # 跨行合并：序号/品名为 None 时继承上一行
                     cur_seq = ''
                     cur_breed = ''
                     for row in tbl[1:]:
-                        cells = [str(c or '').replace('\n', ' ').strip() for c in row]
-                        if len(cells) < 5:
-                            continue
-                        seq, breed_cell, spec, unit, price_str = cells[:5]
+                        cells = _row_cells(row, ncols_raw)
+                        seq = cells[0] if len(cells) > 0 else ''
+                        breed_cell = cells[1] if len(cells) > 1 else ''
+                        spec = cells[2] if len(cells) > 2 else ''
+                        unit = cells[3] if len(cells) > 3 else ''
+                        price_str = cells[4] if len(cells) > 4 else ''
                         if seq:
                             cur_seq = seq
                         if breed_cell:
@@ -355,7 +478,32 @@ def parse_pdf_tables(pdf_path, cities=None):
                             'price': price,
                             'category': '绿化苗木',
                         })
-                # 其他列数（3、6 等）跳过
+                else:
+                    # A. 单价表（任意列数 4/6/7/8）：按 schema 抽取
+                    # 跨行合并：name列为 None 时继承上一行（适用于同品种多规格，如
+                    #   球墨铸铁聚乙烯复合管 1.6MPa DN700/DN800/DN900/...）
+                    cur_breed = ''
+                    for row in tbl[1:]:
+                        cells = _row_cells(row, ncols_raw)
+                        breed, spec, unit, price_str = _extract_row_data(cells, schema)
+                        if breed:
+                            cur_breed = breed
+                        elif cur_breed and (spec or unit or price_str):
+                            # 同一品种的延续行：继承 breed
+                            breed = cur_breed
+                        if not breed or not unit:
+                            continue
+                        price = _parse_price(price_str)
+                        if price is None:
+                            continue
+                        breed_clean, spec_clean = _split_breed_spec(breed + (' ' + spec if spec else ''))
+                        rows.append({
+                            'breed': breed_clean,
+                            'spec': spec_clean,
+                            'unit': unit,
+                            'city': city,
+                            'price': price,
+                        })
     return rows
 
 
