@@ -311,6 +311,7 @@ async function ensureMapLoaded(mapKey) {
 
 // === Drilldown ===
 function onRegionClick(item) {
+  // 只允许一级下钻：省份 → 地市。点击地市不再向下钻到区/县。
   if (currentLevel.value === 'province') {
     const adcode = PROVINCE_ADCODE[item.name]
     if (!adcode) {
@@ -318,16 +319,10 @@ function onRegionClick(item) {
       return
     }
     breadcrumbs.value.push({ label: item.name, parent: item.name, parent2: '', adcode })
-  } else if (currentLevel.value === 'city') {
-    breadcrumbs.value.push({
-      label: item.name,
-      parent: item.name,
-      parent2: breadcrumbs.value[breadcrumbs.value.length - 1].parent,
-      adcode: breadcrumbs.value[breadcrumbs.value.length - 1].adcode,
-    })
+    currentName.value = item.name
+    reload()
   }
-  currentName.value = item.name
-  reload()
+  // city level：不再下钻，点击只选中不跳转。
 }
 
 function goBack() {
