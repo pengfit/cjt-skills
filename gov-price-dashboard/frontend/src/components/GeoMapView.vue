@@ -328,7 +328,10 @@ async function renderMap() {
         type: 'map',
         map: mapName,
         roam: true,
-        zoom: 1.1,
+        zoom: 1.2,
+        // 让地图自动填充可用区域，以视觉中心为锚点
+        layoutCenter: ['50%', '52%'],
+        layoutSize: '92%',
         label: { show: true, fontSize: 10, color: '#0f172a' },
         itemStyle: {
           borderColor: '#ffffff',
@@ -640,7 +643,7 @@ function pctOf(v) {
 /* Main */
 .geo-main {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr 300px;
   gap: 14px;
 }
 
@@ -649,7 +652,7 @@ function pctOf(v) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  min-height: 540px;
+  min-height: 680px;
   display: flex;
   flex-direction: column;
 }
@@ -680,7 +683,7 @@ function pctOf(v) {
 .map-chart {
   flex: 1;
   width: 100%;
-  min-height: 480px;
+  min-height: 620px;
 }
 
 .map-loading {
@@ -692,7 +695,7 @@ function pctOf(v) {
   gap: 12px;
   color: var(--text-3);
   font-size: 13px;
-  min-height: 480px;
+  min-height: 620px;
 }
 
 .loading-spinner {
@@ -716,7 +719,7 @@ function pctOf(v) {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  max-height: 600px;
+  max-height: 680px;
 }
 
 .side-title {
