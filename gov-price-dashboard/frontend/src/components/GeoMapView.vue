@@ -437,7 +437,9 @@ async function renderMap() {
         type: 'map',
         map: mapName,
         roam: true,
-        zoom: 1.15,
+        zoom: 1.0,
+        // 不压缩垂直方向（默认 aspectScale=0.75 是墨卡托补偿，会让中国地图纵向被压扁）
+        aspectScale: 1,
         // 绝对定位让地图填满画布（ECharts 自动中心化）
         top: 16,
         bottom: 16,
