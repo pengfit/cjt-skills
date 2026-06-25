@@ -1437,11 +1437,17 @@ def geo_distribution(
                 "min": round(b["min_price"]["value"], 2) if b["min_price"]["value"] else 0,
                 "max": round(b["max_price"]["value"], 2) if b["max_price"]["value"] else 0,
             })
-        # 四川省下钻特殊处理：ES 中 city 字段存的是区/县级粒度（未归一），
-        # 需要按 doc_count 分桶去重 + 映射到 21 个地市名，与地图 features 对齐。
-        if level == "city" and parent == "四川" and items:
+        # 四川省下钻特殊处理：ES 中 city/county 字段存的是区/县级粒度（未归一），
+        # 需要按 doc_count 分桶去重 + 映射到 21 个地市名/区/县全称，与地图 features 对齐。
+        # level=city: parent 是省份「四川」；level=county: parent2 是省份「四川」
+        is_sichuan = (level == "city" and parent == "四川") or (level == "county" and parent2 == "四川")
+        if is_sichuan and items:
             from api.sichuan_city_mapping import SICHUAN_CITY_MAPPING
-            items = _normalize_sichuan_cities(items, SICHUAN_CITY_MAPPING)
+            if level == "city":
+                items = _normalize_sichuan_cities(items, SICHUAN_CITY_MAPPING)
+            elif level == "county":
+                # parent 是地市名（如「乐山市」）
+                items = _normalize_sichuan_counties(items, SICHUAN_CITY_MAPPING, parent)
         return {
             "level": level,
             "parent": parent,
@@ -1507,6 +1513,122 @@ def _normalize_sichuan_cities(items: list, mapping: dict) -> list:
             **sample,
             "name": rep_name,
         })
+    # 按 count 降序
+    normalized.sort(key=lambda x: -x["count"])
+    return normalized
+
+
+def _normalize_sichuan_counties(items: list, mapping: dict, parent_city: str) -> list:
+    """
+    四川省 county 归一化：ES 中 county 字段存的是区/县简称（如「五通」= 五通桥区），
+    与地图 features 全称不匹配。在 parent_city 名下，按 prefix/substring 匹配把简称归一为
+    mapping 表里的全称（如「五通桥区」）。
+    """
+    import re as _re
+    from collections import Counter
+
+    # 取该地市下所有 mapping key
+    city_counties = [k for k, v in mapping.items() if v == parent_city]
+    if not city_counties:
+        return items  # 没数据,原样返回
+
+    # 各城市「市区」简称 → 多个中心区（同一 doc_count 重复展开）
+    CITY_CENTRAL_DISTRICTS = {
+        '成都市': ['锦江区', '金牛区', '武侯区', '成华区', '青羊区'],
+        '自贡市': ['自流井区', '贡井区', '大安区', '沿滩区'],
+        '攀枝花市': ['东区', '西区', '仁和区'],
+        '泸州市': ['江阳区', '纳溪区', '龙马潭区'],
+        '德阳市': ['旌阳区'],
+        '绵阳市': ['涪城区', '游仙区'],
+        '广元市': ['利州区'],
+        '遂宁市': ['船山区', '安居区'],
+        '内江市': ['市中区'],
+        '乐山市': ['市中区'],
+        '南充市': ['顺庆区', '高坪区', '嘉陵区'],
+        '眉山市': ['东坡区'],
+        '宜宾市': ['翠屏区', '南溪区', '叙州区'],
+        '广安市': ['广安区', '前锋区'],
+        '达州市': ['通川区'],
+        '雅安市': ['雨城区'],
+        '巴中市': ['巴州区', '恩阳区'],
+        '资阳市': ['雁江区'],
+    }
+
+    def _expand_one(name: str) -> list:
+        """把 county 名归一为全称,特殊处理「X市区」展开为多个中心区。
+        返回 1+ 个最终 county 名。
+        """
+        if not name:
+            return [name]
+        # 「X市区」模式：展开为该地市多个中心区
+        m = _re.match(r"^(.+)市区$", name)
+        if m:
+            x = m.group(1)  # 如 "成都"
+            # dict key 是「X市」形式 ("成都市")，用 x + "市" 查
+            central = CITY_CENTRAL_DISTRICTS.get(x + "市", CITY_CENTRAL_DISTRICTS.get(x, []))
+            matched = [c for c in central if c in city_counties]
+            if matched:
+                return matched
+            # fallback: 最短的区
+            districts = [k for k in city_counties if k.endswith("区")]
+            if districts:
+                return [min(districts, key=len)]
+            return [name]
+        if name in city_counties:
+            return [name]
+        # 「X其他乡镇」模式（如「屏山其他乡镇」→ 屏山县）
+        m = _re.match(r"^(.+?)其他乡镇$", name)
+        if m:
+            x = m.group(1)
+            for k in city_counties:
+                if k == x + "县" or k == x + "市" or k == x + "区" or k.startswith(x):
+                    return [k]
+        # 「X北部/南部」模式
+        m = _re.match(r"^(.+?)(北部|南部|东部|西部)$", name)
+        if m:
+            x = m.group(1)
+            for k in city_counties:
+                if k.startswith(x):
+                    return [k]
+        # 去后缀(县/区/市)再 prefix 匹配
+        base = _re.sub(r'(县|区|市)$', '', name)
+        for k in city_counties:
+            if k.startswith(name) or (base and k.startswith(base)):
+                return [k]
+        # 特殊情况: county == parent_city（主城「乐山市」=「市中区」）
+        if name == parent_city:
+            for k in city_counties:
+                if k == "市中区":
+                    return [k]
+            districts = [k for k in city_counties if k.endswith("区")]
+            if districts:
+                return [min(districts, key=len)]
+        # substring 匹配
+        for k in city_counties:
+            if name in k or base in k:
+                return [k]
+        return [name]
+
+    # 按 count 分桶（同地市下不同区/县 doc_count 相同）
+    buckets: dict = {}
+    for it in items:
+        buckets.setdefault(it["count"], []).append(it)
+
+    normalized = []
+    for cnt, grp in buckets.items():
+        expanded = []
+        for it in grp:
+            for new_name in _expand_one(it["name"]):
+                expanded.append({**it, "name": new_name})
+        # 去重
+        seen = set()
+        deduped = []
+        for it in expanded:
+            if it["name"] not in seen:
+                seen.add(it["name"])
+                deduped.append(it)
+        normalized.extend(deduped)
+
     # 按 count 降序
     normalized.sort(key=lambda x: -x["count"])
     return normalized
