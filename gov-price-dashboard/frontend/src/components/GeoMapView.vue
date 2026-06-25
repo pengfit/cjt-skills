@@ -210,9 +210,13 @@ async function renderMap() {
       type: 'map',
       map: mapName,
       roam: false,
-      // 让地图填满 canvas（按容器短边缩放 + 居中），不出现大片空白
-      layoutCenter: ['50%', '50%'],
-      layoutSize: '115%',
+      // 让地图填满 canvas：
+      // - province level（中国全图）：用 boundingCoords 锁定陆地经纬度范围，
+      //   避免默认按 geoJson 海域包围盒渲染导致的底部大片空白
+      // - city/county level（省级/市级地图）：用 layoutCenter + layoutSize 按容器缩放
+      ...(currentLevel.value === 'province'
+        ? { boundingCoords: [[73, 53.5], [137, 18]] }
+        : { layoutCenter: ['50%', '50%'], layoutSize: '100%' }),
       label: {
         show: true,
         fontSize: 9,
