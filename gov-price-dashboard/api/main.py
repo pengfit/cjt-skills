@@ -1401,6 +1401,10 @@ def geo_distribution(
     agg_field = field_map[level]
     size_map = {"province": 40, "city": 50, "county": 100}
     agg_size = size_map[level]
+    # 四川省下钻时 ES 中 city 字段实际存的是区/县级粒度（未归一），
+    # 同地市不同区/县值不同，需要放大 size 拿到所有桶再归一
+    if level == "city" and parent == "四川":
+        agg_size = 300
 
     body = {
         "size": 0,
@@ -1433,6 +1437,11 @@ def geo_distribution(
                 "min": round(b["min_price"]["value"], 2) if b["min_price"]["value"] else 0,
                 "max": round(b["max_price"]["value"], 2) if b["max_price"]["value"] else 0,
             })
+        # 四川省下钻特殊处理：ES 中 city 字段存的是区/县级粒度（未归一），
+        # 需要按 doc_count 分桶去重 + 映射到 21 个地市名，与地图 features 对齐。
+        if level == "city" and parent == "四川" and items:
+            from api.sichuan_city_mapping import SICHUAN_CITY_MAPPING
+            items = _normalize_sichuan_cities(items, SICHUAN_CITY_MAPPING)
         return {
             "level": level,
             "parent": parent,
@@ -1442,6 +1451,65 @@ def geo_distribution(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _normalize_sichuan_cities(items: list, mapping: dict) -> list:
+    """
+    四川省 city 归一化：ES 中 city 字段实际存的是区/县级粒度（如「五通」= 乐山市五通桥区），
+    同一地市下的不同区/县 doc_count 相同（数据冗余）。按 count 分桶去重，再用 mapping 表把
+    代表名归一为地市级（如「乐山市」）。
+    """
+    import re as _re
+    from collections import Counter
+    city_set = set(mapping.values())
+    city_set |= {"阿坝州", "甘孜州", "凉山州"}
+
+    def _normalize(name: str):
+        if name in city_set:
+            return name
+        if name in mapping:
+            return mapping[name]
+        m = _re.match(r"^(.+)市区$", name)
+        if m and (m.group(1) + "市") in city_set:
+            return m.group(1) + "市"
+        m = _re.match(r"^(.+?)(北部|南部|东部|西部|其他.+|市区)$", name)
+        if m:
+            x = m.group(1)
+            for k in mapping:
+                if k.startswith(x) or x in k:
+                    return mapping[k]
+            if (x + "市") in city_set:
+                return x + "市"
+        return None
+
+    # 按 count 分桶（同一地市下不同区/县 doc_count 相同）
+    buckets: dict = {}
+    for it in items:
+        buckets.setdefault(it["count"], []).append(it)
+
+    normalized = []
+    for cnt, grp in buckets.items():
+        # 找桶里能归一到地市的项
+        candidates = []
+        for it in grp:
+            norm = _normalize(it["name"])
+            if norm:
+                candidates.append((it, norm))
+        if not candidates:
+            # 整桶无法归一，跳过（理论上不应该发生）
+            continue
+        # 选出现次数最多的归一值作为代表
+        norm_counter = Counter(n for _, n in candidates)
+        rep_name, _ = norm_counter.most_common(1)[0]
+        # 聚合桶内统计：avg/min/max 用桶里任一项（值相同），count 用一份（避免重复累加）
+        sample = candidates[0][0]
+        normalized.append({
+            **sample,
+            "name": rep_name,
+        })
+    # 按 count 降序
+    normalized.sort(key=lambda x: -x["count"])
+    return normalized
 
 
 @app.get("/api/stats/geo-regions")
