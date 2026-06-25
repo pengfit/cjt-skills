@@ -346,13 +346,15 @@ async function renderMap() {
         bottom: 16,
         left: 16,
         right: 16,
-        label: { show: true, fontSize: 10, color: '#0f172a' },
+        label: { show: true, fontSize: 9, color: '#0f172a' },
+        // labelLayout 隐藏重叠的 label（解决海南/南每诸岛等省份名重复出现的问题）
+        labelLayout: { hideOverlap: true },
         itemStyle: {
           borderColor: '#ffffff',
           borderWidth: 1,
         },
         emphasis: {
-          label: { show: true, fontSize: 12, fontWeight: 700 },
+          label: { show: true, fontSize: 11, fontWeight: 700 },
           itemStyle: { areaColor: '#facc15' },
         },
         select: {
