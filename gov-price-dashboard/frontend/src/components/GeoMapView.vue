@@ -157,6 +157,9 @@ async function reload() {
 }
 
 // === Map Render ===
+// 当前地图的全部 feature 名称（ensureMapLoaded 后填充），用于补齐无数据的 feature
+const mapFeatures = ref([])
+
 async function renderMap() {
   await nextTick()
   if (!chartEl.value) return
@@ -171,24 +174,52 @@ async function renderMap() {
   const mapName = await ensureMapLoaded(currentMapName.value)
   if (!mapName) return
 
-  const data = dataItems.value
-    .filter(d => d.value > 0 || d.count > 0)
-    .map(d => {
-      const raw = currentLevel.value === 'province' ? (PROVINCE_NAME_MAP[d.name] || d.name) : d.name
-      // 只对 city/county level 补“市”后缀（地图 feature 带后缀，ES 没带）。
-      // province level 不补（四川省、山东省、河南省、陕西省…都不以“市”结尾）。
-      const name = (currentLevel.value === 'province') ? raw : (raw.endsWith('市') ? raw : (raw + '市'))
-      return {
-        name,
-        value: displayMode.value === 'coverage' ? d.count : d.value,
-        _count: d.count,
-        _price: d.value,
-        _rawName: d.name,
-      }
+  // 把 ES 数据归一为地图 feature 名（与 feature.properties.name 对齐）
+  // province level：原始名不带后缀；city/county level：以 mapFeatures 为准反查常见后缀。
+  const featureNameSet = new Set(mapFeatures.value || [])
+  const normalizeName = (raw) => {
+    if (currentLevel.value === 'province') {
+      return PROVINCE_NAME_MAP[raw] || raw
+    }
+    if (featureNameSet.has(raw)) return raw
+    // 尝试常见后缀：市、区、县、自治县、自治州 等
+    const SUFFIXES = ['市', '区', '县', '自治县', '自治州', '盟', '地区']
+    for (const s of SUFFIXES) {
+      if (featureNameSet.has(raw + s)) return raw + s
+    }
+    // fallback：prefix 匹配
+    for (const fn of mapFeatures.value || []) {
+      if (fn.startsWith(raw) || raw.startsWith(fn)) return fn
+    }
+    return raw
+  }
+  const normalized = dataItems.value.map(d => {
+    const name = normalizeName(d.name)
+    return { name, count: d.count, value: d.value, rawName: d.name }
+  })
+  // 用全部 feature 名构建 data，未匹配的填 null（让 visualMap.outOfRange 生效）
+  const featureNames = (mapFeatures.value && mapFeatures.value.length)
+    ? mapFeatures.value
+    : Array.from(echarts.getMap(mapName)?.geoJson?.features || []).map(f => f?.properties?.name).filter(Boolean)
+  const data = (featureNames.length ? featureNames : normalized.map(n => n.name))
+    .map(name => {
+      const hit = normalized.find(n => n.name === name)
+      return hit
+        ? {
+            name,
+            value: displayMode.value === 'coverage' ? hit.count : hit.value,
+            _count: hit.count,
+            _price: hit.value,
+            _rawName: hit.rawName,
+          }
+        : { name, value: null, _count: 0, _price: 0, _rawName: null }
     })
 
   const isPrice = displayMode.value === 'price'
   const range = isPrice ? valueRange.value : countRange.value
+  // 退化区间保护：max <= min 时强制拉开 1 个单位，避免所有数据点同色
+  const vMin = range[0]
+  const vMax = range[1] > range[0] ? range[1] : range[0] + 1
   const colorRange = isPrice
     ? ['#fef3c7', '#fde68a', '#fbbf24', '#f97316', '#dc2626', '#7f1d1d']
     : ['#f0fdf4', '#bbf7d0', '#22c55e', '#15803d', '#14532d']
@@ -200,9 +231,11 @@ async function renderMap() {
     },
     visualMap: {
       show: false,
-      min: range[0],
-      max: range[1],
+      min: vMin,
+      max: vMax,
       inRange: { color: colorRange },
+      // 无数据的 feature 显式置灰（比 inRange 最浅色还浅，避免和数据区混淆）
+      outOfRange: { color: '#e5e7eb', colorAlpha: 0.6 },
       calculable: false,
       seriesIndex: 0,
     },
@@ -264,6 +297,10 @@ async function ensureMapLoaded(mapKey) {
     }
     // 不缓存：每次都重新 registerMap（ECharts 覆盖式），保证 filter 生效
     echarts.registerMap(mapKey, geo)
+    // 同步 feature 名称列表，供 renderMap 补齐无数据的项
+    mapFeatures.value = (geo?.features || [])
+      .map(f => f?.properties?.name)
+      .filter(Boolean)
     return mapKey
   } catch (e) {
     console.warn(`地图 ${mapKey} 加载失败：`, e)
