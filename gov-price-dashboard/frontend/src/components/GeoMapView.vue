@@ -169,15 +169,39 @@ onMounted(async () => {
   await loadCategoryOptions()
   await reload()
   window.addEventListener('resize', handleResize)
+  // 使用 ResizeObserver 监听容器尺寸变化
+  // 解决首次挂载时 v-if 切换导致容器宽度为 0、地图渲染失败的问题
+  if (chartEl.value) {
+    resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) {
+          if (chart) {
+            chart.resize()
+          } else if (dataItems.value.length) {
+            // 容器有尺寸但图表未初始化，重新渲染
+            renderMap()
+          }
+        }
+      }
+    })
+    resizeObserver.observe(chartEl.value)
+  }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
   if (chart) {
     chart.dispose()
     chart = null
   }
 })
+
+let resizeObserver = null
 
 function handleResize() {
   chart?.resize()
@@ -238,6 +262,15 @@ const currentMapName = computed(() => {
 async function renderMap() {
   await nextTick()
   if (!chartEl.value) return
+  // 检查容器尺寸，避免在 0x0 容器上初始化导致警告
+  const rect = chartEl.value.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) {
+    // 容器还没布局好，等下一帧再试（ResizeObserver 会接住）
+    requestAnimationFrame(() => {
+      if (chartEl.value) renderMap()
+    })
+    return
+  }
   if (!chart) {
     chart = echarts.init(chartEl.value, getGovPriceTheme())
   }
