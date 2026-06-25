@@ -93,8 +93,61 @@ AREA_NAME_FULL = {
 }
 
 
+def _normalize_county_name(county_name: str, city_name: str, mapping: dict) -> str:
+    """county 名称归一为地图 features 全称。
+    输入可能是简称（"五通"）、主城代表（"成都市区"）、区域描述（"盐边北部"）等。
+    """
+    import re as _re
+    if not county_name:
+        return county_name
+    # 1. 自身就是 mapping 里的全称
+    if county_name in mapping:
+        return county_name
+    # 2. 特殊情况: county == city (主城「乐山市」=「市中区」)
+    if county_name == city_name:
+        for k, v in mapping.items():
+            if v == city_name and k == '市中区':
+                return k
+        # fallback: 找最短的区
+        districts = [k for k, v in mapping.items() if v == city_name and k.endswith('区')]
+        if districts:
+            return min(districts, key=len)
+    # 3. 「X市区」主城简称（"成都市区" "自贡市区" "攀枝花市区"）→ 取该市第一个中心区
+    m = _re.match(r"^(.+)市区$", county_name)
+    if m:
+        x = m.group(1)
+        # 优先取 mapping 里该市的「市中区」「东区」等中心区
+        for k, v in mapping.items():
+            if v == x + '市' and k in ('市中区', '东区', '锦江区'):
+                return k
+    # 4. 「X其他乡镇」「X北部/南部」区域描述
+    m = _re.match(r"^(.+?)其他乡镇$", county_name)
+    if m:
+        x = m.group(1)
+        for k, v in mapping.items():
+            if v == city_name and (k == x + '县' or k == x + '市' or k == x + '区' or k.startswith(x)):
+                return k
+    m = _re.match(r"^(.+?)(北部|南部|东部|西部)$", county_name)
+    if m:
+        x = m.group(1)
+        for k, v in mapping.items():
+            if v == city_name and k.startswith(x):
+                return k
+    # 5. 去后缀(县/区/市)再 prefix 匹配
+    base = _re.sub(r'(县|区|市)$', '', county_name)
+    for k, v in mapping.items():
+        if v == city_name and (k.startswith(county_name) or (base and k.startswith(base))):
+            return k
+    # 6. substring 匹配
+    for k, v in mapping.items():
+        if v == city_name and (county_name in k or base in k):
+            return k
+    return county_name
+
+
 def _build_docs(rows, city_headers, period, area_name):
     """每行材料 × 每个城市列 → 1条文档"""
+    from .sichuan_city_mapping import SICHUAN_CITY_MAPPING
     docs = []
     update_date = period.replace('年', '-').replace('月', '-01') if period else datetime.now().strftime('%Y-%m-%d')
     # city 字段用全称（与地图 features 对齐）；不修改 area_name 本身，保持 progress / 日志兼容
@@ -104,8 +157,9 @@ def _build_docs(rows, city_headers, period, area_name):
             continue
         main_price = row.get('price', 0.0)
         cp = row.get('city_prices', [])
-        for i, county_name in enumerate(city_headers):
-            # city 字段 = 地市级（如"乐山市"），county 字段 = 区/县级（如"五通桥区"）
+        for i, county_raw in enumerate(city_headers):
+            # city 字段 = 地市级（如"乐山市"），county 字段 = 区/县全称（如"五通桥区"）
+            county_name = _normalize_county_name(county_raw, city_name, SICHUAN_CITY_MAPPING)
             if i < len(cp) and cp[i]:
                 try:
                     price = float(re.sub(r'[￥,，元\-\s]', '', cp[i]))
