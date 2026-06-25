@@ -26,14 +26,22 @@
 
     <!-- ============ Filter Bar ============ -->
     <div class="geo-filter-bar">
-      <div class="filter-item">
-        <label>产品名</label>
+      <!-- 主搜索框：产品名 -->
+      <div class="search-box" :class="{ 'has-text': filterBreed }">
+        <span class="search-icon">🔍</span>
         <input
           v-model="filterBreed"
-          class="filter-input"
-          placeholder="🔍 关键词（可选）"
+          class="search-input"
+          placeholder="输产品名查各省价（如：钢筋 / 水泥 / 砼）"
           @keyup.enter="reload"
         />
+        <button
+          v-if="filterBreed"
+          class="search-clear"
+          @click="filterBreed = ''; reload()"
+          title="清除"
+        >✕</button>
+        <button class="search-submit" @click="reload" title="搜索 (Enter)">搜索</button>
       </div>
       <div class="filter-item">
         <label>日期</label>
@@ -693,6 +701,86 @@ function pctOf(v) {
 .filter-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary-dim);
+}
+
+/* 主搜索框（产品名） */
+.search-box {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  flex: 1;
+  min-width: 320px;
+  max-width: 480px;
+  padding: 0 4px 0 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+.search-box:hover {
+  border-color: var(--primary);
+}
+.search-box:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-dim);
+}
+.search-box.has-text {
+  border-color: var(--primary);
+}
+.search-icon {
+  font-size: 16px;
+  margin-right: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.search-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  font-family: var(--font-sans);
+  min-width: 0;
+}
+.search-input::placeholder {
+  color: var(--text-3);
+}
+.search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 6px;
+  transition: all 0.15s;
+}
+.search-clear:hover {
+  background: var(--primary);
+  color: white;
+}
+.search-submit {
+  height: 30px;
+  padding: 0 16px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+  font-family: var(--font-sans);
+}
+.search-submit:hover {
+  filter: brightness(0.92);
 }
 
 .date-range {
