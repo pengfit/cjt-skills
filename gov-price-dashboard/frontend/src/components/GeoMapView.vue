@@ -652,7 +652,8 @@ function pctOf(v) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  min-height: 680px;
+  /* 优先取 78vh（适配大屏）但不低于 700px（避免小屏太挤） */
+  min-height: max(700px, 78vh);
   display: flex;
   flex-direction: column;
 }
@@ -683,7 +684,7 @@ function pctOf(v) {
 .map-chart {
   flex: 1;
   width: 100%;
-  min-height: 620px;
+  min-height: 0;
 }
 
 .map-loading {
@@ -695,7 +696,7 @@ function pctOf(v) {
   gap: 12px;
   color: var(--text-3);
   font-size: 13px;
-  min-height: 620px;
+  min-height: 0;
 }
 
 .loading-spinner {
@@ -719,7 +720,7 @@ function pctOf(v) {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  max-height: 680px;
+  max-height: max(700px, 78vh);
 }
 
 .side-title {
