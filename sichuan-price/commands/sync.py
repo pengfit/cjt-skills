@@ -85,16 +85,27 @@ def _write_docs(es_host, es_index, docs, dry_run):
     return 0
 
 
+# area_name 简称 → 全称（与地图 features / ES 聚合对齐）
+AREA_NAME_FULL = {
+    '阿坝州': '阿坝藏族羌族自治州',
+    '甘孜州': '甘孜藏族自治州',
+    '凉山州': '凉山彝族自治州',
+}
+
+
 def _build_docs(rows, city_headers, period, area_name):
     """每行材料 × 每个城市列 → 1条文档"""
     docs = []
     update_date = period.replace('年', '-').replace('月', '-01') if period else datetime.now().strftime('%Y-%m-%d')
+    # city 字段用全称（与地图 features 对齐）；不修改 area_name 本身，保持 progress / 日志兼容
+    city_name = AREA_NAME_FULL.get(area_name, area_name)
     for row in rows:
         if not row.get('breed'):
             continue
         main_price = row.get('price', 0.0)
         cp = row.get('city_prices', [])
-        for i, city in enumerate(city_headers):
+        for i, county_name in enumerate(city_headers):
+            # city 字段 = 地市级（如"乐山市"），county 字段 = 区/县级（如"五通桥区"）
             if i < len(cp) and cp[i]:
                 try:
                     price = float(re.sub(r'[￥,，元\-\s]', '', cp[i]))
@@ -102,7 +113,7 @@ def _build_docs(rows, city_headers, period, area_name):
                     price = main_price
             else:
                 price = main_price
-            docs.append(_make_doc(row, city, city, period, update_date))
+            docs.append(_make_doc(row, city_name, county_name, period, update_date))
     return docs
 
 
