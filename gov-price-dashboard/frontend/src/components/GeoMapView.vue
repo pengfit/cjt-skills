@@ -911,8 +911,8 @@ function pctOf(v) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  /* 优先取 78vh（适配大屏）但不低于 700px（避免小屏太挤） */
-  min-height: max(700px, 78vh);
+  /* chart 强制 1.23:1，这个高度刚好让 1080p 屏的 chart 填满不需空白 */
+  min-height: max(680px, 68vh);
   display: flex;
   flex-direction: column;
 }
@@ -986,7 +986,7 @@ function pctOf(v) {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  max-height: max(700px, 78vh);
+  max-height: max(680px, 68vh);
 }
 
 /* 侧栏图例（取代 ECharts visualMap） */
