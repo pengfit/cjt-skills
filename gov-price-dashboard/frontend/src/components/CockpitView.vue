@@ -27,28 +27,28 @@
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
 
     <template v-if="data.all_cities">
-      <!-- 主仪表盘：1 个总量卡 + 3 个转化率圆环 -->
+      <!-- ============ Row 1: 总览区 = 入库总量 (大字 4列) + 3 转化率圆环 (各 2.67列) ============ -->
       <div class="gauge-row">
-        <!-- 入库总量：大数字卡，不用圆环 -->
+        <!-- 入库总量：大字 hero，4 列宽 -->
         <div class="gauge-card gauge-card-hero">
           <div class="gauge-label">入库总量</div>
           <div class="gauge-sub">ODS 原始数据量</div>
           <div class="hero-stat">
-            <div class="hero-num">{{ kpi.ods.toLocaleString() }}</div>
-            <div class="hero-unit">条</div>
+            <span class="hero-num mono">{{ kpi.ods.toLocaleString() }}</span>
+            <span class="hero-unit">条</span>
           </div>
           <div class="hero-meta">
             <div class="hero-meta-row">
               <span class="hero-meta-label">覆盖城市</span>
-              <span class="hero-meta-value">{{ cityCount }}</span>
+              <span class="hero-meta-value">{{ cityCount }} 个</span>
             </div>
             <div class="hero-meta-row">
               <span class="hero-meta-label">DWD 清洗</span>
-              <span class="hero-meta-value">{{ kpi.dwd.toLocaleString() }} 条</span>
+              <span class="hero-meta-value">{{ formatShort(kpi.dwd) }} 条</span>
             </div>
             <div class="hero-meta-row">
               <span class="hero-meta-label">DWS 服务</span>
-              <span class="hero-meta-value">{{ kpi.dws.toLocaleString() }} 条</span>
+              <span class="hero-meta-value">{{ formatShort(kpi.dws) }} 条</span>
             </div>
           </div>
         </div>
@@ -58,16 +58,16 @@
           <div class="gauge-sub">DWD / ODS</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
-            <circle class="gauge-fill gauge-fill-green"
+            <circle class="gauge-fill"
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${dwdPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwdPctAll.toFixed(2) }}</text>
+            <text x="100" y="100" class="gauge-num gauge-num-big">{{ dwdPctAll.toFixed(1) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-green">{{ dwdPctAll >= 90 ? '✓ 优秀' : dwdPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
-            <span class="gauge-trend">{{ kpi.dwd.toLocaleString() }} / {{ kpi.ods.toLocaleString() }}</span>
+            <span class="gauge-tag tag-blue">{{ dwdPctAll >= 90 ? '✓ 优秀' : dwdPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-trend">{{ formatShort(kpi.dwd) }} / {{ formatShort(kpi.ods) }}</span>
           </div>
         </div>
 
@@ -76,129 +76,115 @@
           <div class="gauge-sub">DWS / DWD</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
-            <circle class="gauge-fill gauge-fill-cyan"
+            <circle class="gauge-fill"
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${dwsPctAll * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="105" class="gauge-num gauge-num-big">{{ dwsPctAll.toFixed(2) }}</text>
+            <text x="100" y="100" class="gauge-num gauge-num-big">{{ dwsPctAll.toFixed(1) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag tag-cyan">{{ dwsPctAll >= 90 ? '✓ 优秀' : dwsPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
-            <span class="gauge-trend">{{ kpi.dws.toLocaleString() }} / {{ kpi.dwd.toLocaleString() }}</span>
+            <span class="gauge-tag tag-blue">{{ dwsPctAll >= 90 ? '✓ 优秀' : dwsPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-trend">{{ formatShort(kpi.dws) }} / {{ formatShort(kpi.dwd) }}</span>
           </div>
         </div>
 
-        <div class="gauge-card gauge-card-main">
+        <div class="gauge-card">
           <div class="gauge-label">属性解析覆盖率</div>
           <div class="gauge-sub">数据质量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
-            <circle class="gauge-fill gauge-fill-amber"
+            <circle class="gauge-fill"
               cx="100" cy="100" r="80"
               :stroke-dasharray="`${kpi.attrRate * 5.025}, 503`"
               transform="rotate(-90 100 100)" />
-            <text x="100" y="108" class="gauge-num gauge-num-big">{{ kpi.attrRate.toFixed(2) }}</text>
+            <text x="100" y="100" class="gauge-num gauge-num-big">{{ kpi.attrRate.toFixed(1) }}</text>
             <text x="100" y="138" class="gauge-unit">%</text>
           </svg>
           <div class="gauge-foot">
-            <span class="gauge-tag" :class="kpi.attrRate >= 90 ? 'tag-green' : kpi.attrRate >= 70 ? 'tag-cyan' : 'tag-amber'">{{ kpi.attrRate >= 90 ? '✓ 优秀' : kpi.attrRate >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
+            <span class="gauge-tag tag-blue">{{ kpi.attrRate >= 90 ? '✓ 优秀' : kpi.attrRate >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
             <span class="gauge-trend">{{ cityCount }} 城实时</span>
           </div>
         </div>
       </div>
 
-      <!-- 全链路管道：城市 × ODS→DWD→DWS（动态，从 data.all_cities 取） -->
-      <div class="pipeline-section">
-        <div class="section-title">
-          <span class="section-dot"></span>
-          数据处理管道 · ODS → DWD → DWS · {{ cityCount }} 城市
-          <span class="section-sub mono">最后更新 {{ kpi.lastUpdate || '—' }}</span>
-        </div>
-        <div class="pipeline-grid">
-          <div v-for="(pipe, key) in data.all_cities" :key="key" class="city-card"
-            :class="{ alert: attrRate(pipe) < 80 }">
-
-            <div class="city-header">
-              <span class="city-name">{{ pipe.city_label }}</span>
-              <span class="city-status" :class="attrRate(pipe) >= 80 ? 'ok' : 'warn'">
-                {{ attrRate(pipe) >= 80 ? '✓ 在线' : '⚠ 异常' }}
-              </span>
+      <!-- ============ Row 2: 12 栅格 — 地图 8 + 管道 4（地图突出，加高） ============ -->
+      <div class="grid-row grid-row-main">
+        <!-- 地理分布 8 列，加高到 660 -->
+        <section class="grid-cell grid-geo">
+          <div class="section-title">
+            <span class="section-icon">🗺️</span>
+            地理分布
+            <span class="section-sub">按地区聚合材料价格 · 点击下钻</span>
+          </div>
+          <GeoMapView :hide-header="true" />
+        </section>
+        <!-- 数据处理管道 4 列 -->
+        <section class="grid-cell grid-pipe">
+          <div class="section-title">
+            <span class="section-dot"></span>
+            数据处理管道 · {{ cityCount }} 城
+            <span class="section-sub">最后更新 {{ kpi.lastUpdate || '—' }}</span>
+          </div>
+          <div class="city-table">
+            <div class="city-thead">
+              <div class="city-th city-th-name">城市</div>
+              <div class="city-th city-th-data">ODS › DWD › DWS</div>
+              <div class="city-th city-th-attr">属性</div>
+              <div class="city-th city-th-spark">7 日趋势</div>
             </div>
-
-            <!-- 三段式管道（不展示 ODS/DWD/DWS 分类标签，只留数字） -->
-            <div class="city-pipe">
-              <div class="city-stage">
-                <div class="stage-num">{{ (pipe.ods?.count || 0).toLocaleString() }}</div>
-                <div class="stage-bar">
-                  <div class="stage-bar-fill" :style="{ width: '100%' }"></div>
+            <div class="city-tbody">
+              <div v-for="(pipe, key) in data.all_cities" :key="key" class="city-tr">
+                <div class="city-td city-td-name">
+                  <span class="city-dot" :class="attrRate(pipe) >= 80 ? 'ok' : 'warn'"></span>
+                  <span class="city-name">{{ pipe.city_label }}</span>
+                </div>
+                <div class="city-td city-td-data">
+                  <span class="stage-num mono">{{ formatShort(pipe.ods?.count) }}</span>
+                  <span class="arrow">›</span>
+                  <span class="stage-num mono">{{ formatShort(pipe.dwd?.count) }}</span>
+                  <span class="arrow">›</span>
+                  <span class="stage-num mono">{{ formatShort(pipe.dws?.count) }}</span>
+                </div>
+                <div class="city-td city-td-attr">
+                  <div class="attr-track">
+                    <div class="attr-fill" :style="{ width: attrRate(pipe) + '%' }"></div>
+                  </div>
+                  <span class="attr-pct mono">{{ attrRate(pipe).toFixed(1) }}%</span>
+                </div>
+                <div class="city-td city-td-spark">
+                  <svg v-if="pipe.sparkline_7d && pipe.sparkline_7d.length"
+                       class="city-sparkline" viewBox="0 0 60 16" preserveAspectRatio="none">
+                    <polyline
+                      :points="sparklinePointsCompact(pipe.sparkline_7d)"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span v-else class="city-spark-empty">—</span>
+                  <span v-if="pipe.sparkline_7d && pipe.sparkline_7d.length"
+                        class="spark-trend" :class="sparklineTrendCls(pipe.sparkline_7d)">
+                    {{ sparklineTrendShort(pipe.sparkline_7d) }}
+                  </span>
                 </div>
               </div>
-              <div class="city-arrow" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-              <div class="city-stage">
-                <div class="stage-num">{{ (pipe.dwd?.count || 0).toLocaleString() }}</div>
-                <div class="stage-bar">
-                  <div class="stage-bar-fill" :style="{ width: dwdPct(pipe) + '%' }"></div>
-                </div>
-              </div>
-              <div class="city-arrow" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-              <div class="city-stage">
-                <div class="stage-num">{{ (pipe.dws?.count || 0).toLocaleString() }}</div>
-                <div class="stage-bar">
-                  <div class="stage-bar-fill" :style="{ width: dwsPct(pipe) + '%' }"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 抓取进度块整体删（道友 11:09：'6/6 类 信息也不需要展示'） -->
-
-            <!-- attr 覆盖率迷你环 + 趋势 + sparkline -->
-            <div class="city-attr">
-              <svg viewBox="0 0 36 36" class="mini-ring">
-                <circle class="mini-track" cx="18" cy="18" r="15" />
-                <circle class="mini-fill" cx="18" cy="18" r="15"
-                  :stroke-dasharray="`${attrRate(pipe) * 0.942}, 100`" />
-              </svg>
-              <div class="city-attr-info">
-                <span class="city-attr-num mono">{{ attrRate(pipe).toFixed(1) }}%</span>
-                <span class="city-attr-unit">属性解析</span>
-              </div>
-              <!-- 7 日 sparkline -->
-              <div class="city-sparkline-wrap" v-if="pipe.sparkline_7d && pipe.sparkline_7d.length" :title="`近 7 日入库量（按城市）`">
-                <svg class="city-sparkline" viewBox="0 0 80 24" preserveAspectRatio="none">
-                  <polyline
-                    class="spark-line"
-                    :points="sparklinePoints(pipe.sparkline_7d)"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linejoin="round"
-                  />
-                  <polyline
-                    class="spark-area"
-                    :points="sparklineArea(pipe.sparkline_7d)"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                </svg>
-                <span class="city-sparkline-trend" :class="sparklineTrendCls(pipe.sparkline_7d)">
-                  {{ sparklineTrend(pipe.sparkline_7d) }}
-                </span>
-              </div>
-              <div v-else class="city-sparkline-empty" title="无近期入库记录">—</div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      <!-- SKILL UPDATES 检块：各城市 skill 是否有更新记录 -->
-      <div class="skill-updates-section">
+      <!-- ============ Row 3: Skill 更新记录（12 列） ============ -->
+
+      <!-- ============ Row 3: Skill 更新记录（12 列） ============ -->
+      <section class="skill-updates-section grid-row grid-row-skill">
         <div class="section-title">
           <span class="section-dot"></span>
           Skill 更新记录 · {{ cityCount }} 城市 · 各 skill 最近检查/更新
           <span class="section-sub mono">扫描于 {{ updatesNow || '—' }}</span>
         </div>
-        <div class="skill-updates-grid">
+        <div class="skill-updates-grid" style="margin-top:0">
           <div v-for="u in skillUpdates" :key="u.city" class="skill-update-card"
             :class="['status-' + u.status]">
 
@@ -230,10 +216,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 底部状态条 -->
-      <div class="hud-footer">
+      <!-- ============ Row 4: 底部状态条 ============ -->
+      <div class="hud-footer grid-row grid-row-footer">
         <div class="footer-cell">
           <span class="footer-label">系统</span>
           <span class="footer-value status-ok">✓ 正常</span>
@@ -263,6 +249,7 @@
           <span class="footer-value status-ok">● {{ kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR' }}</span>
         </div>
       </div>
+
     </template>
   </div>
 </template>
@@ -273,6 +260,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
+import GeoMapView from './GeoMapView.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -370,6 +358,42 @@ function sparklineTrendCls(arr) {
   const diff = last - (prev / (arr.length - 1))
   if (Math.abs(diff) < (prev / (arr.length - 1)) * 0.05) return 'trend-flat'
   return diff > 0 ? 'trend-up' : 'trend-down'
+}
+
+// 紧凑格式化：1.2k / 1.5M / 3.2万
+function formatShort(n) {
+  n = Number(n) || 0
+  if (n >= 100000000) return (n / 100000000).toFixed(1) + '亿'
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return n.toString()
+}
+
+// 紧凑 sparkline：60×16 视图
+function sparklinePointsCompact(arr) {
+  if (!arr || arr.length < 2) return ''
+  const max = Math.max(...arr, 1)
+  const w = 60
+  const h = 16
+  const stepX = w / (arr.length - 1)
+  return arr.map((v, i) => {
+    const x = (i * stepX).toFixed(1)
+    const y = (h - (v / max) * (h - 2) - 1).toFixed(1)
+    return `${x},${y}`
+  }).join(' ')
+}
+
+// 紧凑趋势：↑ 1.2k / ↓ 500
+function sparklineTrendShort(arr) {
+  if (!arr || arr.length < 2) return '—'
+  const prev = arr.slice(0, -1).reduce((s, v) => s + v, 0)
+  const last = arr[arr.length - 1]
+  if (prev === 0 && last === 0) return '→'
+  if (prev === 0) return '↑'
+  const avg = prev / (arr.length - 1)
+  const diff = last - avg
+  if (Math.abs(diff) < avg * 0.05) return '→'
+  return diff > 0 ? `↑${formatShort(Math.round(diff))}` : `↓${formatShort(Math.round(-diff))}`
 }
 
 function dwdPct(pipe) {
@@ -553,17 +577,22 @@ onUnmounted(() => {
 /* ── 4 个圆形仪表 ── */
 .gauge-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: 4fr 2.67fr 2.67fr 2.67fr;
+  gap: 12px;
+  margin-bottom: 14px;
+  align-items: stretch;  /* 4 卡等高：stretch 到行内最高卡 */
 }
 .gauge-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px 18px;
   box-shadow: var(--shadow-card);
   transition: transform var(--transition), box-shadow var(--transition);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;  /* 垂直居中让内容 */
 }
 .gauge-card:hover {
   transform: translateY(-2px);
@@ -577,14 +606,19 @@ onUnmounted(() => {
 .gauge-card-hero {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 .hero-stat {
   text-align: center;
   padding: 12px 0 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
 }
 .hero-num {
-  font-size: 36px;
+  font-size: 44px;
   font-weight: 800;
   color: var(--text);
   font-family: var(--font-mono-num);
@@ -592,10 +626,13 @@ onUnmounted(() => {
   letter-spacing: -1px;
 }
 .hero-unit {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-3);
-  margin-top: 2px;
   font-weight: 500;
+}
+.hero-meta {
+  width: 100%;
+  text-align: left;
 }
 .hero-meta {
   display: flex;
@@ -636,7 +673,7 @@ onUnmounted(() => {
 .gauge-svg {
   width: 100%;
   height: auto;
-  max-width: 160px;
+  max-width: 210px;
   margin: 0 auto;
   display: block;
 }
@@ -651,16 +688,14 @@ onUnmounted(() => {
   stroke-linecap: round;
   transition: stroke-dasharray 0.6s ease;
 }
-.gauge-fill-green { stroke: var(--success); }
-.gauge-fill-cyan { stroke: var(--primary); }
-.gauge-fill-amber { stroke: var(--warning); }
+.gauge-fill { stroke: var(--primary); }
 .gauge-num {
   fill: var(--text);
   font-size: 30px;
   font-weight: 700;
   text-anchor: middle;
 }
-.gauge-num-big { font-size: 38px; }
+.gauge-num-big { font-size: 42px; }
 .gauge-unit {
   fill: var(--text-3);
   font-size: 11px;
@@ -682,9 +717,8 @@ onUnmounted(() => {
   background: rgba(var(--primary-rgb), 0.06);
   color: var(--primary);
 }
+.tag-blue { background: rgba(var(--primary-rgb), 0.08); color: var(--primary); }
 .tag-green { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
-.tag-cyan { background: rgba(var(--primary-rgb), 0.08); color: var(--primary); }
-.tag-amber { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
 .gauge-trend {
   color: var(--text-3);
   font-family: var(--font-mono-num);
@@ -710,6 +744,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
 }
+.section-icon {
+  font-size: 15px;
+}
+.section-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-3);
+  margin-left: 4px;
+}
 .section-dot {
   width: 6px;
   height: 6px;
@@ -727,14 +770,14 @@ onUnmounted(() => {
 .skill-updates-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 .city-card,
 .skill-update-card {
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  padding: 12px;
+  padding: 8px 10px;
   transition: all var(--transition-fast);
 }
 .city-card:hover {
@@ -757,7 +800,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 .city-name,
 .update-city {
@@ -888,13 +931,220 @@ onUnmounted(() => {
 .footer-value.status-ok { color: var(--success); }
 .footer-value.status-warn { color: var(--warning); }
 
+/* ── 12 栅格网格矩阵 ── */
+.grid-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.grid-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.grid-row-main { align-items: stretch; }
+.grid-row-skill {
+  display: block;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.grid-row-footer {
+  display: flex;
+  gap: 1px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  border: none;
+  margin-bottom: 0;
+  overflow: hidden;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
+}
+
+/* 地图 8 列 + 管道 4 列：地图容器比例 1.23:1 匹配地图本体，无留白 */
+.grid-geo {
+  grid-column: span 8;
+  aspect-ratio: 1.23 / 1;
+  align-self: start;  /* 不 stretch，让 aspect-ratio 决定高度 */
+}
+.grid-pipe {
+  grid-column: span 4;
+  height: 100%;  /* 跟 grid-row 高度一致（=地图高度） */
+  align-self: stretch;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.grid-pipe .city-table {
+  flex: 1;
+  min-height: 0;
+}
+.grid-pipe .city-tbody {
+  overflow-y: auto;
+}
+.grid-geo .geo-map-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 紧凑城市表格（4 列：城市 / 数据 / 属性 / 7d） — 跟随地图的克制蓝调风格 */
+.city-table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.city-thead {
+  display: grid;
+  grid-template-columns: minmax(70px, 1.1fr) 1.4fr 1.1fr 1.2fr;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+}
+.city-tbody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.city-tr {
+  flex: 0 0 auto;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: minmax(70px, 1.1fr) 1.4fr 1.1fr 1.2fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background var(--transition-fast);
+}
+.city-tr:last-child { border-bottom: none; }
+.city-tr:hover { background: var(--surface-2); }
+
+.city-td-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: visible;
+}
+.city-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.city-dot.ok { background: var(--primary); }
+.city-dot.warn { background: var(--warning); }
+.city-td-name .city-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: -0.2px;
+}
+
+.city-td-data {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono-num);
+  white-space: nowrap;
+}
+.city-td-data .stage-num {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: -0.2px;
+}
+.city-td-data .arrow {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.city-td-attr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.attr-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.attr-fill {
+  height: 100%;
+  background: linear-gradient(to right, #93c5fd, var(--primary));
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+.attr-pct {
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+.city-td-spark {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.city-td-spark .city-sparkline {
+  width: 40px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--primary);
+  opacity: 0.7;
+}
+.city-td-spark .city-spark-empty {
+  color: var(--text-3);
+  font-size: 11px;
+  width: 44px;
+}
+.city-td-spark .spark-trend {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-family: var(--font-mono-num);
+  min-width: 32px;
+}
+
 /* ── SKILL 卡片 body ── */
-.update-body { display: flex; flex-direction: column; gap: 3px; }
+.update-body { display: flex; flex-direction: column; gap: 2px; }
 .update-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 10px;
 }
 .update-label { color: var(--text-3); }
 .update-value { color: var(--text); font-weight: 600; }

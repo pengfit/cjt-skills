@@ -57,10 +57,6 @@
           <span class="sidebar-icon">📈</span>
           <span class="sidebar-label">价格走势</span>
         </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'geo' }" @click="curTab = 'geo'; saveTab('geo')">
-          <span class="sidebar-icon">🗺️</span>
-          <span class="sidebar-label">地理分布</span>
-        </button>
       </div>
       <div class="sidebar-group">
         <div class="sidebar-group-label">系统监控</div>
@@ -483,11 +479,6 @@
       <div v-else class="scroll-panel"><PriceTrendView /></div>
     </template>
 
-    <template v-if="curTab === 'geo'">
-      <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-      <div v-else class="scroll-panel"><GeoMapView /></div>
-    </template>
-
     <template v-if="curTab === 'cockpit'">
       <div class="scroll-panel">
         <CockpitView />
@@ -544,7 +535,6 @@ import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
 import DistributionChart from './components/DistributionChart.vue'
 import PriceTrendView from './components/PriceTrendView.vue'
-import GeoMapView from './components/GeoMapView.vue'
 import CategoryView from './components/CategoryView.vue'
 import SyncView from './components/SyncView.vue'
 import DataHealthView from './components/DataHealthView.vue'
@@ -566,7 +556,6 @@ const TAB_LIST = [
   { key: 'category',label: '全部类别' },
   { key: 'dist',    label: '价格分布' },
   { key: 'trend',   label: '价格走势' },
-  { key: 'geo',     label: '地理分布' },
   { key: 'sync',    label: '数据同步' },
   { key: 'health',  label: '数据健康' },
   { key: 'rules',   label: '规格解析' },

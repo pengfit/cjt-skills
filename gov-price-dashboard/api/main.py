@@ -27,17 +27,18 @@ from api.skill_registry import (
 )
 
 # 启动时预热一次 registry（_registry_get_all 内部懒加载，但显式 reload 更稳）
+# 数据查询已切换到 ODS 原始层（去掉 DWS 清洗/分类依赖，简化结构）
 try:
     _registry_reload()
-    ALL_INDICES = _registry_dws_csv()
+    ALL_INDICES = _registry_ods_csv()
     if not ALL_INDICES:
         # 退路：若 registry 失败则保留旧硬编码，避免启动即崩
-        ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
+        ALL_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
 except Exception as _e:
     print(f"[warn] skill_registry 初始化失败: {_e}，使用默认 ALL_INDICES")
-    ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price"
+    ALL_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
 
-# ODS 索引列表（数据健康查 ODS，其他端点查 DWS）
+# 兼容旧引用：保留 ALL_ODS_INDICES 指向 ODS
 try:
     ALL_ODS_INDICES = _registry_ods_csv()
     if not ALL_ODS_INDICES:
@@ -1393,7 +1394,7 @@ def geo_distribution(
             date_range["gte"] = date_from
         if date_to:
             date_range["lte"] = date_to
-        filter_clauses.append({"range": {"date": date_range}})
+        filter_clauses.append({"range": {"update_date": date_range}})
 
     # 2. 聚合字段
     field_map = {"province": "province", "city": "city", "county": "county"}
