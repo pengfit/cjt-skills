@@ -1448,12 +1448,67 @@ def geo_distribution(
             elif level == "county":
                 # parent 是地市名（如「乐山市」）
                 items = _normalize_sichuan_counties(items, SICHUAN_CITY_MAPPING, parent)
+
+        # 直辖市下钻特殊处理：重庆 ES 中 city=「重庆」本身（1 个聚合桶），实际区/县在 county 字段。
+        # 下钻时按 county 聚合 + 归一匹配 GeoJSON 38 个 feature。
+        # 仅对当前有数据的重庆生效；北京/上海/天津 如未来入库，可扩展相同逻辑。
+        is_chongqing_city_drill = level == "city" and parent == "重庆"
+        if is_chongqing_city_drill and items:
+            # 重新按 county 聚合一次，替换 items
+            cq_query = _build_bool_query([], [{"term": {"province": "重庆"}}] + filter_clauses[1:])
+            cq_body = {
+                "size": 0,
+                "query": cq_query,
+                "aggs": {
+                    "by_region": {
+                        "terms": {"field": "county", "size": 100, "missing": "[未知]"},
+                        "aggs": {
+                            "avg_price": {"avg": {"field": "price"}},
+                            "min_price": {"min": {"field": "price"}},
+                            "max_price": {"max": {"field": "price"}},
+                            "count": {"value_count": {"field": "price"}},
+                        },
+                    }
+                },
+            }
+            try:
+                cq_result = es.search(index=ALL_INDICES, body=cq_body)
+                cq_buckets = cq_result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
+                raw_items = [{
+                    "name": b["key"], "adcode": None,
+                    "value": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
+                    "count": int(b["count"]["value"] or 0),
+                    "min": round(b["min_price"]["value"], 2) if b["min_price"]["value"] else 0,
+                    "max": round(b["max_price"]["value"], 2) if b["max_price"]["value"] else 0,
+                } for b in cq_buckets]
+                from api.chongqing_county_mapping import normalize as _normalize_cq
+                items = _normalize_cq(raw_items)
+            except Exception as _cq_e:
+                # 归一失败不要阻断整体响应，回退到原 items
+                print(f"[chongqing drill] normalize failed: {_cq_e}")
+
+        # 河南全省指导价：河南 sync.py 把省级单列价格记为 city=「河南」（与 province 同名），
+        # 业务上不归属任何地市，地图上不应误着色为某个地市。拆出到 province_wide。
+        province_wide = None
+        if level == "city" and parent and items:
+            wide_idx = next((i for i, it in enumerate(items) if it.get("name") == parent), None)
+            if wide_idx is not None:
+                w = items.pop(wide_idx)
+                province_wide = {
+                    "name": parent,
+                    "label": f"{parent}省本级指导价",
+                    "count": w["count"],
+                    "value": w["value"],
+                    "min": w["min"],
+                    "max": w["max"],
+                }
         return {
             "level": level,
             "parent": parent,
             "parent2": parent2,
             "total": len(items),
             "items": items,
+            "province_wide": province_wide,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
