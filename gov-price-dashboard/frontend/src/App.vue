@@ -130,15 +130,6 @@
               :searchable="true"
             />
           </div>
-          <div class="filter-group">
-            <label class="filter-label">分类</label>
-            <CustomSelect
-              v-model="searchCategory"
-              :options="categoryOptions"
-              placeholder="全部分类"
-              :searchable="true"
-            />
-          </div>
           <!-- Price range presets exposed in drawer -->
           <div class="filter-group">
             <label class="filter-label">价格区间</label>
@@ -218,7 +209,7 @@
         <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
 
         <!-- Active Filter Tags (inside filter-bar) -->
-        <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategory || searchCategoryCode">
+        <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategoryCode">
           <span class="filter-tag" v-if="searchKeyword">
             <strong>产品名称</strong>
             <em>{{ searchKeyword }}</em>
@@ -233,11 +224,6 @@
             <strong>城市</strong>
             <em>{{ searchCity }}</em>
             <span class="tag-remove" @click="searchCity = ''; searchCounty = ''; doSearch()" role="button" aria-label="清除城市筛选" tabindex="0">✕</span>
-          </span>
-          <span class="filter-tag" v-if="searchCategory">
-            <strong>分类</strong>
-            <em>{{ searchCategory }}</em>
-            <span class="tag-remove" @click="searchCategory = ''; doSearch()" role="button" aria-label="清除分类筛选" tabindex="0">✕</span>
           </span>
           <span class="filter-tag" v-if="searchCategoryCode">
             <strong>{{ {l1:'L1大类',l2:'L2分部',l3:'L3分项'}[searchCategoryLevel] || '分类' }}</strong>
@@ -283,7 +269,7 @@
             可能原因：
             <div>· 该省份暂无此类产品的价格记录</div>
             <div>· 筛选条件过细，请尝试扩大范围</div>
-            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategory = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
+            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategoryCode = ''; searchCategoryLevel = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
           </div>
         </div>
 
@@ -644,7 +630,6 @@ const searchKeyword = ref('')
 const searchProvince = ref('')
 const searchCity = ref('')
 const searchCounty = ref('')
-const searchCategory = ref('')
 const searchCategoryCode = ref('')   // 分类树选中节点的代码（L1/L2/L3）
 const searchCategoryLevel = ref('')    // 节点层级: 'l1' | 'l2' | 'l3'
 const categoryOptions = ref([])
@@ -872,7 +857,6 @@ async function doSearch(pageOverride) {
     if (searchProvince.value) params.province = searchProvince.value
     if (searchCity.value) params.city = searchCity.value
     if (searchCounty.value) params.county = searchCounty.value
-    if (searchCategory.value) params.category = searchCategory.value
     // 分类树筛选（按层级传递不同参数）
     if (searchCategoryCode.value && searchCategoryLevel.value) {
       const levelKey = 'category_' + searchCategoryLevel.value
@@ -908,7 +892,6 @@ function resetSearch() {
   searchProvince.value = ''
   searchCity.value = ''
   searchCounty.value = ''
-  searchCategory.value = ''
   searchCategoryCode.value = ''
   searchCategoryLevel.value = ''
   categoryBreadcrumb.value = []
