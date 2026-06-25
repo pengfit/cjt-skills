@@ -53,6 +53,23 @@
           <input v-model="dateTo" class="filter-input" type="date" @change="reload" />
         </div>
       </div>
+      <!-- 模式切换 -->
+      <div class="mode-toggle">
+        <button
+          class="mode-btn"
+          :class="{ active: displayMode === 'coverage' }"
+          @click="setMode('coverage')"
+          :disabled="!dataItems.length"
+          title="数据覆盖热力图（默认）"
+        >📦 数据量</button>
+        <button
+          class="mode-btn"
+          :class="{ active: displayMode === 'price' }"
+          @click="setMode('price')"
+          :disabled="!dataItems.length"
+          title="价格热力图"
+        >💰 价格</button>
+      </div>
       <button class="btn-primary" @click="reload">🔄 刷新</button>
       <button class="btn-ghost" v-if="crumbs.length > 1" @click="goBack">← 返回</button>
     </div>
@@ -62,9 +79,14 @@
       <!-- Map -->
       <div class="geo-map-card">
         <div class="map-title">
-          <span>{{ crumbs.join(' / ') }} · 材料均价热力图</span>
+          <span>{{ crumbs.join(' / ') }} · {{ displayMode === 'coverage' ? '数据覆盖热力图' : '价格热力图' }}</span>
           <span class="map-stat" v-if="!loading">
-            共 <b>{{ dataItems.length }}</b> 个地区 · 平均价 <b>{{ overallAvg.toLocaleString() }}</b> 元
+            <template v-if="displayMode === 'coverage'">
+              共 <b>{{ dataItems.length }}</b> 个地区 · <b>{{ totalDocs.toLocaleString() }}</b> 条记录
+            </template>
+            <template v-else>
+              共 <b>{{ dataItems.length }}</b> 个地区 · 平均价 <b>{{ overallAvg.toLocaleString() }}</b> 元
+            </template>
           </span>
         </div>
         <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length"></div>
@@ -82,19 +104,32 @@
 
       <!-- Side List -->
       <div class="geo-side-card">
-        <!-- 图例：价格色阶说明（取代 ECharts visualMap，让地图占满画布） -->
+        <!-- 图例：根据 displayMode 切换 -->
         <div class="side-legend">
-          <div class="legend-label">价格色阶</div>
+          <div class="legend-label">
+            {{ displayMode === 'coverage' ? '数据量色阶' : '价格色阶' }}
+            <span class="legend-unit">{{ displayMode === 'coverage' ? '（条）' : '（元）' }}</span>
+          </div>
           <div class="legend-bar">
-            <div class="legend-grad"></div>
+            <div class="legend-grad" :class="{ 'legend-grad-price': displayMode === 'price' }"></div>
             <div class="legend-ticks">
-              <span>{{ formatLegendValue(valueRange[1]) }}</span>
-              <span>{{ formatLegendValue((valueRange[0] + valueRange[1]) / 2) }}</span>
-              <span>{{ formatLegendValue(valueRange[0]) }}</span>
+              <template v-if="displayMode === 'coverage'">
+                <span>{{ formatCount(countRange[1]) }}</span>
+                <span>{{ formatCount((countRange[0] + countRange[1]) / 2) }}</span>
+                <span>{{ formatCount(countRange[0]) }}</span>
+              </template>
+              <template v-else>
+                <span>{{ formatPrice(valueRange[1]) }}</span>
+                <span>{{ formatPrice((valueRange[0] + valueRange[1]) / 2) }}</span>
+                <span>{{ formatPrice(valueRange[0]) }}</span>
+              </template>
             </div>
           </div>
         </div>
-        <div class="side-title">📊 价格排行 TOP {{ Math.min(dataItems.length, 20) }}</div>
+        <div class="side-title">
+          {{ displayMode === 'coverage' ? '📊 数据量排行' : '💰 价格排行' }}
+          TOP {{ Math.min(dataItems.length, 20) }}
+        </div>
         <div class="side-hint" v-if="dataItems.length > 1">
           点击地图区域 / 列表项均可下钻
         </div>
@@ -115,10 +150,16 @@
               </div>
             </div>
             <div class="price">
-              <div class="avg">¥{{ item.value.toLocaleString() }}</div>
-              <div class="avg-sub">均价</div>
+              <template v-if="displayMode === 'coverage'">
+                <div class="avg">{{ item.count.toLocaleString() }}</div>
+                <div class="avg-sub">条记录</div>
+              </template>
+              <template v-else>
+                <div class="avg">¥{{ item.value.toLocaleString() }}</div>
+                <div class="avg-sub">均价</div>
+              </template>
             </div>
-            <div class="bar" :style="`--w: ${pctOf(item.value)}%`"></div>
+            <div class="bar" :style="`--w: ${pctOf(displayMode === 'coverage' ? item.count : item.value)}%`"></div>
           </div>
         </div>
         <EmptyState
@@ -153,6 +194,20 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const categoryOptions = ref([])
 
+// === Display Mode ===
+// coverage：默认以“数据量”热力（看哪省数据全/新）
+// price：有筛选时以“均价”热力（看同材料不同省价格）
+const displayMode = ref('coverage')  // 'coverage' | 'price'
+const hasMaterialFilter = computed(() => !!(filterCategory.value || filterBreed.value))
+// 选了材料筛选后自动切到价格模式
+watch([filterCategory, filterBreed], () => {
+  if (hasMaterialFilter.value) {
+    displayMode.value = 'price'
+  } else {
+    displayMode.value = 'coverage'
+  }
+})
+
 // === Drilldown state ===
 const breadcrumbs = ref([])   // 面包屑栈：[{ level, parent, parent2, label }]
 const dataItems = ref([])     // 当前层级的地区聚合
@@ -161,27 +216,59 @@ const loading = ref(false)
 
 // === Computed ===
 const crumbs = computed(() => breadcrumbs.value.map(b => b.label))
-const topN = computed(() => dataItems.value.slice(0, 20))
+// TOP 20 根据 displayMode 排序
+const topN = computed(() => {
+  const list = [...dataItems.value]
+  if (displayMode.value === 'coverage') {
+    list.sort((a, b) => b.count - a.count)
+  } else {
+    list.sort((a, b) => b.value - a.value)
+  }
+  return list.slice(0, 20)
+})
 const overallAvg = computed(() => {
   if (!dataItems.value.length) return 0
   const sum = dataItems.value.reduce((s, x) => s + x.value * x.count, 0)
   const cnt = dataItems.value.reduce((s, x) => s + x.count, 0)
   return cnt > 0 ? Math.round(sum / cnt) : 0
 })
+const totalDocs = computed(() => dataItems.value.reduce((s, x) => s + x.count, 0))
+// 价格范围
 const valueRange = computed(() => {
   if (!dataItems.value.length) return [0, 1]
   const vals = dataItems.value.map(x => x.value).filter(v => v > 0)
   if (!vals.length) return [0, 1]
   return [Math.min(...vals), Math.max(...vals)]
 })
+// 文档数范围
+const countRange = computed(() => {
+  if (!dataItems.value.length) return [0, 1]
+  const cnts = dataItems.value.map(x => x.count).filter(c => c > 0)
+  if (!cnts.length) return [0, 1]
+  return [Math.min(...cnts), Math.max(...cnts)]
+})
 
 // 侧栏图例价格格式化（Y轴刻度：0, 100, 1.2k, 15k, 1.2M）
-function formatLegendValue(v) {
+function formatPrice(v) {
   const n = Number(v)
   if (n >= 10000) return Math.round(n / 1000) + 'k'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   if (n >= 1) return Math.round(n).toString()
   return n.toFixed(2)
+}
+
+// 侧栏图例数据量格式化
+function formatCount(v) {
+  const n = Number(v)
+  if (n >= 100000) return Math.round(n / 10000) + '万'
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return Math.round(n).toString()
+}
+
+// 手动切换模式（覆盖自动选择）
+function setMode(m) {
+  displayMode.value = m
 }
 
 // === Lifecycle ===
@@ -304,35 +391,60 @@ async function renderMap() {
   // 准备 data
   // 映射短名→GeoJSON 全名（仅 province 层级需要）
   // ES 数据中省份是 "四川"，DataV.GeoAtlas 用 "四川省"
+  // 根据 displayMode 决定 ECharts 的主数值：
+  //   - coverage: 主数值 = count（数据量），color 生调用 countRange
+  //   - price:    主数值 = value（均价），color 生调用 valueRange
   const data = dataItems.value
-    .filter(d => d.value > 0)
+    .filter(d => d.value > 0 || d.count > 0)
     .map(d => ({
       name: currentLevel.value === 'province' ? (PROVINCE_NAME_MAP[d.name] || d.name) : d.name,
-      value: d.value,
-      count: d.count,
-      min: d.min,
-      max: d.max,
+      value: displayMode.value === 'coverage' ? d.count : d.value,
+      // 保留原始字段供 tooltip 使用
+      _count: d.count,
+      _price: d.value,
+      _min: d.min,
+      _max: d.max,
     }))
-  // visualMap 范围
-  const [min, max] = valueRange.value
+  // visualMap 范围（根据 displayMode 决定）
+  const isPrice = displayMode.value === 'price'
+  const range = isPrice ? valueRange.value : countRange.value
+  const min = range[0]
+  const max = range[1]
+  // 数据量模式用浅蓝→深蓝渐变，价格模式用更深的蓝渐变
+  const colorRange = isPrice
+    ? ['#e0f2fe', '#7dd3fc', '#0284c7', '#075985', '#0c4a6e']
+    : ['#f1f5f9', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a']
   const option = {
     tooltip: {
       trigger: 'item',
       formatter: (p) => {
         if (p.seriesType === 'map') {
-          const c = p.data?.count
-          if (c === undefined) return `${p.name}：暂无数据`
-          return [
-            `<b>${p.name}</b>`,
-            `均价：<b style="color:#2563eb">¥${Number(p.value).toLocaleString()}</b>`,
-            `数据量：${Number(c).toLocaleString()} 条`,
-            `区间：¥${p.data.min} ~ ¥${p.data.max}`,
-            '',
-            '💡 点击下钻',
-          ].join('<br/>')
+          const c = p.data?._count
+          const v = p.data?._price
+          if (!c && !v) return `${p.name}：暂无数据`
+          const lines = [`<b>${p.name}</b>`]
+          if (v) {
+            lines.push(`均价：<b style="color:#2563eb">¥${Number(v).toLocaleString()}</b>`)
+            if (p.data?._min && p.data?._max) {
+              lines.push(`区间：¥${p.data._min} ~ ¥${p.data._max}`)
+            }
+          }
+          if (c) {
+            lines.push(`数据量：${Number(c).toLocaleString()} 条`)
+          }
+          lines.push('', '💡 点击下钻')
+          return lines.join('<br/>')
         }
         return p.name
       },
+    },
+    // 隐藏的 visualMap 仅负责上色（UI 由侧栏自定义图例负责）
+    visualMap: {
+      show: false,
+      min, max,
+      inRange: { color: colorRange },
+      calculable: false,
+      seriesIndex: 0,
     },
     series: [
       {
@@ -655,6 +767,42 @@ function pctOf(v) {
   color: var(--text);
 }
 
+/* 模式切换 */
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.mode-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+.mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+.mode-btn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+.mode-btn.active {
+  background: var(--primary);
+  color: white;
+}
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Main */
 .geo-main {
   display: grid;
@@ -757,7 +905,16 @@ function pctOf(v) {
   width: 100%;
   height: 8px;
   border-radius: 4px;
+  background: linear-gradient(to right, #f1f5f9 0%, #93c5fd 30%, #3b82f6 70%, #1e3a8a 100%);
+}
+.legend-grad-price {
   background: linear-gradient(to right, #e0f2fe 0%, #7dd3fc 25%, #0284c7 60%, #075985 85%, #0c4a6e 100%);
+}
+.legend-unit {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 4px;
 }
 .legend-ticks {
   display: flex;
