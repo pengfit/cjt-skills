@@ -45,6 +45,34 @@ router = APIRouter()
 
 ES_HOST = "http://localhost:59200"
 
+
+def _agg_runs_with_fallback(es, idx, body):
+    """terms agg on run_id，text 类型索引报错时降级到 run_id.keyword
+
+    背景：xinjiang 等老 progress 索引的 run_id 是 text 类型，text 字段做 terms agg
+    需要加载 fielddata（默认禁用）。xian / chongqing 等索引已显式声明 run_id: keyword，
+    不受影响。降级策略：失败时把 body 里所有 field='run_id' 递归替换为 'run_id.keyword' 重试。
+    """
+    try:
+        return es.search(index=idx, body=body)
+    except Exception as e:
+        msg = str(e)
+        if "Fielddata is disabled" not in msg and "fielddata is disabled" not in msg.lower():
+            raise
+        import copy
+        body2 = copy.deepcopy(body)
+        def _swap(node):
+            if isinstance(node, dict):
+                if node.get("field") == "run_id":
+                    node["field"] = "run_id.keyword"
+                for v in node.values():
+                    _swap(v)
+            elif isinstance(node, list):
+                for v in node:
+                    _swap(v)
+        _swap(body2)
+        return es.search(index=idx, body=body2)
+
 # ── ETL classify/jaccard 批量写入接口 ──────────────
 
 # 5 个动态字典：全部从 skill_registry 生成。
@@ -391,7 +419,7 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
             }
         }
     }
-    r = es.search(index=idx, body=body)
+    r = _agg_runs_with_fallback(es, idx, body)
     # 按 last_updated desc 排序 bucket（top_hits sort 兜底）
     def _bucket_lu(b):
         lh = b.get("latest_completed_doc", {}).get("hits", {}).get("hits", [])
@@ -695,7 +723,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
                     }
                 }
             }
-            run_result = es.search(index=PROGRESS_INDEX, body=run_body)
+            run_result = _agg_runs_with_fallback(es, PROGRESS_INDEX, run_body)
             run_buckets = run_result["aggregations"]["runs"]["buckets"]
 
             def sort_key(b):
@@ -739,7 +767,7 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
                     }
                 }
             }
-            run_result = es.search(index=PROGRESS_INDEX, body=run_body)
+            run_result = _agg_runs_with_fallback(es, PROGRESS_INDEX, run_body)
             run_buckets = run_result["aggregations"]["runs"]["buckets"]
             if not run_buckets:
                 return {"runs": [], "latest_run_id": None, "city": city,
