@@ -93,17 +93,19 @@
             </template>
           </span>
         </div>
-        <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length"></div>
-        <div v-if="loading" class="map-loading">
-          <div class="loading-spinner"></div>
-          <span>加载地图数据…</span>
+        <div class="map-chart-wrap">
+          <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length"></div>
+          <div v-if="loading" class="map-loading">
+            <div class="loading-spinner"></div>
+            <span>加载地图数据…</span>
+          </div>
+          <EmptyState
+            v-if="!loading && dataItems.length === 0"
+            icon="🗺️"
+            title="该层级暂无数据"
+            message="请调整筛选条件或返回上一级"
+          />
         </div>
-        <EmptyState
-          v-if="!loading && dataItems.length === 0"
-          icon="🗺️"
-          title="该层级暂无数据"
-          message="请调整筛选条件或返回上一级"
-        />
       </div>
 
       <!-- Side List -->
@@ -438,13 +440,6 @@ async function renderMap() {
         map: mapName,
         roam: true,
         zoom: 1.0,
-        // 不压缩垂直方向（默认 aspectScale=0.75 是墨卡托补偿，会让中国地图纵向被压扁）
-        aspectScale: 1,
-        // 绝对定位让地图填满画布（ECharts 自动中心化）
-        top: 16,
-        bottom: 16,
-        left: 16,
-        right: 16,
         label: { show: true, fontSize: 9, color: '#0f172a' },
         // labelLayout 隐藏重叠的 label（解决海南/南每诸岛等省份名重复出现的问题）
         labelLayout: { hideOverlap: true },
@@ -945,10 +940,17 @@ function pctOf(v) {
   font-weight: 700;
 }
 
-.map-chart {
+.map-chart-wrap {
   flex: 1;
-  width: 100%;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-chart {
+  width: 100%;
+  /* 强制 chart 比例 1.23:1（中国地图自然比例） */
+  aspect-ratio: 1.23 / 1;
 }
 
 .map-loading {
