@@ -107,8 +107,8 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
                 local = os.path.join(tmpdir, fname)
                 download_file(file_url, local, timeout=120)
 
-                # 2. 上传 MinIO
-                minio_key = f"{minio_prefix}/{area['areaid']}/{policy_id}/{fname}"
+                # 2. 上传 MinIO（按区域短名分类，仅 1 层目录）
+                minio_key = f"{minio_prefix}/{area['name']}/{fname}"
                 if not dry_run:
                     try:
                         upload_to_minio(s3, cfg['minio']['bucket'], minio_key, local,
@@ -168,7 +168,7 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
 
         result['docs_written'] = total_docs
         result['status'] = 'ok' if total_err == 0 else 'partial'
-        result['minio_key'] = minio_prefix + f"/{area['areaid']}/{policy_id}/"
+        result['minio_key'] = minio_prefix + f"/{area['name']}/"
         result['duration_sec'] = round(time.time() - start, 1)
 
     except Exception as e:
@@ -181,7 +181,7 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
 
 
 def sync_one_area(es, s3, cfg, area, year, progress, minio_prefix, dry_run=False,
-                  only_policy_ids=None, skip_existing=True):
+                  only_policy_ids=None, skip_existing=True, run_id=None):
     """处理单个 area 下的所有目标年政策"""
     areaid = area['areaid']
     print(f"\n{'='*60}\n[area {areaid}] {area_label(area)}\n{'='*60}")
@@ -211,7 +211,11 @@ def sync_one_area(es, s3, cfg, area, year, progress, minio_prefix, dry_run=False
 
     total_written = 0
     completed = 0
-    run_id = f"xj_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{areaid}"
+    # run_id 必传：main 启动 sync 时生成一个，本次 sync 所有 area 共享同一 run_id，
+    # 让 dashboard 拉取进度时能按 run_id 聚合到 16 个 area（之前每个 area 用不同 run_id
+    # 导致 _scrape_county_progress 按 run_id 分组只看到 1 个 area）
+    if not run_id:
+        run_id = f"xj_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{areaid}"
     last_updated = datetime.now().isoformat(timespec='seconds')
     for idx, p in enumerate(targets, 1):
         if skip_existing:
@@ -313,10 +317,14 @@ def main():
             return
 
     minio_prefix = cfg['minio']['prefix']
+    # 一次 sync 共享一个 run_id（dashboard 按 run_id 聚合所有 area 的 area summary）
+    run_id = f"xj_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print(f'[xinjiang] run_id: {run_id}')
     grand_total = 0
     for area in areas:
         res = sync_one_area(es, s3, cfg, area, args.year, progress, minio_prefix,
-                            dry_run=args.dry_run, skip_existing=not args.no_skip)
+                            dry_run=args.dry_run, skip_existing=not args.no_skip,
+                            run_id=run_id)
         grand_total += res.get('docs_written', 0)
 
     print(f'\n[xinjiang] 全部完成: total_written={grand_total}')
