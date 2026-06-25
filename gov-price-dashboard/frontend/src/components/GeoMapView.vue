@@ -902,7 +902,9 @@ function pctOf(v) {
 /* Main */
 .geo-main {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  /* 侧栏加宽让 map 列变窄、chart 变矮、card 变矮。 */
+  /* map 宽度 1.23 黄金比例 * chart 高 = 最佳查阄点 */
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 14px;
 }
 
@@ -911,8 +913,7 @@ function pctOf(v) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  /* chart 强制 1.23:1，这个高度刚好让 1080p 屏的 chart 填满不需空白 */
-  min-height: max(680px, 68vh);
+  min-height: max(540px, 60vh);
   display: flex;
   flex-direction: column;
 }
@@ -986,7 +987,7 @@ function pctOf(v) {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  max-height: max(680px, 68vh);
+  max-height: max(540px, 60vh);
 }
 
 /* 侧栏图例（取代 ECharts visualMap） */
