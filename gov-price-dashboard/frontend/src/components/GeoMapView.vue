@@ -340,12 +340,10 @@ async function renderMap() {
         type: 'map',
         map: mapName,
         roam: true,
-        zoom: 1.45,
-        // 地图填满整个画布，ECharts 自动中心化
-        top: 16,
-        bottom: 16,
-        left: 16,
-        right: 16,
+        zoom: 1.0,
+        // 以画布中心为锰点，按 100% 填充可用区域（不裁切边缘）
+        layoutCenter: ['50%', '50%'],
+        layoutSize: '100%',
         label: { show: true, fontSize: 9, color: '#0f172a' },
         // labelLayout 隐藏重叠的 label（解决海南/南每诸岛等省份名重复出现的问题）
         labelLayout: { hideOverlap: true },
