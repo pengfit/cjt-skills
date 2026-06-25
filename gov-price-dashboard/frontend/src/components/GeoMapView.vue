@@ -27,16 +27,6 @@
     <!-- ============ Filter Bar ============ -->
     <div class="geo-filter-bar">
       <div class="filter-item">
-        <label>分类</label>
-        <CustomSelect
-          v-model="filterCategory"
-          :options="categoryOptions"
-          placeholder="全部分类"
-          :searchable="true"
-          @change="reload"
-        />
-      </div>
-      <div class="filter-item">
         <label>产品名</label>
         <input
           v-model="filterBreed"
@@ -177,7 +167,6 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import axios from 'axios'
-import CustomSelect from './CustomSelect.vue'
 import EmptyState from './EmptyState.vue'
 import { registerGovPriceTheme, getGovPriceTheme } from '../composables/useEchartsTheme.js'
 
@@ -188,24 +177,18 @@ const chartEl = ref(null)
 let chart = null
 
 // === Filters ===
-const filterCategory = ref('')
 const filterBreed = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
-const categoryOptions = ref([])
 
 // === Display Mode ===
 // coverage：默认以“数据量”热力（看哪省数据全/新）
 // price：有筛选时以“均价”热力（看同材料不同省价格）
 const displayMode = ref('coverage')  // 'coverage' | 'price'
-const hasMaterialFilter = computed(() => !!(filterCategory.value || filterBreed.value))
-// 选了材料筛选后自动切到价格模式
-watch([filterCategory, filterBreed], () => {
-  if (hasMaterialFilter.value) {
-    displayMode.value = 'price'
-  } else {
-    displayMode.value = 'coverage'
-  }
+const hasMaterialFilter = computed(() => !!filterBreed.value)
+// 选了产品名筛选后自动切到价格模式
+watch(filterBreed, () => {
+  displayMode.value = hasMaterialFilter.value ? 'price' : 'coverage'
 })
 
 // === Drilldown state ===
@@ -274,7 +257,6 @@ function setMode(m) {
 // === Lifecycle ===
 onMounted(async () => {
   registerGovPriceTheme()
-  await loadCategoryOptions()
   await reload()
   window.addEventListener('resize', handleResize)
   // 使用 ResizeObserver 监听容器尺寸变化
@@ -316,16 +298,6 @@ function handleResize() {
 }
 
 // === API ===
-async function loadCategoryOptions() {
-  try {
-    const { data } = await axios.get(`${API}/filter-options`)
-    const cats = (data.categories || []).map(c => ({ key: c, label: c }))
-    categoryOptions.value = cats
-  } catch (e) {
-    console.warn('加载分类选项失败', e)
-  }
-}
-
 async function reload() {
   const level = currentLevel.value
   const parent = breadcrumbs.value[breadcrumbs.value.length - 1]?.parent
@@ -335,7 +307,6 @@ async function reload() {
     const params = { level }
     if (parent) params.parent = parent
     if (parent2) params.parent2 = parent2
-    if (filterCategory.value) params.category = filterCategory.value
     if (filterBreed.value) params.breed = filterBreed.value
     if (dateFrom.value) params.date_from = dateFrom.value
     if (dateTo.value) params.date_to = dateTo.value
