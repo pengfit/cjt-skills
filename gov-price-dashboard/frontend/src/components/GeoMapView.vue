@@ -902,9 +902,8 @@ function pctOf(v) {
 /* Main */
 .geo-main {
   display: grid;
-  /* 侧栏加宽让 map 列变窄、chart 变矮、card 变矮。 */
-  /* map 宽度 1.23 黄金比例 * chart 高 = 最佳查阄点 */
-  grid-template-columns: minmax(0, 1fr) 360px;
+  /* 侧栏加宽让 map 列变窄、chart 变矮、card 变矮 */
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 14px;
 }
 
@@ -913,7 +912,7 @@ function pctOf(v) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  min-height: max(540px, 60vh);
+  min-height: max(500px, 58vh);
   display: flex;
   flex-direction: column;
 }
@@ -987,7 +986,7 @@ function pctOf(v) {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  max-height: max(540px, 60vh);
+  max-height: max(500px, 58vh);
 }
 
 /* 侧栏图例（取代 ECharts visualMap） */
