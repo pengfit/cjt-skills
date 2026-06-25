@@ -210,7 +210,9 @@ async function renderMap() {
       type: 'map',
       map: mapName,
       roam: false,
-      zoom: 1.15,
+      // 让地图填满 canvas（按容器短边缩放 + 居中），不出现大片空白
+      layoutCenter: ['50%', '50%'],
+      layoutSize: '115%',
       label: {
         show: true,
         fontSize: 9,
