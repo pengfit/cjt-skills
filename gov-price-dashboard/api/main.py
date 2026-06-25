@@ -1341,6 +1341,156 @@ def skill_registry_reload():
     }
 
 
+# ============================================================
+# 地理分布聚合（地图可视化）
+# ============================================================
+# 中国省份名 → adcode 映射（DataV.GeoAtlas 用 adcode 标识省份）
+_PROVINCE_ADCODE = {
+    "北京": 110000, "天津": 120000, "河北": 130000, "山西": 140000,
+    "内蒙古": 150000, "辽宁": 210000, "吉林": 220000, "黑龙江": 230000,
+    "上海": 310000, "江苏": 320000, "浙江": 330000, "安徽": 340000,
+    "福建": 350000, "江西": 360000, "山东": 370000, "河南": 410000,
+    "湖北": 420000, "湖南": 430000, "广东": 440000, "广西": 450000,
+    "海南": 460000, "重庆": 500000, "四川": 510000, "贵州": 520000,
+    "云南": 530000, "西藏": 540000, "陕西": 610000, "甘肃": 620000,
+    "青海": 630000, "宁夏": 640000, "新疆": 650000, "台湾": 710000,
+}
+
+
+@app.get("/api/stats/geo-distribution")
+def geo_distribution(
+    level: str = Query("province", pattern="^(province|city|county)$"),
+    parent: Optional[str] = Query(None, description="level=city 时传 province；level=county 时传 city"),
+    parent2: Optional[str] = Query(None, description="level=county 时传 province"),
+    category: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    breed: Optional[str] = Query(None, description="产品名关键词"),
+):
+    """
+    地理分布聚合（地图着色用）
+    - level=province: 全省聚合
+    - level=city:     parent=省份，下钻到地市
+    - level=county:   parent=省份，parent2=地市，下钻到区县
+    返回：[{name, adcode, value(均价), count, min, max}]
+    """
+    # 1. 过滤条件
+    filter_clauses = []
+    if level == "city" and parent:
+        filter_clauses.append({"term": {"province": parent}})
+    if level == "county":
+        if parent2:
+            filter_clauses.append({"term": {"province": parent2}})
+        if parent:
+            filter_clauses.append({"term": {"city": parent}})
+    if category:
+        filter_clauses.append({"term": {"category": category}})
+    if breed:
+        filter_clauses.append({"match": {"breed": breed}})
+    if date_from or date_to:
+        date_range = {}
+        if date_from:
+            date_range["gte"] = date_from
+        if date_to:
+            date_range["lte"] = date_to
+        filter_clauses.append({"range": {"date": date_range}})
+
+    # 2. 聚合字段
+    field_map = {"province": "province", "city": "city", "county": "county"}
+    agg_field = field_map[level]
+    size_map = {"province": 40, "city": 50, "county": 100}
+    agg_size = size_map[level]
+
+    body = {
+        "size": 0,
+        "query": _build_bool_query([], filter_clauses),
+        "aggs": {
+            "by_region": {
+                "terms": {"field": agg_field, "size": agg_size, "missing": "[未知]"},
+                "aggs": {
+                    "avg_price": {"avg": {"field": "price"}},
+                    "min_price": {"min": {"field": "price"}},
+                    "max_price": {"max": {"field": "price"}},
+                    "count": {"value_count": {"field": "price"}},
+                },
+            }
+        },
+    }
+    try:
+        result = es.search(index=ALL_INDICES, body=body)
+        buckets = result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
+        items = []
+        for b in buckets:
+            name = b["key"]
+            # 给省级数据加 adcode（便于 ECharts 地图匹配）
+            adcode = _PROVINCE_ADCODE.get(name) if level == "province" else None
+            items.append({
+                "name": name,
+                "adcode": adcode,
+                "value": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
+                "count": int(b["count"]["value"] or 0),
+                "min": round(b["min_price"]["value"], 2) if b["min_price"]["value"] else 0,
+                "max": round(b["max_price"]["value"], 2) if b["max_price"]["value"] else 0,
+            })
+        return {
+            "level": level,
+            "parent": parent,
+            "parent2": parent2,
+            "total": len(items),
+            "items": items,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats/geo-regions")
+def geo_regions():
+    """
+    返回所有有数据的省份/城市/区县列表（地图下钻决策用）
+    让前端知道哪些省份/城市有数据，避免空白下钻
+    """
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "provinces": {
+                    "terms": {"field": "province", "size": 50},
+                    "aggs": {
+                        "cities": {
+                            "terms": {"field": "city", "size": 50},
+                            "aggs": {
+                                "counties": {
+                                    "terms": {"field": "county", "size": 50}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result = es.search(index=ALL_INDICES, body=body)
+        prov_buckets = result.get("aggregations", {}).get("provinces", {}).get("buckets", [])
+        provinces = []
+        for pb in prov_buckets:
+            cities = []
+            for cb in pb["cities"]["buckets"]:
+                counties = [c["key"] for c in cb["counties"]["buckets"] if c["key"] and c["key"] != "[未知]"]
+                cities.append({
+                    "name": cb["key"],
+                    "count": int(cb["doc_count"]),
+                    "counties": counties,
+                })
+            provinces.append({
+                "name": pb["key"],
+                "adcode": _PROVINCE_ADCODE.get(pb["key"]),
+                "count": int(pb["doc_count"]),
+                "cities": cities,
+            })
+        return {"provinces": provinces}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5200)
