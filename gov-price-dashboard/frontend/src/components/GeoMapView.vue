@@ -91,11 +91,11 @@ const currentLevel = computed(() => {
   return 'county'
 })
 const currentMapName = computed(() => {
-  if (breadcrumbs.value.length === 0) return 'china'
+  if (breadcrumbs.value.length === 0) return 'china-mainland'
   if (breadcrumbs.value.length === 1) {
-    return breadcrumbs.value[0].adcode ? String(breadcrumbs.value[0].adcode) : 'china'
+    return breadcrumbs.value[0].adcode ? String(breadcrumbs.value[0].adcode) : 'china-mainland'
   }
-  return breadcrumbs.value[0]?.adcode ? String(breadcrumbs.value[0].adcode) : 'china'
+  return breadcrumbs.value[0]?.adcode ? String(breadcrumbs.value[0].adcode) : 'china-mainland'
 })
 
 // === Lifecycle ===
@@ -173,12 +173,19 @@ async function renderMap() {
 
   const data = dataItems.value
     .filter(d => d.value > 0 || d.count > 0)
-    .map(d => ({
-      name: currentLevel.value === 'province' ? (PROVINCE_NAME_MAP[d.name] || d.name) : d.name,
-      value: displayMode.value === 'coverage' ? d.count : d.value,
-      _count: d.count,
-      _price: d.value,
-    }))
+    .map(d => {
+      const raw = currentLevel.value === 'province' ? (PROVINCE_NAME_MAP[d.name] || d.name) : d.name
+      // 只对 city/county level 补“市”后缀（地图 feature 带后缀，ES 没带）。
+      // province level 不补（四川省、山东省、河南省、陕西省…都不以“市”结尾）。
+      const name = (currentLevel.value === 'province') ? raw : (raw.endsWith('市') ? raw : (raw + '市'))
+      return {
+        name,
+        value: displayMode.value === 'coverage' ? d.count : d.value,
+        _count: d.count,
+        _price: d.value,
+        _rawName: d.name,
+      }
+    })
 
   const isPrice = displayMode.value === 'price'
   const range = isPrice ? valueRange.value : countRange.value
@@ -226,26 +233,35 @@ async function renderMap() {
   chart.off('click')
   chart.on('click', (params) => {
     if (params.componentType === 'series' && params.seriesType === 'map' && params.data) {
-      const item = dataItems.value.find(d => (PROVINCE_NAME_MAP[d.name] || d.name) === params.name)
+      // params.name 来自地图 feature（如“威海市”），dataItems 里是 ES 名（如“威海”）。
+      // 双向宽松匹配：去“市”后缀后相等。
+      const stripShi = (s) => s.endsWith('市') ? s.slice(0, -1) : s
+      const target = stripShi(params.name)
+      const item = dataItems.value.find(d => {
+        const candidate = PROVINCE_NAME_MAP[d.name] || d.name
+        return stripShi(candidate) === target
+      })
       if (item) onRegionClick(item)
     }
   })
 }
 
-const _loadedMaps = new Set()
 async function ensureMapLoaded(mapKey) {
-  if (_loadedMaps.has(mapKey)) return mapKey
-  const url = mapKey === 'china' ? `${GEO_BASE}/100000_full.json` : `${GEO_BASE}/${mapKey}_full.json`
+  const url = (mapKey === 'china' || mapKey === 'china-mainland') ? `${GEO_BASE}/100000_full.json` : `${GEO_BASE}/${mapKey}_full.json`
   try {
     const resp = await fetch(url)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const geo = await resp.json()
+    // 过滤掉九段线/南海诸岛（adcode=100000_JD，properties.name 为空）
+    if (Array.isArray(geo?.features)) {
+      geo.features = geo.features.filter(f => f?.properties?.adcode !== '100000_JD')
+    }
+    // 不缓存：每次都重新 registerMap（ECharts 覆盖式），保证 filter 生效
     echarts.registerMap(mapKey, geo)
-    _loadedMaps.add(mapKey)
     return mapKey
   } catch (e) {
     console.warn(`地图 ${mapKey} 加载失败：`, e)
-    if (mapKey !== 'china') return ensureMapLoaded('china')
+    if (mapKey !== 'china-mainland') return ensureMapLoaded('china-mainland')
     return null
   }
 }
