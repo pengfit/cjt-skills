@@ -68,7 +68,13 @@
           title="价格热力图"
         >💰 价格</button>
       </div>
-      <button class="btn-primary" @click="reload">🔄 刷新</button>
+      <button
+        class="btn-refresh"
+        @click="reload"
+        :class="{ spinning: loading }"
+        :disabled="loading"
+        title="刷新数据 (Enter)"
+      >🔄</button>
       <button class="btn-ghost" v-if="crumbs.length > 1" @click="goBack">← 返回</button>
     </div>
 
@@ -824,6 +830,38 @@ function pctOf(v) {
 .btn-ghost:hover {
   background: var(--surface-2);
   color: var(--text);
+}
+
+/* 刷新按钮：仅图标，圆形，匹配搜索框高度 */
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+}
+.btn-refresh:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-dim);
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.btn-refresh.spinning {
+  animation: spin 0.8s linear infinite;
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 /* 模式切换 */
