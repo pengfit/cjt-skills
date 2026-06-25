@@ -82,6 +82,18 @@
 
       <!-- Side List -->
       <div class="geo-side-card">
+        <!-- 图例：价格色阶说明（取代 ECharts visualMap，让地图占满画布） -->
+        <div class="side-legend">
+          <div class="legend-label">价格色阶</div>
+          <div class="legend-bar">
+            <div class="legend-grad"></div>
+            <div class="legend-ticks">
+              <span>{{ formatLegendValue(valueRange[1]) }}</span>
+              <span>{{ formatLegendValue((valueRange[0] + valueRange[1]) / 2) }}</span>
+              <span>{{ formatLegendValue(valueRange[0]) }}</span>
+            </div>
+          </div>
+        </div>
         <div class="side-title">📊 价格排行 TOP {{ Math.min(dataItems.length, 20) }}</div>
         <div class="side-hint" v-if="dataItems.length > 1">
           点击地图区域 / 列表项均可下钻
@@ -162,6 +174,15 @@ const valueRange = computed(() => {
   if (!vals.length) return [0, 1]
   return [Math.min(...vals), Math.max(...vals)]
 })
+
+// 侧栏图例价格格式化（Y轴刻度：0, 100, 1.2k, 15k, 1.2M）
+function formatLegendValue(v) {
+  const n = Number(v)
+  if (n >= 10000) return Math.round(n / 1000) + 'k'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  if (n >= 1) return Math.round(n).toString()
+  return n.toFixed(2)
+}
 
 // === Lifecycle ===
 onMounted(async () => {
@@ -313,25 +334,18 @@ async function renderMap() {
         return p.name
       },
     },
-    visualMap: {
-      min, max,
-      left: 20, bottom: 40,
-      text: ['高', '低'],
-      calculable: true,
-      inRange: { color: ['#e0f2fe', '#7dd3fc', '#0284c7', '#075985', '#0c4a6e'] },
-      textStyle: { color: '#475569', fontSize: 11 },
-      itemWidth: 12, itemHeight: 100,
-    },
     series: [
       {
         name: '均价',
         type: 'map',
         map: mapName,
         roam: true,
-        zoom: 1.2,
-        // 让地图自动填充可用区域，以视觉中心为锚点
-        layoutCenter: ['50%', '52%'],
-        layoutSize: '92%',
+        zoom: 1.45,
+        // 地图填满整个画布，ECharts 自动中心化
+        top: 16,
+        bottom: 16,
+        left: 16,
+        right: 16,
         label: { show: true, fontSize: 10, color: '#0f172a' },
         itemStyle: {
           borderColor: '#ffffff',
@@ -348,6 +362,7 @@ async function renderMap() {
         data,
       },
     ],
+    // visualMap 放到独立 DOM（侧栏），不占地图空间
   }
   chart.setOption(option, true)
   // 绑定 click
@@ -721,6 +736,36 @@ function pctOf(v) {
   display: flex;
   flex-direction: column;
   max-height: max(700px, 78vh);
+}
+
+/* 侧栏图例（取代 ECharts visualMap） */
+.side-legend {
+  padding: 4px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.legend-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.legend-bar {
+  position: relative;
+}
+.legend-grad {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #e0f2fe 0%, #7dd3fc 25%, #0284c7 60%, #075985 85%, #0c4a6e 100%);
+}
+.legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono-num);
 }
 
 .side-title {
