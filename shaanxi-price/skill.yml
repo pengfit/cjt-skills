@@ -1,0 +1,23 @@
+key: shaanxi
+label: 陕西
+province: 陕西
+ods_index: ods_material_shaanxi_price
+dwd_index: dwd_shaanxi_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_shaanxi_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_shaanxi_price_sync_progress
+progress_mode: period
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+cities:
+  - 陕西       # 省本级
+  - 安康
+  - 汉中
+  - 咸阳
+  - 铜川
+  - 渭南
+  - 延安
+  - 榆林
+  - 商洛
+  - 宝鸡
+  - 西安

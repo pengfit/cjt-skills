@@ -1,0 +1,46 @@
+# 陕西省工程造价材料信息采集配置
+# 数据源：https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html
+# 列表 5 页（96 条），详情页 PDF（设区市 + 省本级两种类型）
+
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_shaanxi_price
+  progress_index: ods_material_shaanxi_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: shaanxi-price
+  secure: false
+
+site:
+  base_url: https://js.shaanxi.gov.cn
+  list_path: /sy/yw/zjglfw/zjxx/index.html
+  list_pages: 5                       # 5 页列表（index.html + index_1.html ... index_4.html）
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+  referer: "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html"
+
+sync:
+  target_year: 2026                   # 只抓 2026 年的期
+  last_period: ""                     # 增量起点（按 period）；空=全量（限定年内）
+  last_publish_date: ""               # 增量同步只用比这新的
+
+# 设区市 / 省本级 关键字 → city 标签
+# 标题正则 "设区市造价信息---《{city}{...}造价信息》{period}" 中的 {city}
+city_patterns:
+  - 安康
+  - 汉中
+  - 咸阳
+  - 铜川
+  - 渭南
+  - 延安
+  - 榆林
+  - 商洛
+  - 宝鸡
+
+# 标题中不包含任何 "造价信息" 期刊字样、且不含设区市名的，归为省本级
+province_label: 陕西
