@@ -1333,12 +1333,18 @@ def skill_registry():
 
 @app.post("/api/skill-registry/reload")
 def skill_registry_reload():
-    """手动重新扫描 skill.yml（开发调试用）"""
+    """手动重新扫描 skill.yml（开发调试用）+ 热更新 ALL_INDICES / ALL_ODS_INDICES"""
+    global ALL_INDICES, ALL_ODS_INDICES
     skills = _registry_reload()
+    # 重新计算索引列表：与启动邇辑一致，过滤掉 ES 中不存在的索引
+    new_csv = _registry_ods_csv() or ALL_INDICES
+    ALL_INDICES = _filter_existing_indices(new_csv)
+    ALL_ODS_INDICES = new_csv
     return {
         "count": len(skills),
         "skills": skills,
-        "message": f"重载完成，扫描到 {len(skills)} 个 skill",
+        "all_indices": ALL_INDICES,
+        "message": f"重载完成，扫描到 {len(skills)} 个 skill，ALL_INDICES 已热更新",
     }
 
 

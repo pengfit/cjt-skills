@@ -1,0 +1,23 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: hainan
+label: 海南
+province: 海南
+ods_index: ods_material_hainan_price
+dwd_index: dwd_hainan_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_hainan_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_hainan_price_sync_progress
+progress_mode: period          # 每月一期，按 period 跟踪（与 henan/heze/qingdao/weihai 同模式）
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 海南省不分地市，单一"海南"指导价；下方列出 5 个区域分组（北部/南部/西部/东部/中部）
+# 供 dashboard 在全省视角下展开区域维度
+cities:
+  - 海南
+  - 北部
+  - 南部
+  - 西部
+  - 东部
+  - 中部

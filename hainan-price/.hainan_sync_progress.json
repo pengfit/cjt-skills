@@ -1,0 +1,48 @@
+{
+  "done": {
+    "https://zjt.hainan.gov.cn/szjt/dejgxx/202605/9369d7be3ee94be5bf944a98176dea9b.shtml": {
+      "period": "2026.4月",
+      "publish_date": "2026-05-20",
+      "detail_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202605/9369d7be3ee94be5bf944a98176dea9b.shtml",
+      "pdf_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202605/9369d7be3ee94be5bf944a98176dea9b/files/b7111585860645dfb3bdfc6aa4ff1968.pdf",
+      "minio_key": "hainan-price/2026.4月/2026年4月海南省建设工程主要材料、园林绿化苗木及施工机具与周转材料租赁市场参考价.pdf",
+      "docs_written": 3267,
+      "status": "ok",
+      "duration_sec": 24.3,
+      "created_at": "2026-06-27T07:16:06"
+    },
+    "https://zjt.hainan.gov.cn/szjt/dejgxx/202604/5419c0af23de4c95adb628d9751e39f3.shtml": {
+      "period": "2026.3月",
+      "publish_date": "2026-04-20",
+      "detail_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202604/5419c0af23de4c95adb628d9751e39f3.shtml",
+      "pdf_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202604/5419c0af23de4c95adb628d9751e39f3/files/5c00f9cd256c49ca8a47f6b88acfc566.pdf",
+      "minio_key": "hainan-price/2026.3月/2026年3月海南省建设工程主要材料、园林绿化苗木及施工机具与周转材料租赁市场参考价.pdf",
+      "docs_written": 3212,
+      "status": "ok",
+      "duration_sec": 27.3,
+      "created_at": "2026-06-27T07:16:34"
+    },
+    "https://zjt.hainan.gov.cn/szjt/dejgxx/202603/118e83e7e6df48a49d7acd259fa84d3a.shtml": {
+      "period": "2026.2月",
+      "publish_date": "2026-03-19",
+      "detail_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202603/118e83e7e6df48a49d7acd259fa84d3a.shtml",
+      "pdf_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202603/118e83e7e6df48a49d7acd259fa84d3a/files/de5670fc0df64e268f76ec9867a70e86.pdf",
+      "minio_key": "hainan-price/2026.2月/2026年2月海南省建设工程主要材料、园林绿化苗木及施工机具与周转材料租赁市场参考价.pdf",
+      "docs_written": 3212,
+      "status": "ok",
+      "duration_sec": 24.4,
+      "created_at": "2026-06-27T07:16:58"
+    },
+    "https://zjt.hainan.gov.cn/szjt/dejgxx/202602/b791515b9a90440b9b2397cbd421b86f.shtml": {
+      "period": "2026.1月",
+      "publish_date": "2026-02-11",
+      "detail_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202602/b791515b9a90440b9b2397cbd421b86f.shtml",
+      "pdf_url": "https://zjt.hainan.gov.cn/szjt/dejgxx/202602/b791515b9a90440b9b2397cbd421b86f/files/bff58515674d4cfcb519abd9ee84e0e9.pdf",
+      "minio_key": "hainan-price/2026.1月/2026年1月海南省建设工程主要材料、园林绿化苗木及施工机具与周转材料租赁市场参考价.pdf",
+      "docs_written": 3357,
+      "status": "ok",
+      "duration_sec": 24.4,
+      "created_at": "2026-06-27T07:17:23"
+    }
+  }
+}

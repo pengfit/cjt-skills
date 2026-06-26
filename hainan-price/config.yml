@@ -1,0 +1,55 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_hainan_price
+  progress_index: ods_material_hainan_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: hainan-price
+  secure: false
+
+site:
+  base_url: https://zjt.hainan.gov.cn
+  list_path: /szjt/dejgxx/dezlist.shtml
+  list_page_pattern: /szjt/dejgxx/dezlist_{n}.shtml
+  per_page: 18
+  # 10 页 × 18 条 = 180 条总期数（首页+ 9 个分页，最后一页 17 条）
+  list_pages: 10
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""   # 增量起点；空=全量
+  last_publish_date: ""  # 增量同步只用比这新的
+
+# 19 个大类（PDF 目录顺序；与"城市"无关，保留作 category 标签）
+categories:
+  - 黑色及有色金属
+  - 水泥及水泥制品
+  - 木材及木制品
+  - 玻璃及玻璃制品
+  - 砖、瓦、灰、砂、石
+  - 陶瓷及陶瓷制品
+  - 油漆涂料及化工材料
+  - 塑料、橡胶及纤维制品
+  - 五金制品、水暖器材及水暖管件
+  - 门窗及门窗配件
+  - 防水、保温、吸声材料
+  - 电线、电缆及电工器材
+  - 消防器材
+  - 成品及半成品构件
+  - 园林绿化
+  - 机械及仪表
+  - 装饰及安装材料
+  - 周转材料及五金工具
+  - 其它材料
+
+# 海南省不分地市，单一"海南"标签
+province_city: 海南
+
+# 不含税↔含税 转换（建设工程材料 9% 增值税率）
+vat_rate: 0.09
