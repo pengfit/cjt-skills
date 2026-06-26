@@ -11,8 +11,8 @@
       "docs_written": 0,
       "pages_parsed": 0,
       "status": "skipped_image_pdf",
-      "duration_sec": 395.7,
-      "created_at": "2026-06-26T16:42:27"
+      "duration_sec": 357.2,
+      "created_at": "2026-06-26T18:07:49"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202604/t20260413_3629248.html": {
       "period": "2026.3期",
@@ -25,8 +25,8 @@
       "docs_written": 0,
       "pages_parsed": 0,
       "status": "skipped_image_pdf",
-      "duration_sec": 370.7,
-      "created_at": "2026-06-26T16:49:04"
+      "duration_sec": 313.3,
+      "created_at": "2026-06-26T18:13:02"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260318_3622409.html": {
       "period": "2026.2期",
@@ -39,8 +39,8 @@
       "docs_written": 0,
       "pages_parsed": 0,
       "status": "skipped_image_pdf",
-      "duration_sec": 435.7,
-      "created_at": "2026-06-26T16:56:28"
+      "duration_sec": 395.8,
+      "created_at": "2026-06-26T18:19:38"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202602/t20260212_3613175.html": {
       "period": "2026.1期",
@@ -53,8 +53,8 @@
       "docs_written": 0,
       "pages_parsed": 0,
       "status": "skipped_image_pdf",
-      "duration_sec": 344.2,
-      "created_at": "2026-06-26T17:02:39"
+      "duration_sec": 295.0,
+      "created_at": "2026-06-26T18:24:33"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260623_3649700.html": {
       "period": "2026.5期",
@@ -67,8 +67,8 @@
       "docs_written": 30,
       "pages_parsed": 1,
       "status": "ok",
-      "duration_sec": 8.3,
-      "created_at": "2026-06-26T16:34:09"
+      "duration_sec": 6.8,
+      "created_at": "2026-06-26T17:50:32"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260612_3646847.html": {
       "period": "2026.5期",
@@ -78,11 +78,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260612_3646847.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/P020260612342787864103.pdf",
       "minio_key": "shaanxi-price/2026.5期_安康建设工程造价信息》2026年第5期.pdf",
-      "docs_written": 2260,
+      "docs_written": 2202,
       "pages_parsed": 56,
       "status": "ok",
-      "duration_sec": 5.6,
-      "created_at": "2026-06-26T16:34:15"
+      "duration_sec": 5.2,
+      "created_at": "2026-06-26T18:01:52"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260604_3644505.html": {
       "period": "2026.3期",
@@ -92,11 +92,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260604_3644505.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/P020260604364475638194.pdf",
       "minio_key": "shaanxi-price/2026.3期_咸阳工程造价信息》2026年第3期.pdf",
-      "docs_written": 2228,
-      "pages_parsed": 65,
+      "docs_written": 2346,
+      "pages_parsed": 73,
       "status": "ok",
-      "duration_sec": 11.3,
-      "created_at": "2026-06-26T16:34:26"
+      "duration_sec": 10.1,
+      "created_at": "2026-06-26T17:50:44"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260603_3643986.html": {
       "period": "2026.1期(季刊)",
@@ -109,8 +109,8 @@
       "docs_written": 13,
       "pages_parsed": 2,
       "status": "ok",
-      "duration_sec": 18.5,
-      "created_at": "2026-06-26T16:34:45"
+      "duration_sec": 14.3,
+      "created_at": "2026-06-26T17:50:58"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260601_3643169.html": {
       "period": "2026.5月",
@@ -120,11 +120,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/t20260601_3643169.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202606/P020260601322559475097.pdf",
       "minio_key": "shaanxi-price/2026.5月_2026年5月材料信息价.pdf",
-      "docs_written": 2050,
+      "docs_written": 2049,
       "pages_parsed": 62,
       "status": "ok",
-      "duration_sec": 7.6,
-      "created_at": "2026-06-26T16:34:52"
+      "duration_sec": 4.4,
+      "created_at": "2026-06-26T17:51:03"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260529_3642571.html": {
       "period": "2026.2期(双月刊)",
@@ -134,11 +134,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260529_3642571.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260529328124397150.pdf",
       "minio_key": "shaanxi-price/2026.2期(双月刊)_渭南工程造价信息》2026年2期（双月刊）.pdf",
-      "docs_written": 713,
-      "pages_parsed": 24,
+      "docs_written": 2329,
+      "pages_parsed": 73,
       "status": "ok",
-      "duration_sec": 9.9,
-      "created_at": "2026-06-26T16:35:02"
+      "duration_sec": 8.8,
+      "created_at": "2026-06-26T17:51:11"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260528_3642157.html": {
       "period": "2026.1期(双月刊)",
@@ -148,11 +148,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260528_3642157.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260528301056464881.pdf",
       "minio_key": "shaanxi-price/2026.1期(双月刊)_渭南工程造价信息》2026年1期（双月刊）.pdf",
-      "docs_written": 714,
-      "pages_parsed": 24,
+      "docs_written": 2323,
+      "pages_parsed": 73,
       "status": "ok",
-      "duration_sec": 11.3,
-      "created_at": "2026-06-26T16:35:13"
+      "duration_sec": 10.1,
+      "created_at": "2026-06-26T17:51:22"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260526_3641523.html": {
       "period": "2026.2期",
@@ -162,11 +162,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260526_3641523.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260526368502221256.pdf",
       "minio_key": "shaanxi-price/2026.2期_铜川工程造价信息》2026年第2期.pdf",
-      "docs_written": 1896,
-      "pages_parsed": 64,
+      "docs_written": 2019,
+      "pages_parsed": 70,
       "status": "ok",
-      "duration_sec": 5.7,
-      "created_at": "2026-06-26T16:35:19"
+      "duration_sec": 4.5,
+      "created_at": "2026-06-26T17:51:26"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260526_3641520.html": {
       "period": "2026.1期",
@@ -176,11 +176,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260526_3641520.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260526367921101595.pdf",
       "minio_key": "shaanxi-price/2026.1期_铜川工程造价信息》2026年第1期.pdf",
-      "docs_written": 1894,
-      "pages_parsed": 64,
+      "docs_written": 2018,
+      "pages_parsed": 69,
       "status": "ok",
       "duration_sec": 4.6,
-      "created_at": "2026-06-26T16:35:24"
+      "created_at": "2026-06-26T17:51:31"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260522_3640701.html": {
       "period": "2026.2期",
@@ -190,11 +190,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260522_3640701.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260522540156261593.pdf",
       "minio_key": "shaanxi-price/2026.2期_咸阳工程造价信息》2026年第2期.pdf",
-      "docs_written": 2229,
-      "pages_parsed": 65,
+      "docs_written": 2351,
+      "pages_parsed": 73,
       "status": "ok",
-      "duration_sec": 8.6,
-      "created_at": "2026-06-26T16:35:32"
+      "duration_sec": 8.2,
+      "created_at": "2026-06-26T17:51:39"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260522_3640697.html": {
       "period": "2026.1期",
@@ -204,11 +204,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260522_3640697.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260522538451235445.pdf",
       "minio_key": "shaanxi-price/2026.1期_咸阳工程造价信息》2026年第1期.pdf",
-      "docs_written": 2228,
-      "pages_parsed": 64,
+      "docs_written": 2345,
+      "pages_parsed": 72,
       "status": "ok",
-      "duration_sec": 10.5,
-      "created_at": "2026-06-26T16:35:43"
+      "duration_sec": 9.8,
+      "created_at": "2026-06-26T17:51:49"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260521_3640050.html": {
       "period": "2026.4期",
@@ -221,8 +221,8 @@
       "docs_written": 27,
       "pages_parsed": 1,
       "status": "ok",
-      "duration_sec": 8.5,
-      "created_at": "2026-06-26T16:35:51"
+      "duration_sec": 6.2,
+      "created_at": "2026-06-26T17:51:55"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260511_3637052.html": {
       "period": "2026.2期",
@@ -232,11 +232,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260511_3637052.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260511547557896279.pdf",
       "minio_key": "shaanxi-price/2026.2期_榆林工程造价信息》2026年第2期.pdf",
-      "docs_written": 452,
-      "pages_parsed": 21,
+      "docs_written": 1119,
+      "pages_parsed": 47,
       "status": "ok",
-      "duration_sec": 4.4,
-      "created_at": "2026-06-26T16:42:31"
+      "duration_sec": 4.1,
+      "created_at": "2026-06-26T17:51:59"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260521_3640074.html": {
       "period": "2026.1期",
@@ -246,11 +246,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/t20260521_3640074.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202605/P020260521309964972630.pdf",
       "minio_key": "shaanxi-price/2026.1期_榆林工程造价信息》2026年第1期.pdf",
-      "docs_written": 451,
-      "pages_parsed": 21,
+      "docs_written": 1118,
+      "pages_parsed": 47,
       "status": "ok",
-      "duration_sec": 4.7,
-      "created_at": "2026-06-26T16:42:36"
+      "duration_sec": 4.4,
+      "created_at": "2026-06-26T17:52:03"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202604/t20260430_3634612.html": {
       "period": "2026.4月",
@@ -260,11 +260,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202604/t20260430_3634612.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202604/P020260430378808557706.pdf",
       "minio_key": "shaanxi-price/2026.4月_2026年4月材料信息价.pdf",
-      "docs_written": 2050,
-      "pages_parsed": 62,
+      "docs_written": 2069,
+      "pages_parsed": 63,
       "status": "ok",
-      "duration_sec": 8.9,
-      "created_at": "2026-06-26T16:42:45"
+      "duration_sec": 4.1,
+      "created_at": "2026-06-26T17:52:08"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202604/t20260417_3630822.html": {
       "period": "2026.3期",
@@ -277,8 +277,8 @@
       "docs_written": 30,
       "pages_parsed": 1,
       "status": "ok",
-      "duration_sec": 8.3,
-      "created_at": "2026-06-26T16:42:53"
+      "duration_sec": 6.5,
+      "created_at": "2026-06-26T17:52:14"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260331_3626149.html": {
       "period": "2026.3月",
@@ -288,11 +288,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260331_3626149.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/P020260331330939880086.pdf",
       "minio_key": "shaanxi-price/2026.3月_2026年3月材料信息价.pdf",
-      "docs_written": 2050,
+      "docs_written": 2049,
       "pages_parsed": 62,
       "status": "ok",
-      "duration_sec": 8.0,
-      "created_at": "2026-06-26T16:49:12"
+      "duration_sec": 8.2,
+      "created_at": "2026-06-26T17:52:22"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260316_3620895.html": {
       "period": "2026.2期",
@@ -305,8 +305,8 @@
       "docs_written": 27,
       "pages_parsed": 1,
       "status": "ok",
-      "duration_sec": 8.6,
-      "created_at": "2026-06-26T16:56:36"
+      "duration_sec": 8.3,
+      "created_at": "2026-06-26T17:52:31"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260302_3616243.html": {
       "period": "2026.2月",
@@ -316,11 +316,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/t20260302_3616243.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202603/P020260302521230678499.pdf",
       "minio_key": "shaanxi-price/2026.2月_2026年2月材料信息价.pdf",
-      "docs_written": 2050,
-      "pages_parsed": 62,
+      "docs_written": 2069,
+      "pages_parsed": 63,
       "status": "ok",
-      "duration_sec": 9.1,
-      "created_at": "2026-06-26T16:56:45"
+      "duration_sec": 9.6,
+      "created_at": "2026-06-26T17:52:40"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202602/t20260226_3615163.html": {
       "period": "2026.1期",
@@ -333,8 +333,8 @@
       "docs_written": 27,
       "pages_parsed": 1,
       "status": "ok",
-      "duration_sec": 9.4,
-      "created_at": "2026-06-26T16:56:55"
+      "duration_sec": 8.6,
+      "created_at": "2026-06-26T17:52:49"
     },
     "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202601/t20260130_3609314.html": {
       "period": "2026.1月",
@@ -344,11 +344,11 @@
       "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202601/t20260130_3609314.html",
       "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202601/P020260130389470732076.pdf",
       "minio_key": "shaanxi-price/2026.1月_2026年1月材料信息价.pdf",
-      "docs_written": 2050,
+      "docs_written": 2049,
       "pages_parsed": 62,
       "status": "ok",
-      "duration_sec": 10.2,
-      "created_at": "2026-06-26T17:02:49"
+      "duration_sec": 10.6,
+      "created_at": "2026-06-26T17:52:59"
     }
   }
 }

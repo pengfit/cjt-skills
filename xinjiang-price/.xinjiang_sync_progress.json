@@ -1,61 +1,5 @@
 {
   "done": {
-    "2/6788": {
-      "areaid": 2,
-      "area_name": "乌鲁木齐",
-      "period": "2026-04-01",
-      "policy_id": "6788",
-      "policy_title": "乌鲁木齐市2026年4月份建设工程综合价格信息",
-      "release_date": "2026-06-02",
-      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6788",
-      "status": "ok",
-      "docs_written": 570,
-      "duration_sec": 9.1,
-      "file_url": "https://www.xjzj.com/Upload/File/5c56d432-486f-47a2-9a14-9a92b9f55a33/乌鲁木齐市2026年4月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/2/6788/"
-    },
-    "2/6769": {
-      "areaid": 2,
-      "area_name": "乌鲁木齐",
-      "period": "2026-03-01",
-      "policy_id": "6769",
-      "policy_title": "乌鲁木齐市2026年3月份建设工程综合价格信息",
-      "release_date": "2026-05-11",
-      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6769",
-      "status": "ok",
-      "docs_written": 527,
-      "duration_sec": 10.2,
-      "file_url": "https://www.xjzj.com/Upload/File/4aa0ffec-8200-46d9-a393-4f91012fc077/乌鲁木齐市2026年3月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/2/6769/"
-    },
-    "2/6749": {
-      "areaid": 2,
-      "area_name": "乌鲁木齐",
-      "period": "2026-02-01",
-      "policy_id": "6749",
-      "policy_title": "乌鲁木齐市2026年2月份建设工程综合价格信息",
-      "release_date": "2026-03-27",
-      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6749",
-      "status": "ok",
-      "docs_written": 527,
-      "duration_sec": 10.1,
-      "file_url": "https://www.xjzj.com/Upload/File/9120e214-814a-440f-b1b1-d89db0940740/乌鲁木齐市2026年2月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/2/6749/"
-    },
-    "2/6731": {
-      "areaid": 2,
-      "area_name": "乌鲁木齐",
-      "period": "2026-01-01",
-      "policy_id": "6731",
-      "policy_title": "乌鲁木齐市2026年1月份建设工程综合价格信息",
-      "release_date": "2026-03-09",
-      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6731",
-      "status": "ok",
-      "docs_written": 527,
-      "duration_sec": 10.3,
-      "file_url": "https://www.xjzj.com/Upload/File/cd703774-b3c0-46b2-aa14-b081315620a1/乌鲁木齐市2026年1月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/2/6731/"
-    },
     "1/6790": {
       "areaid": 1,
       "area_name": "伊犁",
@@ -68,7 +12,7 @@
       "docs_written": 1084,
       "duration_sec": 9.2,
       "file_url": "https://www.xjzj.com/Upload/File/ca9110d0-147e-44a3-865b-0c5e66e95232/伊犁州2026年4月份建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/81abc262-737e-416d-b78b-8fcd24a0cd62/奎屯市2026年4月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/1/6790/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6786": {
       "areaid": 1,
@@ -80,9 +24,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6786",
       "status": "ok",
       "docs_written": 4922,
-      "duration_sec": 4.2,
+      "duration_sec": 3.9,
       "file_url": "https://www.xjzj.com/Upload/File/8cbc1631-08e2-43be-9edb-bf6079d447b0/塔城地区2026年4月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/1/6786/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6771": {
       "areaid": 1,
@@ -94,9 +38,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6771",
       "status": "ok",
       "docs_written": 1123,
-      "duration_sec": 9.2,
+      "duration_sec": 9.1,
       "file_url": "https://www.xjzj.com/Upload/File/77ac3d55-c63d-4932-8303-417498f31418/奎屯市2026年3月份建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/761b2743-3333-4506-b8b0-b07f6301691c/伊犁州2026年3月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/1/6771/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6768": {
       "areaid": 1,
@@ -108,9 +52,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6768",
       "status": "ok",
       "docs_written": 1320,
-      "duration_sec": 3.1,
+      "duration_sec": 2.7,
       "file_url": "https://www.xjzj.com/Upload/File/7f806e43-a0c7-4624-9572-2e2f4e3389d1/吐鲁番2026年3月建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/1/6768/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6751": {
       "areaid": 1,
@@ -124,7 +68,7 @@
       "docs_written": 1085,
       "duration_sec": 10.4,
       "file_url": "https://www.xjzj.com/Upload/File/a413ddb8-f8a5-43f4-8c16-d2b801a9c37c/伊犁州直各县市2026年2月建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/94a9cbd4-9a55-41f5-aac8-12eec74b7443/奎屯市2026年2月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/1/6751/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6733": {
       "areaid": 1,
@@ -136,9 +80,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6733",
       "status": "ok",
       "docs_written": 1085,
-      "duration_sec": 10.0,
+      "duration_sec": 10.2,
       "file_url": "https://www.xjzj.com/Upload/File/16ec8418-62bc-4dd2-b167-7b3160b36138/奎屯市2026年1月份建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/9bbeceac-10c3-45ce-9908-cc348146a91a/伊犁州直各县市2026年1月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/1/6733/"
+      "minio_key": "xinjiang-price/伊犁/"
     },
     "1/6721": {
       "areaid": 1,
@@ -150,9 +94,65 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6721",
       "status": "ok",
       "docs_written": 2052,
-      "duration_sec": 3.0,
+      "duration_sec": 3.3,
       "file_url": "https://www.xjzj.com/Upload/File/c38be511-83eb-4079-8ec4-ad4ee48ba9be/附件：博州2026年1月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/1/6721/"
+      "minio_key": "xinjiang-price/伊犁/"
+    },
+    "2/6788": {
+      "areaid": 2,
+      "area_name": "乌鲁木齐",
+      "period": "2026-04-01",
+      "policy_id": "6788",
+      "policy_title": "乌鲁木齐市2026年4月份建设工程综合价格信息",
+      "release_date": "2026-06-02",
+      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6788",
+      "status": "ok",
+      "docs_written": 570,
+      "duration_sec": 11.6,
+      "file_url": "https://www.xjzj.com/Upload/File/5c56d432-486f-47a2-9a14-9a92b9f55a33/乌鲁木齐市2026年4月份建设工程综合价格信息.xlsx",
+      "minio_key": "xinjiang-price/乌鲁木齐/"
+    },
+    "2/6769": {
+      "areaid": 2,
+      "area_name": "乌鲁木齐",
+      "period": "2026-03-01",
+      "policy_id": "6769",
+      "policy_title": "乌鲁木齐市2026年3月份建设工程综合价格信息",
+      "release_date": "2026-05-11",
+      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6769",
+      "status": "ok",
+      "docs_written": 527,
+      "duration_sec": 10.2,
+      "file_url": "https://www.xjzj.com/Upload/File/4aa0ffec-8200-46d9-a393-4f91012fc077/乌鲁木齐市2026年3月份建设工程综合价格信息.xlsx",
+      "minio_key": "xinjiang-price/乌鲁木齐/"
+    },
+    "2/6749": {
+      "areaid": 2,
+      "area_name": "乌鲁木齐",
+      "period": "2026-02-01",
+      "policy_id": "6749",
+      "policy_title": "乌鲁木齐市2026年2月份建设工程综合价格信息",
+      "release_date": "2026-03-27",
+      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6749",
+      "status": "ok",
+      "docs_written": 527,
+      "duration_sec": 10.4,
+      "file_url": "https://www.xjzj.com/Upload/File/9120e214-814a-440f-b1b1-d89db0940740/乌鲁木齐市2026年2月份建设工程综合价格信息.xlsx",
+      "minio_key": "xinjiang-price/乌鲁木齐/"
+    },
+    "2/6731": {
+      "areaid": 2,
+      "area_name": "乌鲁木齐",
+      "period": "2026-01-01",
+      "policy_id": "6731",
+      "policy_title": "乌鲁木齐市2026年1月份建设工程综合价格信息",
+      "release_date": "2026-03-09",
+      "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6731",
+      "status": "ok",
+      "docs_written": 527,
+      "duration_sec": 10.2,
+      "file_url": "https://www.xjzj.com/Upload/File/cd703774-b3c0-46b2-aa14-b081315620a1/乌鲁木齐市2026年1月份建设工程综合价格信息.xlsx",
+      "minio_key": "xinjiang-price/乌鲁木齐/"
     },
     "3/6779": {
       "areaid": 3,
@@ -166,7 +166,7 @@
       "docs_written": 543,
       "duration_sec": 6.3,
       "file_url": "https://www.xjzj.com/Upload/File/195a53ed-5f96-4444-a1e8-9d022ecc6942/附件1：昌吉市2026年4月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/da745c61-9c0b-48bf-ac78-00ffa4188728/附件2：阜康市、呼图壁、玛纳斯县2026年4月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/a77d642f-8f77-4c06-99cf-e17dad609cc2/附件3：奇台、吉木萨尔、木垒县2026年4月建设工程除税综合价格信息.xls1.xls,https://www.xjzj.com/Upload/File/8c15072c-34f7-4a6b-9542-0cf5e6eb1ac8/附件4：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls",
-      "minio_key": "xinjiang-price/3/6779/"
+      "minio_key": "xinjiang-price/昌吉/"
     },
     "3/6760": {
       "areaid": 3,
@@ -180,7 +180,7 @@
       "docs_written": 543,
       "duration_sec": 5.9,
       "file_url": "https://www.xjzj.com/Upload/File/fff68db8-b2bf-4d53-82d3-b720ed77304c/附件1：昌吉市2026年3月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/f577cbf0-47f7-42bc-87d1-14003f53036f/附件2：阜康市、呼图壁、玛纳斯县2026年3月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/905db026-e1b8-459b-814b-eb89306643b7/附件3：奇台、吉木萨尔、木垒县2026年3月建设工程除税综合价格信息.xls1.xls,https://www.xjzj.com/Upload/File/7815e7c6-f4e4-4fdc-aaf8-9caa1f0d1154/附件4：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls",
-      "minio_key": "xinjiang-price/3/6760/"
+      "minio_key": "xinjiang-price/昌吉/"
     },
     "3/6740": {
       "areaid": 3,
@@ -192,9 +192,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6740",
       "status": "ok",
       "docs_written": 543,
-      "duration_sec": 6.5,
+      "duration_sec": 6.1,
       "file_url": "https://www.xjzj.com/Upload/File/00a7f17e-2553-4141-aa10-2827142eaf45/附件1：昌吉市2026年2月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/59bc2631-02fa-4792-8acc-d495220124e5/附件2：阜康市、呼图壁、玛纳斯县2026年2月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/e6b1b365-a295-4c0b-8711-6e89943aef5d/附件3：奇台、吉木萨尔、木垒县2026年2月建设工程除税综合价格信息.xls1.xls,https://www.xjzj.com/Upload/File/32d9ee69-eab3-4485-811d-18b093c0647d/附件4：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls",
-      "minio_key": "xinjiang-price/3/6740/"
+      "minio_key": "xinjiang-price/昌吉/"
     },
     "3/6722": {
       "areaid": 3,
@@ -206,9 +206,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6722",
       "status": "ok",
       "docs_written": 543,
-      "duration_sec": 4.7,
+      "duration_sec": 4.9,
       "file_url": "https://www.xjzj.com/Upload/File/3ea80a09-4029-4078-a98b-104f64dcc95b/附件1：昌吉市2026年1月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/73497343-050c-4e13-826d-aa375cab1d2b/附件2：阜康市、呼图壁、玛纳斯县2026年1月建设工程除税综合价格信息.xls,https://www.xjzj.com/Upload/File/ced06a5d-5b8e-49fb-b2f9-e938e8786f0d/附件3：奇台、吉木萨尔、木垒县2026年1月建设工程除税综合价格信息.xls1.xls",
-      "minio_key": "xinjiang-price/3/6722/"
+      "minio_key": "xinjiang-price/昌吉/"
     },
     "4/6783": {
       "areaid": 4,
@@ -222,7 +222,7 @@
       "docs_written": 641,
       "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/d505b845-9dcb-4baf-bacc-e58af0ebe6d7/附件2：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls,https://www.xjzj.com/Upload/File/788ebf82-9ed8-40b1-96c3-3320e546e683/克拉玛依地区2026年4月建设工程综合价格信息 含独山子.xls",
-      "minio_key": "xinjiang-price/4/6783/"
+      "minio_key": "xinjiang-price/克拉玛依/"
     },
     "4/6764": {
       "areaid": 4,
@@ -234,9 +234,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6764",
       "status": "ok",
       "docs_written": 642,
-      "duration_sec": 3.5,
+      "duration_sec": 3.6,
       "file_url": "https://www.xjzj.com/Upload/File/029beac4-4988-4523-9bca-cd25050e1f58/附件2：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls,https://www.xjzj.com/Upload/File/a71ba28e-3d05-42be-be16-6fac3f3f30e6/克拉玛依地区2026年3月建设工程综合价格信息（含独山子）.xls",
-      "minio_key": "xinjiang-price/4/6764/"
+      "minio_key": "xinjiang-price/克拉玛依/"
     },
     "4/6745": {
       "areaid": 4,
@@ -248,9 +248,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6745",
       "status": "ok",
       "docs_written": 642,
-      "duration_sec": 3.4,
+      "duration_sec": 3.5,
       "file_url": "https://www.xjzj.com/Upload/File/ab25f084-c6ba-47db-a263-e9c2ed939a41/附件2：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls,https://www.xjzj.com/Upload/File/e12a1f6a-ca31-4530-8d14-a328899c7ce9/克拉玛依地区2026年2月建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/4/6745/"
+      "minio_key": "xinjiang-price/克拉玛依/"
     },
     "4/6726": {
       "areaid": 4,
@@ -262,9 +262,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6726",
       "status": "ok",
       "docs_written": 642,
-      "duration_sec": 3.6,
+      "duration_sec": 3.5,
       "file_url": "https://www.xjzj.com/Upload/File/02a9ac4b-88e5-4991-a9a2-7453bfd6edbf/附件2：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls,https://www.xjzj.com/Upload/File/ce15b2f0-b1df-401e-a854-14592a839bed/克拉玛依地区2026年1月建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/4/6726/"
+      "minio_key": "xinjiang-price/克拉玛依/"
     },
     "5/6785": {
       "areaid": 5,
@@ -276,9 +276,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6785",
       "status": "ok",
       "docs_written": 535,
-      "duration_sec": 2.2,
+      "duration_sec": 1.9,
       "file_url": "https://www.xjzj.com/Upload/File/f4d91ed4-de8c-4bbe-bffa-a101b203b8c3/附件：第八师石河子市2026年4月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/5/6785/"
+      "minio_key": "xinjiang-price/石河子/"
     },
     "5/6766": {
       "areaid": 5,
@@ -290,9 +290,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6766",
       "status": "ok",
       "docs_written": 492,
-      "duration_sec": 2.0,
+      "duration_sec": 1.9,
       "file_url": "https://www.xjzj.com/Upload/File/e0607792-bf0a-4467-9446-7dac8f714142/附件：第八师石河子市2026年3月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/5/6766/"
+      "minio_key": "xinjiang-price/石河子/"
     },
     "5/6741": {
       "areaid": 5,
@@ -304,9 +304,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6741",
       "status": "ok",
       "docs_written": 493,
-      "duration_sec": 2.1,
+      "duration_sec": 2.2,
       "file_url": "https://www.xjzj.com/Upload/File/10b30a11-fa30-4ad1-b1bb-55aa6ec71a10/附件：第八师石河子市2026年2月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/5/6741/"
+      "minio_key": "xinjiang-price/石河子/"
     },
     "5/6728": {
       "areaid": 5,
@@ -318,9 +318,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6728",
       "status": "ok",
       "docs_written": 493,
-      "duration_sec": 2.0,
+      "duration_sec": 2.3,
       "file_url": "https://www.xjzj.com/Upload/File/32df8625-9c42-4e5b-b75e-8e1c683a9fd4/附件：第八师石河子市2026年1月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/5/6728/"
+      "minio_key": "xinjiang-price/石河子/"
     },
     "7/6767": {
       "areaid": 7,
@@ -332,9 +332,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6767",
       "status": "ok",
       "docs_written": 4533,
-      "duration_sec": 2.4,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/38025cdc-add1-4f79-af77-67ff317b6e34/塔城地区2026年3月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/7/6767/"
+      "minio_key": "xinjiang-price/塔城/"
     },
     "7/6747": {
       "areaid": 7,
@@ -346,9 +346,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6747",
       "status": "ok",
       "docs_written": 4584,
-      "duration_sec": 2.5,
+      "duration_sec": 5.5,
       "file_url": "https://www.xjzj.com/Upload/File/a505bfc8-dcac-4d4e-bdef-4efbdaee2bad/塔城地区2026年2月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/7/6747/"
+      "minio_key": "xinjiang-price/塔城/"
     },
     "7/6729": {
       "areaid": 7,
@@ -360,9 +360,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6729",
       "status": "ok",
       "docs_written": 4466,
-      "duration_sec": 3.9,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/28aa0093-0df9-4be8-8846-c186d4fe8191/塔城地区2026年1月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/7/6729/"
+      "minio_key": "xinjiang-price/塔城/"
     },
     "8/6776": {
       "areaid": 8,
@@ -374,9 +374,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6776",
       "status": "ok",
       "docs_written": 4552,
-      "duration_sec": 2.3,
+      "duration_sec": 4.6,
       "file_url": "https://www.xjzj.com/Upload/File/d19685c8-2bb8-411d-8322-e6efa89ebf31/阿勒泰地区2026年4月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/8/6776/"
+      "minio_key": "xinjiang-price/阿勒泰/"
     },
     "8/6757": {
       "areaid": 8,
@@ -388,9 +388,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6757",
       "status": "ok",
       "docs_written": 4144,
-      "duration_sec": 4.8,
+      "duration_sec": 2.7,
       "file_url": "https://www.xjzj.com/Upload/File/624cad2c-9b02-4c95-b84b-0575c0a06eec/阿勒泰地区2026年3月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/8/6757/"
+      "minio_key": "xinjiang-price/阿勒泰/"
     },
     "8/6737": {
       "areaid": 8,
@@ -402,9 +402,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6737",
       "status": "ok",
       "docs_written": 4144,
-      "duration_sec": 3.9,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/c06cc6ba-ffdb-4eb4-a347-de910e997068/阿勒泰地区2026年2月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/8/6737/"
+      "minio_key": "xinjiang-price/阿勒泰/"
     },
     "8/6719": {
       "areaid": 8,
@@ -416,9 +416,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6719",
       "status": "ok",
       "docs_written": 4144,
-      "duration_sec": 4.1,
+      "duration_sec": 3.4,
       "file_url": "https://www.xjzj.com/Upload/File/9bc55364-328d-49d1-a1ba-49236f2fd4e8/阿勒泰地区2026年1月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/8/6719/"
+      "minio_key": "xinjiang-price/阿勒泰/"
     },
     "9/6780": {
       "areaid": 9,
@@ -430,9 +430,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6780",
       "status": "ok",
       "docs_written": 487,
-      "duration_sec": 11.9,
+      "duration_sec": 10.7,
       "file_url": "https://www.xjzj.com/Upload/File/5ea21b8c-c933-43bb-80be-c4bc8789556f/附件：哈密市2026年4月份建设工程价格信息.xlsx",
-      "minio_key": "xinjiang-price/9/6780/"
+      "minio_key": "xinjiang-price/哈密/"
     },
     "9/6761": {
       "areaid": 9,
@@ -444,9 +444,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6761",
       "status": "ok",
       "docs_written": 488,
-      "duration_sec": 9.4,
+      "duration_sec": 11.7,
       "file_url": "https://www.xjzj.com/Upload/File/5c73f2ba-cc6d-4db3-b4ef-231009db3475/附件：哈密市2026年3月份建设工程价格信息.xlsx",
-      "minio_key": "xinjiang-price/9/6761/"
+      "minio_key": "xinjiang-price/哈密/"
     },
     "9/6742": {
       "areaid": 9,
@@ -458,9 +458,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6742",
       "status": "ok",
       "docs_written": 500,
-      "duration_sec": 10.6,
+      "duration_sec": 9.9,
       "file_url": "https://www.xjzj.com/Upload/File/0d2b2de4-9f4a-4b4a-8ee8-8513602780dd/附件：哈密市2026年2月份建设工程价格信息（确定稿）.xlsx",
-      "minio_key": "xinjiang-price/9/6742/"
+      "minio_key": "xinjiang-price/哈密/"
     },
     "9/6723": {
       "areaid": 9,
@@ -472,9 +472,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6723",
       "status": "ok",
       "docs_written": 500,
-      "duration_sec": 11.2,
+      "duration_sec": 11.3,
       "file_url": "https://www.xjzj.com/Upload/File/6f9ea41c-089e-4e69-bf5e-f6b25e8f4b14/附件：哈密市2026年1月份建设工程价格信息.xlsx",
-      "minio_key": "xinjiang-price/9/6723/"
+      "minio_key": "xinjiang-price/哈密/"
     },
     "10/6777": {
       "areaid": 10,
@@ -486,9 +486,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6777",
       "status": "ok",
       "docs_written": 523,
-      "duration_sec": 3.5,
+      "duration_sec": 4.0,
       "file_url": "https://www.xjzj.com/Upload/File/90da0324-7591-4e3c-8822-b31e347f0e7d/附件1：库尔勒市2026年4月份建设工程综合价格信息.xls,https://www.xjzj.com/Upload/File/04a1a9b0-1067-420a-9f0d-b8a5859a1890/附件2：巴州各县2026年4月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/10/6777/"
+      "minio_key": "xinjiang-price/巴州/"
     },
     "10/6758": {
       "areaid": 10,
@@ -500,9 +500,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6758",
       "status": "ok",
       "docs_written": 523,
-      "duration_sec": 3.5,
+      "duration_sec": 3.8,
       "file_url": "https://www.xjzj.com/Upload/File/d1033fd3-9ac3-4175-8145-068c3071fc35/附件1：库尔勒市2026年3月份建设工程综合价格信息.xls,https://www.xjzj.com/Upload/File/aa16e1ec-8baf-48ea-8413-9a6890cf77ca/附件2：巴州各县2026年3月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/10/6758/"
+      "minio_key": "xinjiang-price/巴州/"
     },
     "10/6738": {
       "areaid": 10,
@@ -514,9 +514,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6738",
       "status": "ok",
       "docs_written": 523,
-      "duration_sec": 3.3,
+      "duration_sec": 4.6,
       "file_url": "https://www.xjzj.com/Upload/File/9214fb34-cf27-4d97-874b-9cdef1d7597b/附件1：库尔勒市2026年2月份建设工程综合价格信息.xls,https://www.xjzj.com/Upload/File/ad3f1cf9-c6c7-441d-90e7-49684cf491a0/附件2：巴州各县2026年2月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/10/6738/"
+      "minio_key": "xinjiang-price/巴州/"
     },
     "10/6720": {
       "areaid": 10,
@@ -528,9 +528,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6720",
       "status": "ok",
       "docs_written": 523,
-      "duration_sec": 3.6,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/14bf94fa-8228-40c9-81cd-531dc02616bb/附件1：库尔勒市2026年1月份建设工程综合价格信息.xls,https://www.xjzj.com/Upload/File/90e9c004-962e-4f49-b075-a48e0bd9b3a9/附件2：巴州各县2026年1月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/10/6720/"
+      "minio_key": "xinjiang-price/巴州/"
     },
     "11/6775": {
       "areaid": 11,
@@ -542,7 +542,7 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6775",
       "status": "failed",
       "docs_written": 0,
-      "duration_sec": 0.4,
+      "duration_sec": 0.5,
       "error": "详情页无 xlsx 附件（paths=3）"
     },
     "11/6774": {
@@ -555,9 +555,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6774",
       "status": "ok",
       "docs_written": 635,
-      "duration_sec": 2.0,
+      "duration_sec": 2.5,
       "file_url": "https://www.xjzj.com/Upload/File/53cc9428-1362-43ec-bb65-a419a1eb0938/阿克苏地区2026年4月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/11/6774/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6756": {
       "areaid": 11,
@@ -569,9 +569,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6756",
       "status": "ok",
       "docs_written": 727,
-      "duration_sec": 3.9,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/cd3accc3-9166-4432-afd9-5d72dec25093/附件1：阿拉尔市2026年3月份建设工程价格信息.xls,https://www.xjzj.com/Upload/File/78ed050d-2fa4-42a2-aaa9-360b12ba955f/附件2：一师各团场2026年3月份水泥、多孔砖、砂石料、商砼材料价格信息.xls",
-      "minio_key": "xinjiang-price/11/6756/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6755": {
       "areaid": 11,
@@ -583,9 +583,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6755",
       "status": "ok",
       "docs_written": 635,
-      "duration_sec": 2.1,
+      "duration_sec": 2.6,
       "file_url": "https://www.xjzj.com/Upload/File/23422726-51b4-4fdb-b65e-cf5e9cfe707b/阿克苏地区2026年3月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/11/6755/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6736": {
       "areaid": 11,
@@ -597,9 +597,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6736",
       "status": "ok",
       "docs_written": 746,
-      "duration_sec": 3.8,
+      "duration_sec": 3.7,
       "file_url": "https://www.xjzj.com/Upload/File/404f614f-908a-40e0-82ef-47eecae96383/附件1：阿拉尔市2026年2月份建设工程价格信息.xls,https://www.xjzj.com/Upload/File/eb65b189-216a-47d4-ba05-839d35bf98ca/附件2：一师各团场2026年2月份水泥、多孔砖、砂石料、商砼材料价格信息.xls",
-      "minio_key": "xinjiang-price/11/6736/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6735": {
       "areaid": 11,
@@ -611,9 +611,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6735",
       "status": "ok",
       "docs_written": 639,
-      "duration_sec": 2.0,
+      "duration_sec": 2.4,
       "file_url": "https://www.xjzj.com/Upload/File/7589e76d-2910-4732-9fab-81fb6467a20e/阿克苏地区2026年2月份建设工程价格信息.xls",
-      "minio_key": "xinjiang-price/11/6735/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6718": {
       "areaid": 11,
@@ -625,9 +625,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6718",
       "status": "ok",
       "docs_written": 746,
-      "duration_sec": 3.6,
+      "duration_sec": 4.7,
       "file_url": "https://www.xjzj.com/Upload/File/b0f7b91f-6682-4f8e-8cec-c379b8d3fd6f/附件1：阿拉尔市2026年1月份建设工程价格信息.xls,https://www.xjzj.com/Upload/File/3b6b21f3-d33e-4088-bcb4-bf925300e517/附件2：一师各团场2026年1月份水泥、多孔砖、砂石料、商砼材料价格信息.xls",
-      "minio_key": "xinjiang-price/11/6718/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "11/6717": {
       "areaid": 11,
@@ -639,9 +639,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6717",
       "status": "ok",
       "docs_written": 637,
-      "duration_sec": 2.3,
+      "duration_sec": 2.0,
       "file_url": "https://www.xjzj.com/Upload/File/19574702-6301-4d6b-8fc5-74aefd7b5c87/阿克苏地区2026年1月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/11/6717/"
+      "minio_key": "xinjiang-price/阿克苏/"
     },
     "12/6782": {
       "areaid": 12,
@@ -653,9 +653,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6782",
       "status": "ok",
       "docs_written": 789,
-      "duration_sec": 5.7,
+      "duration_sec": 2.2,
       "file_url": "https://www.xjzj.com/Upload/File/4b8d56b7-d341-4988-b5fe-6036b21df6c1/喀什地区2026年4月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/12/6782/"
+      "minio_key": "xinjiang-price/喀什/"
     },
     "12/6763": {
       "areaid": 12,
@@ -667,9 +667,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6763",
       "status": "ok",
       "docs_written": 789,
-      "duration_sec": 2.2,
+      "duration_sec": 1.9,
       "file_url": "https://www.xjzj.com/Upload/File/5ee2948e-30b6-4502-9f0b-75ff93e2a5d9/附件：喀什地区2026年3月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/12/6763/"
+      "minio_key": "xinjiang-price/喀什/"
     },
     "12/6744": {
       "areaid": 12,
@@ -681,9 +681,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6744",
       "status": "ok",
       "docs_written": 788,
-      "duration_sec": 2.0,
+      "duration_sec": 2.1,
       "file_url": "https://www.xjzj.com/Upload/File/6f4eacdd-5491-4a44-94fa-fccf2c303368/喀什地区2026年2月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/12/6744/"
+      "minio_key": "xinjiang-price/喀什/"
     },
     "12/6725": {
       "areaid": 12,
@@ -695,9 +695,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6725",
       "status": "ok",
       "docs_written": 788,
-      "duration_sec": 2.1,
+      "duration_sec": 2.2,
       "file_url": "https://www.xjzj.com/Upload/File/ecf0ded3-b39c-4343-baee-718e6ad0c2ae/附件：喀什地区2026年1月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/12/6725/"
+      "minio_key": "xinjiang-price/喀什/"
     },
     "13/6789": {
       "areaid": 13,
@@ -709,9 +709,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6789",
       "status": "ok",
       "docs_written": 547,
-      "duration_sec": 1.9,
+      "duration_sec": 1.8,
       "file_url": "https://www.xjzj.com/Upload/File/a415b49c-875e-4e47-a029-ce79d876bb2c/附件：五家渠市2026年4月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/13/6789/"
+      "minio_key": "xinjiang-price/五家渠市/"
     },
     "13/6770": {
       "areaid": 13,
@@ -725,7 +725,7 @@
       "docs_written": 504,
       "duration_sec": 1.9,
       "file_url": "https://www.xjzj.com/Upload/File/31560c0f-afbd-4547-b834-0fd792239daf/附件：五家渠市2026年3月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/13/6770/"
+      "minio_key": "xinjiang-price/五家渠市/"
     },
     "13/6750": {
       "areaid": 13,
@@ -737,9 +737,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6750",
       "status": "ok",
       "docs_written": 504,
-      "duration_sec": 2.1,
+      "duration_sec": 2.4,
       "file_url": "https://www.xjzj.com/Upload/File/b68bf4d7-6269-46b6-a2e4-6f50ed578d04/附件：五家渠市2026年2月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/13/6750/"
+      "minio_key": "xinjiang-price/五家渠市/"
     },
     "13/6732": {
       "areaid": 13,
@@ -751,9 +751,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6732",
       "status": "ok",
       "docs_written": 514,
-      "duration_sec": 2.2,
+      "duration_sec": 2.0,
       "file_url": "https://www.xjzj.com/Upload/File/6408ce73-7126-4350-8074-160e28929ac5/附件：五家渠市2026年1月建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/13/6732/"
+      "minio_key": "xinjiang-price/五家渠市/"
     },
     "14/6778": {
       "areaid": 14,
@@ -765,9 +765,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6778",
       "status": "ok",
       "docs_written": 2256,
-      "duration_sec": 2.9,
+      "duration_sec": 3.3,
       "file_url": "https://www.xjzj.com/Upload/File/63dc56ff-5110-48d7-a493-2d17c1e2b2af/附件：博州2026年4月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/14/6778/"
+      "minio_key": "xinjiang-price/博州/"
     },
     "14/6759": {
       "areaid": 14,
@@ -779,9 +779,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6759",
       "status": "ok",
       "docs_written": 2052,
-      "duration_sec": 2.5,
+      "duration_sec": 3.2,
       "file_url": "https://www.xjzj.com/Upload/File/e0edcce4-b1e2-453e-b6de-7383de80359c/附件：博州2026年3月份建设工程综合价格信息.xlsx",
-      "minio_key": "xinjiang-price/14/6759/"
+      "minio_key": "xinjiang-price/博州/"
     },
     "14/6739": {
       "areaid": 14,
@@ -793,9 +793,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6739",
       "status": "ok",
       "docs_written": 2052,
-      "duration_sec": 2.6,
+      "duration_sec": 4.4,
       "file_url": "https://www.xjzj.com/Upload/File/d6686c7d-b5dd-4d1b-adee-5a87d92fc5d8/附件：博州2026年2月份建设工程综合价格信息.xlsx1.xlsx1.xlsx",
-      "minio_key": "xinjiang-price/14/6739/"
+      "minio_key": "xinjiang-price/博州/"
     },
     "15/6784": {
       "areaid": 15,
@@ -809,7 +809,7 @@
       "docs_written": 784,
       "duration_sec": 3.3,
       "file_url": "https://www.xjzj.com/Upload/File/2656060a-e0e6-452f-bc77-c835eddf5d45/附件1：克州2026年4月建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/050b0ceb-13ad-4b57-aba9-e38ae28b3beb/附件2：各类材料综合扣税率.xlsx",
-      "minio_key": "xinjiang-price/15/6784/"
+      "minio_key": "xinjiang-price/克州/"
     },
     "15/6765": {
       "areaid": 15,
@@ -823,7 +823,7 @@
       "docs_written": 764,
       "duration_sec": 3.5,
       "file_url": "https://www.xjzj.com/Upload/File/54f420e8-67e1-47ac-a2fb-d00cdd18c3bb/附件1：克州2026年3月建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/4e42b1f6-6eab-4f07-932c-1d1ad8a58ecf/附件2：各类材料综合扣税率.xlsx",
-      "minio_key": "xinjiang-price/15/6765/"
+      "minio_key": "xinjiang-price/克州/"
     },
     "15/6746": {
       "areaid": 15,
@@ -837,7 +837,7 @@
       "docs_written": 784,
       "duration_sec": 3.4,
       "file_url": "https://www.xjzj.com/Upload/File/b898ae36-26e0-44d5-af87-21d43aa07ad5/附件1：克州2026年2月建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/cdf67000-7a34-4c82-a5d4-1244fe90ec9a/附件2：各类材料综合扣税率.xlsx",
-      "minio_key": "xinjiang-price/15/6746/"
+      "minio_key": "xinjiang-price/克州/"
     },
     "15/6727": {
       "areaid": 15,
@@ -851,7 +851,7 @@
       "docs_written": 784,
       "duration_sec": 3.4,
       "file_url": "https://www.xjzj.com/Upload/File/5998a197-f08b-445e-89a8-5fe41b8c05ae/附件1：克州2026年1月建设工程综合价格信息.xlsx,https://www.xjzj.com/Upload/File/533c1aad-497b-4aa8-a14e-34d06e6fbc16/附件2：各类材料综合扣税率.xlsx",
-      "minio_key": "xinjiang-price/15/6727/"
+      "minio_key": "xinjiang-price/克州/"
     },
     "16/6781": {
       "areaid": 16,
@@ -863,9 +863,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6781",
       "status": "ok",
       "docs_written": 3310,
-      "duration_sec": 3.8,
+      "duration_sec": 3.9,
       "file_url": "https://www.xjzj.com/Upload/File/981fcab6-6d2d-4c3c-bf18-0ae7c1f27516/附件1：和田地区2026年4月份建设工程材料价格信息表.xlsx,https://www.xjzj.com/Upload/File/f7e5adef-4967-4ab2-bf65-bb5c03c4f98a/附件2：各类材料税率征收率和综合税率（2019年4月1日起执行）.xls",
-      "minio_key": "xinjiang-price/16/6781/"
+      "minio_key": "xinjiang-price/和田地区/"
     },
     "16/6762": {
       "areaid": 16,
@@ -877,9 +877,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6762",
       "status": "ok",
       "docs_written": 3410,
-      "duration_sec": 2.1,
+      "duration_sec": 2.6,
       "file_url": "https://www.xjzj.com/Upload/File/7f07f0ea-f9ed-46fd-a0fa-b7324c274667/附件1：和田地区2026年3月份建设工程材料价格信息表.xlsx",
-      "minio_key": "xinjiang-price/16/6762/"
+      "minio_key": "xinjiang-price/和田地区/"
     },
     "16/6743": {
       "areaid": 16,
@@ -891,9 +891,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6743",
       "status": "ok",
       "docs_written": 3384,
-      "duration_sec": 4.5,
+      "duration_sec": 2.7,
       "file_url": "https://www.xjzj.com/Upload/File/f466242c-3ceb-4653-9f08-02bffb35a21c/附件1：和田地区2026年2月份建设工程材料价格信息表.xlsx",
-      "minio_key": "xinjiang-price/16/6743/"
+      "minio_key": "xinjiang-price/和田地区/"
     },
     "16/6724": {
       "areaid": 16,
@@ -905,9 +905,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6724",
       "status": "ok",
       "docs_written": 3384,
-      "duration_sec": 2.7,
+      "duration_sec": 2.1,
       "file_url": "https://www.xjzj.com/Upload/File/bc7e6c29-2bb1-4cf7-8355-1645250cf607/附件1：和田地区2026年1月份建设工程材料价格信息表.xlsx",
-      "minio_key": "xinjiang-price/16/6724/"
+      "minio_key": "xinjiang-price/和田地区/"
     },
     "17/6787": {
       "areaid": 17,
@@ -919,9 +919,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6787",
       "status": "ok",
       "docs_written": 1482,
-      "duration_sec": 3.4,
+      "duration_sec": 3.0,
       "file_url": "https://www.xjzj.com/Upload/File/9897a0c1-4c0c-41c4-aef9-62bdd4aeb4d3/吐鲁番2026年4月建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/17/6787/"
+      "minio_key": "xinjiang-price/吐鲁番/"
     },
     "17/6748": {
       "areaid": 17,
@@ -933,9 +933,9 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6748",
       "status": "ok",
       "docs_written": 1320,
-      "duration_sec": 2.8,
+      "duration_sec": 3.0,
       "file_url": "https://www.xjzj.com/Upload/File/8ccf7ed2-a36d-460c-9462-6d3e6915fed5/吐鲁番市2026年2月建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/17/6748/"
+      "minio_key": "xinjiang-price/吐鲁番/"
     },
     "17/6730": {
       "areaid": 17,
@@ -947,27 +947,27 @@
       "detail_url": "https://www.xjzj.com/Home/PoliciesDetail/6730",
       "status": "ok",
       "docs_written": 1320,
-      "duration_sec": 2.7,
+      "duration_sec": 2.0,
       "file_url": "https://www.xjzj.com/Upload/File/1d3bbcae-c07b-428b-bf3a-b6b383414135/吐鲁番2026年1月份建设工程综合价格信息.xls",
-      "minio_key": "xinjiang-price/17/6730/"
+      "minio_key": "xinjiang-price/吐鲁番/"
     }
   },
   "areas": {
-    "2": {
-      "status": "ok",
-      "last_year": 2026,
-      "docs_written": 2151,
-      "completed_count": 4,
-      "total_count": 4,
-      "updated_at": "2026-06-25T07:19:17"
-    },
     "1": {
       "status": "ok",
       "last_year": 2026,
       "docs_written": 12671,
       "completed_count": 7,
       "total_count": 7,
-      "updated_at": "2026-06-25T07:28:46"
+      "updated_at": "2026-06-25T09:30:31"
+    },
+    "2": {
+      "status": "ok",
+      "last_year": 2026,
+      "docs_written": 2151,
+      "completed_count": 4,
+      "total_count": 4,
+      "updated_at": "2026-06-25T09:31:21"
     },
     "3": {
       "status": "ok",
@@ -975,7 +975,7 @@
       "docs_written": 2172,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:21:11"
+      "updated_at": "2026-06-25T09:31:49"
     },
     "4": {
       "status": "ok",
@@ -983,7 +983,7 @@
       "docs_written": 2567,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:21:34"
+      "updated_at": "2026-06-25T09:32:12"
     },
     "5": {
       "status": "ok",
@@ -991,7 +991,7 @@
       "docs_written": 2013,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:21:46"
+      "updated_at": "2026-06-25T09:32:24"
     },
     "7": {
       "status": "ok",
@@ -999,7 +999,7 @@
       "docs_written": 13583,
       "completed_count": 3,
       "total_count": 3,
-      "updated_at": "2026-06-25T07:22:06"
+      "updated_at": "2026-06-25T09:32:49"
     },
     "8": {
       "status": "ok",
@@ -1007,7 +1007,7 @@
       "docs_written": 16984,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:22:25"
+      "updated_at": "2026-06-25T09:33:07"
     },
     "9": {
       "status": "ok",
@@ -1015,7 +1015,7 @@
       "docs_written": 1975,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:23:14"
+      "updated_at": "2026-06-25T09:33:55"
     },
     "10": {
       "status": "ok",
@@ -1023,7 +1023,7 @@
       "docs_written": 2092,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:23:35"
+      "updated_at": "2026-06-25T09:34:18"
     },
     "11": {
       "status": "ok",
@@ -1031,7 +1031,7 @@
       "docs_written": 4765,
       "completed_count": 7,
       "total_count": 8,
-      "updated_at": "2026-06-25T07:24:02"
+      "updated_at": "2026-06-25T09:34:48"
     },
     "12": {
       "status": "ok",
@@ -1039,7 +1039,7 @@
       "docs_written": 3154,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:24:18"
+      "updated_at": "2026-06-25T09:35:00"
     },
     "13": {
       "status": "ok",
@@ -1047,7 +1047,7 @@
       "docs_written": 2069,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:24:29"
+      "updated_at": "2026-06-25T09:35:11"
     },
     "14": {
       "status": "ok",
@@ -1055,7 +1055,7 @@
       "docs_written": 6360,
       "completed_count": 3,
       "total_count": 3,
-      "updated_at": "2026-06-25T07:24:43"
+      "updated_at": "2026-06-25T09:35:28"
     },
     "15": {
       "status": "ok",
@@ -1063,7 +1063,7 @@
       "docs_written": 3116,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:25:02"
+      "updated_at": "2026-06-25T09:35:48"
     },
     "16": {
       "status": "ok",
@@ -1071,7 +1071,7 @@
       "docs_written": 13488,
       "completed_count": 4,
       "total_count": 4,
-      "updated_at": "2026-06-25T07:25:19"
+      "updated_at": "2026-06-25T09:36:02"
     },
     "17": {
       "status": "ok",
@@ -1079,7 +1079,7 @@
       "docs_written": 4122,
       "completed_count": 3,
       "total_count": 3,
-      "updated_at": "2026-06-25T07:25:35"
+      "updated_at": "2026-06-25T09:36:17"
     }
   }
 }

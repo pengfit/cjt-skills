@@ -147,7 +147,11 @@ def _normalize_county_name(county_name: str, city_name: str, mapping: dict) -> s
 
 def _build_docs(rows, city_headers, period, area_name):
     """每行材料 × 每个城市列 → 1条文档"""
-    from .sichuan_city_mapping import SICHUAN_CITY_MAPPING
+    import os, sys
+    _cm_dir = os.path.dirname(os.path.abspath(__file__))
+    if _cm_dir not in sys.path:
+        sys.path.insert(0, _cm_dir)
+    from sichuan_city_mapping import SICHUAN_CITY_MAPPING  # noqa: E402
     docs = []
     update_date = period.replace('年', '-').replace('月', '-01') if period else datetime.now().strftime('%Y-%m-%d')
     # city 字段用全称（与地图 features 对齐）；不修改 area_name 本身，保持 progress / 日志兼容

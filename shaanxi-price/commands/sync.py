@@ -6,13 +6,15 @@
 3. 对每期：
    a. 下载 PDF → 本地临时文件
    b. 上传 MinIO
-   c. 多格式 PDF 解析 → 长表（材料×规格×单位×城市×区县×价格）
-      * A: 多县区表（除税价 + 含税价 两行）—— 安康
-      * B: 单价表 6 列（除税价 + 含税价）—— 陕西province / 渭南 / 咸阳
-      * C: 单价表 7 列（含税+除税+税率）—— 铜川
-      * D: 多县区表（除税价一行）—— 汉中（部分）
-      * E: 县城成组（county 成组，每组 2 个价格）—— 咸阳 last section
-      * F: 汉中县区表（自定义）—— 汉中
+   c. 按 city 分发到独立 parser → 长表（材料×规格×单位×城市×区县×价格）
+      * 陕西 省本级：parse_shaanxi_province (B 布局)
+      * 咸阳：parse_xianyang (B + E 布局)
+      * 铜川：parse_tongchuan (C 布局)
+      * 渭南：parse_weinan (B 布局)
+      * 榆林：parse_yulin (B 布局)
+      * 汉中：parse_hanzhong (F + D 布局)
+      * 商洛：parse_shangluo (G 布局，pdfplumber)
+      * 安康：扫描图像型 PDF，OCR 暂未识别 → 标 skipped_image_pdf
    d. bulk_index 到 ods_material_shaanxi_price（幂等 _id）
    e. 写进度（本地 JSON + ES progress 索引）
 """
@@ -236,6 +238,34 @@ def main():
                 raise ValueError(f'无法从标题推断周期: {detail["title"]}')
             city = extract_city_from_title(item['title'], cfg['city_patterns'], cfg['province_label'])
             print(f'  period: {period}, city: {city}')
+
+            #  city 是否有对应 parser？没有则直接标 skipped 并跳过 PDF 下载
+            from pdf_parser import CITY_PARSERS as _CITY_PARSERS
+            if city not in _CITY_PARSERS:
+                print(f'  ⚠ city {city} 无对应 parser（仅 陕西/咸阳/铜川/渭南/榆林/汉中/商洛），跳过')
+                now = datetime.now().isoformat(timespec='seconds')
+                progress['done'][item['detail_url']] = {
+                    'period': period, 'title': item['title'], 'city': city,
+                    'publish_date': item['publish_date'], 'detail_url': item['detail_url'],
+                    'status': 'skipped_no_parser',
+                    'docs_written': 0, 'pages_parsed': 0,
+                    'note': f'CITY_PARSERS 未覆盖 {city}，未实现解析器（参考安康 扫描图像型）',
+                    'duration_sec': 0, 'created_at': now,
+                }
+                save_progress(progress)
+                if not args.dry_run:
+                    try:
+                        es.index(index=cfg['es']['progress_index'], body={
+                            'period': period, 'title': item['title'], 'city': city,
+                            'publish_date': item['publish_date'],
+                            'detail_url': item['detail_url'],
+                            'status': 'skipped_no_parser',
+                            'docs_written': 0, 'pages_parsed': 0,
+                            'created_at': now,
+                        })
+                    except Exception:
+                        pass
+                continue
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_pdf = os.path.join(tmpdir, 'source.pdf')

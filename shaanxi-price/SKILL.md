@@ -90,27 +90,35 @@ cd skills/shaanxi-price
 | `source_pdf` | MinIO 对象 key |
 | `source_url` | 详情页 PDF URL |
 
-## PDF 格式自动识别
+## PDF 格式自动识别（按 city 维度组织）
 
-陕西各设区市 PDF 格式不统一，本 skill 实现 **7 种页面类型自动识别**：
+陕西各设区市 PDF 格式不统一，本 skill **按 city 独立编写解析函数**，不依赖全局页面类型判断。
 
-| Type | 描述 | 出现的设区市 | 解析策略 |
-|------|------|--------------|----------|
-| A | 多县区表（除税价 + 含税价 各一行） | 安康 | 11 counties × N materials |
-| B | 单价表 6 列（除税价 + 含税价） | 陕西province / 渭南 / 咸阳 / 榆林 | 1 row × 1 material |
-| C | 单价表 7 列（含税+除税+税率，列序不同） | 铜川 | 1 row × 1 material |
-| D | 多县区表（仅除税价一行） | (保留) | 同 A 但无含税价 |
-| E | 多县区表（county 成组，每组 2 价格） | 咸阳 last section | (保留) |
-| F | 汉中县区表（自定义：顶材料清单 + 中间表头 + 底价格行） | 汉中 | 10 counties × M materials |
-| G | 商洛（pdfplumber layout-aware） | 商洛 | 仅保留有完整材料信息的行 |
+设计：
+- `commands/city_parsers.py`：每个 city 一个独立函数（`parse_<city>(text, page_obj) -> List[MaterialRow]`）
+- `commands/pdf_parser.py`：主入口，通过 `CITY_PARSERS` 字典按 city 分发
+- 函数内部自动判断页面布局（多布局兼容时优先识别）
+- 不识别的页面（工人工资、安装工程、租赁等）返回空列表
 
-每种类型在 `pdf_parser.py` 有独立解析函数 + 单元测试入口。
+| city | 函数 | 支持的页面布局 | 说明 |
+|------|------|----------------|------|
+| 陕西 省本级 | `parse_shaanxi_province` | B 布局 | 月刊《材料信息价》|
+| 咸阳 | `parse_xianyang` | B + E 布局 | 主要 B，末页可能 E（county 成组）|
+| 铜川 | `parse_tongchuan` | C 布局 | 含税+除税+税率% 3 列价格 |
+| 渭南 | `parse_weinan` | B 布局 | 双月刊 |
+| 榆林 | `parse_yulin` | B 布局 | 月刊 |
+| 汉中 | `parse_hanzhong` | F 布局（主）+ D 布局（兑底）| 顶材料清单 + county header + 底价格行 |
+| 商洛 | `parse_shangluo` | G 布局（pdfplumber 提取）| 季刊，双列布局 |
+| 安康 | （未在 CITY_PARSERS）| 扫描图像型 PDF | OCR 暂未识别 → 标 `skipped_image_pdf` |
+
+`安康` 2026.1-4 期是扫描图像 PDF（每页 3.8MB JPG），pypdf 提取不到文本；OCR 跑过但解析器不识别 OCR 输出格式，sync 流程直接标记 `skipped_image_pdf` 不入库。2026.5期是数字 PDF，正常入库 2260 条。
 
 ### 解析限制
 
 - **商洛 PDF** 使用两列布局，pdfplumber 提取的部分行只有价格（前一行材料）；当前只保留 breed+spec 都不为空的行，因此只入库约 13 条/期。如需全量，需引入 cross-page material/price 配对逻辑。
-- **汉中 PDF**（Type F）当前仅记录 code + county + price（breed/spec/unit 为空）。原因是汉中 PDF 把材料表头与价格表拆在不同位置，跨段配对容易错位。可后续增强。
-- **铜川 PDF**（Type C）包含税率字段，暂未入库（设计上未要求）。
+- **汉中 PDF** 仅 page 2 (顶材料清单 + county header + 价格行) 能正确解析，5期 30 条；其他页是材料列表 / B-type 表格，未专门实现。
+- **安康 PDF** 2026.1-4 期是扫描图像型，OCR 跑通但解析器不识别 OCR 输出格式，已标 `skipped_image_pdf` 跳过。需重写解析器支持 OCR 文本的 price-first 布局（010101303/热轧光圆钢筋/HPB300 Φ6~8 t 在除税价行之后）。
+- **铜川 PDF**（C 布局）含税率字段，暂未入库（设计上未要求）。
 
 ## ES 索引
 
@@ -122,7 +130,8 @@ cd skills/shaanxi-price
 ### 幂等写入
 
 ```
-_id = MD5(period + code + breed + spec + city + county)
+_id = MD5(period + code + city + county)        # 有 code 时（绝大多数）
+_id = MD5(period + breed + spec + city + county + unit)  # 无 code 时（商洛 G 类型）
 ```
 
 同一份 PDF 多次同步不会重复入库；同一材料不同期/不同设区市有不同 _id。
