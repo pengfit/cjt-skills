@@ -1,0 +1,55 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_hunan_price
+  progress_index: ods_material_hunan_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: hunan-price
+  secure: false
+
+site:
+  base_url: https://zjt.hunan.gov.cn
+  # 资料信息栏目 - 共 14 页
+  list_path: /zjt/hnweb/xzzx/zlxx/index.html
+  list_page_pattern: /zjt/hnweb/xzzx/zlxx/index_{n}.html
+  list_pages: 14
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""
+  last_publish_date: ""
+
+# 关键字过滤：两种类型的 PDF
+# 1. "湖南省建设工程材料价格行情资讯" - 每月 1 期，综合性（15 页 PDF，4 张表）
+# 2. "钢筋、水泥、砂石、混凝土材料价格行情表" - 每半月 1 期（1 页 PDF，6 种主材 × 14 市州）
+journal_keywords:
+  - "湖南省建设工程材料价格行情资讯"
+  - "钢筋、水泥、砂石、混凝土材料价格行情表"
+
+# 用户要求：只同步 2026 年的期（通过 --year 2026 控制）
+
+# 湖南省 14 个市州
+cities:
+  - 长沙市
+  - 株洲市
+  - 湘潭市
+  - 岳阳市
+  - 永州市
+  - 益阳市
+  - 怀化市
+  - 张家界市
+  - 常德市
+  - 湘西自治州
+  - 衡阳市
+  - 娄底市
+  - 郴州市
+  - 邵阳市
+
+# 增值税率：建设工程材料多为 13%；行情资讯 2020-09 之后改为不含税
+vat_rate: 0.13

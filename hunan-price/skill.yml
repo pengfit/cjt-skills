@@ -1,0 +1,30 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: hunan
+label: 湖南
+province: 湖南
+ods_index: ods_material_hunan_price
+dwd_index: dwd_hunan_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_hunan_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_hunan_price_sync_progress
+progress_mode: period          # 按期刊期数跟踪
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 湖南 14 个市州
+cities:
+  - 长沙市
+  - 株洲市
+  - 湘潭市
+  - 岳阳市
+  - 永州市
+  - 益阳市
+  - 怀化市
+  - 张家界市
+  - 常德市
+  - 湘西自治州
+  - 衡阳市
+  - 娄底市
+  - 郴州市
+  - 邵阳市
