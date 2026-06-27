@@ -1,0 +1,48 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_jiangxi_price
+  progress_index: ods_material_jiangxi_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: jiangxi-price
+  secure: false
+
+site:
+  base_url: https://zjt.jiangxi.gov.cn
+  # 列表页：URL 里直接嵌入 articleList JSON
+  list_path: /jxszfhcxjst/gqcyc/pc/list.html
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""
+  last_publish_date: ""
+
+# 期刊关键字过滤：标题必须含"江西省材料价格参考信息"
+journal_keyword: "江西省材料价格参考信息"
+
+# 用户要求：只同步 2026 年的期（2026年第1期-2026年第5期）
+# 通过 --year 2026 控制；如果不传 year 会按 2026 拉
+
+# 11 个设区市（覆盖 PDF 全省表 / 补充表 / 县表的设区市维度）
+cities:
+  - 南昌市
+  - 九江市
+  - 上饶市
+  - 抚州市
+  - 宜春市
+  - 吉安市
+  - 赣州市
+  - 景德镇市
+  - 萍乡市
+  - 新余市
+  - 鹰潭市
+
+# 增值税率（建设工程材料多为 13%，部分为 3% / 9%）
+# PDF 每行直接给出"13%" "3%" "9%"，反推价格时不需要这个值
+vat_rate: 0.13
