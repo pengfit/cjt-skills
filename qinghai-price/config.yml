@@ -1,0 +1,36 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_qinghai_price
+  progress_index: ods_material_qinghai_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: qinghai-price
+  secure: false
+
+site:
+  base_url: http://zjt.qinghai.gov.cn
+  list_path: /html/132/List.html
+  list_page_pattern: /html/132/List-{n}.html
+  per_page: 20   # 列表每页约 20 条
+  # 当前已发现分页：List.html / List-1.html / List-2.html / List-3.html
+  list_pages: 4
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""          # 增量起点；空=全量
+  last_publish_date: ""    # 增量同步只用比这新的
+
+# 关键字过滤（只保留"青海建设工程市场价格信息"，过滤掉"青海工程造价管理信息"等）
+journal_keyword: "青海建设工程市场价格信息"
+
+# 青海不分地市（厂商地址里含西宁/海东/海西 等），统一记 青海
+province_city: 青海
+
+# 不含税↔含税 转换（建设工程材料 13% 增值税率）
+vat_rate: 0.13

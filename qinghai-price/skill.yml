@@ -1,0 +1,17 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: qinghai
+label: 青海
+province: 青海
+ods_index: ods_material_qinghai_price
+dwd_index: dwd_qinghai_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_qinghai_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_qinghai_price_sync_progress
+progress_mode: period          # 期刊制（双月合刊 2026.1-2期、2026.3-4期 等），与 henan/heze/qingdao/weihai 同模式
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 青海不分地市（PDF 厂商地址里含西宁/海东/海西 等），统一记 青海
+cities:
+  - 青海

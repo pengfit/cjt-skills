@@ -1,0 +1,24 @@
+{
+  "done": {
+    "http://zjt.qinghai.gov.cn/Detailed-document//files/202604291720164599.pdf": {
+      "period": "2026年第3—4期《青海建设工程市场价格信息》",
+      "publish_date": "2026-04-29",
+      "pdf_url": "http://zjt.qinghai.gov.cn/Detailed-document//files/202604291720164599.pdf",
+      "minio_key": "qinghai-price/2026年第3—4期《青海建设工程市场价格信息》/202604291720164599.pdf",
+      "docs_written": 3992,
+      "status": "ok",
+      "duration_sec": 23.5,
+      "created_at": "2026-06-27T08:00:28"
+    },
+    "http://zjt.qinghai.gov.cn/Detailed-document//files/202602281448376974.pdf": {
+      "period": "2026年第1—2期《青海建设工程市场价格信息》",
+      "publish_date": "2026-02-28",
+      "pdf_url": "http://zjt.qinghai.gov.cn/Detailed-document//files/202602281448376974.pdf",
+      "minio_key": "qinghai-price/2026年第1—2期《青海建设工程市场价格信息》/202602281448376974.pdf",
+      "docs_written": 3985,
+      "status": "ok",
+      "duration_sec": 33.3,
+      "created_at": "2026-06-27T08:01:02"
+    }
+  }
+}
