@@ -27,11 +27,25 @@
         <div class="loading-spinner"></div>
       </div>
       <EmptyState
-        v-if="!loading && dataItems.length === 0"
+        v-if="!loading && dataItems.length === 0 && !provinceWide"
         icon="🗺️"
         title="该层级暂无数据"
         compact
       />
+      <!-- 省本级指导价面板（如海南按方位、河南省本级） -->
+      <div v-if="!loading && dataItems.length === 0 && provinceWide" class="province-wide-panel">
+        <div class="pw-header">
+          <span class="pw-title">{{ provinceWide.label || `${provinceWide.name}省本级指导价` }}</span>
+          <span class="pw-meta">{{ provinceWide.count }} 条　均价 ¥{{ provinceWide.value }}</span>
+        </div>
+        <div v-if="provinceWide.items && provinceWide.items.length" class="pw-list">
+          <div v-for="it in provinceWide.items" :key="it.name" class="pw-row">
+            <span class="pw-name">{{ it.name }}</span>
+            <span class="pw-count">{{ it.count }} 条</span>
+            <span class="pw-value">¥{{ it.value }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -56,6 +70,7 @@ let chart = null
 
 // === State ===
 const dataItems = ref([])
+const provinceWide = ref(null)   // 全省指导价（如海南按方位/河南全省指导价）
 const breadcrumbs = ref([])    // [{ label, parent, parent2, adcode }]
 const currentName = ref('')
 const loading = ref(false)
@@ -147,6 +162,7 @@ async function reload() {
     if (parent2) params.parent2 = parent2
     const { data } = await axios.get(`${API}/stats/geo-distribution`, { params })
     dataItems.value = data.items || []
+    provinceWide.value = data.province_wide || null
     await renderMap()
   } catch (e) {
     console.error('加载地理分布失败', e)
@@ -386,6 +402,62 @@ const PROVINCE_ADCODE = {
   background: var(--surface);
   border-radius: var(--radius);
   overflow: hidden;
+}
+.province-wide-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px auto;
+  max-width: 720px;
+  text-align: left;
+}
+.pw-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 12px;
+}
+.pw-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.pw-meta {
+  font-size: 12px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+.pw-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pw-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #f8fafc;
+  font-size: 13px;
+}
+.pw-name {
+  font-weight: 500;
+  color: #0f172a;
+}
+.pw-count {
+  font-size: 12px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+.pw-value {
+  font-variant-numeric: tabular-nums;
+  color: #15803d;
+  font-weight: 600;
 }
 .geo-map-view.is-fullscreen {
   position: fixed;

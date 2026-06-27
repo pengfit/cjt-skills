@@ -1508,6 +1508,53 @@ def geo_distribution(
                     "min": w["min"],
                     "max": w["max"],
                 }
+
+        # 海南特殊处理：海南住建厅发布的 PDF 按「方位」（北部/东部/中部/南部/西部/全省）划分，
+        # 不按市县。ES city 字段统一是「海南」，city level 聚合后只有 1 个桶 + 无任何市县项。
+        # 改为按 region 字段重新聚合，返回「方位」分布明细，让前端可以展示省级指导价结构。
+        if level == "city" and parent == "海南" and not items:
+            hn_query = _build_bool_query([], [{"term": {"province": "海南"}}] + filter_clauses[1:])
+            hn_body = {
+                "size": 0,
+                "query": hn_query,
+                "aggs": {
+                    "by_region": {
+                        "terms": {"field": "region.keyword", "size": 30, "missing": "[未知]"},
+                        "aggs": {
+                            "avg_price": {"avg": {"field": "price"}},
+                            "min_price": {"min": {"field": "price"}},
+                            "max_price": {"max": {"field": "price"}},
+                            "count": {"value_count": {"field": "price"}},
+                        },
+                    }
+                },
+            }
+            try:
+                hn_result = es.search(index=ALL_INDICES, body=hn_body)
+                hn_buckets = hn_result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
+                # 方位列表（名称加「海南省·方位」以避免与海南地图市县 feature 重名）
+                region_items = [{
+                    "name": b["key"],
+                    "adcode": None,
+                    "value": round(b["avg_price"]["value"], 2) if b["avg_price"]["value"] else 0,
+                    "count": int(b["count"]["value"] or 0),
+                    "min": round(b["min_price"]["value"], 2) if b["min_price"]["value"] else 0,
+                    "max": round(b["max_price"]["value"], 2) if b["max_price"]["value"] else 0,
+                } for b in hn_buckets]
+                total_cnt = sum(it["count"] for it in region_items)
+                if total_cnt > 0:
+                    avg_val = sum(it["value"] * it["count"] for it in region_items) / total_cnt
+                    province_wide = {
+                        "name": "海南",
+                        "label": "海南省本级指导价（按方位划分）",
+                        "count": total_cnt,
+                        "value": round(avg_val, 2),
+                        "min": min((it["min"] for it in region_items if it["count"] > 0), default=0),
+                        "max": max((it["max"] for it in region_items if it["count"] > 0), default=0),
+                        "items": region_items,   # 方位列表，供前端展示
+                    }
+            except Exception as _hn_e:
+                print(f"[hainan drill] by-region failed: {_hn_e}")
         return {
             "level": level,
             "parent": parent,
