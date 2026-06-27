@@ -13,6 +13,7 @@ show_usage() {
     echo "  preview   预览数据"
     echo "  sync      同步到 ES"
     echo "  status    查看状态"
+    echo "  check     增量检测（不写入）"
     echo "  test      测试连通性"
 }
 
@@ -20,7 +21,7 @@ show_usage() {
 CMD="$1"; shift
 
 case "$CMD" in
-    preview|sync|status|test)
+    preview|sync|status|check|test)
         "$PYTHON_CMD" "$CMD_DIR/$CMD.py" "$@"
         ;;
     *)  show_usage; exit 1 ;;
