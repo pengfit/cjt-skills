@@ -401,14 +401,16 @@ def _parse_county_table(tbl, header_idx, section_name, parent_city, out):
     # 简化：遍历 header[4..]，含"税率"和"备注"标志的列排除
     county_cols = []
     for ci, cell in enumerate(header[4:], start=4):
-        c = _clean_cell(cell)
-        if not c:
+        c_raw = _clean_cell(cell)
+        if not c_raw:
             continue
-        if '税率' in c or '率' in c and len(c) <= 5:  # 单独"率"
+        # 折叠空白后判断（如"增值税税\n率（%）" 折叠为"增值税税率（%）"）
+        c_fold = re.sub(r'\s+', '', c_raw)
+        if '税率' in c_fold:
             continue
-        if c == '备注' or '备注' in c and len(c) <= 5:
+        if '备注' in c_fold:
             continue
-        county_cols.append((ci, c))
+        county_cols.append((ci, c_raw))
 
     data_rows = tbl[header_idx + 1:]
     for row in data_rows:
@@ -665,7 +667,7 @@ def bulk_index(es, index, docs):
         return 0, 0
     body = ''
     for d in docs:
-        _id = _doc_id(d['period'], d['section'], d['no'], d['breed'], d['spec'], d.get('city', ''), d.get('county', ''))
+        _id = _doc_id(d['period'], d['section'], d['no'], d['breed'], d['spec'], d.get('city', ''), d.get('region', ''))
         body += json.dumps({'index': {'_index': index, '_id': _id}}, ensure_ascii=False) + '\n'
         body += json.dumps(d, ensure_ascii=False) + '\n'
     resp = es.bulk(body=body, refresh=False)
