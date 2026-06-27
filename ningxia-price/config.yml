@@ -1,0 +1,41 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_ningxia_price
+  progress_index: ods_material_ningxia_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: ningxia-price
+  secure: false
+
+site:
+  base_url: https://jst.nx.gov.cn
+  # 列表路径规则：分页是 index.html / index_2.html / index_3.html（总计 6 页）
+  list_path: /ztzl/gczj/zjtt/index.html
+  list_page_pattern: /ztzl/gczj/zjtt/index_{n}.html
+  list_pages: 6   # 已发现总页数
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""          # 增量起点；空=全量
+  last_publish_date: ""
+
+# 关键字过滤：只保留"宁夏工程造价"信息发布，过滤掉"造价咨询统计"等其他通知
+journal_keyword: "《宁夏工程造价》"
+
+# 宁夏 5 地级市 + 22 县区（PDF 价格资讯"地区"维度展开）
+# 仅列出地市 + 县名，用于数据 city 字段标注（细粒度县在表格列名）
+cities:
+  - 银川市
+  - 石嘴山市
+  - 吴忠市
+  - 固原市
+  - 中卫市
+
+# 增值税率（建设工程材料 13%）
+vat_rate: 0.13

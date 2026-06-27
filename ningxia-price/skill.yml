@@ -1,0 +1,21 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: ningxia
+label: 宁夏
+province: 宁夏
+ods_index: ods_material_ningxia_price
+dwd_index: dwd_ningxia_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_ningxia_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_ningxia_price_sync_progress
+progress_mode: period          # 按期刊期数跟踪
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 宁夏 5 个地级市的市辖区/县，覆盖 PDF 价格资讯中的"地区"维度
+cities:
+  - 银川市
+  - 石嘴山市
+  - 吴忠市
+  - 固原市
+  - 中卫市

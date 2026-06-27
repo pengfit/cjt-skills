@@ -1,0 +1,26 @@
+{
+  "done": {
+    "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202605/t20260518_5242529.html": {
+      "period": "2026.第2期",
+      "publish_date": "2026-05-18",
+      "detail_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202605/t20260518_5242529.html",
+      "pdf_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202605/P020260518392313525886.pdf",
+      "minio_key": "ningxia-price/2026.第2期/P020260518392313525886.pdf",
+      "docs_written": 348,
+      "status": "ok",
+      "duration_sec": 19.0,
+      "created_at": "2026-06-27T08:30:00"
+    },
+    "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202603/t20260324_5201067.html": {
+      "period": "2026.第1期",
+      "publish_date": "2026-03-20",
+      "detail_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202603/t20260324_5201067.html",
+      "pdf_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202603/P020260327306253009287.pdf",
+      "minio_key": "ningxia-price/2026.第1期/P020260327306253009287.pdf",
+      "docs_written": 348,
+      "status": "ok",
+      "duration_sec": 15.9,
+      "created_at": "2026-06-27T08:30:16"
+    }
+  }
+}
