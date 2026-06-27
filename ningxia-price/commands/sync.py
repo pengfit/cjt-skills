@@ -168,8 +168,8 @@ def _is_data_row(row, n_cols):
 # 价格资讯章节标识
 PRICE_SECTION_TITLE = '价格资讯'
 
-# 章节编号识别（8.抹灰工程 / 9.木作 / 10.油漆 / 11.金属制品）
-QUOTA_SECTION_RE = re.compile(r'^(\d+)\.\s*(.+)')
+# 章节编号识别（定额表只在 8-11 节：8.抹灰工程 / 9.木作 / 10.油漆 / 11.金属制品）
+QUOTA_SECTION_RE = re.compile(r'^(8|9|10|11)\.\s*(.+)')
 
 
 def _detect_section(text: str, default: str = '') -> str:
@@ -205,7 +205,7 @@ COMMON_COUNTIES = [
 
 
 def _detect_table_kind(tbl, header_idx, current_subsection):
-    """识别表格类型：材料价格表 / 定额项目价格表 / 绿色认证混凝土表"""
+    """识别表格类型"""
     if not tbl or header_idx is None or header_idx >= len(tbl):
         return None, None, None
     header_row = tbl[header_idx]
@@ -224,6 +224,12 @@ def _detect_table_kind(tbl, header_idx, current_subsection):
     # 检查是否含定额项目编号（5位数字如 08001 09001）
     has_quota_code = bool(re.search(r'\b\d{5}\b', cells_text))
 
+    # 检查星等级表头
+    has_star = '一星级' in cells_text and '二星级' in cells_text and '三星级' in cells_text
+
+    # 检查横排强度等级（C15 C20 ... C60）
+    has_strength_grade = bool(re.search(r'C\d{2}', cells_text))
+
     if counties_in_header:
         # 材料价格表：序号 / 材料名称 / 规格型号 / 单位 / [各县价格]
         if n_cols >= 5:
@@ -231,11 +237,22 @@ def _detect_table_kind(tbl, header_idx, current_subsection):
         return None, None, None
     elif has_quota_code and current_subsection:
         # 定额项目价格表：项目编号 / 项目名 / 单位 / 各市价
-        # 列头通常只有银川市（一个城市）
         quota_codes = re.findall(r'\b\d{5}\b', cells_text)
         if quota_codes and n_cols >= 4:
-            # 单城市价格列（默认银川市）
             return 'quota', ['银川市'], quota_codes
+    elif has_star:
+        # 绿色建材多星等级表：序号 / 材料 / 规格 / 单位 / 一星级 / 二星级 / 三星级 / 备注
+        return 'material', ['一星级', '二星级', '三星级'], []
+    elif has_strength_grade:
+        # 横排混凝土表：序号 / 强度等级 / C15-C60（区域×强度）→ 特殊表，不解析
+        # （预留：未来可开发横排解析）
+        return None, None, None
+    elif n_cols == 5:
+        # 5 列单价格表：序号 / 材料 / 规格 / 单位 / 综合价格
+        return 'material', ['综合价格'], []
+    elif n_cols == 6 and '综合价格' in cells_text:
+        # 6 列单价格+备注：序号 / 材料 / 规格 / 单位 / 综合价格 / 备注
+        return 'material', ['综合价格'], []
     return None, None, None
 
 
@@ -245,9 +262,22 @@ def parse_pdf(pdf_path):
     current_section = ''
     current_subsection = ''
     current_city_group = ''  # 当前章节的地市分组（一、银川市 / 二、石嘴山市 / ...）
+    current_category = ''  # 当前大类（一、主体及围护结构类 / 二、装饰装修类 / ...）
 
     # 价格资讯章节内的"地区分组"识别
     CITY_GROUP_RE = re.compile(r'^[一二三四五六七八九十]+、(.+)')
+    # 大类识别（不限于地市）
+    # 例：一、主体及围护结构类 / 二、装饰装修类 / 三、安装类 / 四、市政类
+    CATEGORY_RE = re.compile(r'^[一二三四五六七八九十]+、(.+?类)$')
+    # 跨页大类：全章节标题（全区建筑工程主要材料价格 / 装配式及绿色建材价格信息 等）
+    CHAPTER_TITLES = {
+        '全区建筑工程主要材料价格': '全区建筑工程主要材料价格',
+        '装配式及绿色建材价格信息': '装配式及绿色建材',
+        '市政工程主要材料价格': '市政工程材料',
+        '绿色建材价格': '绿色建材',
+        '人工价格信息': '人工价格',
+        '材料价格信息': '材料价格',
+    }
 
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
@@ -260,11 +290,15 @@ def parse_pdf(pdf_path):
                 continue
 
             section = _detect_section(text)
+            new_section = False
             if section:
+                if section != current_section:
+                    new_section = True
                 current_section = section
-                # 进入价格资讯章节时重置 subsection
-                if section == PRICE_SECTION_TITLE:
+                # 进入价格资讯章节时重置 subsection（current_city_group 不重置，避免续表丢失上下文）
+                if section == PRICE_SECTION_TITLE and new_section:
                     current_subsection = ''
+                    current_category = ''
             # 仅在价格资讯章节解析
             if current_section != PRICE_SECTION_TITLE:
                 continue
@@ -274,11 +308,36 @@ def parse_pdf(pdf_path):
             if subsection:
                 current_subsection = subsection
 
+            # 识别跨页章节标题（全区建筑工程主要材料价格 / 装配式及绿色建材等）
+            for line in text.split('\n')[:15]:
+                stripped = line.strip()
+                for keyword, region_value in CHAPTER_TITLES.items():
+                    if keyword in stripped and len(stripped) < 30:
+                        current_city_group = region_value
+                        current_category = ''
+                        break
+                if current_city_group in CHAPTER_TITLES.values():
+                    break
+
             # 识别地市分组（一、银川市 / 二、石嘴山市）
             for line in text.split('\n')[:15]:
                 m = CITY_GROUP_RE.match(line.strip())
                 if m:
-                    current_city_group = m.group(1).strip()
+                    grp = m.group(1).strip()
+                    # 跳过纯大类（“装饰装修类”含“类”）
+                    if grp.endswith('类'):
+                        continue
+                    # 跳过 PDF 目录索引（后续含 ……）
+                    if '…' in grp:
+                        continue
+                    current_city_group = grp
+                    break
+
+            # 识别大类（一、主体及围护结构类 / 二、装饰装修类 / 三、安装类 / 四、市政类）
+            for line in text.split('\n')[:15]:
+                m = CATEGORY_RE.match(line.strip())
+                if m:
+                    current_category = m.group(1).strip()
                     break
 
             tables = page.extract_tables() or []
@@ -304,9 +363,12 @@ def parse_pdf(pdf_path):
                 if kind is None:
                     continue
 
+                # 确定 section 名称
+                section_name = current_city_group or current_subsection or '材料价格'
+
                 if kind == 'material':
                     # 材料价格表：长表展开
-                    _parse_material_table(tbl, header_idx, cities, current_subsection, current_city_group, out)
+                    _parse_material_table(tbl, header_idx, cities, section_name, current_category, out)
                 elif kind == 'quota':
                     # 定额项目价格表
                     _parse_quota_table(tbl, header_idx, cities, current_subsection, out)
@@ -314,7 +376,7 @@ def parse_pdf(pdf_path):
     return out
 
 
-def _parse_material_table(tbl, header_idx, cities, subsection, city_group, out):
+def _parse_material_table(tbl, header_idx, cities, section_name, category_name, out):
     """材料价格表 → 长表展开（每个城市一行）"""
     # 列位置：0=序号 1=材料名称 2=规格型号 3=单位 4+=城市价
     # 但有时表格只 5 列（1 个城市），需要动态确定起始列
@@ -332,6 +394,11 @@ def _parse_material_table(tbl, header_idx, cities, subsection, city_group, out):
         breed = str(row[1] or '').strip()
         spec = str(row[2] or '').strip()
         unit = str(row[3] or '').strip()
+        # 取备注列（最后一列，如果存在）
+        remark = ''
+        if len(row) > 5:
+            remark = str(row[-1] or '').strip()
+
         # 城市价列：从第 5 列开始
         for ci, city in enumerate(cities):
             col_idx = 4 + ci
@@ -348,10 +415,10 @@ def _parse_material_table(tbl, header_idx, cities, subsection, city_group, out):
                 'unit': unit,
                 'price': price,
                 'tax_price': round(price * (1 + VAT_RATE), 2),
-                'remark': '',
-                'section': subsection or '材料价格',
-                'category': '主要材料',
-                'region': city_group or '',
+                'remark': remark,
+                'section': section_name,
+                'category': category_name or '主要材料',
+                'region': section_name,
                 'city': city,
                 'breed_table_kind': 'material',
             })
