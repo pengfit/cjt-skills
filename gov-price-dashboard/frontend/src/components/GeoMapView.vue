@@ -220,9 +220,25 @@ async function renderMap() {
   // 退化区间保护：max <= min 时强制拉开 1 个单位，避免所有数据点同色
   const vMin = range[0]
   const vMax = range[1] > range[0] ? range[1] : range[0] + 1
-  const colorRange = isPrice
-    ? ['#fef3c7', '#fde68a', '#fbbf24', '#f97316', '#dc2626', '#7f1d1d']
-    : ['#f0fdf4', '#bbf7d0', '#22c55e', '#15803d', '#14532d']
+  // 分档阈值与调色板按"数据量级"设计，避免线性映射时小数数据几不可见
+  // （如 2000 vs 500000 线性映射后 2000 仅占 0.4%，几无颜色）
+  // 价格档（单位元）：<10 / 10-100 / 100-1k / 1k-1万 / >1万
+  // 条数档（条）：    <100 / 100-1k / 1k-1万 / 1万-10万 / >10万
+  const pieces = isPrice
+    ? [
+        { lt: 10,       color: '#fef3c7' },
+        { gte: 10, lt: 100,     color: '#fde68a' },
+        { gte: 100, lt: 1000,   color: '#fbbf24' },
+        { gte: 1000, lt: 10000, color: '#f97316' },
+        { gte: 10000,            color: '#7f1d1d' },
+      ]
+    : [
+        { lt: 100,      color: '#dcfce7' },
+        { gte: 100, lt: 1000,    color: '#86efac' },
+        { gte: 1000, lt: 10000,  color: '#22c55e' },
+        { gte: 10000, lt: 100000, color: '#15803d' },
+        { gte: 100000,            color: '#14532d' },
+      ]
 
   const option = {
     backgroundColor: 'transparent',
@@ -231,9 +247,8 @@ async function renderMap() {
     },
     visualMap: {
       show: false,
-      min: vMin,
-      max: vMax,
-      inRange: { color: colorRange },
+      type: 'piecewise',
+      pieces,
       // 无数据的 feature 显式置灰（比 inRange 最浅色还浅，避免和数据区混淆）
       outOfRange: { color: '#e5e7eb', colorAlpha: 0.6 },
       calculable: false,
