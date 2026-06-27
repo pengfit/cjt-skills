@@ -1,0 +1,22 @@
+# dashboard 注册声明（由 gov-price-dashboard 自动发现）
+# 新增/修改字段说明详见 ~/.openclaw/workspace/skills/gov-price-dashboard/SKILL.md
+
+key: huhehaote
+label: 呼和浩特
+province: 内蒙古
+ods_index: ods_material_huhehaote_price
+dwd_index: dwd_huhehaote_price   # 若 ETL 未启动可留空，registry 会自动跳过
+dws_index: dws_huhehaote_price   # 若 ETL 未启动可留空，registry 会自动跳过
+progress_index: ods_material_huhehaote_price_sync_progress
+progress_mode: period          # 按期刊期数跟踪（2026 年仅 1 期）
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 呼和浩特全市统一价 + 5 旗县区
+cities:
+  - 呼和浩特
+  - 土默特左旗
+  - 托克托县
+  - 和林格尔县
+  - 武川县
+  - 清水河县

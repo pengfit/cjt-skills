@@ -1,0 +1,32 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_huhehaote_price
+  progress_index: ods_material_huhehaote_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: huhehaote-price
+  secure: false
+
+site:
+  base_url: http://zfcxjsj.huhhot.gov.cn
+  list_path: /bsfw_91/xzzx/zjxx/index.html
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""
+  last_publish_date: ""
+
+# 期刊关键字过滤（"信息价"/"造价信息" 匹配）
+journal_keyword: "信息价"
+
+# 呼和浩特全市统一价（PDF 不区分旗县）
+province_city: 呼和浩特
+
+# 增值税率：PDF 直接给"含税价格 + 除税价格"双价，无需反推
+vat_rate: 0.13
