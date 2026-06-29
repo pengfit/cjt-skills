@@ -62,6 +62,54 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
         "dws": "dws_weihai_price",
         "city_label": "威海",
     },
+    "hainan": {
+        "ods": "ods_material_hainan_price",
+        "dwd": "dwd_hainan_price",
+        "dws": "dws_hainan_price",
+        "city_label": "海南",
+    },
+    "huhehaote": {
+        "ods": "ods_material_huhehaote_price",
+        "dwd": "dwd_huhehaote_price",
+        "dws": "dws_huhehaote_price",
+        "city_label": "呼和浩特",
+    },
+    "hunan": {
+        "ods": "ods_material_hunan_price",
+        "dwd": "dwd_hunan_price",
+        "dws": "dws_hunan_price",
+        "city_label": "湖南",
+    },
+    "jiangxi": {
+        "ods": "ods_material_jiangxi_price",
+        "dwd": "dwd_jiangxi_price",
+        "dws": "dws_jiangxi_price",
+        "city_label": "江西",
+    },
+    "ningxia": {
+        "ods": "ods_material_ningxia_price",
+        "dwd": "dwd_ningxia_price",
+        "dws": "dws_ningxia_price",
+        "city_label": "宁夏",
+    },
+    "qinghai": {
+        "ods": "ods_material_qinghai_price",
+        "dwd": "dwd_qinghai_price",
+        "dws": "dws_qinghai_price",
+        "city_label": "青海",
+    },
+    "shaanxi": {
+        "ods": "ods_material_shaanxi_price",
+        "dwd": "dwd_shaanxi_price",
+        "dws": "dws_shaanxi_price",
+        "city_label": "陕西",
+    },
+    "xinjiang": {
+        "ods": "ods_material_xinjiang_price",
+        "dwd": "dwd_xinjiang_price",
+        "dws": "dws_xinjiang_price",
+        "city_label": "新疆",
+    },
 }
 
 

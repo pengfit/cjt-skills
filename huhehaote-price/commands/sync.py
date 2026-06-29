@@ -328,10 +328,13 @@ def _parse_material_table(tbl, main_section, subsection, county, out):
         if price is None and tax_price is None:
             continue
 
+        # PDF 表头为"材料名称及规格型号"（合并列），无法在解析阶段拆分；
+        # 将整段同时写入 breed 和 spec，确保下游 ETL 的 must_not (spec=["","/"])
+        # 不再过滤此类数据，attr 解析阶段会基于 spec 抽取规格属性。
         out.append({
             'no': code,
             'breed': name,
-            'spec': '',
+            'spec': name,
             'unit': unit,
             'price': price if price is not None else tax_price,
             'tax_price': tax_price if tax_price is not None else price,
@@ -359,10 +362,12 @@ def _parse_labor_table(tbl, subsection, out):
         remark = str(row[3] or '').strip() if row[3] else ''
         if price is None:
             continue
+        # 人工成本工种无规格字段，但 ETL must_not 会过滤 spec="" 的数据；
+        # 把工种名同步填入 spec 字段，避免被过滤（attr 解析阶段按 breed 处理）。
         out.append({
             'no': seq,
             'breed': name,
-            'spec': '',
+            'spec': name,
             'unit': '日',
             'price': price,
             'tax_price': price,

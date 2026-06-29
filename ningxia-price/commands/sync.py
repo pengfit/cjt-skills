@@ -383,6 +383,7 @@ def _parse_material_table(tbl, header_idx, cities, section_name, category_name, 
     if header_idx + 1 >= len(tbl):
         return
     data_rows = tbl[header_idx + 1:]
+    last_breed = ''  # 续行继承：PDF 表格中同一材料多种规格时下几行 breed 列为空
     for row in data_rows:
         if not row or len(row) < 5:
             continue
@@ -392,6 +393,14 @@ def _parse_material_table(tbl, header_idx, cities, section_name, category_name, 
         if not seq.isdigit():
             continue
         breed = str(row[1] or '').strip()
+        # breed 续行继承（关键修复：PDF 表格里 "碎石 0.5cm/1.0～2.0cm/1.0～3.0cm" 多行同属"碎石"）
+        if breed:
+            last_breed = breed
+        else:
+            breed = last_breed
+        # 全行 breed 都拿不到（开头几行就是续行）→ 跳过
+        if not breed:
+            continue
         spec = str(row[2] or '').strip()
         unit = str(row[3] or '').strip()
         # 取备注列（最后一列，如果存在）

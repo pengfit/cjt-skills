@@ -26,7 +26,7 @@ from gov_price_etl.transform import transform_doc
 from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
 
-_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3"))
+_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3",))
 
 
 def _count_ods(es_host: str, ods_idx: str) -> int:
@@ -48,6 +48,9 @@ def _scroll_ods(
         {"terms": {"spec.keyword": ["", "/"]}},
         {"terms": {"breed.keyword": ["", "/"]}},
     ]
+    # 2026-06-29 优化：默认接受 spec=""（只过滤空 breed），让"仅品种、无规格"文档也能走分类。
+    # 對於下游 DWS sync，如果 spec 为空，parse_spec 阶段会跳过、attr 仍为空，不影响 DWS 总量。
+    must_not = [c for c in must_not if "spec.keyword" not in c]
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
     elif incremental and since_date:
@@ -96,8 +99,8 @@ def _fetch_ods_by_breeds(
             "query": {"bool": {"must": [
                 {"terms": {"breed.keyword": chunk}},
             ], "must_not": [
-                {"terms": {"spec.keyword": ["", "/"]}},
                 {"terms": {"breed.keyword": ["", "/"]}},
+                # 2026-06-29：去除 spec="" 过滤，跟主滚动逻辑对齐
             ]}},
             "size": 1000,
             "sort": [{"update_date": "asc"}],
@@ -169,11 +172,24 @@ def etl_city(
         pages += 1
         try:
             breed_raw = raw.get("breed", "")
+            # 2026-06-29 新疆 ETL 优化 A：双 key 查询
+            #   1. raw_breed 直接（ODS 文档的 breed 字段，含规格的完整名）
+            #   2. ODS 索引的 breed_clean（xinjiang-price 的 split_breed_spec 算，去掉规格的核心名）
+            # 任一命中即视为 DB 命中
+            breed_clean_v1 = breed_raw  # 直接用 raw_breed
+            breed_clean_v2 = raw.get("breed_clean", "")  # ODS 索引的 breed_clean
+            # 用于写 DWD 的 breed_clean 字段（兼容历史 DWD）：用 clean_breed 算
             breed_clean = clean_breed(breed_raw)
             if not breed_clean:
                 continue
 
-            v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean)
+            # 先用 v1（raw_breed）查 DB
+            v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean_v1)
+            source = v2.get("category_v2_source", "")
+            # v1 未命中 → 试 v2（ODS 索引的 breed_clean）
+            if source not in _LOCAL_HIT_SOURCES:
+                v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean_v2)
+                source = v2.get("category_v2_source", "")
             source = v2.get("category_v2_source", "")
 
             if source in _LOCAL_HIT_SOURCES:

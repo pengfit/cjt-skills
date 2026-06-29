@@ -346,6 +346,36 @@ SPEC_PATTERNS = [
     (r'BVR?\d+(?:\.\d+)?', 'wire'),
     # 钢牌号 + 尺寸
     (r'Q\d+\w*\s+\d+(?:\.\d+)?', 'grade+num'),
+    # 工字钢/槽钢型号：I20a、I25a、[10、[16a
+    (r'(?:^|[\s\u3000（(])[I\[]\d+[a-zA-Z]?(?=[\s\u3000）)\u3001、，,]|$)', 'steel_section'),
+    # H 型钢/角钢截面尺寸：100*100*6*8 / 100×100 / 75*50*6
+    (r'\d+(?:\.\d+)?[*×]\d+(?:\.\d+)?(?:[*×]\d+(?:\.\d+)?)*', 'h_section_dim'),
+    # 直埋式保温管、无缝钢管：D100、D219（区分 De\d+ PPR管的 "De"）
+    (r'(?:^|[\s\u3000（(])D\d+(?:\.\d+)?(?=[\s\u3000）)\u3001、，,直]|$)', 'd_pipe_size'),
+    # 钢塑复合压力管 / PPR：De110、De110×10
+    (r'De\d+(?:\.\d+)?(?=[\s\u3000）)\u3001、，,]|$)', 'de_dn'),
+    # SYV 视频线：SYV75-5、SYV75-7
+    (r'(?:^|[\s\u3000（(])SYV\d+(?:-\d+)?(?=[^a-zA-Z\d]|$)', 'syv_cable'),
+    # UTP 网络线：UTP-6
+    (r'(?:^|[\s\u3000（(])UTP-\d+(?=[^a-zA-Z\d]|$)', 'utp_cable'),
+    # 铜芯橡皮绝缘线：BX4、BX6
+    (r'(?:^|[\s\u3000（(])BX\d+(?:\.\d+)?(?=[^a-zA-Z\d]|$)', 'bx_cable'),
+    # 铝芯橡皮绝缘线：BLX4、BLX120
+    (r'(?:^|[\s\u3000（(])BLX\d+(?:\.\d+)?(?=[^a-zA-Z\d]|$)', 'blx_cable'),
+    # 铝芯塑料绝缘线：BLV4、BLV6
+    (r'(?:^|[\s\u3000（(])BLV\d+(?:\.\d+)?(?=[^a-zA-Z\d]|$)', 'blv_cable'),
+    # 凿散热器型号：GZ_2、GZ-3
+    (r'GZ[_-]?\d+(?=[\s\u3000、，,.．）)）\u3001]|$)', 'radiator_model'),
+    # 砂浆强度：M5、M10、M15
+    (r'(?:^|[\s\u3000（(])M\d+(?:[.．\u3001、，,]|$|\s)', 'mortar_grade'),
+    # 地暖分水器 / 回路数：2路、3路
+    (r'(?:^|[\s\u3000（(])\d+路(?=[\s\u3000）)\u3001、，,]|$)', 'way_count'),
+    # 电气规格：10A 250V
+    (r'\d+\.?\d*\s*[AV](?:\s+\d+\.?\d*\s*[AV])', 'voltage_current'),
+    # 燃油标号：92# / 95# / 0# / -10# / -20# / -35#
+    (r'-?\d+(?:\.\d+)?#(?![\u4e00-\u9fa5])', 'fuel_grade'),
+    # 铝合金/塑钢门窗系列：65系列 / 70系列 / 75系列
+    (r'\d+系列', 'window_series'),
     (r'Q\d+\w+', 'grade'),
     (r'HRB\d+\w*', 'hrb'),
     (r'HPB\d+\w*', 'hpb'),
@@ -438,5 +468,14 @@ def split_breed_spec(breed: str) -> tuple[str, str]:
         breed_part = breed_part[:-1].rstrip()
     elif breed_part.endswith('(') and not spec_part.startswith(')'):
         breed_part = breed_part[:-1].rstrip()
+
+    # 兜底：breed 拆完为空
+    if not breed_part:
+        # spec 在开头（如"65系列单框三玻..."）→ spec 后剩余部分作为 breed
+        remainder = s[spec_end:].strip()
+        if remainder and len(remainder) >= 2:
+            breed_part = remainder
+            return breed_part, spec_part
+        return s, ''
 
     return breed_part, spec_part
