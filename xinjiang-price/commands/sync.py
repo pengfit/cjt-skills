@@ -123,7 +123,8 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
                     continue
 
                 # 4. 构造 ES 文档
-                now = datetime.now().isoformat(timespec='seconds')
+                # 注意:ES create_time mapping 是 'yyyy-MM-dd HH:mm:ss',不能用 ISO 'T'
+                now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 docs = []
                 for r in rows:
                     # 拆分 breed 和 spec
