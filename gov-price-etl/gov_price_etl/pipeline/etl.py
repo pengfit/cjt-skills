@@ -40,8 +40,13 @@ def _scroll_ods(
     es_host: str, ods_idx: str,
     total: int, batch_size: int,
     category: str, incremental: bool, since_date: str,
+    sort_field: str = "update_date",
 ):
-    """滚动 ODS 返回生成器 (doc_id, raw_source)。"""
+    """滚动 ODS 返回生成器 (doc_id, raw_source)。
+
+    sort_field: 用于 scroll 排序 + 增量 range 的字段名（默认 update_date）。
+    新疆 ODS 的 update_date 是 keyword，改用 _period（date 类型）做正确时间排序。
+    """
     session = get_es_client(es_host)
     must = [{"match_all": {}}]
     must_not = [
@@ -54,12 +59,12 @@ def _scroll_ods(
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
     elif incremental and since_date:
-        must = [{"range": {"update_date": {"gte": since_date}}}]
+        must = [{"range": {sort_field: {"gte": since_date}}}]
 
     body = {
         "query": {"bool": {"must": must, "must_not": must_not}},
         "size": min(batch_size, total),
-        "sort": [{"update_date": "asc"}],
+        "sort": [{sort_field: "asc"}],
     }
     resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
     if resp.status_code != 200:
@@ -86,8 +91,12 @@ def _scroll_ods(
 
 def _fetch_ods_by_breeds(
     es_host: str, ods_idx: str, breed_cleans: List[str],
+    sort_field: str = "update_date",
 ) -> List[Tuple[str, dict]]:
-    """按 breed_clean（ES 上即 breed.keyword）批量拉 ODS 文档。"""
+    """按 breed_clean（ES 上即 breed.keyword）批量拉 ODS 文档。
+
+    sort_field: 同 _scroll_ods，用于排序字段。
+    """
     if not breed_cleans:
         return []
     session = get_es_client(es_host)
@@ -103,7 +112,7 @@ def _fetch_ods_by_breeds(
                 # 2026-06-29：去除 spec="" 过滤，跟主滚动逻辑对齐
             ]}},
             "size": 1000,
-            "sort": [{"update_date": "asc"}],
+            "sort": [{sort_field: "asc"}],
         }
         resp = session.post(f"{es_host}/{ods_idx}/_search?scroll=2m", json=body)
         if resp.status_code != 200:
@@ -152,6 +161,7 @@ def etl_city(
     """单城市 ODS → DWD ETL。返回 (成功, 失败)。"""
     ods_idx = cfg["ods"]
     dwd_idx = cfg["dwd"]
+    sort_field = cfg.get("sort_field", "update_date")  # 默认 update_date；新疆 _period 是 date 类型，原 mapping 是 keyword
     ensure_indices(es_host, cfg)
     total = _count_ods(es_host, ods_idx)
     if total == 0:
@@ -168,7 +178,7 @@ def etl_city(
 
     pages = 0
     for doc_id, raw in _scroll_ods(es_host, ods_idx, total, batch_size,
-                                    category, incremental, since_date):
+                                    category, incremental, since_date, sort_field):
         pages += 1
         try:
             breed_raw = raw.get("breed", "")
@@ -273,7 +283,7 @@ def etl_city(
         # 必须从 value 里拿 raw breed 才能捞到文档（2026-06-24 bug fix）
         raw_breeds = [v["breed"] for v in uncategorized_breeds.values() if v.get("breed")]
         print(f"    [AI 重捞] 捞 {len(raw_breeds)} 个 raw breed...")
-        fetched = _fetch_ods_by_breeds(es_host, ods_idx, raw_breeds)
+        fetched = _fetch_ods_by_breeds(es_host, ods_idx, raw_breeds, sort_field)
 
         docs.clear()
         doc_ids.clear()

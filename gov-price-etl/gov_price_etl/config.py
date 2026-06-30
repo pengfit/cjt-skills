@@ -109,6 +109,9 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
         "dwd": "dwd_xinjiang_price",
         "dws": "dws_xinjiang_price",
         "city_label": "新疆",
+        # 2026-06-29 新疆：ODS 里 update_date 是 keyword，_period 是 date。
+        # 用 _period 做 scroll 排序 + 增量 range（确保时间排序正确）。
+        "sort_field": "_period",
     },
 }
 
