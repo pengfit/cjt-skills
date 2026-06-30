@@ -26,7 +26,7 @@ from gov_price_etl.transform import transform_doc
 from gov_price_etl.transform.clean import clean_breed
 from gov_price_etl.pipeline.dws_sync import sync_dws_with_ai
 
-_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3",))
+_LOCAL_HIT_SOURCES = frozenset(("db_exact_v3", "db_fuzzy_v3"))
 
 
 def _count_ods(es_host: str, ods_idx: str) -> int:
@@ -50,12 +50,9 @@ def _scroll_ods(
     session = get_es_client(es_host)
     must = [{"match_all": {}}]
     must_not = [
-        {"terms": {"spec.keyword": ["", "/"]}},
         {"terms": {"breed.keyword": ["", "/"]}},
+        # 2026-06-30: 移除 spec.keyword 过滤（半月表天然粗砂/机制砂/电/水等品种无规格）
     ]
-    # 2026-06-29 优化：默认接受 spec=""（只过滤空 breed），让"仅品种、无规格"文档也能走分类。
-    # 對於下游 DWS sync，如果 spec 为空，parse_spec 阶段会跳过、attr 仍为空，不影响 DWS 总量。
-    must_not = [c for c in must_not if "spec.keyword" not in c]
     if category and not (incremental and since_date):
         must = [{"term": {"category": category}}]
     elif incremental and since_date:
@@ -237,23 +234,14 @@ def etl_city(
 
     # ── 第二轮：未命中 breed → AI 补缓存 ──
     if uncategorized_breeds and not dry_run:
-        # 删除旧缓存记录（确保 classify_v3_batch 重新送 AI，不用 INSERT OR IGNORE）
+        # 2026-06-30：不再 DELETE 旧缓存。
+        # 原逻辑要 DELETE 是为了防止 INSERT OR IGNORE 跳过新数据，
+        # 但 DB 预查会在 service.py 里跳过已存在的项——所以手工/手动写的记录不要删。
+        # 错删会导致：ODS 全角 vs DB 半角等样式差异场景，DB 里正确的记录被删后，
+        # AI 重新分类又返回 fallback → 第三轮永远 miss。
         import sqlite3 as _sqlite
         from gov_price_etl.paths import PROJECT_ROOT as _pr
-        breed_cleans = list(uncategorized_breeds.keys())
         _db_path = _pr / "data" / "category_v3_rules.db"
-        try:
-            _conn = _sqlite.connect(str(_db_path))
-            _ph = ",".join("?" * len(breed_cleans))
-            _conn.execute(
-                f"DELETE FROM breed_l3_map_v3 WHERE breed_clean IN ({_ph})",
-                breed_cleans,
-            )
-            _conn.commit()
-            _conn.close()
-            print(f"    [AI 补缓存] 删除 {len(breed_cleans)} 条旧缓存")
-        except Exception as _e:
-            print(f"    [AI 补缓存] 删除旧缓存失败: {_e}")
 
         unique_breeds = list(uncategorized_breeds.values())
         print(f"    [AI 补缓存] {len(unique_breeds)} 个 breed 送 Dify...")

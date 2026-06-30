@@ -119,6 +119,12 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "material_code":   v2.get("material_code") or "",    # 物料视图主键
         "category_v2_source":     v2.get("category_v2_source", ""),    # 5 段式来源
         "category_v2_confidence": v2.get("category_v2_confidence", 0.0),  # 0-1
+        # ── 模糊匹配追溯字段（仅 db_fuzzy_v3 命中时存在，2026-06-30 补充）──
+        # fuzzy_match: True 表示分类来源是 stage 2 模糊召回（contain / jaccard）
+        # dashboard 可筛 fuzzy_match=true 人工 review；错的回写规则后增量重跑即可
+        "fuzzy_match":  v2.get("fuzzy_match", False),
+        "fuzzy_method": v2.get("fuzzy_method", ""),
+        "fuzzy_score":  v2.get("fuzzy_score", 0.0),
         "province": raw.get("province", ""),
         "city": raw.get("city", ""),
         "county": raw.get("county", ""),

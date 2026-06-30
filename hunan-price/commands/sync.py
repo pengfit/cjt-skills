@@ -73,14 +73,17 @@ SHAOYANG_PERIODS = ['1.1-1.10', '1.11-1.20', '1.21-1.31', '2.1-2.3', '2.4-2.10',
 # 半月表的 14 个市州（按表格列顺序）
 HUNAN_CITIES_14 = HUNAN_CITIES_13 + ['邵阳市']
 
-# 半月表 6 种材料（含列索引信息）
+# 半月表 6 种材料（拆 breed / spec / unit 三元组）
+# 2026-06-30 修复：原版把品种+规格拼成一个字符串当 breed，导致 ODS spec 字段为空，
+# ETL transform 时回退 spec=breed，parse_spec 无法拆出 attr（DWS 解析率仅 66%）。
+# 半月刊 PDF 表头固定 6 列材料名（无独立规格列），所以在 sync 时硬拆。
 HALF_MONTH_MATERIALS = [
-    ('螺纹钢筋（抗震）HRB400E 20-25', 'kg'),
-    ('普通硅酸盐水泥(P·O)42.5(散装)', 'kg'),
-    ('天然粗砂', 'kg'),
-    ('机制砂（河机砂）', 't'),
-    ('碎石 10-20mm', 't'),
-    ('商品混凝土（碎石）C30', 'm³'),
+    ('螺纹钢筋（抗震）',     'HRB400E 20-25',     'kg'),
+    ('普通硅酸盐水泥',       'P·O 42.5(散装)',    'kg'),
+    ('天然粗砂',             '',                  'kg'),
+    ('机制砂（河机砂）',     '',                  't'),
+    ('碎石',                 '10-20mm',           't'),
+    ('商品混凝土（碎石）',   'C30',               'm³'),
 ]
 
 
@@ -170,10 +173,17 @@ def pdf_basename(pdf_url: str) -> str:
 
 # ─── PDF 解析 ────────────────────────────────────────────────────────────────
 def _parse_price(s):
-    """解析价格字段（支持区间 "--"、斜杠 "/"、换行、空格、人民币符号、% 趋势符）"""
+    """解析价格字段（支持区间 "--"、斜杠 "/"、换行、空格、人民币符号、% 趋势符）
+
+    2026-06-30：增加括号备注剥除。湖南半月表 PDF 单元格会出现
+    "93.860（中砂）" "82.170（山机砂）" 等带括号备注的数字，原 float() 解析失败导致 price=None → DWD price=0。
+    先剥括号再 parse。
+    """
     if s is None:
         return None
     s = str(s).strip()
+    # 剥括号备注（湖南半月表"93.860（中砂）""82.170（山机砂）"这类）
+    s = re.sub(r'[（(][^）)]*[）)]', '', s)
     for ch in ['\n', '\r', '\t', ' ', ',', '￥', '¥']:
         s = s.replace(ch, '')
     if not s or s in ('—', '-', '——', '/'):
@@ -271,7 +281,7 @@ def parse_half_month_table(page, period):
             city = _clean_cell(row[1])
             remark = _clean_cell(row[14]) if len(row) > 14 else ''
             # 6 种材料价格
-            for mi, (mat_name, default_unit) in enumerate(HALF_MONTH_MATERIALS):
+            for mi, (breed_name, spec_name, default_unit) in enumerate(HALF_MONTH_MATERIALS):
                 price_col = 2 + mi * 2
                 rate_col = price_col + 1
                 price = _parse_price(row[price_col]) if price_col < len(row) else None
@@ -280,8 +290,8 @@ def parse_half_month_table(page, period):
                     continue
                 out.append({
                     'no': no,
-                    'breed': mat_name,
-                    'spec': '',
+                    'breed': breed_name,
+                    'spec': spec_name,
                     'unit': default_unit,
                     'price': price,
                     'tax_price': None,   # 半月表价格是不含税价，无法直接推含税
@@ -302,13 +312,18 @@ def parse_half_month_table(page, period):
 
 # ─── 行情资讯解析 ──────────────────────────────────────────────────────────────
 def parse_zixun_pdf(pdf_path, period):
-    """解析行情资讯（15 页 PDF）→ 4 张表数据"""
+    """解析行情资讯（15 页 PDF）→ 3 张表数据（涨跌幅度表不入仓）
+
+    2026-06-30：p2 各市州建设工程主要材料价格涨跌幅度表不再入库。
+    原因：该表只有涨跌幅（%）无价格，进 ODS 后 price=0 被 _is_price_valid 过滤，
+    既污染 DWD 总量又对 DWS 价格分析无价值。
+    """
     out = []
     with pdfplumber.open(pdf_path) as pdf:
         # p1: 各市州建设工程主要材料价格表（39 列，含邵阳 7 个子期间）
         out += parse_zixun_p1_price(pdf.pages[0], period)
-        # p2: 各市州建设工程主要材料价格涨跌幅度表（同结构，值是涨跌幅）
-        out += parse_zixun_p2_rate(pdf.pages[1], period)
+        # p2: 各市州建设工程主要材料价格涨跌幅度表 — 不入库（详见函数注释）
+        # out += parse_zixun_p2_rate(pdf.pages[1], period)
         # p3-5: 全省综合价表（8 列）
         out += parse_zixun_comprehensive_price(pdf.pages[2:5], period)
         # p6-8: 全省综合价指数表（8 列）
@@ -791,7 +806,9 @@ def main():
             continue
         if args.exclude_period and args.exclude_period in it['title']:
             continue
-        if args.year and f'{args.year}年' not in it['title']:
+        # 年份过滤：优先 --year 参数，其次 config.year，默认 2026
+        effective_year = args.year or cfg.get('year', 2026)
+        if effective_year and f'{effective_year}年' not in it['title']:
             continue
         if it['detail_url'] in progress['done'] and progress['done'][it['detail_url']].get('status') == 'ok':
             continue

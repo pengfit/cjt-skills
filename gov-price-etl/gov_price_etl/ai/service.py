@@ -33,6 +33,7 @@ import time
 from typing import Dict, List, Tuple
 
 from gov_price_etl.ai.prompts import format_prompt, get_prompt
+from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.paths import (
     PROJECT_ROOT,
     SPEC_RULES_DB,

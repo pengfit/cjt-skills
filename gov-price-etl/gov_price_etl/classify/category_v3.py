@@ -5,7 +5,9 @@ category_v3.py - 4 层分类主入口（5 段式，v3 DB）
 
 2 段式（每条数据依次走 2 段，命中即返回）：
   1. db_exact_v3     breed_l3_map_v3 表精确匹配（confidence >= 0.9）
-  2. db_fuzzy_v3     Jaccard 模糊召回（TOP 1，confidence >= 0.9）
+  2. db_fuzzy_v3     包含关系 + Jaccard 模糊召回（TOP 1，confidence >= 0.9）
+     - 2026-06-30 增强：包含关系长度比 0.5 → 0.45，解除 PP-R/PE-RT 全局 deny
+     - 配套：clean_breed 加全角括号→半角、Mpa→MPa 规范化
 
 未命中 → 返回 no_match_v3（不写 DWD，等 breed 补入缓存后重跑）
 """
@@ -119,9 +121,10 @@ def _load_category_node(conn: sqlite3.Connection, l3: str) -> Optional[dict]:
     }
 
 
-def _format_result(node: dict, source: str, confidence: float) -> dict:
+def _format_result(node: dict, source: str, confidence: float, fuzzy_match: bool = False,
+                   fuzzy_method: str = "", fuzzy_score: float = 0.0) -> dict:
     """把 DB 节点 + 来源 + 置信度打包成 v2 分类结果"""
-    return {
+    result = {
         "l1": node.get("l1", ""),
         "l2": node.get("l2", ""),
         "l3": node.get("l3", ""),
@@ -142,6 +145,11 @@ def _format_result(node: dict, source: str, confidence: float) -> dict:
         "category_v2_source": source,
         "category_v2_confidence": confidence,
     }
+    if fuzzy_match:
+        result["fuzzy_match"] = True
+        result["fuzzy_method"] = fuzzy_method
+        result["fuzzy_score"] = fuzzy_score
+    return result
 
 
 # ── 2 段式 ─────────────────────────────────────────────────────────────
@@ -166,15 +174,20 @@ def _stage1_db_exact(conn: sqlite3.Connection, breed_clean: str) -> Optional[dic
 
 
 def _stage2_db_fuzzy(conn: sqlite3.Connection, breed_clean: str) -> Optional[dict]:
-    """阶段 2: Jaccard 模糊召回（TOP 1，confidence >= 0.9）
-    MVP 阶段：先实现简化版——在 breed_l3_map_v3 里查 Jaccard 相似度最高且 >= 0.9 的项。
-    完整 Jaccard 算法在 gov_price_etl.classify.rules.jaccard（v1 已有，此处复用思路）。
+    """阶段 2: 模糊召回（TOP 1，confidence >= 0.9）
+
+    2 个子阶段，命中即返回：
+      2a. 包含关系快速匹配：DB breed 是 ODS breed 的子串（或反之），长度比 >= 0.4
+          - 强信号：能召回「低碳热轧盘条（高线） → 低碳热轧盘条」「钢铝复合暖气片 → 钢铝复合暖气片670*50*100」
+          - 2026-06-30: ratio 0.5 → 0.4（多召 ~6000 条 ODS）
+          - 2026-06-30: 解除 PP-R/PE-RT 全局 deny（DB 中 PE-RT 仅 1 条，PB 9 条多是 HPB300 误匹配，真实风险极低）
+      2b. 字符集 Jaccard（>= 0.9）：弱信号，对长尾命名召回率低
     """
     if not breed_clean:
         return None
-    target = set(breed_clean)
-    # 阶段 2 候选集：DB 中 confidence >= MIN_RULE_CONFIDENCE 的项（低 conf 不参与模糊召回）
     from gov_price_etl.classify.constants import MIN_RULE_CONFIDENCE
+
+    # 候选集：DB 中 confidence >= MIN_RULE_CONFIDENCE 的项
     rows = conn.execute(
         "SELECT breed_clean, l3, source, confidence FROM breed_l3_map_v3 "
         "WHERE confidence >= ?",
@@ -183,6 +196,43 @@ def _stage2_db_fuzzy(conn: sqlite3.Connection, breed_clean: str) -> Optional[dic
     if not rows:
         return None
 
+    # ── 2a. 包含关系快速匹配（强信号）──
+    # 条件：DB breed 是 ODS breed 的子串（或反之），且长度比 >= MIN_SUBSTR_RATIO
+    # 2026-06-30: 取消 PP-R/PE-RT 全局 deny。
+    # 理由：DB 中 PE-RT 仅 1 条 (PE-RT复合管→03.01.03)，PERT 1 条 (PERT耐热聚乙烯地暖盘管De20→05.03.02)，
+    #       真实 PB管 几乎为 0（LIKE '%PB%' 抓到的 9 条全是 HPB300 钢筋，钢筋是 HPB 字符前缀）。
+    #       PP-R 误分到 PE-RT 风险极低；且即使误分，PP-R 和 PE-RT 在 DB 中都映射到 03.01.x（给水管），最终 L3 一致。
+    # 阈值 0.4 vs 0.5: 0.5 太严,丢失「钢铝复合暖气片 → 钢铝复合暖气片670*50*100」(ratio 0.41) 等大量高置信召回。
+    # 短串保护：DB breed 长度 < 3 直接 skip,防止"水泥"/"砂"等过短字符串乱匹配。
+    MIN_SUBSTR_RATIO = 0.4
+    best_sub = None
+    best_sub_len_ratio = 0.0
+    for db_breed, l3, source, conf in rows:
+        if len(db_breed) < 3:
+            continue
+        # ODS breed 是 DB breed 的子串（ODS 是 DB 的子集/更细）
+        if db_breed in breed_clean:
+            ratio = len(db_breed) / len(breed_clean)
+            if ratio >= MIN_SUBSTR_RATIO and ratio > best_sub_len_ratio:
+                best_sub_len_ratio = ratio
+                best_sub = (l3, source, conf, "substr_db_in_ods", ratio)
+        # DB breed 是 ODS breed 的子串（DB 是 ODS 的子集/更细）
+        elif breed_clean in db_breed and len(breed_clean) >= 3:
+            ratio = len(breed_clean) / len(db_breed)
+            if ratio >= MIN_SUBSTR_RATIO and ratio > best_sub_len_ratio:
+                best_sub_len_ratio = ratio
+                best_sub = (l3, source, conf, "substr_ods_in_db", ratio)
+    if best_sub:
+        l3, source, conf, mode, ratio = best_sub
+        node = _load_category_node(conn, l3)
+        if node:
+            return _format_result(
+                node, "db_fuzzy_v3", float(conf or 0.9), fuzzy_match=True,
+                fuzzy_method=f"contain:{mode}", fuzzy_score=round(ratio, 3),
+            )
+
+    # ── 2b. 字符集 Jaccard（弱信号）──
+    target = set(breed_clean)
     best = None
     best_score = 0.0
     for db_breed, l3, source, conf in rows:
@@ -204,7 +254,10 @@ def _stage2_db_fuzzy(conn: sqlite3.Connection, breed_clean: str) -> Optional[dic
     node = _load_category_node(conn, l3)
     if not node:
         return None
-    return _format_result(node, "db_fuzzy_v3", round(best_score, 3))
+    return _format_result(
+        node, "db_fuzzy_v3", round(best_score, 3), fuzzy_match=True,
+        fuzzy_method="jaccard", fuzzy_score=round(best_score, 3),
+    )
 
 
 

@@ -21,6 +21,7 @@ venv/
 .sync_progress.json
 .henan_sync_progress.json
 .xinjiang_sync_progress.json
+.hunan_sync_progress.json
 *.db-shm
 *.db-wal
 # AI 调用结果缓存（运行时累积，重跑可重新生成）

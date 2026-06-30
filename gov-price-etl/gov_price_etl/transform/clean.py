@@ -22,12 +22,23 @@ UNIT_STD_MAP = {
 
 # ─── 品种名清洗 ─────────────────────────────────────────────────────────────────
 def clean_breed(breed: str) -> str:
-    """去除品种名中的噪声字符，保留核心名称"""
+    """去除品种名中的噪声字符，保留核心名称
+
+    2026-06-30 增强：
+    - 全角括号统一为半角（让 ODS "（PP-R）" 和 DB "(PP-R)" 可匹配）
+    - 压力单位大小写规范化（Mpa → MPa、mpa → MPa）
+    - 一些常见易混淆符号
+    """
     if not breed:
         return ""
     b = breed.strip()
     # 统一全角/标点符号（问号/顿号等干扰分词）
     b = b.replace('\uff1f', '').replace('\u3001', '').replace('\uff0c', ',').replace('?', '').replace('x', '')
+    # 2026-06-30: 全角括号 → 半角（PP-R 系列 ODS/DB 括号风格不统一）
+    b = b.replace('（', '(').replace('）', ')')
+    b = b.replace('【', '[').replace('】', ']')
+    # 2026-06-30: 压力单位大小写规范化（ODS 用 Mpa，DB 用 MPa）
+    b = re.sub(r'(?<=[A-Za-z])pa', 'Pa', b)  # mpa → mPa, Mpa → MPa
     # 去除前后空格和常见噪声词
     noise = ["（含税）", "(含税)", "（报价）", "(报价)", "【报价】", "【含税】"]
     for n in noise:
