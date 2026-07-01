@@ -122,6 +122,9 @@ def cmd_init():
                 "tax_price":   {"type": "float"},
                 "is_tax":      {"type": "keyword"},
                 "period":      {"type": "keyword"},
+                "period_start":{"type": "date", "format": "yyyy-MM-dd"},
+                "period_end":  {"type": "date", "format": "yyyy-MM-dd"},
+                "period_days": {"type": "integer"},
                 "province":    {"type": "keyword"},
                 "city":        {"type": "keyword"},
                 "county":      {"type": "keyword"},
@@ -572,6 +575,9 @@ def cmd_sync(args):
                 "tax_price":   {"type": "float"},
                 "is_tax":      {"type": "keyword"},
                 "period":      {"type": "keyword"},
+                "period_start":{"type": "date", "format": "yyyy-MM-dd"},
+                "period_end":  {"type": "date", "format": "yyyy-MM-dd"},
+                "period_days": {"type": "integer"},
                 "province":    {"type": "keyword"},
                 "city":        {"type": "keyword"},
                 "county":      {"type": "keyword"},
@@ -823,13 +829,41 @@ def cmd_write(run_id, county, period, result_json, source="district", category="
     period_date = f"{period.replace('年', '-').replace('月', '-01')}"
     if len(period_date) > 10:
         period_date = period_date[:10]
+
+    # 兼容缺少年份的 period（如 '01月'），默认 2026
+    if len(period_date) < 10:
+        period_date = f"2026-{period_date[5:]}"  # 兜底
+
+    # 推导 period_end（当月最后一天）+ period_days
+    import calendar
+    try:
+        year, month, _ = period_date.split("-")
+        y, m = int(year), int(month)
+        last_day = calendar.monthrange(y, m)[1]
+    except Exception:
+        last_day = 28
+    period_end_date = f"{period_date[:8]}{last_day:02d}"
+
     docs = []
     for row in rows:
         if len(row) < 6:
             continue
-        is_tax = "1" if row[4] else "0"
-        price = _safe_float(row[5]) if is_tax == "1" else _safe_float(row[4])
-        tax_price = _safe_float(row[4]) if is_tax == "1" else _safe_float(row[5])
+        # 重庆表格列顺序是 [编码, 名称, 规格, 单位, 不含税价, 含税价, 备注]，
+        # 但实际源站只填含税价（不含税价留空）。原 sync 逻辑依赖 is_tax 判断，
+        # 会导致 price=0。改为：用哪个有值就用哪个。
+        v_no_tax = _safe_float(row[4]) if len(row) > 4 else 0.0
+        v_tax = _safe_float(row[5]) if len(row) > 5 else 0.0
+        if v_no_tax > 0 and v_tax == 0:
+            # 只有不含税价
+            price, tax_price, is_tax = v_no_tax, 0.0, "0"
+        elif v_tax > 0 and v_no_tax == 0:
+            # 只有含税价
+            price, tax_price, is_tax = v_tax, 0.0, "1"
+        elif v_tax > 0 and v_no_tax > 0:
+            # 两个都有，按 SKILL.md 规则：price=不含税, tax_price=含税
+            price, tax_price, is_tax = v_no_tax, v_tax, "1"
+        else:
+            price, tax_price, is_tax = 0.0, 0.0, "0"
         docs.append({
             "breed": row[1].strip(),
             "spec": row[2].strip(),
@@ -838,6 +872,9 @@ def cmd_write(run_id, county, period, result_json, source="district", category="
             "tax_price": tax_price,
             "is_tax": is_tax,
             "period": period_date,
+            "period_start": period_date,        # 业务期开始（年月日）
+            "period_end": period_end_date,     # 业务期结束（当月最后一天）
+            "period_days": last_day,           # 当月天数
             "province": "重庆",
             "city": "重庆",
             "county": county,
