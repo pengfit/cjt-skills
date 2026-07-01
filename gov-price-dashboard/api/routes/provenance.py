@@ -6,7 +6,7 @@
 
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError, RequestError
 import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml, sqlite3
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -44,6 +44,44 @@ router = APIRouter()
 
 
 ES_HOST = "http://localhost:59200"
+
+
+_EMPTY_SEARCH = {
+    "hits": {"total": {"value": 0}, "hits": []},
+    "aggregations": {},
+}
+
+
+def safe_search(es, index, body, default=None):
+    """包 ES search：索引缺失/无数据时返回空，不报错"""
+    try:
+        return es.search(
+            index=index,
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+        return default if default is not None else _EMPTY_SEARCH
+    except Exception as e:
+        print(f"[warn] safe_search: {type(e).__name__}: {e}")
+        return default if default is not None else _EMPTY_SEARCH
+
+
+def safe_count(es, index, body=None, default=0):
+    try:
+        r = es.count(
+            index=index,
+            body=body or {},
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        return r.get("count", default)
+    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+        return default
+    except Exception as e:
+        print(f"[warn] safe_count: {type(e).__name__}: {e}")
+        return default
 
 
 def _agg_runs_with_fallback(es, idx, body):
@@ -305,10 +343,18 @@ def stats_scrape_progress_all(year: int = 2026):
 
 def _scrape_error_result(city, err) -> dict:
     label = (CITY_INDEXES().get(city) or {}).get("label", city)
+    # 错误消息截短：避免 NotFoundError 完整字符串刷屏
+    err_str = str(err)
+    if "index_not_found_exception" in err_str or "no such index" in err_str:
+        err_msg = "进度索引不存在（ES 清空后未重建）"
+        status = "empty"
+    else:
+        err_msg = err_str[:120]
+        status = "error"
     return {
         "city": city, "city_label": label, "latest_run_id": None, "last_updated": "",
         "total_docs": 0, "total_records": 0, "completed": 0, "running": 0, "error": 0,
-        "total_counties": 0, "status": "error", "counties": [], "error_msg": str(err),
+        "total_counties": 0, "status": status, "counties": [], "error_msg": err_msg,
     }
 
 
@@ -609,6 +655,25 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
     use_henan_periods = (city == "henan")
 
     try:
+        # 索引缺失/无文档 → 直接返回空数据（不报错）
+        try:
+            es.search(index=PROGRESS_INDEX, body={"size": 0}, ignore_unavailable=True, allow_no_indices=True)
+        except (NotFoundError, RequestError):
+            return {
+                "city": city,
+                "city_label": CITY_INDEXES().get(city, {}).get("label", city),
+                "latest_run_id": None,
+                "last_updated": "",
+                "total_docs": 0,
+                "total_records": 0,
+                "completed": 0,
+                "running": 0,
+                "error": 0,
+                "total_counties": CITY_COUNTY_COUNTS().get(city, 0),
+                "counties": [],
+                "status": "empty",
+                "message": "进度索引不存在（ES 清空后未重建），跑采集脚本后会自动恢复",
+            }
         if use_henan_periods:
             # Henan: 按 period 跟踪，created_at 是 keyword 不能 max 聚合
             # 按 year 过滤（period 字段格式 YYYY.M月）
@@ -893,6 +958,23 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
             "total_counties": CITY_COUNTY_COUNTS().get(city, len(counties)),
             "counties": counties,
         }
+    except (NotFoundError, RequestError) as e:
+        # 索引缺失，返回空数据
+        return {
+            "city": city,
+            "city_label": CITY_INDEXES().get(city, {}).get("label", city),
+            "latest_run_id": None,
+            "last_updated": "",
+            "total_docs": 0,
+            "total_records": 0,
+            "completed": 0,
+            "running": 0,
+            "error": 0,
+            "total_counties": CITY_COUNTY_COUNTS().get(city, 0),
+            "counties": [],
+            "status": "empty",
+            "message": "进度索引不存在（ES 清空后未重建）",
+        }
     except Exception as e:
         # print stack for debug (disabled)
         raise HTTPException(status_code=500, detail=str(e))
@@ -934,8 +1016,8 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        prov_result = es.search(index=dwd_idx, body=prov_body, ignore_unavailable=True)
-        prov_buckets = prov_result["aggregations"]["by_province"]["buckets"]
+        prov_result = safe_search(es, dwd_idx, prov_body)
+        prov_buckets = prov_result.get("aggregations", {}).get("by_province", {}).get("buckets", [])
 
         # ── 2. 近30天每日入库量 ─────────────────────────────────
         daily_body = {
@@ -951,8 +1033,8 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        daily_result = es.search(index=dwd_idx, body=daily_body, ignore_unavailable=True)
-        daily_buckets = daily_result["aggregations"]["daily"]["buckets"]
+        daily_result = safe_search(es, dwd_idx, daily_body)
+        daily_buckets = daily_result.get("aggregations", {}).get("daily", {}).get("buckets", [])
         daily_data = [
             {"date": b["key_as_string"][:10], "count": b["doc_count"]}
             for b in daily_buckets
@@ -972,8 +1054,8 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                 }
             }
         }
-        city_result = es.search(index=dwd_idx, body=city_body, ignore_unavailable=True)
-        city_buckets = city_result["aggregations"]["by_city"]["buckets"]
+        city_result = safe_search(es, dwd_idx, city_body)
+        city_buckets = city_result.get("aggregations", {}).get("by_city", {}).get("buckets", [])
         city_data = [
             {
                 "city": b["key"],
@@ -2517,12 +2599,8 @@ def clean_summary(
                 }
             }
         }
-        try:
-            r = es.search(index=dwd_idx, body=body, ignore_unavailable=True)
-            return city_key, r["aggregations"]["by_dim"]["buckets"]
-        except Exception as e:
-            print(f"[clean-summary] {city_key} query failed: {e}", file=sys.stderr)
-            return city_key, []
+        r = safe_search(es, dwd_idx, body)
+        return city_key, r.get("aggregations", {}).get("by_dim", {}).get("buckets", [])
 
     # 8 城并行查（每城一个 DWD 索引）
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:

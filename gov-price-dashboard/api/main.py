@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError, RequestError
 from typing import Optional
 import os, sys, sqlite3
 import yaml
@@ -47,6 +47,47 @@ try:
         ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
 except Exception:
     ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
+
+
+# ── 空索引辅助（ES 清空 / 同步未跑 时返回空数据，不报错）───────────────────
+_EMPTY_SEARCH = {
+    "hits": {"total": {"value": 0}, "hits": []},
+    "aggregations": {},
+}
+
+
+def safe_search(es, index, body, default=None):
+    """安全 ES search：索引缺失/无文档时返回 default（默认 _EMPTY_SEARCH）"""
+    try:
+        return es.search(
+            index=index,
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+        return default if default is not None else _EMPTY_SEARCH
+    except Exception as e:
+        # 其他错误（聚合错误、字段不存在等）也返回空
+        print(f"[warn] safe_search: {type(e).__name__}: {e}")
+        return default if default is not None else _EMPTY_SEARCH
+
+
+def safe_count(es, index, body=None, default=0):
+    """安全 ES count：索引缺失时返回 default"""
+    try:
+        r = es.count(
+            index=index,
+            body=body or {},
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        return r.get("count", default)
+    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+        return default
+    except Exception as e:
+        print(f"[warn] safe_count: {type(e).__name__}: {e}")
+        return default
 
 # 新增 ALL_DWD_INDICES（规格质量 / 分类校对 / 字段追溯场景用）
 try:
@@ -228,7 +269,7 @@ def search(
     }
 
     try:
-        result = es.search(index=ALL_INDICES, body=body)
+        result = safe_search(es, ALL_INDICES, body)
         total = result["hits"]["total"]["value"]
 
         # avg_price_map and prev_price_map removed - multi-index has inconsistent field types
@@ -328,21 +369,37 @@ def overview(
             }
         }
     }
+    # ES 索引可能为空（清空后未重建），返回空数据而非报错
+    total_docs = safe_count(es, ALL_INDICES, body={"query": query})
+    if total_docs == 0:
+        return {
+            "total_docs": 0,
+            "total_provinces": 0,
+            "total_cities": 0,
+            "avg_price": 0,
+            "max_price": 0,
+            "min_price": 0,
+            "by_province": [],
+            "by_category": [],
+            "categories": [],
+            "empty": True,
+            "message": "ES 中无业务数据，请先运行采集/ETL 重建数据",
+        }
     try:
         # 用 _count API 获取真实总数
-        total_result = es.count(index=ALL_INDICES, body={"query": query})
-        total_docs = total_result["count"]
+        total_result = safe_search(es, ALL_INDICES, {"query": query})
+        total_docs = total_result.get("count", 0)
 
-        result = es.search(index=ALL_INDICES, body=body)
-        aggs = result["aggregations"]
-        province_buckets = aggs["by_province"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        aggs = result.get("aggregations", {})
+        province_buckets = aggs.get("by_province", {}).get("buckets", [])
         return {
             "total_docs": total_docs,
-            "total_provinces": aggs["provinces"]["value"],
-            "total_cities": aggs["cities"]["value"],
-            "avg_price": round(aggs["avg_price"]["value"], 2) if aggs["avg_price"]["value"] else 0,
-            "max_price": aggs["max_price"]["value"] or 0,
-            "min_price": aggs["min_price"]["value"] or 0,
+            "total_provinces": aggs.get("provinces", {}).get("value", 0),
+            "total_cities": aggs.get("cities", {}).get("value", 0),
+            "avg_price": round(aggs.get("avg_price", {}).get("value") or 0, 2),
+            "max_price": aggs.get("max_price", {}).get("value") or 0,
+            "min_price": aggs.get("min_price", {}).get("value") or 0,
             "by_province": [
                 {
                     "province": b["key"],
@@ -364,8 +421,10 @@ def overview(
 
 @app.get("/api/filter-options")
 def filter_options():
-    try:
-        province_city_agg = es.search(index=ALL_INDICES, size=0, aggs={
+    """返回省份/城市/区县列表（用于下拉筛选）"""
+    province_city_agg = safe_search(es, ALL_INDICES, {
+        "size": 0,
+        "aggs": {
             "by_province": {
                 "terms": {"field": "province", "size": 50, "order": {"_count": "desc"}},
                 "aggs": {
@@ -379,31 +438,30 @@ def filter_options():
                     }
                 }
             }
-        })
-        city_list = []
-        county_list = []
-        province_city_map = {}
-
-        for pb in province_city_agg["aggregations"]["by_province"]["buckets"]:
-            prov = pb["key"]
-            province_city_map[prov] = []
-            for cb in pb["cities"]["buckets"]:
-                city_key = cb["key"]
-                if city_key:
-                    city_list.append({"key": city_key, "count": cb["doc_count"], "province": prov})
-                    province_city_map[prov].append({"key": city_key, "count": cb["doc_count"]})
-                for tb in cb["counties"]["buckets"]:
+        }
+    })
+    city_list = []
+    county_list = []
+    province_city_map = {}
+    for pb in province_city_agg.get("aggregations", {}).get("by_province", {}).get("buckets", []):
+        prov = pb["key"]
+        province_city_map[prov] = []
+        for cb in pb.get("cities", {}).get("buckets", []):
+            city_key = cb["key"]
+            if city_key:
+                city_list.append({"key": city_key, "count": cb["doc_count"], "province": prov})
+                province_city_map[prov].append({"key": city_key, "count": cb["doc_count"]})
+                for tb in cb.get("counties", {}).get("buckets", []):
                     county_key = tb["key"]
                     if county_key:
                         county_list.append({"key": county_key, "count": tb["doc_count"], "province": prov, "city": city_key})
-
-        return {
-            "cities": city_list,
-            "counties": county_list,
-            "provinceCityMap": province_city_map,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "cities": city_list,
+        "counties": county_list,
+        "provinceCityMap": province_city_map,
+        "empty": len(city_list) == 0,
+        "message": "ES 中无业务数据，请先运行采集/ETL 重建数据" if len(city_list) == 0 else "",
+    }
 
 
 @app.get("/api/stats/province-ranges")
@@ -477,8 +535,8 @@ def province_ranges(
         }
     }
     try:
-        result = es.search(index=ALL_INDICES, body=body)
-        buckets = result["aggregations"]["by_province"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        buckets = result.get("aggregations", {}).get("by_province", {}).get("buckets", [])
         data = {}
         for b in buckets:
             prov = b["key"]
@@ -569,8 +627,8 @@ def price_distribution(
         }
     }
     try:
-        result = es.search(index=ALL_INDICES, body=body)
-        buckets = result["aggregations"]["ranges"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        buckets = result.get("aggregations", {}).get("ranges", {}).get("buckets", [])
         return {
             "data": [
                 {
@@ -597,8 +655,8 @@ def stats_categories(size: int = Query(100, ge=1, le=500)):
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
-        buckets = result["aggregations"]["categories"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        buckets = result.get("aggregations", {}).get("categories", {}).get("buckets", [])
         return {
             "data": [
                 {
@@ -650,16 +708,16 @@ def stats_category_detail(
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
-        aggs = result["aggregations"]
+        result = safe_search(es, ALL_INDICES, body)
+        aggs = result.get("aggregations", {})
 
         provinces = [
             {"key": b["key"], "count": b["doc_count"]}
-            for b in aggs["provinces"]["buckets"]
+            for b in aggs.get("provinces", {}).get("buckets", [])
         ]
 
         breeds = []
-        for b in aggs["breeds"]["buckets"]:
+        for b in aggs.get("breeds", {}).get("buckets", []):
             unit_buckets = b["units"]["buckets"]
             if unit_buckets:
                 primary = unit_buckets[0]
@@ -684,11 +742,11 @@ def stats_category_detail(
         return {
             "data": {
                 "category": category,
-                "avg_price": round(aggs["avg_price"]["value"], 2) if aggs["avg_price"]["value"] else 0,
-                "max_price": round(aggs["max_price"]["value"], 2) if aggs["max_price"]["value"] else 0,
+                "avg_price": round(aggs.get("avg_price", {}).get("value", []), 2) if aggs.get("avg_price", {}).get("value", []) else 0,
+                "max_price": round(aggs.get("max_price", {}).get("value", []), 2) if aggs.get("max_price", {}).get("value", []) else 0,
                 "provinces": provinces,
                 "breeds": breeds,
-                "breed_count": aggs["breed_count"]["value"],
+                "breed_count": aggs.get("breed_count", {}).get("value", []),
             }
         }
     except Exception as e:
@@ -715,16 +773,16 @@ def category_price_ranges(category: str = Query(...)):
                 }
             }
         }
-        stats_result = es.search(index=ALL_INDICES, body=stats_body)
-        aggs = stats_result["aggregations"]
-        min_p = aggs["min_price"]["value"] or 0
-        max_p = aggs["max_price"]["value"] or 0
-        avg_p = aggs["avg_price"]["value"] or 0
+        stats_result = safe_search(es, ALL_INDICES, stats_body)
+        aggs = stats_result.get("aggregations", {})
+        min_p = aggs.get("min_price", {}).get("value", []) or 0
+        max_p = aggs.get("max_price", {}).get("value", []) or 0
+        avg_p = aggs.get("avg_price", {}).get("value", []) or 0
 
         if max_p <= 0:
             return {"data": [], "stats": {"min": 0, "max": 0, "avg": 0}}
 
-        vals = aggs["price_percentiles"]["values"]
+        vals = aggs.get("price_percentiles", {}).get("values", [])
         def pct(key):
             key_str = str(key)
             key_float = float(key)
@@ -802,8 +860,8 @@ def category_price_ranges(category: str = Query(...)):
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
-        buckets = result["aggregations"]["ranges"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        buckets = result.get("aggregations", {}).get("ranges", {}).get("buckets", [])
 
         data = []
         for b in buckets:
@@ -863,9 +921,9 @@ def stats_category_breeds(
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
-        aggs = result["aggregations"]
-        all_buckets = aggs["all_breeds"]["buckets"]
+        result = safe_search(es, ALL_INDICES, body)
+        aggs = result.get("aggregations", {})
+        all_buckets = aggs.get("all_breeds", {}).get("buckets", [])
 
         start = (page - 1) * page_size
         end = start + page_size
@@ -953,10 +1011,10 @@ def stats_breed_detail(
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
-        aggs = result["aggregations"]
+        result = safe_search(es, ALL_INDICES, body)
+        aggs = result.get("aggregations", {})
         units_data = []
-        for ub in aggs["by_unit"]["buckets"]:
+        for ub in aggs.get("by_unit", {}).get("buckets", []):
             unit_key = ub["key"]
             specs_data = []
             spec_buckets = ub["by_spec"]["buckets"]
@@ -1044,7 +1102,7 @@ def stats_data_health():
             }
         }
         daily_result = es.search(index=ALL_ODS_INDICES, body=daily_body)
-        daily_buckets = daily_result["aggregations"]["daily"]["buckets"]
+        daily_buckets = daily_result.get("aggregations", {}).get("daily", {}).get("buckets", [])
         daily_data = [
             {"date": b["key_as_string"][:10], "count": b["doc_count"]}
             for b in daily_buckets
@@ -1072,7 +1130,7 @@ def stats_data_health():
             }
         }
         province_result = es.search(index=ALL_ODS_INDICES, body=province_body)
-        province_buckets = province_result["aggregations"]["by_index"]["buckets"]
+        province_buckets = province_result.get("aggregations", {}).get("by_index", {}).get("buckets", [])
 
         # 反查 _index → province 映射
         idx2province: dict = {s.get("ods_index"): s.get("province", "?") for s in _registry_get_all() if s.get("ods_index")}
@@ -1108,7 +1166,7 @@ def stats_data_health():
                 cat_body = {"size": 0, "aggs": {"by_category": {"terms": {"field": "category.keyword", "size": 20}}}}
                 cat_future = pool.submit(es.search, index=ALL_ODS_INDICES, body=cat_body, ignore_unavailable=True)
             cat_result = cat_future.result()
-            cat_buckets = cat_result["aggregations"]["by_category"]["buckets"]
+            cat_buckets = cat_result.get("aggregations", {}).get("by_category", {}).get("buckets", [])
             cat_data = [
                 {
                     "category": b["key"],
@@ -1438,7 +1496,7 @@ def geo_distribution(
         },
     }
     try:
-        result = es.search(index=ALL_INDICES, body=body)
+        result = safe_search(es, ALL_INDICES, body)
         buckets = result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
         items = []
         for b in buckets:
@@ -1777,7 +1835,7 @@ def geo_regions():
                 }
             }
         }
-        result = es.search(index=ALL_INDICES, body=body)
+        result = safe_search(es, ALL_INDICES, body)
         prov_buckets = result.get("aggregations", {}).get("provinces", {}).get("buckets", [])
         provinces = []
         for pb in prov_buckets:
