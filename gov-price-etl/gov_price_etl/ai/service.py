@@ -806,6 +806,12 @@ def classify_v3_batch(
                             # 下次 ETL 会重新送 AI
                             continue
                         l3, conf, src = v["l3"], v["category_v2_confidence"], "ai_v3"
+                        # 2026-06-30：提 conf 到 0.95（之前 service.py 路径只写 AI 原始 conf 0.7-0.85，
+                        # stage 1 阈值 0.9 会 miss，导致下次 ETL 重复送 AI）。
+                        # ETL pipeline 第二轮原会 UPDATE conf=0.95，但 service.py 直接调走的路径会遗漏。
+                        # 合并到写入里：ai_v3 来源且 l3 合法 → 一律 conf=0.95。
+                        if conf < 0.95:
+                            conf = 0.95
                         rows_to_write.append((bc, l3, src, conf))
                     rows_skipped_protected = sum(1 for bc in batch_bc_valid if bc in protected)
                     rows_actually_inserted = 0

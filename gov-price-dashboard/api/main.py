@@ -24,27 +24,37 @@ from api.skill_registry import (
     reload as _registry_reload,
     dws_indices_csv as _registry_dws_csv,
     ods_indices_csv as _registry_ods_csv,
+    dwd_indices_csv as _registry_dwd_csv,
 )
 
 # 启动时预热一次 registry（_registry_get_all 内部懒加载，但显式 reload 更稳）
-# 数据查询已切换到 ODS 原始层（去掉 DWS 清洗/分类依赖，简化结构）
+# 2026-06-30：ALL_INDICES 改为默认走 DWS（业务层）。
+# 理由：category / search / overview 等业务接口需要 attr + 有效价格 + v3 分类，
+#       这些字段只在 DWS 层完整。ODS 只用于数据健康 / 同步进度 / 审计场景。
 try:
     _registry_reload()
-    ALL_INDICES = _registry_ods_csv()
+    ALL_INDICES = _registry_dws_csv()  # ← 默认 DWS
     if not ALL_INDICES:
-        # 退路：若 registry 失败则保留旧硬编码，避免启动即崩
-        ALL_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
+        ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price,dws_qingdao_price"
 except Exception as _e:
     print(f"[warn] skill_registry 初始化失败: {_e}，使用默认 ALL_INDICES")
-    ALL_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
+    ALL_INDICES = "dws_xian_price,dws_sichuan_price,dws_chongqing_price,dws_jinan_price,dws_rizhao_price,dws_heze_price,dws_henan_price,dws_qingdao_price"
 
-# 兼容旧引用：保留 ALL_ODS_INDICES 指向 ODS
+# 兼容旧引用：保留 ALL_ODS_INDICES 指向 ODS（数据健康 / 同步进度 / 审计）
 try:
     ALL_ODS_INDICES = _registry_ods_csv()
     if not ALL_ODS_INDICES:
         ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
 except Exception:
     ALL_ODS_INDICES = "ods_material_xian_price,ods_material_sichuan_price,ods_material_chongqing_price,ods_material_jinan_price,ods_material_rizhao_price,ods_material_heze_price,ods_material_henan_price,ods_material_qingdao_price"
+
+# 新增 ALL_DWD_INDICES（规格质量 / 分类校对 / 字段追溯场景用）
+try:
+    ALL_DWD_INDICES = _registry_dwd_csv()
+    if not ALL_DWD_INDICES:
+        ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_heze_price,dwd_henan_price,dwd_qingdao_price"
+except Exception:
+    ALL_DWD_INDICES = "dwd_xian_price,dwd_sichuan_price,dwd_chongqing_price,dwd_jinan_price,dwd_rizhao_price,dwd_heze_price,dwd_henan_price,dwd_qingdao_price"
 
 app = FastAPI(title="材价通 API", version="1.0.0")
 
