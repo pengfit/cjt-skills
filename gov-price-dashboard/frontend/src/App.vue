@@ -32,53 +32,19 @@
     <!-- ========== SIDEBAR ========== -->
     <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
     <aside class="sidebar">
-      <div class="sidebar-group">
-        <div class="sidebar-group-label">总览</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'cockpit' }" @click="curTab = 'cockpit'; saveTab('cockpit')">
-          <span class="sidebar-icon">🛸</span>
-          <span class="sidebar-label">驾驶舱</span>
-        </button>
-      </div>
-      <div class="sidebar-group">
-        <div class="sidebar-group-label">业务查价</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'list' }" @click="curTab = 'list'; saveTab('list')">
-          <span class="sidebar-icon">📋</span>
-          <span class="sidebar-label">全部数据</span>
-        </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'category' }" @click="curTab = 'category'; saveTab('category')">
-          <span class="sidebar-icon">📁</span>
-          <span class="sidebar-label">全部类别</span>
-        </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'dist' }" @click="curTab = 'dist'; saveTab('dist')">
-          <span class="sidebar-icon">📊</span>
-          <span class="sidebar-label">价格分布</span>
-        </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'trend' }" @click="curTab = 'trend'; saveTab('trend')">
-          <span class="sidebar-icon">📈</span>
-          <span class="sidebar-label">价格走势</span>
-        </button>
-      </div>
-      <div class="sidebar-group">
-        <div class="sidebar-group-label">系统监控</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'sync' }" @click="curTab = 'sync'; saveTab('sync')">
-          <span class="sidebar-icon">🔄</span>
-          <span class="sidebar-label">数据同步</span>
-        </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'health' }" @click="curTab = 'health'; saveTab('health')">
-          <span class="sidebar-icon">❤️</span>
-          <span class="sidebar-label">数据健康</span>
-        </button>
-      </div>
-      <div class="sidebar-group">
-        <div class="sidebar-group-label">规则管理</div>
-        <button class="sidebar-item" :class="{ active: curTab === 'rules' }" @click="curTab = 'rules'; saveTab('rules')">
-          <span class="sidebar-icon">⚙️</span>
-          <span class="sidebar-label">规格解析</span>
-        </button>
-        <button class="sidebar-item" :class="{ active: curTab === 'taxonomy' }" @click="curTab = 'taxonomy'; saveTab('taxonomy')">
-          <span class="sidebar-icon">🏷️</span>
-          <span class="sidebar-label">分类体系</span>
-        </button>
+      <div class="sidebar-group" v-for="group in sidebarGroups" :key="group.label">
+        <div class="sidebar-group-label">{{ group.label }}</div>
+        <a
+          v-for="item in group.items"
+          :key="item.key"
+          :href="item.path"
+          class="sidebar-item"
+          :class="{ active: currentTab === item.key }"
+          @click.prevent="router.push(item.path)"
+        >
+          <span class="sidebar-icon" aria-hidden="true">{{ item.icon }}</span>
+          <span class="sidebar-label">{{ item.label }}</span>
+        </a>
       </div>
     </aside>
 
@@ -86,7 +52,7 @@
     <main class="main-content">
 
     <!-- Filter Bar (full-width, above main content) -->
-    <template v-if="curTab === 'list'">
+    <template v-if="currentTab === 'list'">
     <!-- Filter Drawer (slide-in from right) -->
     <Transition name="drawer">
       <div class="drawer" v-if="showDrawer">
@@ -169,7 +135,7 @@
     </Transition>
 
       <!-- 列表页：左侧分类树 + 右侧产品表格 -->
-      <div class="list-tree-layout" v-if="curTab === 'list'">
+      <div class="list-tree-layout" v-if="currentTab === 'list'">
         <aside class="list-tree-panel" :class="{ collapsed: categoryPanelCollapsed }">
           <button class="panel-toggle" @click="categoryPanelCollapsed = !categoryPanelCollapsed" :title="categoryPanelCollapsed ? '展开分类' : '收起分类'">
             {{ categoryPanelCollapsed ? '▸' : '◂' }}
@@ -463,7 +429,7 @@
     </template>
 
     <!-- Distribution page -->
-    <template v-if="curTab === 'dist'">
+    <template v-if="currentTab === 'dist'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel">
         <DistributionChart
@@ -474,37 +440,37 @@
       </div>
     </template>
 
-    <template v-if="curTab === 'trend'">
+    <template v-if="currentTab === 'trend'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel"><PriceTrendView /></div>
     </template>
 
-    <template v-if="curTab === 'cockpit'">
+    <template v-if="currentTab === 'cockpit'">
       <div class="scroll-panel">
         <CockpitView />
       </div>
     </template>
 
-    <template v-if="curTab === 'category'">
+    <template v-if="currentTab === 'category'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel"><CategoryView /></div>
     </template>
 
-    <template v-if="curTab === 'sync'">
+    <template v-if="currentTab === 'sync'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel"><SyncView /></div>
     </template>
 
-    <template v-if="curTab === 'health'">
+    <template v-if="currentTab === 'health'">
       <div class="scroll-panel"><DataHealthView /></div>
     </template>
 
-    <template v-if="curTab === 'rules'">
+    <template v-if="currentTab === 'rules'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel"><VecRulesView /></div>
     </template>
 
-    <template v-if="curTab === 'taxonomy'">
+    <template v-if="currentTab === 'taxonomy'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel"><CategoryTaxonomyView /></div>
     </template>
@@ -530,6 +496,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
@@ -543,53 +510,49 @@ import VecRulesView from './components/VecRulesView.vue'
 import CategoryTaxonomyView from './components/CategoryTaxonomyView.vue'
 import CategoryTreeSidebar from './components/CategoryTreeSidebar.vue'
 import CmdPalette from './components/CmdPalette.vue'
+import { TAB_ROUTES, legacyTabPath } from './router'
+
+const route = useRoute()
+const router = useRouter()
+// 当前 tab key：来自路由 name，模板中自动解包
+const currentTab = computed(() => route.name || 'cockpit')
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ============================================================
 // STATE
 // ============================================================
-// Tab list（顺序与侧栏保持一致，数字键 1-7 快橡跳跳）
-const TAB_LIST = [
-  { key: 'cockpit', label: '驾驶舱' },
-  { key: 'list',    label: '全部数据' },
-  { key: 'category',label: '全部类别' },
-  { key: 'dist',    label: '价格分布' },
-  { key: 'trend',   label: '价格走势' },
-  { key: 'sync',    label: '数据同步' },
-  { key: 'health',  label: '数据健康' },
-  { key: 'rules',   label: '规格解析' },
-  { key: 'taxonomy',   label: '分类体系' },
-]
+// 侧栏分组：复用 router/index.js 的 TAB_ROUTES，数字键 1-9 用 index 直接定位
+// 新增 tab 只需改 router/index.js 一处
+const TAB_ICONS = {
+  cockpit: '🛸', list: '📋', category: '📁', dist: '📊',
+  trend: '📈', sync: '🔄', health: '❤️', rules: '⚙️', taxonomy: '🏷️',
+}
+function sidebarItems(keys) {
+  return TAB_ROUTES.filter(r => keys.includes(r.key))
+    .map(r => ({ key: r.key, label: r.label, path: r.path, icon: TAB_ICONS[r.key] || '·' }))
+}
+const sidebarGroups = computed(() => ([
+  { label: '总览',     items: sidebarItems(['cockpit']) },
+  { label: '业务查价', items: sidebarItems(['list', 'category', 'dist', 'trend']) },
+  { label: '系统监控', items: sidebarItems(['sync', 'health']) },
+  { label: '规则管理', items: sidebarItems(['rules', 'taxonomy']) },
+]))
 
-// URL ?tab= 同步，未指定时 localStorage 回退
-function readTabFromUrl() {
-  const p = new URLSearchParams(location.search).get('tab')
-  if (p && TAB_LIST.some(t => t.key === p)) return p
-  return localStorage.getItem('gov_cur_tab') || 'cockpit'
-}
-const curTab = ref(readTabFromUrl())
-function saveTab(tab) {
-  localStorage.setItem('gov_cur_tab', tab)
-  // 同步到 URL（不刷新）
-  const url = new URL(location.href)
-  url.searchParams.set('tab', tab)
-  history.replaceState(null, '', url.toString())
-}
 const mobileSidebarOpen = ref(false)
 const showCmdPalette = ref(false)  // ⌘K 命令面板
 const categoryPanelCollapsed = ref(false)  // 分类面板收起
-watch(curTab, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
+watch(() => route.name, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
 
 // ⌘K 命令面板项
 const cmdItems = computed(() => [
-  ...TAB_LIST.map((t, i) => ({
+  ...TAB_ROUTES.map((t, i) => ({
     id: 'tab:' + t.key,
     label: t.label,
     icon: ['🛩️', '📋', '📊', '📈', '🗺️', '🔄', '💚', '🧩', '🗂️'][i] || '·',
     hint: '跳转到' + t.label,
     shortcut: String(i + 1),
-    action: () => { curTab.value = t.key; saveTab(t.key) },
+    action: () => router.push(t.path),
   })),
   {
     id: 'search:open',
@@ -598,7 +561,7 @@ const cmdItems = computed(() => [
     hint: '跳到“全部数据”页并聚焦搜索框',
     shortcut: '/',
     action: () => {
-      curTab.value = 'list'; saveTab('list')
+      router.push(legacyTabPath('list'))
       nextTick(() => document.querySelector('.filter-bar-input')?.focus())
     },
   },
@@ -607,7 +570,7 @@ const cmdItems = computed(() => [
     label: '打开更多筛选',
     icon: '⚙️',
     hint: '弹出筛选抽屉（仅在“全部数据”生效）',
-    action: () => { if (curTab.value === 'list') showDrawer.value = true },
+    action: () => { if (currentTab.value === 'list') showDrawer.value = true },
   },
 ])
 
@@ -1058,7 +1021,7 @@ watch(
 )
 
 // Tab switch loading feedback
-watch(curTab, (newTab, oldTab) => {
+watch(() => route.name, (newTab, oldTab) => {
   if (newTab !== 'list') {
     tabLoading.value = true
     setTimeout(() => { tabLoading.value = false }, 100)
@@ -1154,13 +1117,10 @@ onMounted(() => {
       showCmdPalette.value = true
       return
     }
-    // 数字键 1-8 快速切换 tab（在非输入框中）
+    // 数字键 1-9 快速切换 tab（在非输入框中）
     if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
-      const tab = TAB_LIST[Number(e.key) - 1]
-      if (tab) {
-        curTab.value = tab.key
-        saveTab(tab.key)
-      }
+      const tab = TAB_ROUTES[Number(e.key) - 1]
+      if (tab) router.push(tab.path)
     }
   })
 })

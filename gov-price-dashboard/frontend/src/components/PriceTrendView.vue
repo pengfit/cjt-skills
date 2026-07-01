@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合`"
+      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`"
       :stats="topStats"
     ><template #icon>📈</template></PageHeader>
 
@@ -25,6 +25,7 @@
         <span class="meta-pill">📅 跨度：<strong>{{ periodRangeText }}</strong></span>
         <span class="meta-pill">📦 文档：<strong>{{ data.total_docs || 0 }}</strong></span>
         <span class="meta-pill">🔍 材料：<strong>{{ selectedMaterials.length }} / {{ allMaterials.length }}</strong></span>
+        <span class="meta-pill">📐 规格：<strong>{{ totalSpecRows }}</strong></span>
       </div>
     </div>
 
@@ -58,14 +59,19 @@
       <div v-else ref="chartEl" class="trend-chart"></div>
     </div>
 
-    <!-- 数据表（每材料 × 每期均价） -->
+    <!-- 规格拆分表（每材料 × 每规格 × 每期均价） -->
     <div v-if="!loading && allPeriods.length" class="trend-table-card">
-      <SectionHeader title="时序数据表" dot-color="blue" subtitle="每行=一个材料，每列=一个业务期" />
+      <SectionHeader
+        title="时序数据表（按规格拆分）"
+        dot-color="blue"
+        :subtitle="`共 ${totalSpecRows} 条规格行（同材料不同规格价差可达数百倍，已拆分）`"
+      />
       <div class="trend-table-scroll">
         <table class="trend-table">
           <thead>
             <tr>
               <th>材料</th>
+              <th>规格</th>
               <th>单位</th>
               <th v-for="p in allPeriods" :key="p.start" :title="`${p.start} ~ ${p.end}`">
                 {{ p.start.slice(5) }}
@@ -74,23 +80,37 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in activeSeries" :key="s.material">
-              <td class="cell-material">{{ s.material }}</td>
-              <td class="cell-unit">{{ s.unit || '—' }}</td>
-              <td v-for="p in allPeriods" :key="p.start" class="cell-price">
-                <template v-if="getPoint(s, p.start)">
-                  <div class="price-val">{{ getPoint(s, p.start).avg.toFixed(2) }}</div>
-                  <div class="price-meta">{{ getPoint(s, p.start).n }}规格</div>
-                </template>
-                <template v-else><span class="no-data">—</span></template>
-              </td>
-              <td class="cell-trend">
-                <span v-if="trendPct(s) != null" :class="['trend-pct', trendClass(trendPct(s))]">
-                  {{ trendPct(s) >= 0 ? '↑' : '↓' }} {{ Math.abs(trendPct(s)).toFixed(1) }}%
-                </span>
-                <span v-else class="no-data">—</span>
-              </td>
-            </tr>
+            <template v-for="s in activeSeries" :key="s.material">
+              <tr v-for="(sp, spIdx) in s.specs" :key="`${s.material}-${sp.spec}-${sp.unit}`">
+                <td v-if="spIdx === 0" class="cell-material" :rowspan="s.specs.length">
+                  {{ s.material }}
+                  <div class="cell-material-meta" v-if="s.specs.length > 1">
+                    {{ s.spec_count }}规格 · {{ s.n_total }}样本
+                  </div>
+                </td>
+                <td class="cell-spec" :title="sp.spec">{{ sp.spec }}</td>
+                <td class="cell-unit">{{ sp.unit || '—' }}</td>
+                <td v-for="p in allPeriods" :key="p.start" class="cell-price">
+                  <template v-if="getPoint(sp, p.start)">
+                    <div class="price-val">{{ getPoint(sp, p.start).avg.toFixed(2) }}</div>
+                    <div class="price-meta">{{ getPoint(sp, p.start).n }}条</div>
+                  </template>
+                  <template v-else><span class="no-data">—</span></template>
+                </td>
+                <td class="cell-trend">
+                  <span v-if="trendPct(sp) != null" :class="['trend-pct', trendClass(trendPct(sp))]">
+                    {{ trendPct(sp) >= 0 ? '↑' : '↓' }} {{ Math.abs(trendPct(sp)).toFixed(1) }}%
+                  </span>
+                  <span v-else class="no-data">—</span>
+                </td>
+              </tr>
+              <tr v-if="s.specs.length === 0" class="row-empty">
+                <td class="cell-material">{{ s.material }}</td>
+                <td colspan="2" class="no-data">该材料无规格数据</td>
+                <td v-for="p in allPeriods" :key="p.start" class="no-data">—</td>
+                <td class="no-data">—</td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -110,7 +130,6 @@ import SkeletonCard from './SkeletonCard.vue'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ── 状态 ──
-// city 不写死：onMounted 拉完 cityOptions 后从列表动态选默认（拼音第一个 = chongqing）
 const city = ref('')
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
@@ -131,22 +150,45 @@ const periodOptions = ref([
   { key: 36, label: '最近 36 期' },
 ])
 
-// 颜色（按材料在数据里出现的位置分配稳定色）
+// 颜色（按 seriesName 在 activeSpecs 里出现的位置分配稳定色）
 const COLOR_POOL = [
   '#dc2626', '#2563eb', '#16a34a', '#ea580c', '#7c3aed',
   '#0891b2', '#db2777', '#65a30d', '#9333ea', '#0d9488',
   '#e11d48', '#4f46e5', '#059669', '#d97706', '#a21caf',
+  '#b45309', '#0369a1', '#15803d', '#a16207', '#9333ea',
 ]
 const colorMap = {}
-function colorOf(material) {
-  if (!colorMap[material]) {
+function colorOf(seriesName) {
+  if (!colorMap[seriesName]) {
     const i = Object.keys(colorMap).length
-    colorMap[material] = COLOR_POOL[i % COLOR_POOL.length]
+    colorMap[seriesName] = COLOR_POOL[i % COLOR_POOL.length]
   }
-  return colorMap[material]
+  return colorMap[seriesName]
 }
 
+// 展平每个 series 的 specs 为独立的 chart series（用于图表多曲线）
 const activeSeries = computed(() => data.value.series.filter(s => selectedMaterials.value.includes(s.material)))
+
+const chartSeries = computed(() => {
+  const out = []
+  for (const s of activeSeries.value) {
+    for (const sp of (s.specs || [])) {
+      out.push({
+        name: `${s.material} / ${sp.spec}`,
+        material: s.material,
+        spec: sp.spec,
+        unit: sp.unit,
+        points: sp.points,
+      })
+    }
+  }
+  return out
+})
+
+const totalSpecRows = computed(() =>
+  activeSeries.value.reduce((acc, s) => acc + (s.specs?.length || 0), 0)
+)
+
 const cityLabel = computed(() => cityOptions.value.find(c => c.key === city.value)?.label || city.value)
 
 const topStats = computed(() => {
@@ -155,6 +197,7 @@ const topStats = computed(() => {
     { label: '城市', value: cityLabel.value },
     { label: '期数', value: allPeriods.value.length },
     { label: '材料', value: selectedMaterials.value.length },
+    { label: '规格行', value: totalSpecRows.value },
   ]
 })
 
@@ -172,7 +215,6 @@ async function loadCityOptions() {
       .map(s => ({ key: s.key, label: s.label }))
       .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
     cityOptions.value = opts
-    // 动态选默认 city：未设置时用拼音第一个（保证不写死、且一定是 registry 里存在的）
     if (!city.value && opts.length) {
       city.value = opts[0].key
     }
@@ -183,26 +225,26 @@ async function loadCityOptions() {
 
 async function loadData() {
   if (!city.value) return
-  // 切城市/期数前 dispose 旧 echarts 实例：
-  // loading=true 会卸载 chartEl DOM（template 切到 trend-loading），
-  // 旧 chartInstance 还指向已卸载的 DOM，setOption 上去 canvas 不会显示
   if (chartInstance) {
     chartInstance.dispose()
     chartInstance = null
   }
+  // 重置颜色 map（新数据重新分配颜色）
+  Object.keys(colorMap).forEach(k => delete colorMap[k])
+
   loading.value = true
   error.value = ''
   data.value = { series: [], total_docs: 0, periods: [] }
   allPeriods.value = []
   allMaterials.value = []
   try {
-    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=*&periods=${periodsLimit.value}`
+    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=*&periods=${periodsLimit.value}&top_specs=8&max_breeds=30`
     const { data: d } = await axios.get(url)
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d
     allPeriods.value = d.periods || []
-    // 默认选前 4 个材料
     allMaterials.value = (d.series || []).map(s => s.material)
+    // 默认选前 4 个材料（让图表不至于太挤）
     selectedMaterials.value = allMaterials.value.slice(0, 4)
   } catch (e) {
     error.value = e.message || '加载失败'
@@ -224,13 +266,13 @@ function toggleMaterial(m) {
   renderChart()
 }
 
-function getPoint(s, periodStart) {
-  return s.points.find(p => p.period_start === periodStart)
+function getPoint(spec, periodStart) {
+  return (spec.points || []).find(p => p.period_start === periodStart)
 }
 
 // 环比：首末两期
-function trendPct(s) {
-  const pts = s.points
+function trendPct(spec) {
+  const pts = spec.points || []
   if (pts.length < 2) return null
   const first = pts[0].avg
   const last = pts.at(-1).avg
@@ -257,6 +299,23 @@ function renderChart() {
 
   const xData = allPeriods.value.map(p => p.label)
 
+  const seriesArr = chartSeries.value.map(s => ({
+    name: `${s.name}${s.unit ? ` (${s.unit})` : ''}`,
+    type: 'line',
+    data: allPeriods.value.map(p => {
+      const pt = getPoint(s, p.start)
+      if (!pt) return { value: null, avg: null, min: null, max: null, n: 0, unit: s.unit }
+      return { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n, unit: s.unit }
+    }),
+    smooth: false,
+    symbol: 'circle',
+    symbolSize: 7,
+    lineStyle: { width: 2, color: colorOf(s.name) },
+    itemStyle: { color: colorOf(s.name) },
+    emphasis: { focus: 'series' },
+    connectNulls: true,
+  }))
+
   const option = {
     tooltip: {
       trigger: 'axis',
@@ -272,7 +331,7 @@ function renderChart() {
           const d = p.data
           if (d && d.avg != null) {
             html += `${p.marker} ${p.seriesName}: <b>${d.avg.toFixed(2)}</b> ${d.unit || ''}<br/>`
-            html += `&nbsp;&nbsp;min ${d.min} · max ${d.max} · ${d.n}规格<br/>`
+            html += `&nbsp;&nbsp;min ${d.min} · max ${d.max} · ${d.n}条<br/>`
           }
         })
         return html
@@ -283,35 +342,15 @@ function renderChart() {
     xAxis: { type: 'category', data: xData, axisLine: { lineStyle: { color: '#cbd5e1' } } },
     yAxis: { type: 'value', name: '价格', nameTextStyle: { color: '#64748b' },
              axisLabel: { color: '#475569' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-    series: activeSeries.value.map(s => ({
-      name: s.material + (s.unit ? ` (${s.unit})` : ''),
-      type: 'line',
-      data: allPeriods.value.map(p => {
-        const pt = getPoint(s, p.start)
-        if (!pt) return { value: null, avg: null, min: null, max: null, n: 0, unit: s.unit }
-        return { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n, unit: s.unit }
-      }),
-      smooth: false,
-      symbol: 'circle',
-      symbolSize: 8,
-      lineStyle: { width: 2.5, color: colorOf(s.material) },
-      itemStyle: { color: colorOf(s.material) },
-      emphasis: { focus: 'series' },
-      connectNulls: true,
-    })),
+    series: seriesArr,
   }
   chartInstance.setOption(option, true)
 }
 
-// 注意：v-model="city" 双向绑定会让 city.value 变化时同步更新，watch(city) 统一负责触发 loadData
-// 因此 CustomSelect 不再需要 @change 回调
-
 onMounted(async () => {
   await loadCityOptions()
-  // loadData 由 watch(city) 触发（city.value 在 loadCityOptions 内被 set）
 })
 
-// city 变化时（包括初次从 '' 切到首个 city）自动 loadData
 watch(city, (newCity) => {
   if (newCity) loadData()
 })
@@ -441,7 +480,9 @@ watch(periodsLimit, () => loadData())
   letter-spacing: 0.4px;
 }
 .th-trend { background: #eff6ff !important; }
-.cell-material { color: #0f172a; font-weight: 500; min-width: 200px; }
+.cell-material { color: #0f172a; font-weight: 500; min-width: 180px; vertical-align: middle; }
+.cell-material-meta { font-size: 10px; color: #94a3b8; font-weight: 400; margin-top: 2px; }
+.cell-spec { color: #475569; min-width: 100px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell-unit { color: #64748b; }
 .cell-price { text-align: right; min-width: 80px; }
 .cell-price .price-val { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
@@ -451,4 +492,5 @@ watch(periodsLimit, () => loadData())
 .trend-pct.trend-up { color: #dc2626; background: #fef2f2; }
 .trend-pct.trend-down { color: #16a34a; background: #f0fdf4; }
 .no-data { color: #cbd5e1; }
+.row-empty { background: #fafafa; }
 </style>

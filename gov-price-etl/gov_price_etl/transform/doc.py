@@ -17,6 +17,7 @@ DWD 字段：
   - spec='/' 规范化 + 空 spec 回填为 breed（与原 etl.py 逻辑一致）
 """
 from datetime import datetime
+import re
 
 from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.parse_spec import get_parser
@@ -133,6 +134,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "update_date": raw.get("update_date", ""),
         "publish_time": raw.get("publish_time", ""),
         "period": raw.get("period", ""),
+        "month": raw.get("month", ""),        # 业务期 YYYY-MM（xian --period 模式有）
         # ── 时序分析字段（2026-06-23 补充，跨周期时序查询）──
         # create_time：透传 ODS（如有），fallback etl_time
         "create_time":  raw.get("create_time") or "",
@@ -155,41 +157,100 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "attr": nested_attr,
     }
 
-    # 派生 period_start / end / days（如果 ODS 已有则用，否则按 update_date + granularity 派生）
+    # 派生 period_start / end / days（如果 ODS 已有则用，否则按 month / period / update_date 派生）
     granularity = doc.get("period_granularity", "monthly")
     _ud = doc.pop("_raw_update_date", "")
     raw_ps = doc.pop("_raw_period_start", "")
     raw_pe = doc.pop("_raw_period_end", "")
     raw_pd = doc.pop("_raw_period_days", "")
+
+    # 优先级：
+    #   1) ODS 已有 period_start 字段 → 直接用
+    #   2) ODS 有 month 字段（YYYY-MM 字符串）→ period_start = YYYY-MM-01
+    #   3) ODS 有 period 字段（YYYY.N期 / YYYY.第N期）→ 按 granularity 派生
+    #   4) fallback 到 update_date
+    _derived = None  # tuple(period_start, period_end, period_days)
     if raw_ps:
-        doc["period_start"] = raw_ps
-        doc["period_end"] = raw_pe or raw_ps
-        doc["period_days"] = raw_pd or 30
+        _derived = (raw_ps, raw_pe or raw_ps, raw_pd or 30)
     else:
-        if _ud and len(_ud) >= 7:
-            try:
-                mo = int(_ud[5:7])
-            except (ValueError, IndexError):
-                mo = 1
+        # 优先级 2：month
+        _month = doc.get("month", "")
+        if _month and re.fullmatch(r"\d{4}-\d{2}", str(_month)):
+            y, mo = _month.split("-")
+            mo_int = int(mo)
             if granularity == "quarterly":
-                q = (mo - 1) // 3 + 1
+                q = (mo_int - 1) // 3 + 1
                 sm = (q - 1) * 3 + 1
                 em = q * 3
-                doc["period_start"] = f"{_ud[:4]}-{sm:02d}-01"
-                doc["period_end"] = f"{_ud[:4]}-{em:02d}-30"
-                doc["period_days"] = 90
+                _derived = (f"{y}-{sm:02d}-01", f"{y}-{em:02d}-30", 90)
             else:
-                # monthly: period_start = 月首, period_end = 月末, period_days = 当月天数
-                last_day = 31
-                if mo == 2:
-                    last_day = 28
-                elif mo in (4, 6, 9, 11):
-                    last_day = 30
-                doc["period_start"] = f"{_ud[:4]}-{mo:02d}-01"
-                doc["period_end"] = f"{_ud[:4]}-{mo:02d}-{last_day:02d}"
-                doc["period_days"] = last_day
+                last_day = 31 if mo_int in (1,3,5,7,8,10,12) else (28 if mo_int == 2 else 30)
+                _derived = (f"{y}-{int(mo):02d}-01", f"{y}-{int(mo):02d}-{last_day:02d}", last_day)
+        # 优先级 3：period 字段解析 YYYY.N期 / YYYY.第N期
+        elif doc.get("period"):
+            _ps = _parse_period_field(doc["period"], granularity)
+            if _ps:
+                _derived = _ps
+    # 优先级 4：fallback update_date
+    if _derived is None and _ud and len(_ud) >= 7:
+        try:
+            mo = int(_ud[5:7])
+        except (ValueError, IndexError):
+            mo = 1
+        if granularity == "quarterly":
+            q = (mo - 1) // 3 + 1
+            sm = (q - 1) * 3 + 1
+            em = q * 3
+            _derived = (f"{_ud[:4]}-{sm:02d}-01", f"{_ud[:4]}-{em:02d}-30", 90)
         else:
-            doc["period_start"] = _ud or ""
-            doc["period_end"] = _ud or ""
-            doc["period_days"] = 1
+            last_day = 31
+            if mo == 2:
+                last_day = 28
+            elif mo in (4, 6, 9, 11):
+                last_day = 30
+            _derived = (f"{_ud[:4]}-{mo:02d}-01", f"{_ud[:4]}-{mo:02d}-{last_day:02d}", last_day)
+
+    if _derived:
+        doc["period_start"], doc["period_end"], doc["period_days"] = _derived
+    else:
+        doc["period_start"] = _ud or ""
+        doc["period_end"] = _ud or ""
+        doc["period_days"] = 1
     return doc
+
+
+def _parse_period_field(period: str, granularity: str):
+    """解析 ODS 的 period 字段（如 '2026.1期' / '2026.第1期' / '2026年第3季度'）。
+    返回 (period_start, period_end, period_days) 或 None。
+    """
+    if not period:
+        return None
+    s = str(period).strip()
+    # 模式 1: YYYY.N期  或  YYYY第N期
+    m = re.search(r"(\d{4})[.\s]*第?\s*(\d+)\s*期", s)
+    if m:
+        year, issue = int(m.group(1)), int(m.group(2))
+        if granularity == "quarterly":
+            # N 当季度：Q1=1-3月, Q2=4-6月, Q3=7-9月, Q4=10-12月
+            sm = (issue - 1) * 3 + 1
+            em = issue * 3
+            return (f"{year}-{sm:02d}-01", f"{year}-{em:02d}-30", 90)
+        elif granularity == "bimonthly":
+            # 双月刊：N=1→1-2月, N=2→3-4月, ...
+            sm = (issue - 1) * 2 + 1
+            em = sm + 1
+            last_day_e = 31 if em in (1,3,5,7,8,10,12) else (28 if em == 2 else 30)
+            return (f"{year}-{sm:02d}-01", f"{year}-{em:02d}-{last_day_e:02d}", 60)
+        else:
+            # monthly：N 当月份（限 1-12）
+            if 1 <= issue <= 12:
+                last_day = 31 if issue in (1,3,5,7,8,10,12) else (28 if issue == 2 else 30)
+                return (f"{year}-{issue:02d}-01", f"{year}-{issue:02d}-{last_day:02d}", last_day)
+    # 模式 2: YYYY-MM  (兜底)
+    m = re.search(r"(\d{4})-(\d{2})", s)
+    if m:
+        year, mo = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12:
+            last_day = 31 if mo in (1,3,5,7,8,10,12) else (28 if mo == 2 else 30)
+            return (f"{year}-{mo:02d}-01", f"{year}-{mo:02d}-{last_day:02d}", last_day)
+    return None

@@ -1,10 +1,16 @@
 """价格走势 API 端点 - 按 period_start 时序聚合某城市某些材料的价格曲线
+
+P1 修复（2026-07-01）：trend 数据"不准"的根因是按 breed 聚合时把所有 spec 的 price 一起算均值
+（如闸阀 DN15=20 元 vs DN300=9469 元混算 → 466 倍价差 → 平均值不可信）。
+改为按 (breed, spec, unit) 分组聚合，每组单独成一条曲线。
+
 - 临时挂在 provenance_router 上
 """
 from fastapi import APIRouter, Query
 from elasticsearch import Elasticsearch
 import os, sys
 from datetime import datetime
+from collections import defaultdict, Counter
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.skill_registry import get as _registry_get
@@ -39,6 +45,139 @@ def _period_label(start: str, granularity: str) -> str:
     return start
 
 
+def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_per_breed: int = 50000):
+    """按 breed 拉所有 hits（指定 period_start 范围内），用 search_after 翻页
+
+    spec 是 text 类型（无 keyword 子字段），不能直接 terms agg。
+    改在 Python 端按 (period_start, spec, unit) 三元组聚合。
+    """
+    if not period_starts:
+        return []
+    all_hits = []
+    pit = None
+    page_size = 5000
+    query = {
+        "bool": {
+            "must": [{"term": {"breed": breed}}],
+            "filter": [{"terms": {"period_start": period_starts}}],
+        }
+    }
+    sort = [{"period_start": "asc"}, {"_id": "asc"}]
+    try:
+        if pit is None:
+            pit = es.open_point_in_time(index=index, keep_alive="2m", ignore_unavailable=True)["id"]
+        while True:
+            body = {
+                "size": page_size,
+                "query": query,
+                "sort": sort,
+                "pit": {"id": pit, "keep_alive": "2m"},
+                "_source": ["period_start", "spec", "unit", "price"],
+            }
+            r = es.search(body=body, ignore_unavailable=True)
+            hits = r.get("hits", {}).get("hits", [])
+            if not hits:
+                break
+            all_hits.extend(hits)
+            if len(hits) < page_size:
+                break
+            if len(all_hits) >= max_per_breed:
+                break
+            pit = r.get("pit_id", pit)
+        try:
+            es.close_point_in_time(id=pit)
+        except Exception:
+            pass
+    except Exception:
+        # 回退：单次拉 size=10000（无 PIT）
+        try:
+            r = es.search(
+                index=index,
+                body={
+                    "size": min(max_per_breed, 10000),
+                    "query": query,
+                    "sort": sort,
+                    "_source": ["period_start", "spec", "unit", "price"],
+                },
+                ignore_unavailable=True,
+            )
+            all_hits = r.get("hits", {}).get("hits", [])
+        except Exception:
+            all_hits = []
+    return all_hits
+
+
+def _aggregate_hits_by_spec_unit(hits, selected_periods):
+    """按 (spec, unit, period_start) 三元组聚合 hits，返回：
+    {
+      'specs': [
+        {
+          'spec': 'DN50', 'unit': '个', 'n_total': 327,
+          'points': [{'period_start': '2026-04-01', 'avg': 320.5, 'min': ..., 'max': ..., 'n': 5}, ...]
+        },
+        ...
+      ],
+      'overall_points': [...],   # 兼容旧字段：跨 spec 整体均价
+      'units_seen': ['个', 'kg'],
+    }
+    """
+    # key: (spec_key, unit) -> {period_start: [prices]}
+    grp = defaultdict(lambda: defaultdict(list))
+    overall_by_period = defaultdict(list)
+    units_count = Counter()
+    for h in hits:
+        src = h.get("_source", {}) or {}
+        ps = _date_str(src.get("period_start"))
+        if not ps:
+            continue
+        price = src.get("price")
+        if price is None:
+            continue
+        spec_raw = (src.get("spec") or "").strip()
+        spec_key = spec_raw if spec_raw else "__通用__"
+        unit = src.get("unit") or ""
+        grp[(spec_key, unit)][ps].append(price)
+        overall_by_period[ps].append(price)
+        units_count[unit] += 1
+
+    def _points(by_period_dict):
+        out = []
+        for p in selected_periods:
+            prices = by_period_dict.get(p["start"])
+            if not prices:
+                continue
+            out.append({
+                "period_start": p["start"],
+                "period_end": p.get("end", ""),
+                "avg": round(sum(prices) / len(prices), 2),
+                "min": round(min(prices), 2),
+                "max": round(max(prices), 2),
+                "n": len(prices),
+            })
+        return out
+
+    specs_out = []
+    for (spec_key, unit), by_period in grp.items():
+        pts = _points(by_period)
+        if not pts:
+            continue
+        n_total = sum(p["n"] for p in pts)
+        specs_out.append({
+            "spec": spec_key,
+            "unit": unit,
+            "n_total": n_total,
+            "points": pts,
+        })
+    specs_out.sort(key=lambda x: (-x["n_total"], x["spec"]))
+
+    overall_points = _points(overall_by_period)
+    return {
+        "specs": specs_out,
+        "overall_points": overall_points,
+        "units_seen": [u for u, _ in units_count.most_common()],
+    }
+
+
 @router.get("/api/stats/price-trend")
 def price_trend(
     city: str = Query("qingdao", description="城市 key"),
@@ -49,21 +188,34 @@ def price_trend(
     periods: int = Query(12, ge=1, le=60, description="取最近 N 个业务期"),
     date_from: str = Query("", description="起始期 YYYY-MM-DD（含），优先于 periods"),
     date_to: str = Query("", description="结束期 YYYY-MM-DD（含）"),
+    top_specs: int = Query(5, ge=1, le=20, description="每个材料返回的 spec 数（按样本量倒序）"),
+    max_breeds: int = Query(30, ge=1, le=100, description="materials=* 时取 top N 材料（按文档数倒序）"),
 ):
-    """返回 city 索引下，每个品种按 period_start 时序的均价/最小/最大/数量
+    """返回 city 索引下，每个材料 × 每个规格按 period_start 时序的均价/最小/最大/数量
 
-    返回结构：
+    返回结构（v2 - 按 spec 拆分）：
     {
       "ok": true,
       "city": "qingdao", "label": "青岛",
       "granularity": "monthly",
       "periods": [{"start": "2026-02-01", "end": "2026-02-28", "label": "2026年02月"}, ...],
       "series": [
-        {"material": "...", "unit": "t",
-         "points": [
-           {"period_start": "2026-02-01", "period_end": "2026-02-28", "avg": 3400.5, "min": ..., "max": ..., "n": 3},
-           ...
-         ]},
+        {
+          "material": "闸阀",
+          "unit": "个",                    // 兼容字段：主要 unit
+          "spec_count": 12,                // 该材料总共多少个 spec
+          "n_total": 3096,                 // 该材料总样本
+          "specs": [                       // top N 个 spec
+            {
+              "spec": "DN50",
+              "unit": "个",
+              "n_total": 327,
+              "points": [{"period_start": "2026-04-01", "avg": 320.5, "min": 300, "max": 340, "n": 5}, ...]
+            },
+            ...
+          ],
+          "points": [...],                 // 兼容字段：跨 spec 整体均价（旧逻辑，标注 ⚠混合口径）
+        },
         ...
       ]
     }
@@ -110,10 +262,8 @@ def price_trend(
     if date_to:
         selected_periods = [p for p in selected_periods if p["start"] <= date_to]
     if not date_from and not date_to:
-        # 默认取最近 N 期
         selected_periods = selected_periods[-periods:]
     else:
-        # 即便有 date_from/to，也截一下避免太长
         selected_periods = selected_periods[-60:]
 
     if not selected_periods:
@@ -134,7 +284,7 @@ def price_trend(
             body={
                 "size": 0,
                 "query": {"terms": {"period_start": [p["start"] for p in selected_periods]}},
-                "aggs": {"b": {"terms": {"field": "breed", "size": 30}}},
+                "aggs": {"b": {"terms": {"field": "breed", "size": max_breeds, "order": {"_count": "desc"}}}},
             },
             ignore_unavailable=True,
         )
@@ -142,70 +292,36 @@ def price_trend(
     else:
         mat_list = [m.strip() for m in materials.split(",") if m.strip()]
 
-    # 4) 按材料 × 业务期聚合
+    # 4) 按材料拉 hits → 按 (spec, unit) 聚合
     series = []
+    period_starts = [p["start"] for p in selected_periods]
     for mat in mat_list:
-        r = es.search(
-            index=dws_index,
-            body={
-                "size": 0,
-                "query": {
-                    "bool": {
-                        "must": [{"term": {"breed": mat}}],
-                        "filter": [{"terms": {"period_start": [p["start"] for p in selected_periods]}}],
-                    }
-                },
-                "aggs": {
-                    "by_period": {
-                        "terms": {"field": "period_start", "size": 60, "order": {"_key": "asc"}},
-                        "aggs": {
-                            "period_end": {"min": {"field": "period_end"}},
-                            "avg_price": {"avg": {"field": "price"}},
-                            "min_price": {"min": {"field": "price"}},
-                            "max_price": {"max": {"field": "price"}},
-                            "n": {"value_count": {"field": "price"}},
-                            "units": {"terms": {"field": "unit", "size": 3}},
-                        },
-                    }
-                },
-            },
-            ignore_unavailable=True,
-        )
-
-        # 按 selected_periods 顺序建索引
-        by_start = {}
-        units_seen = []
-        for b in r.get("aggregations", {}).get("by_period", {}).get("buckets", []):
-            start = _date_str(b["key"])
-            end = _date_str(b["period_end"].get("value"))
-            units_seen.extend([u["key"] for u in b["units"].get("buckets", [])])
-            by_start[start] = {
-                "period_start": start,
-                "period_end": end,
-                "avg": round(b["avg_price"]["value"] or 0, 2),
-                "min": round(b["min_price"]["value"] or 0, 2),
-                "max": round(b["max_price"]["value"] or 0, 2),
-                "n": int(b["n"]["value"] or 0),
-            }
-
-        points = [by_start.get(p["start"]) for p in selected_periods]
-        points = [pt for pt in points if pt is not None]
-
-        unit = ""
-        if units_seen:
-            from collections import Counter
-            unit = Counter(units_seen).most_common(1)[0][0]
-
+        hits = _fetch_all_hits_for_breed(dws_index, mat, period_starts)
+        if not hits:
+            series.append({
+                "material": mat,
+                "unit": "",
+                "spec_count": 0,
+                "n_total": 0,
+                "specs": [],
+                "points": [],
+            })
+            continue
+        agg = _aggregate_hits_by_spec_unit(hits, selected_periods)
+        specs = agg["specs"][:top_specs]   # top N spec（按样本量倒序）
         series.append({
             "material": mat,
-            "unit": unit,
-            "points": points,
+            "unit": agg["units_seen"][0] if agg["units_seen"] else "",
+            "spec_count": len(agg["specs"]),
+            "n_total": sum(p["n"] for p in agg["overall_points"]),
+            "specs": specs,
+            "points": agg["overall_points"],   # 兼容：跨 spec 整体曲线
         })
 
     # 5) total_docs
     total = es.count(
         index=dws_index,
-        body={"query": {"terms": {"period_start": [p["start"] for p in selected_periods]}}},
+        body={"query": {"terms": {"period_start": period_starts}}},
         ignore_unavailable=True,
     ).get("count", 0)
 
@@ -218,4 +334,5 @@ def price_trend(
         "periods": selected_periods,
         "series": series,
         "total_docs": total,
+        "top_specs": top_specs,
     }
