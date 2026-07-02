@@ -27,6 +27,7 @@ if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _ETL_PROJECT_ROOT)
 try:
     from gov_price_etl.parse_price import parse_interval_price as _parse_interval_price
+    from gov_price_etl.indexer import ensure_progress_index as _ensure_progress_index
 except ImportError as _e:
     # 硬约束：通用层必须可用。如果将来 chongqing 部署到没有 etl skill 的环境，
     # 在这里显式报错，不要默默走本地 fallback 留下隐患。
@@ -166,21 +167,9 @@ def cmd_init():
             }
         }
     })
-    _ensure_index(PROGRESS_INDEX, {
-        "mappings": {"properties": {
-            "run_id":       {"type": "keyword"},
-            "status":       {"type": "keyword"},
-            "area":         {"type": "keyword"},
-            "period":       {"type": "keyword"},
-            "current_page": {"type": "integer"},
-            "total_pages":  {"type": "integer"},
-            "docs_written": {"type": "integer"},
-            "percent":      {"type": "float"},
-            "duration_sec": {"type": "float"},
-            "last_updated": {"type": "keyword"},
-            "error":        {"type": "text"},
-        }}
-    })
+    # v0.6 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_progress_index。
+    # 已存在索引走 noop 保护（dynamic=strict 不允许改字段类型，避免冲突）。
+    _ensure_progress_index(ES_HOST, PROGRESS_INDEX)
     print("[+] 索引初始化完成")
 
 
@@ -278,7 +267,8 @@ def cmd_progress(run_id, county, period, current_page, total_pages, docs_written
         "error": error,
     }
     r = requests.put(
-        f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{run_id}_{county}",
+        # v0.6 _id 标准化：__ 分隔 source/county/period（兼容老 run_id_county 文档）
+        f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{run_id}__{source}__{county}__{period}",
         json=doc, timeout=15, verify=False
     )
     if r.status_code in (200, 201):
@@ -301,7 +291,8 @@ def cmd_summary(run_id, target_period, total_counties, completed, total_docs, du
         "error": "",
     }
     # _id 含 period:跨月份多个 summary 互不覆盖
-    _id = f"{run_id}_summary_{target_period}"
+    # v0.6 _id 标准化：__summary__ 分隔符
+    _id = f"{run_id}__summary__{target_period}"
     r = requests.put(
         f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{_id}",
         json=doc, timeout=15, verify=False
@@ -631,22 +622,8 @@ def cmd_sync(args):
             }
         }
     })
-    _ensure_index(PROGRESS_INDEX, {
-        "mappings": {"properties": {
-            "run_id":       {"type": "keyword"},
-            "status":       {"type": "keyword"},
-            "area":         {"type": "keyword"},
-            "period":       {"type": "keyword"},
-            "current_page": {"type": "integer"},
-            "total_pages":  {"type": "integer"},
-            "docs_written": {"type": "integer"},
-            "percent":      {"type": "float"},
-            "duration_sec": {"type": "float"},
-            "last_updated": {"type": "keyword"},
-            "error":        {"type": "text"},
-            "source":       {"type": "keyword"},
-        }}
-    })
+    # v0.6 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_progress_index。
+    _ensure_progress_index(ES_HOST, PROGRESS_INDEX)
 
     # 遍历每个 period
     for pi, target_period in enumerate(periods):
