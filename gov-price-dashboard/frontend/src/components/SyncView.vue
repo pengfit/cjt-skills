@@ -26,6 +26,34 @@
       ]"
     ><template #icon>🔄</template></PageHeader>
 
+    <!-- 重庆「最近检查」卡片（凌晨 1 点 cron check.py 写入 chongqing_price_check_log） -->
+    <div v-if="checkLatest && checkLatest.status !== 'no_record'" class="check-card" :class="`check-status-${checkLatest.status}`">
+      <div class="check-card-head">
+        <span class="check-card-icon">⏰</span>
+        <span class="check-card-title">重庆最近检查</span>
+        <span class="check-card-time">{{ checkLatest.run_at }}</span>
+        <span class="check-card-badge">{{ statusLabel(checkLatest.status) }}</span>
+      </div>
+      <div class="check-card-body">
+        <div class="check-cell">
+          <div class="check-cell-label">源站最新</div>
+          <div class="check-cell-val">{{ checkLatest.site_latest_period || '—' }}</div>
+          <div class="check-cell-sub">{{ checkLatest.site_latest_year }}年 {{ checkLatest.site_latest_month }}</div>
+        </div>
+        <div class="check-vs">vs</div>
+        <div class="check-cell">
+          <div class="check-cell-label">ES 最新</div>
+          <div class="check-cell-val">{{ checkLatest.es_latest_period || '—' }}</div>
+          <div class="check-cell-sub">入库 {{ (checkLatest.es_latest_create_time || '').slice(0, 19) }}</div>
+        </div>
+        <div class="check-msg">{{ checkLatest.message }}</div>
+      </div>
+    </div>
+    <div v-else-if="checkLatest && checkLatest.status === 'no_record'" class="check-card check-status-empty">
+      <span class="check-card-icon">⏰</span>
+      重庆增量检测尚无记录（check.py 还没跑过）
+    </div>
+
     <div class="sync-subtabs">
       <button class="sync-subtab" :class="{ active: subTab === 'clean' }" @click="subTab = 'clean'">
         <span class="sync-subtab-dot"></span>
@@ -100,10 +128,72 @@ async function loadStats() {
   } catch (e) { console.error(e) }
 }
 
-onMounted(loadStats)
+// ── 重庆最近检查（check.py → chongqing_price_check_log）──
+const checkLatest = ref(null)
+function statusLabel(s) {
+  return {
+    ok: '✅ 无新数据',
+    new_data: '🔔 有更新',
+    no_es_data: '⚠️ ES 无数据',
+    no_site_data: '⚠️ 源站无数据',
+    no_record: '尚无记录',
+  }[s] || s
+}
+async function loadCheckLatest() {
+  try {
+    const { data } = await axios.get(`${API}/stats/chongqing-check-latest`)
+    checkLatest.value = data
+  } catch (e) { console.error(e) }
+}
+
+onMounted(() => { loadStats(); loadCheckLatest() })
 </script>
 
 <style scoped>
+/* ── 重庆「最近检查」卡片 ── */
+.check-card {
+  margin: 14px 20px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-3);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.check-card-icon { font-size: 14px; }
+.check-card-title { font-weight: 600; }
+.check-card-time { color: var(--text-3); margin-left: auto; font-family: ui-monospace, monospace; }
+.check-card-badge {
+  padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
+  background: var(--surface-2); color: var(--text-2);
+}
+.check-card-body {
+  display: flex; align-items: center; gap: 16px; padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.check-cell { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
+.check-cell-label { color: var(--text-3); font-size: 10px; }
+.check-cell-val { font-size: 14px; font-weight: 600; font-family: ui-monospace, monospace; }
+.check-cell-sub { color: var(--text-3); font-size: 10px; }
+.check-vs { color: var(--text-3); font-weight: 600; }
+.check-msg { margin-left: auto; color: var(--text-2); font-size: 12px; max-width: 40%; }
+
+.check-status-ok { border-left-color: #16a34a; }
+.check-status-ok .check-card-badge { background: rgba(34,197,94,0.15); color: #16a34a; }
+
+.check-status-new_data { border-left-color: #ea580c; }
+.check-status-new_data .check-card-badge { background: rgba(234,88,12,0.15); color: #ea580c; }
+
+.check-status-no_es_data { border-left-color: #dc2626; }
+.check-status-no_es_data .check-card-badge { background: rgba(220,38,38,0.15); color: #dc2626; }
+
+.check-status-no_site_data { border-left-color: #6b7280; }
+.check-status-no_site_data .check-card-badge { background: rgba(107,114,128,0.15); color: #6b7280; }
+
+.check-status-empty { color: var(--text-3); font-style: italic; }
+
 .sync-page {
   padding: 0 28px 28px;
   min-height: 100vh;
