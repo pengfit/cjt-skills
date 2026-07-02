@@ -91,6 +91,17 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         # 回退：用 clean_breed 再查一次（部分规则可能用 clean 格式录入）
         spec_parsed = parser.parse(spec_clean, breed_clean, category)
 
+    # v4 (2026-07-02) : 重庆园林景观类补调专用解析器（合成 spec 格式: 干径X 冠径Y）
+    if city == "chongqing" and category == "园林景观":
+        try:
+            from gov_price_etl.parse_spec.chongqing_landscape import parse_landscape_spec
+            landscape_attrs = parse_landscape_spec(spec_clean)
+            if landscape_attrs:
+                # 合并：园林解析的优先（造有结构的字段名）
+                spec_parsed = {**spec_parsed, **landscape_attrs}
+        except Exception:
+            pass
+
     flat_attr = {k: v for k, v in spec_parsed.items() if v}
     # DWD 统一用 nested attr 格式存储，与 DWS 保持一致
     nested_attr = [{"k": k, "v": v} for k, v in flat_attr.items()]
@@ -102,6 +113,14 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         "unit": unit_clean,
         "price": price,
         "tax_price": tax_price,
+        # v4 (2026-07-02) : 区间价字段透传
+        "price_min":   raw.get("price_min") or 0.0,
+        "price_max":   raw.get("price_max") or 0.0,
+        "price_range": raw.get("price_range") or "",
+        "is_range":    raw.get("is_range", False),
+        "is_tax":      raw.get("is_tax") or "",
+        "range_notes": raw.get("range_notes") or "",
+        "spec_notes":  raw.get("spec_notes") or "",
         "category": category,                                # v2 L1 中文名（spec 规则库过滤）
         "category_l1":     v2.get("l1", ""),                # v2 4 层分类
         "category_l2":     v2.get("l2", ""),

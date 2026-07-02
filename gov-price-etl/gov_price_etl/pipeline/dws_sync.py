@@ -48,17 +48,32 @@ AI_PARSE_BATCH_SLEEP_S = 0.5  # 批间限速
 
 
 def _is_price_valid(d: dict) -> bool:
-    """价格有效性检查：price 和 tax_price 任一不为 None/0 才算有效。
+    """价格有效性检查：price_min 不为 None/0 才算有效。
 
-    背景：甘孜州偏远区县 (sichuan) 、绿化苗木 (chongqing) 、造型树 (jinan) 等场景
+    背景：甘孜州偏远区县 (sichuan) 、未发布价格的品种 等场景
     数据源未发布价格，被存为 0；这类文档写入 DWS 后会污染价格走势 / 排序 / 统计。
+
+    v3 (2026-07-02) ：升级为看 price_min 区间的下界。
+    区间价 '115-173' 会被 _parse_interval_price 解析为 price_min=115, price_max=173,
+    即便中位数 price=144，也走这里返 True。绿化苗木的 '大于200' 被解析为
+    price_min=price_max=200，同样能进 DWS。
+
     返回 True 表示文档价格有效。
     """
     p = d.get("price")
     t = d.get("tax_price")
-    p_valid = (p is not None) and (p != 0) and (p != 0.0)
-    t_valid = (t is not None) and (t != 0) and (t != 0.0)
-    return p_valid or t_valid
+    p_min = d.get("price_min")
+    t_min = d.get("tax_min")
+
+    def _nz(x):
+        return (x is not None) and (x != 0) and (x != 0.0)
+
+    # 优先看 price_min（区间价下界），向下兼容旧 price/tax_price
+    if p_min is not None:
+        return _nz(p_min)
+    if t_min is not None:
+        return _nz(t_min)
+    return _nz(p) or _nz(t)
 
 
 def _source_to_dws(d: dict) -> dict:
