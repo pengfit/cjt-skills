@@ -8,7 +8,9 @@ import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="重庆工程造价材料信息同步")
     parser.add_argument("--reset", action="store_true", help="重置进度，重新开始")
-    parser.add_argument("--period", default="2026年01月", help="目标周期")
+    parser.add_argument("--period", default="2026年01月", help="目标周期（兼容旧参数，等价 --periods 单值）")
+    parser.add_argument("--periods", default="",
+                        help="多周期，逗号分隔，如 '2026年01月,2026年02月,2026年03月,2026年04月,2026年05月'")
     parser.add_argument("--run-id", default="", help="指定 run_id")
     parser.add_argument("--tab-id", default="", help="浏览器标签页 ID")
     parser.add_argument("--source", default="all",

@@ -79,7 +79,21 @@ PROGRESS_FILE = os.path.join(
 
 
 def _doc_id(breed, spec, period, price, tax_price, county):
+    """原价 _id，保留兼容：用于旧数据或单值场景。
+
+    v4 (2026-07-02) ：新增 _doc_id_v4 用 price_min/price_max 作为哈希因子。
+    区间价场景里价不同 → _id 不同，避免旧 _id（基于 0）覆盖。
+    """
     raw = f"{breed}_{spec}_{period}_{price}_{tax_price}_{county}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+
+def _doc_id_v4(breed, spec, period, price_min, price_max, price_range, county):
+    """v4: 用区间边界作哈希因子。
+
+    区分单值与区间：间区连 is_range 一起进哈希。
+    """
+    raw = f"{breed}_{spec}_{period}_{price_min}_{price_max}_{price_range}_{county}"
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
@@ -254,12 +268,12 @@ def cmd_progress(run_id, county, period, current_page, total_pages, docs_written
     return r.status_code in (200, 201)
 
 
-def cmd_summary(run_id, total_counties, completed, total_docs, duration_sec):
+def cmd_summary(run_id, target_period, total_counties, completed, total_docs, duration_sec):
     doc = {
         "run_id": run_id,
         "status": "completed",
         "area": "全部完成",
-        "period": "2026年01月",
+        "period": target_period,
         "current_page": completed,
         "total_pages": total_counties,
         "docs_written": total_docs,
@@ -268,8 +282,10 @@ def cmd_summary(run_id, total_counties, completed, total_docs, duration_sec):
         "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
         "error": "",
     }
+    # _id 含 period:跨月份多个 summary 互不覆盖
+    _id = f"{run_id}_summary_{target_period}"
     r = requests.put(
-        f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{run_id}_summary",
+        f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{_id}",
         json=doc, timeout=15, verify=False
     )
     if r.status_code in (200, 201):
@@ -447,9 +463,9 @@ if(!target) {{
 }}
 if(!target) return 'NO_MONTH_SELECT';
 var found = false;
-for(var i=0;i<target.options.length;i++){{
-  if(target.options[i].value === '{month_val}' || target.options[i].innerText === '{month_val}'){{
-    target.options[i].selected = true;
+for(var j=0;j<target.options.length;j++){{
+  if(target.options[j].value === '{month_val}' || target.options[j].innerText === '{month_val}'){{
+    target.options[j].selected = true;
     found = true;
     break;
   }}
@@ -523,7 +539,7 @@ return JSON.stringify({{rows:rows,totalPages:tp?parseInt(tp[1]):1,currentPage:cp
         raw = _eval_js(js)
         return json.loads(raw)
     except Exception:
-        return {{"rows": [], "totalPages": 1, "currentPage": 1, "hasNext": False}}
+        return {"rows": [], "totalPages": 1, "currentPage": 1, "hasNext": False}
 
 def _get_counties(source: str):
     """获取指定 source 对应的区县列表"""
@@ -561,10 +577,18 @@ def _reset_progress():
 def cmd_sync(args):
     tab_id = args.tab_id
     reset = args.reset
-    target_period = args.period
     run_id = args.run_id or f"{RUN_ID_PREFIX}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     source = getattr(args, 'source', 'district')
 
+    # 支持多周期：--periods "2026年01月,2026年02月,..." (逗号分隔)
+    periods_attr = getattr(args, 'periods', '') or ''
+    if periods_attr:
+        periods = [p.strip() for p in periods_attr.split(',') if p.strip()]
+    else:
+        single = getattr(args, 'period', '') or '2026年01月'
+        periods = [single]
+
+    # 索引初始化（一次性）
     _ensure_index(ES_INDEX, {
         "mappings": {
             "properties": {
@@ -606,23 +630,38 @@ def cmd_sync(args):
         }}
     })
 
-    month_num = re.search(r'(\d{1,2})月', target_period)
-    if not month_num:
-        print(f"[!] 无法从 '{target_period}' 提取月份")
-        return
-    mn = month_num.group(1).zfill(2)
+    # 遍历每个 period
+    for pi, target_period in enumerate(periods):
+        month_num = re.search(r'(\d{1,2})月', target_period)
+        if not month_num:
+            print(f"[!] 无法从 '{target_period}' 提取月份，跳过")
+            continue
+        mn = month_num.group(1).zfill(2)
 
-    # 单一 source 模式（CLI backward compat）
-    if source != "all":
-        _run_sync_source(source, tab_id, target_period, run_id, reset, mn)
-        return
+        # 第一个 period 才 reset，后续 period 同 run_id 续跑(ods 用 _id 幂等)
+        is_first_period = (pi == 0)
+        period_reset = reset and is_first_period
 
-    # 全量模式：依次跑 district / mortar / citywide
-    for src in ["district", "mortar", "citywide"]:
-        print(f"\n{'='*50}")
-        print(f"[*] 开始同步: {src} ({SOURCE_CONFIG[src]['label']})")
-        print(f"{'='*50}")
-        _run_sync_source(src, tab_id, target_period, run_id, reset=True, mn=mn)
+        print(f"\n{'#'*50}")
+        print(f"# 周期 {target_period} ({pi+1}/{len(periods)})")
+        print(f"{'#'*50}")
+
+        # 单一 source 模式（CLI backward compat）
+        if source != "all":
+            _run_sync_source(source, tab_id, target_period, run_id, period_reset, mn)
+            continue
+
+        # 全量模式：依次跑 district / mortar / citywide
+        # 同周期内多个 source 用 done_X 隔离进度,但都传到同一个 run_id
+        for src in ["district", "mortar", "citywide"]:
+            print(f"\n{'='*50}")
+            print(f"[*] {target_period} - 开始同步: {src} ({SOURCE_CONFIG[src]['label']})")
+            print(f"{'='*50}")
+            # reset=True 时只对首个 source 生效(reset 会清掉本地进度文件)
+            src_reset = period_reset if src == "district" else False
+            _run_sync_source(src, tab_id, target_period, run_id, reset=src_reset, mn=mn)
+            # 后续 source/period 续跑同一个 run_id
+            period_reset = False
 
 
 def _run_sync_source(source, tab_id, target_period, run_id, reset, mn):
@@ -638,8 +677,8 @@ def _run_sync_source(source, tab_id, target_period, run_id, reset, mn):
         prog = {"done": [], "run_id": run_id}
         print(f"[i] 已重置进度 ({source})")
 
-    # load progress keyed by source
-    done_key = f"done_{source}"
+    # load progress keyed by (source, period) — 跨月份隔离
+    done_key = f"done_{source}_{target_period}"
     done_counties = prog.get(done_key, [])
     remaining = [c for c in all_counties if c not in done_counties]
 
@@ -801,18 +840,28 @@ def _save_progress_all(prog, run_id):
 def cmd_progress(run_id, county, period, page, total_pages, docs_written, status, error_msg, duration, source="district"):
     label_map = {"district": "区县材料", "mortar": "预拌砂浆", "citywide": "重庆材料信息价"}
     area_label = f"{label_map.get(source, source)}-{county}"
+    # 计算 percent：完成或错误状态为 100，否则按页数比例
+    if status in ("completed", "error"):
+        percent = 100.0
+    elif total_pages and total_pages > 0:
+        percent = round(page / total_pages * 100, 1)
+    else:
+        percent = 0.0
     body = {
         "run_id": run_id, "area": area_label, "period": period,
         "current_page": page, "total_pages": total_pages,
         "docs_written": docs_written, "status": status,
         "duration_sec": duration, "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "error": error_msg or "",
-        "source": source,
+        "source": source, "percent": percent,
     }
+    # 固定 _id:同 (run_id, source, county, period) 复用,跨月份隔离
+    _id = f"{run_id}__{source}__{county}__{period}"
     try:
-        requests.post(f"{ES_HOST}/{PROGRESS_INDEX}/_doc", json=body, timeout=10)
+        r = requests.put(f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{_id}", json=body, timeout=15, verify=False)
+        return r.status_code in (200, 201)
     except Exception:
-        pass
+        return False
 
 
 def cmd_write(run_id, county, period, result_json, source="district", category=""):
@@ -844,37 +893,104 @@ def cmd_write(run_id, county, period, result_json, source="district", category="
         last_day = 28
     period_end_date = f"{period_date[:8]}{last_day:02d}"
 
+    col_map = _columns_for(category)
+    is_landscape = category == "园林绿化工程材料"
+
     docs = []
+    # 4 道保护 (v4.1 2026-07-02) ：如果 6 月份原站表格结构变了，sync 不会默默漏抓
+    counters = {
+        "col_count_short": 0,        # 保护1：列数不够（特别是园林景观原站表头变化）
+        "col_count_short_samples": [],  # 样本
+        "price_parse_fail": 0,       # 保护2：价格列有值但 price_min=0（区间解析失败）
+        "price_parse_fail_samples": [],
+    }
+
     for row in rows:
         if len(row) < 6:
             continue
-        # 重庆表格列顺序是 [编码, 名称, 规格, 单位, 不含税价, 含税价, 备注]，
-        # 但实际源站只填含税价（不含税价留空）。原 sync 逻辑依赖 is_tax 判断，
-        # 会导致 price=0。改为：用哪个有值就用哪个。
-        v_no_tax = _safe_float(row[4]) if len(row) > 4 else 0.0
-        v_tax = _safe_float(row[5]) if len(row) > 5 else 0.0
-        if v_no_tax > 0 and v_tax == 0:
-            # 只有不含税价
-            price, tax_price, is_tax = v_no_tax, 0.0, "0"
-        elif v_tax > 0 and v_no_tax == 0:
-            # 只有含税价
-            price, tax_price, is_tax = v_tax, 0.0, "1"
-        elif v_tax > 0 and v_no_tax > 0:
-            # 两个都有，按 SKILL.md 规则：price=不含税, tax_price=含税
-            price, tax_price, is_tax = v_no_tax, v_tax, "1"
+
+        # ── 保护 1：列数自检 ─────────────────────
+        # 园林景观原站表格是 11 列（[序号,科属,品名,高度,干径,冠径,分枝高,单位,含税价,不含税价,备注]）。
+        # 如果以后原站列数变化（比如加 1 列变成 12 列），这里会拦截，不会默默接受错位数据。
+        if is_landscape and len(row) < 11:
+            counters["col_count_short"] += 1
+            if len(counters["col_count_short_samples"]) < 3:
+                counters["col_count_short_samples"].append({
+                    "row_len": len(row),
+                    "row_head": row[:6],
+                })
+            continue  # 跳过这行，不入 ES
+
+        # ── 按列映射取字段 ─────────────────────────
+        def _cell(idx):
+            return row[idx].strip() if idx < len(row) and row[idx] else ""
+
+        breed = _cell(col_map.get("breed", 1))
+        if not breed or breed == "材料名称":
+            continue
+
+        # spec：园林景观走合成，其他取 row[2]
+        if is_landscape:
+            spec = _build_spec_for_landscape(row, col_map)
         else:
-            price, tax_price, is_tax = 0.0, 0.0, "0"
-        docs.append({
-            "breed": row[1].strip(),
-            "spec": row[2].strip(),
-            "unit": row[3].strip(),
-            "price": price,
-            "tax_price": tax_price,
-            "is_tax": is_tax,
+            spec = _cell(col_map.get("spec", 2))
+        unit = _cell(col_map.get("unit", 3))
+
+        # 园林景观的价格列：row[8]=含税 row[9]=不含税
+        # 建安类价格列：row[4]=含税 row[5]=不含税（与重庆 SKILL 一致）
+        # 统一从 col_map 读索引
+        tax_str = _cell(col_map.get("tax_price", 4))
+        price_str = _cell(col_map.get("price", 5))
+
+        # ── 价格解析（走区间解析） ─────────────────
+        price_mid, price_min, price_max, is_range, price_range_str, notes = _parse_interval_price(
+            price_str if price_str else tax_str
+        )
+        tax_mid, tax_min, tax_max, _, tax_range_str, _ = _parse_interval_price(
+            tax_str if tax_str else price_str
+        )
+
+        # ── 保护 2：价格解析失败告警 ─────────────────
+        # 园林景观源站价格列总是有值（"115-173" / "大于200" / "全冠"）。
+        # 如果 price_str 有值（且不是 "0"）但 price_min=0，说明区间解析可能挂了。
+        # 例：原站以后加了新格式 "200元/株" / "0.2万/棵" / "面议" 之类。
+        # 合法 special value（"全冠" / "全干"）走 notes 路径，不告警。
+        _KNOWN_SPECIAL = {"全冠", "全干"}
+        if is_landscape and price_str and price_str != "0" and price_min == 0 and price_str not in _KNOWN_SPECIAL:
+            counters["price_parse_fail"] += 1
+            if len(counters["price_parse_fail_samples"]) < 3:
+                counters["price_parse_fail_samples"].append({
+                    "breed": breed,
+                    "spec": spec,
+                    "raw_price": price_str,
+                })
+            # 不 continue ——后续 _is_price_valid 会过滤 price_min=0 不入 DWS。
+            # 告警仅打印，不阻断写入（能让我们看到原站源数据）。
+
+        # ── is_tax 推断 ────────────────────────────
+        if price_str and not tax_str:
+            is_tax_val = "0"   # 只有不含税
+        elif tax_str and not price_str:
+            is_tax_val = "1"   # 只有含税（园林景观的常态）
+        else:
+            is_tax_val = "1"
+
+        # ── 构造 doc ────────────────────────────────
+        doc = {
+            "breed": breed,
+            "spec": spec,
+            "unit": unit,
+            "price": price_mid,
+            "tax_price": tax_mid,
+            "price_min": price_min,
+            "price_max": price_max,
+            "price_range": price_range_str,
+            "is_range": is_range,
+            "is_tax": is_tax_val,
             "period": period_date,
-            "period_start": period_date,        # 业务期开始（年月日）
-            "period_end": period_end_date,     # 业务期结束（当月最后一天）
-            "period_days": last_day,           # 当月天数
+            "period_start": period_date,
+            "period_end": period_end_date,
+            "period_days": last_day,
             "province": "重庆",
             "city": "重庆",
             "county": county,
@@ -884,7 +1000,27 @@ def cmd_write(run_id, county, period, result_json, source="district", category="
             "source": source,
             "run_id": run_id,
             "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        })
+        }
+        if notes:
+            doc["range_notes"] = notes
+
+        # 园林景观的额外维度：科属（category_l1）+ 4 个维度进 range_notes 后缀
+        if is_landscape:
+            ql = _cell(col_map.get("category_l1", 1))
+            if ql:
+                doc["spec_notes"] = ql   # 科属（乔木/花灌木/棕榈植物类）
+
+        docs.append(doc)
+
+    # ── 保护 1/2 告警 summary ─────────────────
+    if counters["col_count_short"] > 0:
+        print(f"  [WARN\u26a0\ufe0f \u4fdd\u62a41] \u56ed\u6797\u666f\u89c2\u5217\u6570\u4e0d\u8db3 11 \u5217\uff1a{counters['col_count_short']} \u884c\u88ab\u8df3\u8fc7")
+        for s in counters["col_count_short_samples"]:
+            print(f"    \u793a\u4f8b row_len={s['row_len']}, head={s['row_head']}")
+    if counters["price_parse_fail"] > 0:
+        print(f"  [WARN\u26a0\ufe0f \u4fdd\u62a42] \u4ef7\u683c\u89e3\u6790\u5931\u8d25\uff08\u6709\u539f\u6587\u4f46 price_min=0\uff09\uff1a{counters['price_parse_fail']} \u6761")
+        for s in counters["price_parse_fail_samples"]:
+            print(f"    \u793a\u4f8b breed={s['breed']!r} spec={s['spec']!r} raw_price={s['raw_price']!r}")
 
     if not docs:
         return 0
@@ -910,14 +1046,113 @@ def _safe_float(s):
         return 0.0
 
 
+def _parse_interval_price(s):
+    """解析价格字符串，返回 (mid, min, max, is_range, range_str, notes)。
+
+    支持格式：
+      '3353.98'        → (3353.98, 3353.98, 3353.98, False, '3353.98', '')
+      '115-173'        → (144.0, 115.0, 173.0, True, '115-173', '')
+      '115~173'        → (144.0, 115.0, 173.0, True, '115~173', '')
+      '115到173'       → (144.0, 115.0, 173.0, True, '115到173', '')
+      '大于200' / '>200'→ (200.0, 200.0, 200.0, True, '>200', '')
+      '小于100' / '<100'→ (100.0, 100.0, 100.0, True, '<100', '')
+      '全冠'           → (0.0, 0.0, 0.0, True, '全冠', '全冠')
+      '' / None        → (0.0, 0.0, 0.0, False, '', '')
+
+    返回元组：
+      mid      - 中位数（用于 price 字段，排序筛选统计）
+      mn       - 区间下界（用于 price_min）
+      mx       - 区间上界（用于 price_max）
+      is_range - 是否为区间价（用于 is_range）
+      raw      - 原始字符串规范化（用于 price_range）
+      notes    - 特殊描述（如 '全冠'），存进 range_notes / attr
+    """
+    if not s or not isinstance(s, str) or not s.strip():
+        return (0.0, 0.0, 0.0, False, '', '')
+
+    raw = s.strip()
+    # 去全角符号 (￥元，) 保留 -
+    s_clean = re.sub(r'[￥,，元\s]', '', raw)
+
+    # 1) 单值（含全角）：'3353.98' / '3353'
+    if re.fullmatch(r'-?\d+(?:\.\d+)?', s_clean):
+        val = float(s_clean)
+        return (val, val, val, False, raw, '')
+
+    # 2) 区间：'115-173' / '115~173' / '115到173' / '115至173'
+    m = re.match(r'^(-?\d+(?:\.\d+)?)\s*[-~到至]\s*(-?\d+(?:\.\d+)?)$', s_clean)
+    if m:
+        a, b = float(m.group(1)), float(m.group(2))
+        lo, hi = (a, b) if a <= b else (b, a)
+        return ((lo + hi) / 2, lo, hi, True, raw, '')
+
+    # 3) 大于 / '>200'
+    m = re.match(r'^[大小]于\s*(-?\d+(?:\.\d+)?)$', raw) or re.match(r'^>\s*(-?\d+(?:\.\d+)?)$', s_clean)
+    if m:
+        val = float(m.group(1))
+        return (val, val, val, True, raw, '')
+
+    # 4) 小于 / '<100'
+    m = re.match(r'^[小]于\s*(-?\d+(?:\.\d+)?)$', raw) or re.match(r'^<\s*(-?\d+(?:\.\d+)?)$', s_clean)
+    if m:
+        val = float(m.group(1))
+        return (val, val, val, True, raw, '')
+
+    # 5) 兜底特殊描述（'全冠' / '半冠' 等）
+    return (0.0, 0.0, 0.0, True, raw, raw)
+
+
+# ── 列映射：按 category 选列 ─────────────────────────────
+COLUMN_MAPS = {
+    # 默认：建安工程 / 绿色节能 / 装配式 / 轨道（7 列）
+    # [序号, 材料名称, 规格型号, 单位, 含税价, 不含税价, 备注]
+    "default": {
+        "breed": 1, "spec": 2, "unit": 3,
+        "tax_price": 4, "price": 5, "remark": 6,
+    },
+    # 园林景观（11 列）
+    # [序号, 科属, 品名, 高度, 干径, 冠径, 分枝高, 单位, 含税价, 不含税价, 备注]
+    "园林绿化工程材料": {
+        "category_l1": 1,        # 科属（乔木/花灌木 等）
+        "breed": 2,              # 品名（小叶榕）
+        "_spec_components": [3, 4, 5, 6],  # 高度/干径/冠径/分枝高 合成 spec
+        "_height": 3,
+        "_trunk_diameter": 4,
+        "_crown_diameter": 5,
+        "_branch_height": 6,
+        "unit": 7,
+        "tax_price": 8, "price": 9,
+        "remark": 10,
+    },
+}
+
+
+def _build_spec_for_landscape(row, m):
+    """园林景观类的 spec 合成：'干径Φ7-9cm 冠径>200cm 分枝高200-220cm'
+
+    _safe_float_interval 对 raw 字符串保留好，spec 用 raw 拼。
+    """
+    parts = []
+    labels = [
+        (m['_height'],         '高'),
+        (m['_trunk_diameter'], '干径'),
+        (m['_crown_diameter'], '冠径'),
+        (m['_branch_height'],  '分枝高'),
+    ]
+    for idx, label in labels:
+        val = row[idx] if idx < len(row) else ''
+        if val and val.strip():
+            parts.append(f"{label}{val.strip()}")
+    return ' '.join(parts)
+
+
+def _columns_for(category):
+    """按 category 返回列映射，未识别走 default。"""
+    return COLUMN_MAPS.get(category, COLUMN_MAPS['default'])
+
+
 def cmd_init():
     pass  # index created on-demand
-
-
-def cmd_summary(run_id, total, completed, docs, duration):
-    print(f"\n[DONE] run_id={run_id}, {completed}/{total} counties, {docs} docs, {duration:.1f}s")
-
-
 
 
 # ─── CLI 入口 ────────────────────────────────────────────────
@@ -957,12 +1192,14 @@ def main():
         completed = int(sys.argv[4])
         total_docs = int(sys.argv[5])
         duration_sec = float(sys.argv[6])
-        cmd_summary(run_id, total_counties, completed, total_docs, duration_sec)
+        period = sys.argv[7] if len(sys.argv) > 7 else "2026年01月"
+        cmd_summary(run_id, period, total_counties, completed, total_docs, duration_sec)
 
     elif cmd == "sync":
         parser = argparse.ArgumentParser(description="重庆工程造价材料信息同步")
         parser.add_argument("--reset", action="store_true", help="重置进度，重新开始")
-        parser.add_argument("--period", default="2026年01月", help="目标周期")
+        parser.add_argument("--period", default="2026年01月", help="目标周期（兼容旧参数，等价 --periods 单值）")
+        parser.add_argument("--periods", default="", help="多周期，逗号分隔，如 '2026年01月,2026年02月'")
         parser.add_argument("--tab-id", default="", help="浏览器 tab targetId")
         parser.add_argument("--run-id", default="", help="指定 run_id")
         parser.add_argument("--source", default="district",
