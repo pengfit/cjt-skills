@@ -84,6 +84,34 @@ def safe_count(es, index, body=None, default=0):
         return default
 
 
+# ── Progress _parse_area 通用 helper ──────────────────────────────
+# chongqing v3 在 progress 文档 area 字段拼上"区县材料-万州区"等前缀。
+# dashboard 需要从 raw 文本反推 source + 剥离名字。原本 3 处独立内嵌函数
+# （provenance.py line 527/1018/3302），2026-07-02 抽出共用。
+_AREA_SOURCE_PREFIX_MAP = {
+    "district": "区县材料",
+    "mortar":   "预拌砂浆",
+    "citywide": "重庆材料信息价",
+}
+
+def _parse_area(raw_text: str) -> tuple[str, str]:
+    """从 progress 文档 area/county 字段反推 (clean_county_name, source)。
+
+    Args:
+        raw_text: 原始 area 文本（可能含"区县材料-XXX"前缀，也可能裸 XXX）
+
+    Returns:
+        (clean_county_name, source) 二元组。source 默认 'district'（其他城市）。
+    """
+    if not raw_text:
+        return "", "district"
+    for src, prefix in _AREA_SOURCE_PREFIX_MAP.items():
+        tag = f"{prefix}-"
+        if raw_text.startswith(tag):
+            return raw_text[len(tag):], src
+    return raw_text, "district"
+
+
 def _agg_runs_with_fallback(es, idx, body):
     """terms agg on run_id，text 类型索引报错时降级到 run_id.keyword
 
@@ -516,20 +544,9 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
                             or h["_source"].get("tab_name"))]
 
     # chongqing 这种 sync 会在 county/area 上拼 "区县材料-"/"预拌砂浆-"/"重庆材料信息价-"
-    # 带 source 前缀的 raw 文本，这里按前缀反推 source、剥离名字。
+    # 带 source 前缀的 raw 文本。_parse_area 反推 source + 剥离名字（2026-07-02
+    # 已抽到模块顶部，见上方定义）。
     # 同时同一 (run, source, county) 多个 period 会有多条，去重保最新。
-    source_prefix_map = {
-        "district": "区县材料",
-        "mortar": "预拌砂浆",
-        "citywide": "重庆材料信息价",
-    }
-
-    def _parse_area(raw_text: str) -> tuple[str, str]:
-        for src, prefix in source_prefix_map.items():
-            tag = f"{prefix}-"
-            if raw_text.startswith(tag):
-                return raw_text[len(tag):], src
-        return raw_text, "district"
 
     # 1. 按 raw_area 去重，保留 last_updated 最大那条（chongqing 同一区县在多个 period 都留进度记录）
     deduped_map: dict[str, dict] = {}
@@ -1008,19 +1025,8 @@ def stats_scrape_progress(city: str = Query("xian", description="城市 key"), y
         total_records = sum(h["_source"].get("total_records", 0) for h in county_hits)
 
         # 通用兜底：county/area 可能被 sync 端拼上 "区县材料-"/"预拌砂浆-"/"重庆材料信息价-"
-        # 等带 source 前缀的 raw 文本。按前缀推断 source 并剥离，避免前端显示错误名字。
-        source_prefix_map = {
-            "district": "区县材料",
-            "mortar": "预拌砂浆",
-            "citywide": "重庆材料信息价",
-        }
-
-        def _parse_area(raw_text: str) -> tuple[str, str]:
-            for src, prefix in source_prefix_map.items():
-                tag = f"{prefix}-"
-                if raw_text.startswith(tag):
-                    return raw_text[len(tag):], src
-            return raw_text, "district"
+        # 等带 source 前缀的 raw 文本。_parse_area（2026-07-02 抽到模块顶部）按前缀
+        # 推断 source 并剥离，避免前端显示错误名字。
 
         raw_rows = []
         for h in county_hits:
@@ -3292,20 +3298,8 @@ def _county_sync_progress(cfg: dict) -> dict:
     # chongqing 特殊处理：area 字段会被 sync 端写成 "区县材料-万州区"/"预拌砂浆-..."
     # 这种带前缀的 raw 文本，原样返回会让前端和进度计数都出错。
     # 这里按 area 前缀反推 source、剥离前缀，保证返回的 county 字段是纯净的区县名，
+    # _parse_area 已抽到模块顶部（2026-07-02）。
     # 同时给前端一个 source_summary 做分组统计（其他 city：source 默认 district，行为不变）。
-    source_prefix_map = {
-        "district": "区县材料",
-        "mortar": "预拌砂浆",
-        "citywide": "重庆材料信息价",
-    }
-
-    def _parse_area(raw_text: str) -> tuple[str, str]:
-        """返回 (clean_county_name, source)"""
-        for src, prefix in source_prefix_map.items():
-            tag = f"{prefix}-"
-            if raw_text.startswith(tag):
-                return raw_text[len(tag):], src
-        return raw_text, "district"
 
     county_details = sorted([{
         "county": _parse_area(r["_source"].get(county_field, ""))[0],
