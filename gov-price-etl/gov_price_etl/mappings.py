@@ -116,6 +116,100 @@ def build_ods_mapping(city_extension: dict = None) -> dict:
     }
 
 
+
+# ── Progress mapping（v0.6 新增，2026-07-02）────────────────
+# 同步进度跟踪索引 mapping。17 城之前各自维护 ensure_progress_index，
+# 字段差异大（35 个字段合集），重复代码 ~600 行。
+# 抽出后单点维护，dashboard 端可统一 query。
+#
+# 动态策略：dynamic=strict（同 ODS）。新增进度字段（如 2026-07-02 加的
+# percent）必须先扩展 _PROGRESS_BASE_FIELDS 或传 city_extension。
+_PROGRESS_BASE_FIELDS = {
+    # ── run 内唯一标识 ──────────────────────────────
+    "run_id":       {"type": "keyword"},  # 本次运行 ID（YYYY-MM-DD_HH-MM-SS 或自定义）
+    "source":       {"type": "keyword"},  # 业务 source（district/mortar/citywide 等）
+    "area":         {"type": "keyword"},  # 业务区域原始字符串（含 source 前缀，如 '区县材料-万州区'）
+    "county":       {"type": "keyword"},  # 简化区县名（dashboard 解析后写入）
+    "period":       {"type": "keyword"},  # 业务期（'2026年01月' / '2026.5期' / '2026-04'）
+    # ── 进度计数 ────────────────────────────────
+    "current_page":  {"type": "integer"},  # 当前页（HTML 抓取类）
+    "total_pages":   {"type": "integer"},  # 总页数
+    "total_records": {"type": "integer"},  # 总记录数（xian/jinan 用）
+    "docs_written":  {"type": "integer"},  # 已写入文档数
+    "percent":       {"type": "float"},    # 进度百分比（chongqing v3 2026-07-02 加）
+    "duration_sec":  {"type": "float"},    # 本次累计耗时
+    # ── 状态 / 错误 ─────────────────────────────
+    "status":        {"type": "keyword"},  # running / completed / error / interrupted
+    "error":         {"type": "text"},     # 错误信息（错误时填）
+    "last_updated":  {"type": "date", "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd HH:mm:ss", "ignore_malformed": True},
+    # ── 增量同步元（PDF / xlsx 类城市：henan/xinjiang/hainan 等）──
+    "publish_date":  {"type": "keyword"},
+    "detail_url":    {"type": "keyword"},
+    "pdf_url":       {"type": "keyword"},
+    "file_url":      {"type": "keyword"},
+    "minio_key":     {"type": "keyword"},
+    "created_at":    {"type": "date", "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd HH:mm:ss", "ignore_malformed": True},
+    # ── 章节 / tab / 分项（jinan/rizhao/xinjiang）──────
+    "tab_type":       {"type": "keyword"},
+    "tab_name":       {"type": "keyword"},
+    "catalogue":      {"type": "keyword"},
+    "catalogue_name": {"type": "keyword"},
+    "areaid":         {"type": "integer"},  # xinjiang 区域 ID
+    "area_name":      {"type": "keyword"},
+    # ── spot_check（xian） ──────────────────────────
+    "spot_check_ok":      {"type": "boolean"},
+    "spot_check_details": {"type": "text"},
+    # ── 省份 / 城市（henan/xinjiang 多地市） ──────────
+    "city":          {"type": "keyword"},
+    "province":      {"type": "keyword"},
+    "policy_id":     {"type": "keyword"},  # xinjiang 详情页 ID
+    "policy_title":  {"type": "text"},
+    "release_date":  {"type": "keyword"},
+    # ── update_date（xian 用） ───────────────────────
+    "update_date":   {"type": "date", "format": "yyyy-MM-dd", "ignore_malformed": True},
+    # ── PDF/xlsx 元（shaanxi） ─────────────────────
+    "title":         {"type": "keyword"},
+    "pages_parsed":  {"type": "integer"},
+}
+
+
+def build_progress_mapping(city_extension: dict = None) -> dict:
+    """构建 progress 索引 mapping（同步进度跟踪）。
+
+    Args:
+        city_extension: 城市特化字段透参（默认无，标准模板已覆盖 17 城合集）。
+
+    Returns:
+        ES mapping dict。dynamic=strict。
+
+    _id 规则建议（v0.6 标准化）：
+        区县进度：f"{run_id}__{source}__{county}__{period}"
+            双下划线分隔，避免 county 名含下划线时冲突。
+            跨月份同 run 续跑——period 进 _id 自然隔离。
+        run 汇总：f"{run_id}__summary"
+        spot check：f"{run_id}__spot__{county}"
+
+    字段语义标准化（v0.6）：
+        - area: 源站原始区域（含 source 前缀），用于反向还原
+        - county: dashboard 解析后的简化区县名，用于聚合
+        - source: 业务 source（district/mortar/citywide）
+        - percent: 进度 0-100（chongqing v3 已统一）
+
+    用法：
+        from gov_price_etl.mappings import build_progress_mapping
+        mapping = build_progress_mapping()
+    """
+    properties = dict(_PROGRESS_BASE_FIELDS)
+    if city_extension:
+        properties.update(city_extension)
+    return {
+        "mappings": {
+            "dynamic": "strict",
+            "properties": properties,
+        },
+        "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    }
+
 # ── DWD mapping ──────────────────────────────────────────────────────────
 def build_dwd_mapping() -> dict:
     base = {

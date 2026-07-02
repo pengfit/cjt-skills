@@ -8,7 +8,7 @@ v0.5 (2026-07-02) 新增 ODS 模板管理：
   - 城市特化字段透参：setup_ods_index_templates(es_host, city_extensions={...})
 """
 from .es_client import get_es_client
-from .mappings import build_dwd_mapping, build_dws_mapping, build_ods_mapping
+from .mappings import build_dwd_mapping, build_dws_mapping, build_ods_mapping, build_progress_mapping
 
 
 def setup_ods_index_templates(es_host: str, city_extensions: dict = None) -> None:
@@ -128,3 +128,39 @@ def ensure_dwd(es_host: str, dwd_index: str):
 
 def ensure_dws(es_host: str, dws_index: str):
     pass  # now handled by ensure_indices
+
+
+def ensure_progress_index(es_host: str, progress_index: str, city_extension: dict = None) -> bool:
+    """确保 progress 索引存在，不存在则创建并套用标准 mapping。
+
+    Args:
+        es_host: ES 地址
+        progress_index: 进度索引名（如 'ods_material_xian_price_sync_progress'）
+        city_extension: 城市特化字段（默认无，标准模板已覆盖 17 城合集）
+
+    Returns:
+        True 表示索引已存在或新建成功；False 表示失败。
+
+    模板管理：复用 setup_ods_index_templates 的索引模板机制（priority=100，
+    pattern='ods_*_sync_progress'），创建索引时不传 body 即可自动套用。
+    这里为简洁直接 PUT mapping（v0.6 阶段没建专用模板，直接用标准 mapping 创建）。
+    后续可改为：setup_progress_index_templates + pattern 'ods_*_sync_progress'。
+
+    _id 规则（v0.6 标准化）：
+        区县进度：f"{run_id}__{source}__{county}__{period}"
+        run 汇总：f"{run_id}__summary"
+        spot check：f"{run_id}__spot__{county}"
+        旧格式（单下划线）继续兼容，逐步迁移。
+    """
+    s = get_es_client(es_host)
+    r = s.head(f"{es_host}/{progress_index}")
+    if r.status_code == 200:
+        return True
+
+    mapping = build_progress_mapping(city_extension=city_extension)
+    r = s.put(f"{es_host}/{progress_index}", json=mapping)
+    if r.status_code in (200, 201):
+        print(f"  [idx] 创建 progress {progress_index} 成功（套用 build_progress_mapping 模板）")
+        return True
+    print(f"  [idx] 创建 progress {progress_index} 失败: {r.status_code} {r.text[:200]}")
+    return False

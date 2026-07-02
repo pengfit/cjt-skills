@@ -62,26 +62,21 @@ def ensure_ods_index(es, host, index):
 
 
 def ensure_progress_index(es, index):
-    """确保同步进度索引存在"""
+    """确保同步进度索引存在
+
+    v0.6 (2026-07-02) ：委托到 gov_price_etl.mappings.build_progress_mapping。
+    单点维护 36 个进度字段（含 2026-07-02 chongqing v3 加的 percent 等）。
+
+    _id 规则（v0.6 标准化建议）：
+        区县进度：f"{run_id}__{source}__{county}__{period}"
+        run 汇总：f"{run_id}__summary"
+        spot check：f"{run_id}__spot__{county}"
+    """    
     if es.indices.exists(index=index):
         return
-    es.indices.create(index=index, body={
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'period':         {'type': 'keyword'},
-                'publish_date':   {'type': 'keyword'},
-                'detail_url':     {'type': 'keyword'},
-                'pdf_url':        {'type': 'keyword'},
-                'minio_key':      {'type': 'keyword'},
-                'docs_written':   {'type': 'integer'},
-                'status':         {'type': 'keyword'},
-                'error':          {'type': 'text'},
-                'duration_sec':   {'type': 'float'},
-                'created_at':     {'type': 'keyword'},
-            },
-        },
-    })
+    from gov_price_etl.mappings import build_progress_mapping
+    es.indices.create(index=index, body=build_progress_mapping())
+
 
 
 def fetch_html(url, headers=None, timeout=30):

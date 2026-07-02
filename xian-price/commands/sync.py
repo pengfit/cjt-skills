@@ -142,35 +142,12 @@ class ProgressLogger:
         self._ensure_index()
 
     def _ensure_index(self):
+        """v0.6 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_progress_index。"""
         try:
-            resp = requests.head(f"{self.es_host}/{self.index}", timeout=10, verify=False)
-            if resp.status_code == 200:
-                return
+            from gov_price_etl.indexer import ensure_progress_index
+            ensure_progress_index(self.es_host, self.index)
         except Exception:
-            pass
-        mapping = {
-            "mappings": {
-                "properties": {
-                    "run_id":              {"type": "keyword"},
-                    "status":              {"type": "keyword"},
-                    "current_county":      {"type": "keyword"},
-                    "current_page":        {"type": "integer"},
-                    "total_pages":         {"type": "integer"},
-                    "total_records":       {"type": "integer"},
-                    "docs_written":        {"type": "integer"},
-                    "percent":             {"type": "float"},
-                    "duration_sec":        {"type": "float"},
-                    "update_date":         {"type": "keyword"},
-                    "last_updated":        {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
-                    "error":               {"type": "text"},
-                    "spot_check_ok":       {"type": "boolean"},
-                    "spot_check_details":  {"type": "text"},
-                }
-            }
-        }
-        try:
-            requests.put(f"{self.es_host}/{self.index}", json=mapping, timeout=10, verify=False)
-        except Exception:
+            # 头项控例：如 gov_price_etl 不可用，原 fall back 静默略过（保持旧行为）
             pass
 
     def _upsert(self):

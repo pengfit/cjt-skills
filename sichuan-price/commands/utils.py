@@ -170,28 +170,20 @@ def ensure_index(es_host: str, es_index: str):
 
 
 def ensure_progress_index(es_host: str, idx: str):
-    mapping = {
-        "mappings": {"properties": {
-            "run_id": {"type": "keyword"},
-            "status": {"type": "keyword"},
-            "area": {"type": "keyword"},
-            "period": {"type": "keyword"},
-            "current_page": {"type": "integer"},
-            "total_pages": {"type": "integer"},
-            "docs_written": {"type": "integer"},
-            "percent": {"type": "float"},
-            "duration_sec": {"type": "float"},
-            "last_updated": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
-            "error": {"type": "text"},
-        }}
-    }
-    try:
-        resp = requests.head(f"{es_host}/{idx}", timeout=10, verify=False)
-        if resp.status_code == 200:
-            return
-    except Exception:
-        pass
-    requests.put(f"{es_host}/{idx}", json=mapping, timeout=30, verify=False)
+    """确保同步进度索引存在
+
+    v0.6 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_progress_index。
+    单点维护 36 个进度字段。
+
+    _id 规则（v0.6 标准化建议）：
+        区县进度：f"{run_id}__{source}__{county}__{period}"
+        run 汇总：f"{run_id}__summary"
+        spot check：f"{run_id}__spot__{county}"
+    """
+    from gov_price_etl.indexer import ensure_progress_index as _ensure
+    if _ensure(es_host, idx):
+        print(f"  [✓] 创建 progress: {idx}")
+
 
 
 def load_config(path: str) -> Dict[str, Any]:
