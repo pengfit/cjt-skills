@@ -52,6 +52,11 @@ _ODS_BASE_FIELDS = {
     "province":        {"type": "keyword"},
     "city":            {"type": "keyword"},
     "county":          {"type": "keyword"},
+    # ── 周期 / 源站标识 (xian/jinan/sichuan 都用) ──────
+    "month":           {"type": "keyword"},  # YYYY-MM 业务期（xian --period 模式）
+    "published_at":    {"type": "date", "format": "yyyy-MM-dd"},  # 源站页脚公布日期
+    "period_id":       {"type": "keyword"},  # 源站原始周期 ID（jinan --period_id 模式）
+    "code":            {"type": "keyword"},  # 源站材料编码（xian/jinan/shaanxi 等）
     # ── 元字段 / 采集侧标识 ─────────────────────────
     "tab_type":        {"type": "keyword"},  # 采集器分类（如 chongqing 'district'/'mortar'/'citywide'）
     "tab_name":        {"type": "keyword"},
