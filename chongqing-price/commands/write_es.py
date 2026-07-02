@@ -17,6 +17,24 @@ import requests
 from datetime import datetime
 
 import yaml as _yaml
+
+# ── 复用 gov_price_etl 通用层（区间价解析 / 价格有效性） ─────────────
+# 与 dashboard 的 ETL_PROJECT_ROOT 模式一致：
+# 让 chongqing-price 能直接用 gov_price_etl.parse_price 的权威实现，
+# 避免两边维护同一份正则（_parse_interval_price 在 chongqing v3 + 通用版同时改易漏）。
+_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _ETL_PROJECT_ROOT)
+try:
+    from gov_price_etl.parse_price import parse_interval_price as _parse_interval_price
+except ImportError as _e:
+    # 硬约束：通用层必须可用。如果将来 chongqing 部署到没有 etl skill 的环境，
+    # 在这里显式报错，不要默默走本地 fallback 留下隐患。
+    raise ImportError(
+        f"chongqing-price 依赖 gov_price_etl.parse_price，"
+        f"未在 {_ETL_PROJECT_ROOT} 找到：{_e}。请确认 gov-price-etl skill 已部署。"
+    )
+
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.yml')
 
 def _load_config():
@@ -1046,60 +1064,10 @@ def _safe_float(s):
         return 0.0
 
 
-def _parse_interval_price(s):
-    """解析价格字符串，返回 (mid, min, max, is_range, range_str, notes)。
-
-    支持格式：
-      '3353.98'        → (3353.98, 3353.98, 3353.98, False, '3353.98', '')
-      '115-173'        → (144.0, 115.0, 173.0, True, '115-173', '')
-      '115~173'        → (144.0, 115.0, 173.0, True, '115~173', '')
-      '115到173'       → (144.0, 115.0, 173.0, True, '115到173', '')
-      '大于200' / '>200'→ (200.0, 200.0, 200.0, True, '>200', '')
-      '小于100' / '<100'→ (100.0, 100.0, 100.0, True, '<100', '')
-      '全冠'           → (0.0, 0.0, 0.0, True, '全冠', '全冠')
-      '' / None        → (0.0, 0.0, 0.0, False, '', '')
-
-    返回元组：
-      mid      - 中位数（用于 price 字段，排序筛选统计）
-      mn       - 区间下界（用于 price_min）
-      mx       - 区间上界（用于 price_max）
-      is_range - 是否为区间价（用于 is_range）
-      raw      - 原始字符串规范化（用于 price_range）
-      notes    - 特殊描述（如 '全冠'），存进 range_notes / attr
-    """
-    if not s or not isinstance(s, str) or not s.strip():
-        return (0.0, 0.0, 0.0, False, '', '')
-
-    raw = s.strip()
-    # 去全角符号 (￥元，) 保留 -
-    s_clean = re.sub(r'[￥,，元\s]', '', raw)
-
-    # 1) 单值（含全角）：'3353.98' / '3353'
-    if re.fullmatch(r'-?\d+(?:\.\d+)?', s_clean):
-        val = float(s_clean)
-        return (val, val, val, False, raw, '')
-
-    # 2) 区间：'115-173' / '115~173' / '115到173' / '115至173'
-    m = re.match(r'^(-?\d+(?:\.\d+)?)\s*[-~到至]\s*(-?\d+(?:\.\d+)?)$', s_clean)
-    if m:
-        a, b = float(m.group(1)), float(m.group(2))
-        lo, hi = (a, b) if a <= b else (b, a)
-        return ((lo + hi) / 2, lo, hi, True, raw, '')
-
-    # 3) 大于 / '>200'
-    m = re.match(r'^[大小]于\s*(-?\d+(?:\.\d+)?)$', raw) or re.match(r'^>\s*(-?\d+(?:\.\d+)?)$', s_clean)
-    if m:
-        val = float(m.group(1))
-        return (val, val, val, True, raw, '')
-
-    # 4) 小于 / '<100'
-    m = re.match(r'^[小]于\s*(-?\d+(?:\.\d+)?)$', raw) or re.match(r'^<\s*(-?\d+(?:\.\d+)?)$', s_clean)
-    if m:
-        val = float(m.group(1))
-        return (val, val, val, True, raw, '')
-
-    # 5) 兜底特殊描述（'全冠' / '半冠' 等）
-    return (0.0, 0.0, 0.0, True, raw, raw)
+# _parse_interval_price 已迁到 gov_price_etl.parse_price.parse_interval_price
+# (顶部 import 时取别名 _parse_interval_price，调用点保持不变)。
+# 2026-07-02 删除本地实现，单一权威避免双份维护。新加 corner case 请改
+# gov_price_etl/parse_price.py，所有城市（chongqing/jiangxi/sichuan...）同步受益。
 
 
 # ── 列映射：按 category 选列 ─────────────────────────────
