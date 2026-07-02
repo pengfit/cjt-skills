@@ -9,6 +9,11 @@ import warnings
 import requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+# 复用 gov_price_etl 通用层（ODS mapping 标准化）
+_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _ETL_PROJECT_ROOT)
+
 
 warnings.filterwarnings('ignore')
 
@@ -341,55 +346,25 @@ def save_sync_time(config_path: str, update_date: str):
 
 
 def ensure_index(es_host: str, es_index: str):
-    try:
-        resp = requests.head(f"{es_host}/{es_index}", timeout=10, verify=False)
-        if resp.status_code == 200:
-            # 索引已存在：补加新字段（已存在字段不动）
-            try:
-                requests.put(
-                    f"{es_host}/{es_index}/_mapping",
-                    json={
-                        "properties": {
-                            "month":        {"type": "keyword"},  # YYYY-MM 所属月份
-                            "gkbh":         {"type": "keyword"},  # 源站周期 ID
-                            "published_at": {"type": "date", "format": "yyyy-MM-dd"},
-                        }
-                    },
-                    timeout=10, verify=False
-                )
-            except Exception:
-                pass
-            return
-    except Exception:
-        pass
+    """确保 ES 索引存在，套用 mapping（如果不存在）
 
-    mapping = {
-        "mappings": {
-            "properties": {
-                "code":         {"type": "keyword"},
-                "breed":        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "spec":         {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "unit":         {"type": "keyword"},
-                "price":        {"type": "float"},
-                "tax_price":    {"type": "float"},
-                "county":       {"type": "keyword"},
-                "province":     {"type": "keyword"},
-                "city":         {"type": "keyword"},
-                "update_date":  {"type": "date", "format": "yyyy-MM-dd"},
-                "create_time":  {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
-                "month":        {"type": "keyword"},  # YYYY-MM 所属月份（指定 --period 时写入）
-                "gkbh":         {"type": "keyword"},  # 源站周期 ID（指定 --period 时写入）
-                "published_at": {"type": "date", "format": "yyyy-MM-dd"},  # 页脚更新时间（指定 --period 时写入）
-            }
-        }
-    }
+    v0.5 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_ods_index（requests 风格）。
+    新字段（区间价 price_min/max/range/is_range 等）自动生效。
+        city_extension=gkbh
+    """
+    from gov_price_etl.mappings import build_ods_mapping
+    from gov_price_etl.indexer import ensure_ods_index
+    ok = ensure_ods_index(
+        es_host,
+        es_index,
+        city_extension={
+            "gkbh": {'type': 'keyword'},
+        },
+    )
+    if ok:
+        print(f"  [✓] 创建索引: {es_index}")
 
-    try:
-        resp = requests.put(f"{es_host}/{es_index}", json=mapping, timeout=10, verify=False)
-        if resp.status_code in (200, 201):
-            print(f"  [✓] 创建索引: {es_index}")
-    except Exception as e:
-        print(f"  [!] 创建索引异常: {e}")
+
 
 
 def format_table(headers: List[str], rows: List[List[str]]) -> str:

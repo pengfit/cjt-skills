@@ -2,6 +2,11 @@
 import sys, os, re, yaml, json, subprocess, hashlib, warnings, requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
+# 复用 gov_price_etl 通用层（ODS mapping 标准化）
+_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _ETL_PROJECT_ROOT)
+
 
 warnings.filterwarnings('ignore')
 
@@ -104,42 +109,17 @@ def doc_id(breed: str, spec: str, unit: str, period: str, price: float, city: st
 
 
 def ensure_index(es_host: str, es_index: str):
-    """确保 ES 索引存在"""
-    try:
-        resp = requests.head(f"{es_host}/{es_index}", timeout=10, verify=False)
-        if resp.status_code == 200:
-            # 单节点 ES，确保 replica=0 避免 yellow
-            try:
-                requests.put(
-                    f"{es_host}/{es_index}/_settings",
-                    json={"index": {"number_of_replicas": 0}},
-                    timeout=15, verify=False
-                )
-            except Exception:
-                pass
-            return
-    except Exception:
-        pass
-    mapping = {
-        "settings": {"index": {"number_of_replicas": 0}},
-        "mappings": {
-            "properties": {
-                "breed":       {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "spec":        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
-                "unit":        {"type": "keyword"},
-                "price":       {"type": "float"},
-                "period":      {"type": "keyword"},
-                "province":    {"type": "keyword"},
-                "city":        {"type": "keyword"},
-                "county":      {"type": "keyword"},
-                "tab_type":    {"type": "keyword"},
-                "tab_name":    {"type": "keyword"},
-                "update_date": {"type": "date", "format": "yyyy-MM-dd"},
-                "create_time": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||strict_date_optional_time"}
-            }
-        }
-    }
-    requests.put(f"{es_host}/{es_index}", json=mapping, timeout=30, verify=False)
+    """确保 ES 索引存在，套用 mapping（如果不存在）
+
+    v0.5 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_ods_index（requests 风格）。
+    新字段（区间价 price_min/max/range/is_range 等）自动生效。
+        city_extension=None（使用通用模板）
+    """
+    from gov_price_etl.indexer import ensure_ods_index
+    ensure_ods_index(es_host, es_index)
+    print(f"  [✓] 创建索引: {es_index}")
+
+
 
 
 def ensure_progress_index(es_host: str, idx: str):

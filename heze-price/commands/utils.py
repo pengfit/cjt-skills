@@ -42,31 +42,22 @@ def ensure_bucket(s3, bucket):
 
 
 def ensure_ods_index(es, host, index):
-    """确保 ODS 索引存在，套用 mapping（如果不存在）"""
+    """确保 ODS 索引存在，套用 mapping（如果不存在）
+
+    v0.5 (2026-07-02) ：委托到 gov_price_etl.mappings.build_ods_mapping。
+    新字段（区间价 price_min/max/range/is_range 等）自动生效。
+    Args:
+        es: elasticsearch SDK
+        host: ES 地址（保留兼容位，实际未用）
+        index: 索引名
+    无特化字段（使用通用模板）
+    """
     if es.indices.exists(index=index):
         return
-    mapping = {
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'breed':         {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'breed_clean':   {'type': 'keyword'},
-                'spec':          {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'unit':          {'type': 'keyword'},
-                'price':         {'type': 'float'},
-                'tax_price':     {'type': 'float'},
-                'period':        {'type': 'keyword'},
-                'province':      {'type': 'keyword'},
-                'city':          {'type': 'keyword'},
-                'county':        {'type': 'keyword'},
-                'update_date':   {'type': 'keyword'},
-                'create_time':   {'type': 'keyword'},
-                'source_pdf':    {'type': 'keyword'},
-                'source_url':    {'type': 'keyword'},
-            },
-        },
-    }
+    from gov_price_etl.mappings import build_ods_mapping
+    mapping = build_ods_mapping()
     es.indices.create(index=index, body=mapping)
+
 
 
 def ensure_progress_index(es, index):
