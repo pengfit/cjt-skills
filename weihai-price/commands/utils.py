@@ -2,43 +2,19 @@
 import os
 import sys
 
-import boto3
-import requests
 import yaml
-from botocore.client import Config
-from elasticsearch import Elasticsearch
 
+# v0.7 (2026-07-02) P1 抽取：工具函数委托到 gov_price_etl.collectors
+sys.path.insert(0, '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl')
+from gov_price_etl.collectors import ( get_es_client, get_s3_client, ensure_bucket,
+    upload_to_minio, minio_object_url, fetch_html, download_file,
+)
 
 def load_config():
     """加载 skill 根目录的 config.yml"""
     cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.yml')
-    with open(cfg_path) as f:
-        return yaml.safe_load(f)
-
-
-def get_es_client(host):
-    return Elasticsearch([host], request_timeout=30)
-
-
-def get_s3_client(cfg):
-    """获取 MinIO S3 客户端"""
-    m = cfg['minio']
-    return boto3.client(
-        's3',
-        endpoint_url=m['endpoint'],
-        aws_access_key_id=m['access_key'],
-        aws_secret_access_key=m['secret_key'],
-        config=Config(signature_version='s3v4'),
-        region_name='us-east-1',
-    )
-
-
-def ensure_bucket(s3, bucket):
-    """确保 bucket 存在（不存在则创建）"""
-    try:
-        s3.head_bucket(Bucket=bucket)
-    except Exception:
-        s3.create_bucket(Bucket=bucket)
+    with open(cfg_path, encoding='utf-8') as f:
+        return yaml.safe_load(f) or {}
 
 
 def ensure_ods_index(es, host, index):
@@ -58,8 +34,6 @@ def ensure_ods_index(es, host, index):
     mapping = build_ods_mapping()
     es.indices.create(index=index, body=mapping)
 
-
-
 def ensure_progress_index(es, index):
     """确保同步进度索引存在
 
@@ -75,17 +49,6 @@ def ensure_progress_index(es, index):
         return
     from gov_price_etl.mappings import build_progress_mapping
     es.indices.create(index=index, body=build_progress_mapping())
-
-
-
-def fetch_html(url, headers=None, timeout=30):
-    """HTTP GET 拿 HTML 文本"""
-    h = headers or {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
-    resp = requests.get(url, headers=h, timeout=timeout)
-    resp.raise_for_status()
-    resp.encoding = resp.apparent_encoding
-    return resp.text
-
 
 def fetch_list_page(cfg, page):
     """威海列表通过 dataproxy.jsp POST 抓取（jpage 插件）
@@ -126,34 +89,3 @@ def fetch_list_page(cfg, page):
     resp = requests.post(full_url, headers=headers, data=data, timeout=site['timeout_sec'])
     resp.raise_for_status()
     return resp.content.decode('utf-8', errors='replace')
-
-
-def download_file(url, dest, referer=None, headers=None, timeout=60):
-    """HTTP GET 下载到本地路径（自动跟随 302 重定向）
-
-    威海 PDF 通过 downfile.jsp 302 重定向到 /attach/0/xxx.pdf，requests 默认跟随。
-    """
-    h = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
-    if headers:
-        h.update(headers)
-    if referer:
-        h['Referer'] = referer
-    with requests.get(url, headers=h, timeout=timeout, stream=True, allow_redirects=True) as r:
-        r.raise_for_status()
-        with open(dest, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=64 * 1024):
-                if chunk:
-                    f.write(chunk)
-    return dest
-
-
-def upload_to_minio(s3, bucket, key, file_path, content_type='application/pdf'):
-    """上传本地文件到 MinIO"""
-    s3.upload_file(file_path, bucket, key, ExtraArgs={'ContentType': content_type})
-
-
-def minio_object_url(s3, bucket, key, expires=3600):
-    """生成 MinIO 对象的预签名 URL（短时访问用）"""
-    return s3.generate_presigned_url(
-        'get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=expires
-    )
