@@ -41,6 +41,20 @@
       >{{ m }}</div>
     </div>
 
+    <!-- attr_key 多选 chip 栏（仅当前选中材料出现过的 attr_key） -->
+    <div v-if="activeSeries.length && availableAttrKeys.length" class="attr-bar">
+      <span class="attr-bar-label">拆分维度:</span>
+      <div
+        v-for="ak in availableAttrKeys"
+        :key="ak.key"
+        class="attr-chip"
+        :class="{ active: selectedAttrKeys.has(ak.key) }"
+        :title="`按 ${ak.label} 拆分`"
+        @click="toggleAttrKey(ak.key)"
+      >{{ ak.displayLabel }}</div>
+      <span class="attr-bar-hint">{{ selectedAttrKeys.size }} / {{ availableAttrKeys.length }} 选中</span>
+    </div>
+
     <!-- 主图 -->
     <div class="trend-card">
       <div v-if="loading" class="trend-loading">
@@ -141,6 +155,32 @@ const error = ref('')
 const chartEl = ref(null)
 let chartInstance = null
 
+// attr_key 多选过滤。默认全选；用户在 chip 栏勾选/取消。仅显示选中 attr_key 的 specs。
+// 切换材料时重置为“所有出现的 attr_key 全选”（避免保留旧选择导致 0 specs）。
+const selectedAttrKeys = ref(new Set())
+watch(selectedMaterials, () => {
+  const keys = new Set()
+  for (const s of data.value.series) {
+    if (selectedMaterials.value.includes(s.material)) {
+      for (const ak of (s.available_attr_keys || [])) keys.add(ak.key)
+    }
+  }
+  selectedAttrKeys.value = keys
+}, { deep: true })
+// 数据加载后默认全选
+watch(() => data.value.series, (newSeries) => {
+  if (newSeries && newSeries.length) {
+    const keys = new Set()
+    for (const s of newSeries) for (const ak of (s.available_attr_keys || [])) keys.add(ak.key)
+    if (selectedAttrKeys.value.size === 0) selectedAttrKeys.value = keys
+  }
+}, { deep: true })
+function toggleAttrKey(k) {
+  const s = new Set(selectedAttrKeys.value)
+  if (s.has(k)) s.delete(k); else s.add(k)
+  selectedAttrKeys.value = s
+}
+
 // 期数筛选
 const periodsLimit = ref(12)
 const periodOptions = ref([
@@ -167,7 +207,36 @@ function colorOf(seriesName) {
 }
 
 // 展平每个 series 的 specs 为独立的 chart series（用于图表多曲线）
-const activeSeries = computed(() => data.value.series.filter(s => selectedMaterials.value.includes(s.material)))
+// 同时根据 selectedAttrKeys 过滤 specs（前端过滤，不重发 API）
+const activeSeries = computed(() => data.value.series
+  .filter(s => selectedMaterials.value.includes(s.material))
+  .map(s => ({
+    ...s,
+    specs: (s.specs || []).filter(sp => selectedAttrKeys.value.has(sp.attr_key)),
+  })))
+
+// 收集当前选中材料下出现过的 attr_key（去重保序）
+// 若不同 attr_key 映射成同一 label（例 grade + strength 都是「强度」），
+// 会加上 attr_key 后缀区分（例「强度(grade)」/「强度(strength)」）
+const availableAttrKeys = computed(() => {
+  const seen = new Set()
+  const raw = []
+  for (const s of activeSeries.value) {
+    for (const ak of (s.available_attr_keys || [])) {
+      if (!seen.has(ak.key)) {
+        seen.add(ak.key)
+        raw.push({ ...ak })
+      }
+    }
+  }
+  // 统计 label 冲突
+  const labelCount = {}
+  for (const ak of raw) labelCount[ak.label] = (labelCount[ak.label] || 0) + 1
+  return raw.map(ak => ({
+    ...ak,
+    displayLabel: labelCount[ak.label] > 1 ? `${ak.label}(${ak.key})` : ak.label,
+  }))
+})
 
 const chartSeries = computed(() => {
   const out = []
@@ -422,6 +491,34 @@ watch(periodsLimit, () => loadData())
   color: #1d4ed8;
   border-color: #93c5fd;
   font-weight: 500;
+}
+
+/* attr_key chip 栏（多选，仿 material-bar 风格） */
+.attr-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: -4px 0 12px;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+.attr-bar-label {
+  font-size: 11px; color: #64748b; font-weight: 600;
+  margin-right: 4px;
+}
+.attr-chip {
+  display: inline-block; padding: 3px 9px; border-radius: 3px;
+  font-size: 11px; background: #f1f5f9; color: #94a3b8;
+  cursor: pointer; border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.attr-chip:hover { border-color: #cbd5e1; }
+.attr-chip.active {
+  background: #ecfdf5; color: #047857;
+  border-color: #6ee7b7; font-weight: 500;
+}
+.attr-bar-hint {
+  margin-left: auto; font-size: 10px; color: #94a3b8;
 }
 
 .trend-card {

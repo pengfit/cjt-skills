@@ -32,6 +32,38 @@ def _date_str(v):
     return str(v)[:10]
 
 
+# attr.k 中英映射（前端展示友好）。未识别的 k 原样保留，附 "?"
+# 与 gov-price-etl/gov_price_etl/parse_spec/base.py 中的 ATTR_SLOTS 保持一致。
+K_LABEL_CN = {
+    "grade": "强度",
+    "diameter": "直径",
+    "type": "类型",
+    "length": "长度",
+    "width": "宽度",
+    "height": "高度",
+    "thickness": "厚度",
+    "core_count": "芯数",
+    "sn_grade": "环刚度",
+    "trunk_diameter": "干径",
+    "crown_diameter": "冠径",
+    "branch_height": "分枝高",
+    "mix_grade": "强度等级",
+    "strength": "强度",
+    "packaging": "包装",
+    "natural": "天然",
+    "material": "材质",
+    "unit_weight": "单重",
+    "cross_section": "截面",
+    "wall_thickness": "壁厚",
+    "spec": "规格",
+    "accessory": "配件",
+}
+
+
+def _label_k(k: str) -> str:
+    return K_LABEL_CN.get(k, k)
+
+
 def _period_label(start: str, granularity: str) -> str:
     """业务期显示名：'2026.1期' / '2026年02月' / '2026-02' 等
     默认按 start 推断：YYYY-MM-DD → 2026年02月
@@ -177,6 +209,7 @@ def _aggregate_hits_by_attr(hits, selected_periods):
         return out
 
     specs_out = []
+    main_unit = units_count.most_common(1)[0][0] if units_count else ""
     for (k, v), by_period in grp.items():
         pts = _points(by_period)
         if not pts:
@@ -185,12 +218,12 @@ def _aggregate_hits_by_attr(hits, selected_periods):
         if k == "__spec__":
             label = v           # fallback 时直接显示 spec 原文
         else:
-            label = f"{k}={v}"  # attr 维度时显示 'k=v'（如 grade=C20）
+            label = f"{_label_k(k)}={v}"  # attr 维度时显示 '中文k=v'（如 强度=C20）
         specs_out.append({
             "spec": label,
             "attr_key": k,
             "attr_val": v,
-            "unit": "",
+            "unit": main_unit,
             "n_total": n_total,
             "points": pts,
         })
@@ -216,6 +249,7 @@ def price_trend(
     date_to: str = Query("", description="结束期 YYYY-MM-DD（含）"),
     top_specs: int = Query(5, ge=1, le=20, description="每个材料返回的 spec 数（按样本量倒序）"),
     max_breeds: int = Query(30, ge=1, le=100, description="materials=* 时取 top N 材料（按文档数倒序）"),
+    attr_keys: str = Query("", description="过滤 attr_key，逗号分隔；空表示不过滤（返回所有 attr_key）"),
 ):
     """返回 city 索引下，每个材料 × 每个规格按 period_start 时序的均价/最小/最大/数量
 
@@ -334,14 +368,29 @@ def price_trend(
             })
             continue
         agg = _aggregate_hits_by_attr(hits, selected_periods)
-        specs = agg["specs"][:top_specs]   # top N attr.k-v 组合（按样本量倒序）
+        all_specs = agg["specs"]
+        # attr_keys 过滤：用户只选某些 attr_key 时过滤（空 = 不过滤）
+        # __spec__ 是 fallback 使用的 key（attr 缺失文档）
+        if attr_keys.strip():
+            keys_set = {k.strip() for k in attr_keys.split(",") if k.strip()}
+            all_specs = [s for s in all_specs if s["attr_key"] in keys_set]
+        specs = all_specs[:top_specs]
+        # available_attr_keys：本材料下出现过的 attr_key 列表，供前端 chip 过滤器使用
+        seen_keys = []
+        seen_keys_set = set()
+        for s in agg["specs"]:
+            k = s["attr_key"]
+            if k not in seen_keys_set:
+                seen_keys_set.add(k)
+                seen_keys.append(k)
         series.append({
             "material": mat,
             "unit": agg["units_seen"][0] if agg["units_seen"] else "",
             "spec_count": len(agg["specs"]),
             "n_total": sum(p["n"] for p in agg["overall_points"]),
             "specs": specs,
-            "points": agg["overall_points"],   # 兼容：跨 attr 整体曲线
+            "available_attr_keys": [{"key": k, "label": _label_k(k)} for k in seen_keys],
+            "points": agg["overall_points"],
         })
 
     # 5) total_docs
