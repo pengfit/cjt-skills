@@ -72,7 +72,7 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
                 "query": query,
                 "sort": sort,
                 "pit": {"id": pit, "keep_alive": "2m"},
-                "_source": ["period_start", "spec", "unit", "price"],
+                "_source": ["period_start", "spec", "attr", "unit", "price"],
             }
             r = es.search(body=body, ignore_unavailable=True)
             hits = r.get("hits", {}).get("hits", [])
@@ -97,7 +97,7 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
                     "size": min(max_per_breed, 10000),
                     "query": query,
                     "sort": sort,
-                    "_source": ["period_start", "spec", "unit", "price"],
+                    "_source": ["period_start", "spec", "attr", "unit", "price"],
                 },
                 ignore_unavailable=True,
             )
@@ -107,21 +107,32 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
     return all_hits
 
 
-def _aggregate_hits_by_spec_unit(hits, selected_periods):
-    """按 (spec, unit, period_start) 三元组聚合 hits，返回：
+def _aggregate_hits_by_attr(hits, selected_periods):
+    """按 attr 维度聚合 hits（v3 - 用 attr 代替 spec 字符串）
+
+    优先级：
+      1. 文档有 attr 数组 → 每个 attr 项独立算时序一条曲线（key='attr.k=attr.v'）
+         如 grade=C20、diameter=50。一条文档有 3 个 attr 项 → 贡献 3 条曲线
+      2. 文档无 attr（少数）→ fallback 到 spec 字符串（key='__spec__=原文'）
+    这样相同语义但 spec 写法不同（如 'DN50' vs 'DN 50'）会按 attr 同维度自动合并。
+
+    返回：
     {
       'specs': [
         {
-          'spec': 'DN50', 'unit': '个', 'n_total': 327,
-          'points': [{'period_start': '2026-04-01', 'avg': 320.5, 'min': ..., 'max': ..., 'n': 5}, ...]
-        },
-        ...
+          'spec': 'grade=C20',       # 前端展示名
+          'attr_key': 'grade',         # attr.k 或 '__spec__'（fallback）
+          'attr_val': 'C20',           # attr.v 或 spec 原文
+          'unit': '',                  # 用 attr 维度后 unit 在多曲线上不唯一
+          'n_total': N,
+          'points': [...]
+        }, ...
       ],
-      'overall_points': [...],   # 兼容旧字段：跨 spec 整体均价
-      'units_seen': ['个', 'kg'],
+      'overall_points': [...],   # 兼容：跨 attr 整体均价
+      'units_seen': [...],
     }
     """
-    # key: (spec_key, unit) -> {period_start: [prices]}
+    # key: (attr_k, attr_v) -> {period_start: [prices]}
     grp = defaultdict(lambda: defaultdict(list))
     overall_by_period = defaultdict(list)
     units_count = Counter()
@@ -133,10 +144,19 @@ def _aggregate_hits_by_spec_unit(hits, selected_periods):
         price = src.get("price")
         if price is None:
             continue
-        spec_raw = (src.get("spec") or "").strip()
-        spec_key = spec_raw if spec_raw else "__通用__"
         unit = src.get("unit") or ""
-        grp[(spec_key, unit)][ps].append(price)
+        attrs = src.get("attr") or []
+        if attrs:
+            for a in attrs:
+                k = (a.get("k") or "").strip()
+                v = (a.get("v") or "").strip()
+                if not k or not v:
+                    continue
+                grp[(k, v)][ps].append(price)
+        else:
+            # fallback：attr 缺失则用 spec 字符串作为聚合 key
+            spec_raw = (src.get("spec") or "").strip()
+            grp[("__spec__", spec_raw or "__通用__")][ps].append(price)
         overall_by_period[ps].append(price)
         units_count[unit] += 1
 
@@ -157,14 +177,20 @@ def _aggregate_hits_by_spec_unit(hits, selected_periods):
         return out
 
     specs_out = []
-    for (spec_key, unit), by_period in grp.items():
+    for (k, v), by_period in grp.items():
         pts = _points(by_period)
         if not pts:
             continue
         n_total = sum(p["n"] for p in pts)
+        if k == "__spec__":
+            label = v           # fallback 时直接显示 spec 原文
+        else:
+            label = f"{k}={v}"  # attr 维度时显示 'k=v'（如 grade=C20）
         specs_out.append({
-            "spec": spec_key,
-            "unit": unit,
+            "spec": label,
+            "attr_key": k,
+            "attr_val": v,
+            "unit": "",
             "n_total": n_total,
             "points": pts,
         })
@@ -307,15 +333,15 @@ def price_trend(
                 "points": [],
             })
             continue
-        agg = _aggregate_hits_by_spec_unit(hits, selected_periods)
-        specs = agg["specs"][:top_specs]   # top N spec（按样本量倒序）
+        agg = _aggregate_hits_by_attr(hits, selected_periods)
+        specs = agg["specs"][:top_specs]   # top N attr.k-v 组合（按样本量倒序）
         series.append({
             "material": mat,
             "unit": agg["units_seen"][0] if agg["units_seen"] else "",
             "spec_count": len(agg["specs"]),
             "n_total": sum(p["n"] for p in agg["overall_points"]),
             "specs": specs,
-            "points": agg["overall_points"],   # 兼容：跨 spec 整体曲线
+            "points": agg["overall_points"],   # 兼容：跨 attr 整体曲线
         })
 
     # 5) total_docs
