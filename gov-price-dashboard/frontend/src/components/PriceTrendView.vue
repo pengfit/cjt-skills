@@ -29,16 +29,33 @@
       </div>
     </div>
 
+    <!-- 材料搜索框 -->
+    <div v-if="allMaterials.length > 6" class="material-search">
+      <div class="material-search-input-wrap">
+        <input
+          v-model="materialSearch"
+          type="text"
+          class="material-search-input"
+          placeholder="搜索材料名称（例：商品砼、HDPE、C20）"
+        />
+        <button v-if="materialSearch" class="material-search-clear" @click="materialSearch = ''" title="清除">×</button>
+      </div>
+      <span class="material-search-hint">{{ filteredMaterials.length }} / {{ allMaterials.length }} 材料</span>
+    </div>
+
     <!-- 材料选择 chip 栏 -->
     <div class="material-bar" v-if="allMaterials.length">
       <div
-        v-for="m in allMaterials"
+        v-for="m in filteredMaterials"
         :key="m"
         class="material-chip"
         :class="{ active: selectedMaterials.includes(m) }"
         :title="m"
         @click="toggleMaterial(m)"
       >{{ m }}</div>
+      <div v-if="!filteredMaterials.length" class="material-bar-empty">
+        没有匹配“{{ materialSearch }}”的材料
+      </div>
     </div>
 
     <!-- attr_key 多选 chip 栏（仅当前选中材料出现过的 attr_key） -->
@@ -148,6 +165,12 @@ const city = ref('')
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
 const selectedMaterials = ref([])    // 当前显示的材料
+const materialSearch = ref('')        // 材料名搜索关键字（前端过滤 chip，不影响 selectedMaterials 状态）
+const filteredMaterials = computed(() => {
+  if (!materialSearch.value.trim()) return allMaterials.value
+  const k = materialSearch.value.trim().toLowerCase()
+  return allMaterials.value.filter(m => m.toLowerCase().includes(k))
+})
 const allPeriods = ref([])           // 业务期数组 [{start, end, label}]
 const data = ref({ series: [], total_docs: 0, periods: [] })
 const loading = ref(false)
@@ -491,6 +514,44 @@ watch(periodsLimit, () => loadData())
   color: #1d4ed8;
   border-color: #93c5fd;
   font-weight: 500;
+}
+
+.material-search {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 0;
+}
+.material-search-input-wrap {
+  position: relative; flex: 1;
+}
+.material-search-input {
+  width: 100%; box-sizing: border-box;
+  padding: 7px 32px 7px 12px;
+  border: 1px solid #cbd5e1; border-radius: 6px;
+  font-size: 12px; outline: none;
+  background: #fff; color: var(--text, #0f172a);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.material-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.material-search-clear {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; border: none; border-radius: 50%;
+  background: #94a3b8; color: #fff; font-size: 14px;
+  cursor: pointer; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.material-search-clear:hover { background: #64748b; }
+.material-search-hint {
+  font-size: 11px; color: var(--text-3, #94a3b8);
+  white-space: nowrap;
+}
+.material-bar-empty {
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-3, #94a3b8);
+  font-style: italic;
 }
 
 /* attr_key chip 栏（多选，仿 material-bar 风格） */
