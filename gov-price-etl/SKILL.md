@@ -139,6 +139,10 @@ gov-price-etl/
 │       ├── __init__.py
 │       ├── etl.py          # ODS→DWD 三段式（阶段1+2内置 + 阶段3 AI 攒批回写）
 │       └── dws_sync.py     # DWD→DWS 三段式（阶段1 attr+阶段2 local_db+阶段3 ai）
+│   └── collectors/         # 采集器抽象基类（v0.8+）
+│       ├── __init__.py
+│       ├── base.py         # SignalHandler / LocalProgressStore / SyncRunner
+│       └── client.py       # ES 写入工具（bulk 封装）
 ├── cli/                        # 入口脚本
 │   ├── etl.py                  # ODS → DWD → DWS 主入口
 │   ├── sync_dws.py             # DWD → DWS 同步（--mode quick|plain|ai）
@@ -149,6 +153,33 @@ gov-price-etl/
 ---
 
 ## API 速查
+
+### collectors（采集器抽象基类，v0.8+）
+
+供各城市 sync.py 共用「**多周期 × 多 source × 断点续传 × SIGINT × 进度上报**」基础设施。设计原则：**接口稳定不强迁**——各城市可独立继承使用，不必改造现有 sync.py。
+
+```
+SignalHandler        SIGINT 中断上下文（Ctrl+C 安全）
+LocalProgressStore   本地 JSON 进度存储（key 形状灵活）
+SyncRunner (ABC)     主流程基类（子类重写钩子）
+```
+
+**SyncRunner 钩子**：
+
+| 钩子 | 默认 | 用途 |
+|---|---|---|
+| `_list_work_units()` | abstract | 扁平化所有工作单元（如 `(source, county, period)` 三元组）|
+| `_process_one(unit)` | abstract | 处理单个单元：抓 + 解析 + 写 ES，返回 `(docs_count, status)` |
+| `_on_unit_start(unit)` | print | 单元开始钩子（可重写）|
+| `_on_unit_done(unit, n, status)` | print | 单元完成钩子（可重写）|
+| `_compute_unit_key(unit)` | str(unit) | 本地进度 key（可重写）|
+
+**已接入城市**：
+
+- **chongqing**（v0.8 试点，v0.9 默认路径）—— `chongqing_collector.py` 用 SyncRunner 重构原 cmd_sync 主流程
+- 其他 16 城按需渐进接入，不强制
+
+**架构详见** [README.md#采集器抽象基类](./README.md#采集器抽象基类)
 
 ### classify（品种分类，v3 5 段式，ODS→DWD 用）
 
