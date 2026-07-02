@@ -1251,41 +1251,6 @@ def stats_sync_progress(city: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/stats/chongqing-check-latest")
-def stats_chongqing_check_latest():
-    """重庆最近一次增量检测结果（供 /sync 顶部‘最近检查’卡片读取）
-
-    数据源：chongqing_price_check_log 索引（check.py 写）。
-    返回：
-      {
-        "run_at": "2026-07-02 15:59:50",
-        "run_date": "2026-07-02",
-        "status": "ok",          # ok / new_data / no_es_data / no_site_data
-        "site_latest_period": "2026-05-01",
-        "site_latest_year":   "2026",
-        "site_latest_month":  "05月",
-        "es_latest_period":   "2026-05-01",
-        "es_latest_create_time": "2026-07-02 14:34:42",
-        "message":            "无新数据（源站 == ES = 2026-05-01）"
-      }
-    索引不存在或无记录时返回 status="no_record"（不报 404）。
-    """
-    try:
-        r = es.search(
-            index="chongqing_price_check_log",
-            size=1,
-            sort=[{"run_at": "desc"}],
-        )
-        hits = r.get("hits", {}).get("hits", [])
-        if hits:
-            return hits[0]["_source"]
-        return {"status": "no_record"}
-    except NotFoundError:
-        return {"status": "no_record"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/skill-updates")
 def skill_updates():
     """各城市 skill 同步检查：调用 7 城 *_sync-progress 端点，返回 last_updated + 距今时长。
