@@ -102,6 +102,7 @@ cd ~/.openclaw/workspace/skills/chongqing-price
 
 - browser tab 不存在 → 主动调用 `openclaw browser open`（cron 友好）
 - 返回 `tabId` 而非 `targetId`（与 sync.py 一致）
+- **v0.9 新增 check_log 写入**：检测结果写入 `chongqing_price_check_log` 索引（`_id = check_{YYYY-MM-DD}` 幂等），供 dashboard /sync 顶部“最近检查”卡片读取
 
 ---
 
@@ -587,7 +588,7 @@ tail -f /tmp/chongqing-incremental-sync-*.log
 
 | 版本 | 日期 | 主要变更 |
 |---|---|---|
-| **v0.9** | 2026-07-02 | `chongqing_collector` 切为默认路径；`--legacy` 走 v3 `cmd_sync` |
+| **v0.9** | 2026-07-02 | `chongqing_collector` 切为默认路径；`--legacy` 走 v3 `cmd_sync`；`check.py` 加 check_log ES 写入（供 dashboard /sync 顶部卡片） |
 | **v0.8** | 2026-07-02 | 新增 `chongqing_collector.py` SyncRunner 试点（`--use-collector`）；`run.sh` 启动脚本；`check.py` 自动开 tab；sync.py 多周期 + 多 source |
 | **v0.6** | 2026-07-02 | 进度跟踪切到 gov_price_etl 通用层；_id 标准化（双下划线）；园林景观 11 列 + 区间价；2 道保护告警 |
 | v0.5 | 2026-06-28 | 切到通用层 parse_price + build_ods_mapping（45 字段，dynamic=strict）|

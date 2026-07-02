@@ -130,6 +130,64 @@ def parse_month_to_period(year: str, month_str: str) -> str:
     return f"{year}-{max_m:02d}-01"
 
 
+# ── check_log 写入（供 dashboard /sync 顶部“最近检查”卡片）──
+
+CHECK_LOG_INDEX = "chongqing_price_check_log"
+
+
+def _ensure_check_index(es):
+    """ensure chongqing_price_check_log 索引存在（dynamic=strict）"""
+    try:
+        if not es.indices.exists(index=CHECK_LOG_INDEX):
+            es.indices.create(
+                index=CHECK_LOG_INDEX,
+                mappings={
+                    "properties": {
+                        "run_at":              {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd"},
+                        "run_date":            {"type": "keyword"},
+                        "status":              {"type": "keyword"},   # ok / new_data / no_es_data / no_site_data
+                        "site_latest_period":  {"type": "keyword"},
+                        "site_latest_year":    {"type": "keyword"},
+                        "site_latest_month":   {"type": "keyword"},
+                        "es_latest_period":    {"type": "keyword"},
+                        "es_latest_create_time": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd"},
+                        "message":             {"type": "text"},
+                    }
+                },
+            )
+    except Exception as e:
+        print(f"[!] ensure check_index 失败: {e}")
+
+
+def _write_check_log(es, status, site_period, site_year, site_month,
+                     es_period, es_create_time, message):
+    """写检查日志到 chongqing_price_check_log（幂等：_id = check_{YYYY-MM-DD}）
+
+    供 dashboard /sync 页面顶部“最近检查”卡片读取。
+    同一天多次跑（cron + 手动）覆盖为同一条，保留唯一最新状态。
+    """
+    _ensure_check_index(es)
+    run_at = time.strftime("%Y-%m-%d %H:%M:%S")
+    run_date = run_at[:10]
+    doc = {
+        "run_at":               run_at,
+        "run_date":             run_date,
+        "status":               status,
+        "site_latest_period":   site_period or "",
+        "site_latest_year":     site_year or "",
+        "site_latest_month":    site_month or "",
+        "es_latest_period":     es_period or "",
+        "es_latest_create_time": es_create_time or "",
+        "message":              message or "",
+    }
+    _id = f"check_{run_date}"
+    try:
+        es.index(index=CHECK_LOG_INDEX, id=_id, document=doc)
+        print(f"[+] check_log 写入: {_id} status={status}")
+    except Exception as e:
+        print(f"[!] 写 check_log 失败: {e}")
+
+
 def main():
     print("[i] 重庆增量检测开始...")
 
@@ -205,15 +263,33 @@ return"NOT_FOUND";
     print(f'[重庆] ES 最新:   {es_latest_period or "无"} (入库 {str(es_latest)[:19] if es_latest else "无"})')
 
     # 7. 对比
+    status = "unknown"
+    message = ""
     if site_latest_period:
         if not es_latest_period:
             print(f'[重庆] 🔔 ES 无数据，需首次同步')
+            status = "no_es_data"
+            message = f"ES 无数据，需首次同步（源站 {site_latest_period}）"
         elif site_latest_period > es_latest_period:
             print(f'[重庆] 🔔 有更新！源站 {site_latest_period} > ES {es_latest_period}')
+            status = "new_data"
+            message = f"源站 {site_latest_period} > ES {es_latest_period}，需同步"
         else:
             print(f'[重庆] ✅ 无新数据')
+            status = "ok"
+            message = f"无新数据（源站 == ES = {site_latest_period}）"
     else:
         print(f'[重庆] ⚠️ 无法解析源站月份')
+        status = "no_site_data"
+        message = "无法解析源站月份"
+
+    # 8. 写 check_log（供 dashboard /sync 读取）
+    _write_check_log(
+        es, status,
+        site_latest_period, current_year or '', site_latest_month,
+        es_latest_period, es_latest,
+        message,
+    )
 
 
 if __name__ == "__main__":
