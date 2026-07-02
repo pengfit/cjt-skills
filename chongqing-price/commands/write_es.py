@@ -248,34 +248,6 @@ def cmd_write(run_id, county, period, result_json):
     return 0
 
 
-def cmd_progress(run_id, county, period, current_page, total_pages, docs_written, status, error="", duration=0, source="district"):
-    label_map = {"district": "区县材料", "mortar": "预拌砂浆", "citywide": "重庆材料信息价"}
-    area_label = f"{label_map.get(source, source)}-{county}"
-    doc = {
-        "run_id": run_id,
-        "status": status,
-        "area": area_label,
-        "period": period,
-        "current_page": current_page,
-        "total_pages": total_pages,
-        "docs_written": docs_written,
-        "percent": 100.0 if status in ("completed", "error") else (
-            round(current_page / total_pages * 100, 1) if total_pages else 0
-        ),
-        "duration_sec": round(duration, 1),
-        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "error": error,
-    }
-    r = requests.put(
-        # v0.6 _id 标准化：__ 分隔 source/county/period（兼容老 run_id_county 文档）
-        f"{ES_HOST}/{PROGRESS_INDEX}/_doc/{run_id}__{source}__{county}__{period}",
-        json=doc, timeout=15, verify=False
-    )
-    if r.status_code in (200, 201):
-        print(f"[+] progress: {county} {status}")
-    return r.status_code in (200, 201)
-
-
 def cmd_summary(run_id, target_period, total_counties, completed, total_docs, duration_sec):
     doc = {
         "run_id": run_id,
@@ -566,14 +538,6 @@ def _load_progress():
         except Exception:
             pass
     return {"done": [], "run_id": ""}
-
-
-def _save_progress(done, run_id):
-    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-        json.dump({
-            "done": done, "run_id": run_id,
-            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }, f, ensure_ascii=False, indent=2)
 
 
 def _reset_progress():
