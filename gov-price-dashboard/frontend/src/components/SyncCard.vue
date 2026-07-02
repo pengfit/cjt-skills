@@ -16,6 +16,10 @@
         </div>
       </div>
       <div class="sync-card-meta">{{ formatDur(data.duration_sec) }} · {{ data.last_updated || '—' }}</div>
+      <div v-if="coveredPeriodsText" class="sync-card-periods">
+        <span class="periods-label">覆盖月份</span>
+        <span class="periods-value">{{ coveredPeriodsText }}</span>
+      </div>
 
       <div class="sync-card-body">
         <!-- 左侧：进度环 + 状态 + 总文档数 -->
@@ -42,27 +46,66 @@
         <div class="sync-list-col" v-show="showDetail">
           <!-- 子项目视图（county / catalogue / tab） — 参考河南样式布局，列顺序：项目 - 日期 - 状态 - 文档数 -->
           <template v-if="viewMode === 'subitem'">
-            <div class="list-scroll">
-            <div class="list-row list-header mode-subitem">
-              <span class="list-name">{{ subitemHeader }}</span>
-              <span class="list-date">更新时间</span>
-              <span class="list-status">状态</span>
-              <span class="list-num">文档数</span>
-            </div>
-              <div class="list-row mode-subitem" v-for="(item, idx) in pagedDetails" :key="idx"
-                :class="{ 'row-active': data.current_county === item.county || data.current_area === item.area || data.current_tab === item.tab_name || data.current_catalogue_name === item.catalogue_name }">
-                <span class="list-name">{{ subitemName(item) }}</span>
-                <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
-                <span class="list-status">
-                  <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
-                  <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
-                  <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
-                  <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
-                  <span v-else class="list-status-dash">—</span>
-                </span>
-                <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
+            <!-- 多 source 时按 source 分组渲染（chongqing: 区县/砂浆/城市级） -->
+            <template v-if="groupedDetails.length > 1">
+              <div class="list-group" v-for="group in groupedDetails" :key="group.source">
+                <div class="list-group-header">
+                  <span class="list-group-title">{{ group.label }}</span>
+                  <span class="list-group-stats">
+                    {{ group.summary.completed }} / {{ group.summary.total }}
+                    <span v-if="group.summary.error" class="list-group-err">· {{ group.summary.error }} 出错</span>
+                  </span>
+                </div>
+                <div class="list-scroll">
+                  <div class="list-row list-header mode-subitem">
+                    <span class="list-name">{{ subitemHeader }}</span>
+                    <span class="list-period">周期</span>
+                    <span class="list-date">更新时间</span>
+                    <span class="list-status">状态</span>
+                    <span class="list-num">文档数</span>
+                  </div>
+                  <div class="list-row mode-subitem" v-for="(item, idx) in group.items" :key="group.source + '-' + idx"
+                    :class="{ 'row-active': data.current_county === item.county || data.current_area === item.area || data.current_tab === item.tab_name || data.current_catalogue_name === item.catalogue_name }">
+                    <span class="list-name">{{ subitemName(item) }}</span>
+                    <span class="list-period">{{ item.period || '—' }}</span>
+                    <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
+                    <span class="list-status">
+                      <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
+                      <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                      <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
+                      <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
+                      <span v-else class="list-status-dash">—</span>
+                    </span>
+                    <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            </template>
+            <!-- 单 source 时保持原行为 -->
+            <template v-else>
+              <div class="list-scroll">
+                <div class="list-row list-header mode-subitem">
+                  <span class="list-name">{{ subitemHeader }}</span>
+                  <span class="list-period">周期</span>
+                  <span class="list-date">更新时间</span>
+                  <span class="list-status">状态</span>
+                  <span class="list-num">文档数</span>
+                </div>
+                <div class="list-row mode-subitem" v-for="(item, idx) in pagedDetails" :key="idx"
+                  :class="{ 'row-active': data.current_county === item.county || data.current_area === item.area || data.current_tab === item.tab_name || data.current_catalogue_name === item.catalogue_name }">
+                  <span class="list-name">{{ subitemName(item) }}</span>
+                  <span class="list-period">{{ item.period || '—' }}</span>
+                  <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
+                  <span class="list-status">
+                    <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
+                    <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                    <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
+                    <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
+                    <span v-else class="list-status-dash">—</span>
+                  </span>
+                  <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
+                </div>
+              </div>
             <div class="list-pagination" v-if="totalDetailPages > 1">
               <button class="pg-btn" @click="page--" :disabled="page <= 1">‹</button>
               <span class="pg-info">{{ page }}/{{ totalDetailPages }}</span>
@@ -199,6 +242,49 @@ const latestPeriod = computed(() => {
   return props.data.es_latest_period || props.data.period || props.data.update_date || ''
 })
 
+// 覆盖月份：去重 county_details 中的 period 字段,排序后拼接
+const coveredPeriods = computed(() => {
+  const arr = (props.data.county_details
+    || props.data.area_details
+    || props.data.catalogue_details
+    || props.data.tab_details
+    || [])
+    .map(d => d.period || '').filter(Boolean)
+  const uniq = [...new Set(arr)]
+  uniq.sort()
+  return uniq
+})
+
+// 覆盖月份文本：连续区间压缩 + 多余展开
+const coveredPeriodsText = computed(() => {
+  const arr = coveredPeriods.value
+  if (!arr.length) return ''
+  // 提取 (年, 月) 排序后判断连续
+  const ym = arr.map(p => {
+    const m = String(p).match(/(\d{4})[\.\-/年](\d{1,2})/)
+    return m ? [Number(m[1]), Number(m[2])] : null
+  }).filter(Boolean)
+  if (ym.length === 1) return arr[0]
+  // 判连续同年月跨月
+  const sorted = [...ym].sort((a, b) => a[0]*12 + a[1] - (b[0]*12 + b[1]))
+  let rangeStart = sorted[0], rangeEnd = sorted[0]
+  const ranges = []
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i-1], cur = sorted[i]
+    if (cur[0]*12 + cur[1] === prev[0]*12 + prev[1] + 1) {
+      rangeEnd = cur
+    } else {
+      ranges.push([rangeStart, rangeEnd])
+      rangeStart = rangeEnd = cur
+    }
+  }
+  ranges.push([rangeStart, rangeEnd])
+  if (ranges.length === 1) {
+    return `${ranges[0][0][0]}年${String(ranges[0][0][1]).padStart(2,'0')}月 ~ ${ranges[0][1][0]}年${String(ranges[0][1][1]).padStart(2,'0')}月`
+  }
+  return arr.join('、')
+})
+
 // 子项目视图：details 数组（county_details / area_details / tab_details / catalogue_details）
 const details = computed(() => {
   return props.data.county_details
@@ -228,6 +314,34 @@ function subitemName(item) {
 const pagedDetails = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE
   return details.value.slice(start, start + PAGE_SIZE)
+})
+
+// 多源分组（chongqing 这种 county_details 含 district / mortar / citywide 三类）：
+// 返回数组 [{ source, label, summary, items }, ...]。单源时返回单元素数组保持原有行为。
+const SOURCE_LABEL = {
+  district: '区县材料',
+  mortar: '预拌砂浆',
+  citywide: '城市级材料',
+}
+const groupedDetails = computed(() => {
+  const arr = details.value || []
+  const summary = props.data.source_summary
+  if (summary && Object.keys(summary).length > 1) {
+    const buckets = {}
+    for (const it of arr) {
+      const src = it.source || 'district'
+      if (!buckets[src]) buckets[src] = []
+      buckets[src].push(it)
+    }
+    // 按 summary 的 key 顺序输出，以保证区县材料先出现
+    return Object.keys(summary).map(src => ({
+      source: src,
+      label: SOURCE_LABEL[src] || src,
+      summary: summary[src],
+      items: buckets[src] || [],
+    }))
+  }
+  return [{ source: '_all', label: '', summary: null, items: arr }]
 })
 
 const totalDetailPages = computed(() => Math.ceil(details.value.length / PAGE_SIZE))
@@ -358,6 +472,26 @@ function formatDur(sec) {
   color: var(--text-2);
   margin-bottom: 12px;
 }
+.sync-card-periods {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sync-card-periods .periods-label {
+  background: var(--primary-bg-light, #eef2ff);
+  color: var(--primary-dark, #4338ca);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.sync-card-periods .periods-value {
+  color: var(--text-1);
+  font-weight: 500;
+}
 .sync-card-body {
   display: flex;
   gap: 14px;
@@ -451,15 +585,17 @@ function formatDur(sec) {
    list-col 实测 247px，cell padding 8px（水平 4×2）
    内容实测：5字中文 60px / "05-11 13:22" 11字符 sans 60px / "✓ 已完成" 74px / "103,335" 7字符 sans 40px */
 
-/* --- subitem 模式（区县-更新时间-状态-文档数）--- */
+/* --- subitem 模式（区县-周期-更新时间-状态-文档数）--- */
 .list-header.mode-subitem .list-name,
-.list-row.mode-subitem .list-name { width: 26%; }   /* 区县：5字 60px + padding 8 = 68px */
+.list-row.mode-subitem .list-name { width: 22%; }   /* 区县：5字 60px + padding 8 = 68px */
+.list-header.mode-subitem .list-period,
+.list-row.mode-subitem .list-period { width: 18%; } /* 周期：8字中文 56px + padding 8 */
 .list-header.mode-subitem .list-date,
-.list-row.mode-subitem .list-date { width: 26%; }   /* 更新时间：11字符 60px 富余 */
+.list-row.mode-subitem .list-date { width: 22%; }   /* 更新时间：11字符 60px 富余 */
 .list-header.mode-subitem .list-status,
-.list-row.mode-subitem .list-status { width: 32%; } /* 状态：badge 74px 富余 */
+.list-row.mode-subitem .list-status { width: 26%; } /* 状态：badge 74px 富余 */
 .list-header.mode-subitem .list-num,
-.list-row.mode-subitem .list-num { width: 16%; }    /* 文档数：7字符 40px 临界 */
+.list-row.mode-subitem .list-num { width: 12%; }    /* 文档数：7字符 40px 临界 */
 
 /* --- period_log 模式（周期-发布日期-状态-文档数）--- */
 .list-header.mode-period .list-name,
@@ -492,6 +628,34 @@ function formatDur(sec) {
 .list-date { color: var(--text-2); font-family: inherit; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
 .list-status { white-space: nowrap; }
 .list-status-dash { color: var(--text-3); font-size: 11px; }  /* period 模式下"—"无记录样式：跟河南一样简洁不显 */
+.list-group {
+  margin-bottom: 12px;
+}
+.list-group:last-child {
+  margin-bottom: 0;
+}
+.list-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 4px 8px;
+  border-bottom: 1px dashed rgba(148,163,184,0.25);
+  margin-bottom: 6px;
+}
+.list-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+.list-group-stats {
+  font-size: 12px;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+.list-group-err {
+  color: #dc2626;
+  margin-left: 4px;
+}
 .list-pagination {
   display: flex;
   justify-content: center;

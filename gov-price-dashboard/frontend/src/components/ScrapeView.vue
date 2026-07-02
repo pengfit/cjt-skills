@@ -60,16 +60,35 @@
 
         <!-- Counties/Periods 列表（展开/收起） -->
         <div v-if="scrapeExpandedCity === key && pipe.scrape?.counties?.length" class="scrape-card-counties">
-          <div
-            v-for="c in pipe.scrape.counties"
-            :key="c.county"
-            class="scrape-county-chip"
-            :class="c.status || 'not-started'"
-          >
-            <span class="chip-dot" :class="c.status || 'not-started'"></span>
-            <span class="chip-name">{{ c.county }}</span>
-            <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
-          </div>
+          <!-- 多 source 城市（如 chongqing）按 source 分组渲染 -->
+          <template v-if="pipe.scrape?.source_summary && Object.keys(pipe.scrape.source_summary).length > 1">
+            <template v-for="(group, gkey) in groupedScrapeCounties(pipe)" :key="gkey">
+              <div class="scrape-group-title">{{ group.label }}</div>
+              <div
+                v-for="c in group.items"
+                :key="c.source + '-' + c.county"
+                class="scrape-county-chip"
+                :class="c.status || 'not-started'"
+              >
+                <span class="chip-dot" :class="c.status || 'not-started'"></span>
+                <span class="chip-name">{{ c.county }}</span>
+                <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
+              </div>
+            </template>
+          </template>
+          <!-- 单 source（xian 等）保持原行为 -->
+          <template v-else>
+            <div
+              v-for="c in pipe.scrape.counties"
+              :key="c.county"
+              class="scrape-county-chip"
+              :class="c.status || 'not-started'"
+            >
+              <span class="chip-dot" :class="c.status || 'not-started'"></span>
+              <span class="chip-name">{{ c.county }}</span>
+              <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
+            </div>
+          </template>
         </div>
 
         <div class="scrape-card-actions">
@@ -118,6 +137,29 @@ function scrapePct(scrape) {
   const denom = Math.max(Number(scrape.total_counties || 0), completed)
   if (!denom) return '0'
   return Math.min((completed / denom) * 100, 100).toFixed(0)
+}
+
+// 按 source 分组（chongqing 这类 区县 / 预拌砂浆 / 城市级 多源）
+const SCRAPE_SOURCE_LABEL = {
+  district: '区县材料',
+  mortar: '预拌砂浆',
+  citywide: '城市级材料',
+}
+function groupedScrapeCounties(pipe) {
+  const arr = pipe?.scrape?.counties || []
+  const summary = pipe?.scrape?.source_summary || {}
+  const buckets = {}
+  for (const c of arr) {
+    const src = c.source || 'district'
+    if (!buckets[src]) buckets[src] = []
+    buckets[src].push(c)
+  }
+  // 按 summary 的 key 顺序输出，保证区县材料先出现
+  return Object.keys(summary).map(src => ({
+    source: src,
+    label: SCRAPE_SOURCE_LABEL[src] || src,
+    items: buckets[src] || [],
+  }))
 }
 
 function toggleScrapeCounties(city, pipe) {
@@ -344,6 +386,19 @@ onMounted(() => {
   padding: 6px 0;
   max-height: 140px;
   overflow-y: auto;
+}
+.scrape-group-title {
+  flex: 0 0 100%;
+  display: inline-block;
+  font-size: 11px;
+  color: #1e293b;
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(148,163,184,0.3);
+  padding: 4px 2px 2px;
+  margin-top: 4px;
+}
+.scrape-group-title:first-child {
+  margin-top: 0;
 }
 .scrape-county-chip {
   display: inline-flex;
