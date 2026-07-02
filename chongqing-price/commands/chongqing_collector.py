@@ -140,7 +140,14 @@ class ChongqingCollector(SyncRunner):
         if all_rows is None:
             return 0, "error"
 
-        # 4. 写 ES
+        # 4. 检查空数据（原站该分类无任何条目）
+        # 例：chongqing citywide 下「装配式建筑工程成品构件」和「城市轨道交通工程材料」
+        # 原网站页面存在但未发布任何材料数据，collector 抓不到不算 error
+        if not all_rows:
+            print(f"  [skipped] {item} [{source}/{period}]：原站无数据，跳过")
+            return 0, "skipped"
+
+        # 5. 写 ES
         n = _w.cmd_write(
             self.run_id, county_for_write, period,
             json.dumps({"rows": all_rows}),
