@@ -58,22 +58,19 @@ def _is_price_valid(d: dict) -> bool:
     即便中位数 price=144，也走这里返 True。绿化苗木的 '大于200' 被解析为
     price_min=price_max=200，同样能进 DWS。
 
+    v4 (2026-07-02) ：委托到通用版 gov_price_etl.parse_price.is_price_valid。
+    逻辑同源，单一权威。
+
     返回 True 表示文档价格有效。
     """
-    p = d.get("price")
-    t = d.get("tax_price")
-    p_min = d.get("price_min")
-    t_min = d.get("tax_min")
-
-    def _nz(x):
-        return (x is not None) and (x != 0) and (x != 0.0)
-
-    # 优先看 price_min（区间价下界），向下兼容旧 price/tax_price
-    if p_min is not None:
-        return _nz(p_min)
-    if t_min is not None:
-        return _nz(t_min)
-    return _nz(p) or _nz(t)
+    from gov_price_etl.parse_price import is_price_valid as _is_valid
+    return _is_valid(
+        price_min=d.get("price_min"),
+        price_max=d.get("price_max"),
+        price=d.get("price"),
+        tax_price=d.get("tax_price"),
+        tax_min=d.get("tax_min"),
+    )
 
 
 def _source_to_dws(d: dict) -> dict:

@@ -1,7 +1,116 @@
-"""mappings.py - DWD / DWS 索引 mapping
+"""mappings.py - DWD / DWS / ODS 索引 mapping
 
 只放 mapping 定义，不创建模板（templates 由 indexer 创建）。
+
+三层索引的职责：
+  ODS — 原始采集层，字段尽量宽（采集器决定怎么写）。
+        dynamic=strict 保护：任何未声明字段会被 ES 拒收，
+        迫使采集器主动更新 mapping（避免 dynamic 推断造成类型不可控）。
+  DWD — 清洗层，分类/价格区间/spec 规范化都在这层完成。
+        dynamic=true 允许 transform_doc 写新字段。
+  DWS — 服务层，与前端对接，按业务查询需要的字段。
+        dynamic=true。
+
+v0.5 (2026-07-02) 新增 build_ods_mapping()：
+  - 之前 17 个城市 skill 各自维护一份 ensure_ods_index mapping，重复且不一致
+  - 抽出后单点维护，新城市只需声明城市特化字段（city_extension）
 """
+# ── ODS mapping（v0.5 新增，2026-07-02）─────────────────────
+# 标准 ODS 字段：所有城市共享
+# 区间价 v4（2026-07-02 chongqing 抽出的 _parse_interval_price）透传字段
+_ODS_BASE_FIELDS = {
+    # ── 业务主字段（普适） ─────────────────────────
+    "breed":        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+    "breed_clean":  {"type": "keyword"},
+    "spec":         {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+    "unit":         {"type": "keyword"},
+    "price":        {"type": "float"},
+    "tax_price":    {"type": "float"},
+    # ── 区间价 v4 字段（chongqing 抽出后各城市复用） ────────────
+    # 2026-07-02 chongqing v3 抽出到 gov_price_etl.parse_price，所有
+    # 省平台（jiangxi/sichuan/jinan 等）都有区间价/特殊词场景，
+    # ODS mapping 统一声明避免 dynamic 推断造成类型不可控。
+    "price_min":    {"type": "float"},   # 区间下界 / "大于200" 的 200
+    "price_max":    {"type": "float"},   # 区间上界 / "大于200" 的 200
+    "price_range":  {"type": "keyword"}, # 原始区间串（'115-173' / '大于200'）
+    "is_range":     {"type": "boolean"}, # 是否区间价（控制聚合时的语义）
+    "is_tax":       {"type": "keyword"}, # '0'=不含税 '1'=含税（与重庆一致）
+    "range_notes":  {"type": "keyword"}, # 特殊词（'全冠' / '面议' 等）
+    "spec_notes":   {"type": "keyword"}, # 补充说明（如园林景观的科属）
+    # ── 分类 / 时间 / 位置 ─────────────────────────────
+    "category":        {"type": "keyword"},
+    "category_l1":     {"type": "keyword"},  # v3 4 层分类 L1（如"建筑工程"）
+    "category_l2":     {"type": "keyword"},
+    "category_l3":     {"type": "keyword"},
+    "period":          {"type": "keyword"},
+    "period_start":    {"type": "date", "format": "yyyy-MM-dd"},
+    "period_end":      {"type": "date", "format": "yyyy-MM-dd"},
+    "period_days":     {"type": "integer"},
+    "update_date":     {"type": "date", "format": "yyyy-MM-dd"},
+    "publish_time":    {"type": "date", "format": "strict_date_optional_time||epoch_millis", "ignore_malformed": True},
+    "create_time":     {"type": "date", "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd HH:mm:ss", "ignore_malformed": True},
+    "province":        {"type": "keyword"},
+    "city":            {"type": "keyword"},
+    "county":          {"type": "keyword"},
+    # ── 元字段 / 采集侧标识 ─────────────────────────
+    "tab_type":        {"type": "keyword"},  # 采集器分类（如 chongqing 'district'/'mortar'/'citywide'）
+    "tab_name":        {"type": "keyword"},
+    "source":          {"type": "keyword"},  # 业务侧 source（与 tab_type 区别：source 是价格表大类）
+    "source_index":    {"type": "keyword"},  # 来源 ODS 索引名
+    "run_id":          {"type": "keyword"},  # 本次采集 run 标识
+    "area_code":       {"type": "keyword"},  # 行政区划代码（henan/xinjiang 用）
+    # ── 数据来源 / 附件溯源 ─────────────────────────
+    "source_url":      {"type": "keyword"},
+    "source_pdf":      {"type": "keyword"},
+    "source_file":     {"type": "keyword"},
+    "source_id":       {"type": "keyword"},
+    "minio_key":       {"type": "keyword"},
+    # ── 备注 / 其他字段 ────────────────────────────
+    "no":              {"type": "keyword"},  # 编号（如 hainan 'no'）
+    "remark":          {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 1024}}},
+    "citywide_category": {"type": "keyword"},  # 城市级材料信息价大类（chongqing citywide tab）
+}
+
+
+def build_ods_mapping(city_extension: dict = None) -> dict:
+    """构建 ODS 索引 mapping（标准模板 + 城市特化）。
+
+    Args:
+        city_extension: 城市特化字段声明，会与标准字段合并。
+                        例如 xinjiang 加 areaid、hainan 加 remark 的子字段。
+                        同名字段会被城市特化覆盖。
+
+    Returns:
+        ES mapping dict，含 settings 和 mappings.properties。
+
+    动态策略：
+        dynamic=strict — 拒绝未声明字段。
+        背景：之前 17 个城市 dynamic=true，dynamic 推断的字段一旦写入
+        就定型（如某个 spec 字段被推成 text，但业务上需要 keyword 聚合）。
+        改 strict 后，采集器写新字段必须先 update mapping，避免运行时类型
+        陷阱。
+
+    用法：
+        from gov_price_etl.mappings import build_ods_mapping
+        mapping = build_ods_mapping()
+        # 城市特化示例（xinjiang）：
+        mapping = build_ods_mapping(city_extension={
+            "areaid": {"type": "integer"},
+            "area_name": {"type": "keyword"},
+        })
+    """
+    properties = dict(_ODS_BASE_FIELDS)
+    if city_extension:
+        properties.update(city_extension)
+    return {
+        "mappings": {
+            "dynamic": "strict",
+            "properties": properties,
+        },
+        "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    }
+
+
 # ── DWD mapping ──────────────────────────────────────────────────────────
 def build_dwd_mapping() -> dict:
     base = {
