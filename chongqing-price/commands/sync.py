@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""同步入口 - 转发给 write_es.py sync 命令"""
+"""同步入口 - 转发给 write_es.py sync 命令（或 chongqing_collector 试点）
+
+v0.8 (2026-07-02) ：加 --use-collector flag 启用 SyncRunner 试点版本
+  - 默认走原 cmd_sync（生产安全）
+  - --use-collector 走 ChongqingCollector（v0.8 实验性，未生产验证）
+"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 复用 gov_price_etl 通用层（v0.7 P1 抽取后）
 from commands.write_es import cmd_sync
 import argparse
 
@@ -15,5 +22,33 @@ if __name__ == "__main__":
     parser.add_argument("--tab-id", default="", help="浏览器标签页 ID")
     parser.add_argument("--source", default="all",
                         help="数据来源: district / mortar / citywide / all")
+    parser.add_argument("--use-collector", action="store_true",
+                        help="v0.8 实验性：使用 chongqing_collector.ChongqingCollector 试点版本"
+                             "（SyncRunner 抽象基类）。**未生产验证**，请谨慎使用。")
     args = parser.parse_args()
-    cmd_sync(args)
+
+    if args.use_collector:
+        # v0.8 试点：ChongqingCollector 走 SyncRunner 主流程
+        from commands.chongqing_collector import make_collector
+        from datetime import datetime
+        cfg_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'config.yml',
+        )
+        # 解析 periods
+        if args.periods:
+            periods = [p.strip() for p in args.periods.split(',') if p.strip()]
+        else:
+            periods = [args.period]
+        # 解析 sources
+        sources = ['district', 'mortar', 'citywide'] if args.source == 'all' else [args.source]
+        run_id = args.run_id or f"cq_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        print(f"[v0.8 试点] ChongqingCollector 启动")
+        print(f"  tab_id={args.tab_id}, periods={periods}, sources={sources}")
+        collector = make_collector(cfg_path, args.tab_id, periods, run_id)
+        result = collector.run(reset=args.reset)
+        print(f"\n[v0.8 试点] 完成: {result}")
+    else:
+        # 生产路径：原 cmd_sync（v3 完整版）
+        cmd_sync(args)
