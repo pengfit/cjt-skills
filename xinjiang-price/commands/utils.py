@@ -9,6 +9,11 @@ import yaml
 from botocore.client import Config
 from elasticsearch import Elasticsearch
 
+# 复用 gov_price_etl 通用层（ODS mapping 标准化）
+_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _ETL_PROJECT_ROOT)
+
 
 def load_config():
     cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.yml')
@@ -40,33 +45,20 @@ def ensure_bucket(s3, bucket):
 
 
 def ensure_ods_index(es, index):
-    """确保 ODS 索引存在（新疆字段对齐 chongqing/jiangsu 等 SKU 城市格式）"""
+    """确保 ODS 索引存在。
+
+    v0.5 (2026-07-02) ：委托到 gov_price_etl.mappings.build_ods_mapping。
+    新疆特化字段（sheet_name / area_name 等）传 city_extension。
+    """
     if es.indices.exists(index=index):
         return
-    mapping = {
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'breed':         {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'breed_clean':   {'type': 'keyword'},
-                'spec':          {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'unit':          {'type': 'keyword'},
-                'price':         {'type': 'float'},
-                'tax_price':     {'type': 'float'},
-                'category':      {'type': 'keyword'},
-                'period':        {'type': 'keyword'},
-                'province':      {'type': 'keyword'},
-                'city':          {'type': 'keyword'},
-                'county':        {'type': 'keyword'},
-                'update_date':   {'type': 'date', 'format': 'yyyy-MM-dd'},
-                'create_time':   {'type': 'date', 'format': 'yyyy-MM-dd HH:mm:ss'},
-                'source_file':   {'type': 'keyword'},
-                'source_url':    {'type': 'keyword'},
-                'source_id':     {'type': 'keyword'},
-                'sheet_name':    {'type': 'keyword'},
-            },
-        },
-    }
+    from gov_price_etl.mappings import build_ods_mapping
+    # 新疆特化：sheet_name (xlsx 多 sheet) / areaid / area_name
+    mapping = build_ods_mapping(city_extension={
+        'sheet_name':  {'type': 'keyword'},
+        'areaid':      {'type': 'integer'},
+        'area_name':   {'type': 'keyword'},
+    })
     es.indices.create(index=index, body=mapping)
 
 

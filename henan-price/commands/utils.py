@@ -8,6 +8,12 @@ import yaml
 from botocore.client import Config
 from elasticsearch import Elasticsearch
 
+# 复用 gov_price_etl 通用层（ODS mapping 标准化）
+# 与 dashboard 的 ETL_PROJECT_ROOT 模式一致，让 henan 能调用 gov_price_etl.mappings。
+_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _ETL_PROJECT_ROOT)
+
 
 def load_config():
     """加载 skill 根目录的 config.yml"""
@@ -42,30 +48,16 @@ def ensure_bucket(s3, bucket):
 
 
 def ensure_ods_index(es, host, index):
-    """确保 ODS 索引存在，套用 mapping（如果不存在）"""
+    """确保 ODS 索引存在，套用 mapping（如果不存在）
+
+    v0.5 (2026-07-02) ：委托到 gov_price_etl.mappings.build_ods_mapping。
+    新字段（区间价 price_min/max/range/is_range等）自动生效，
+    不再手动维护本地 mapping 字符串。
+    """
     if es.indices.exists(index=index):
         return
-    mapping = {
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'breed':         {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'breed_clean':   {'type': 'keyword'},
-                'spec':          {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'unit':          {'type': 'keyword'},
-                'price':         {'type': 'float'},
-                'tax_price':     {'type': 'float'},
-                'period':        {'type': 'keyword'},
-                'province':      {'type': 'keyword'},
-                'city':          {'type': 'keyword'},
-                'county':        {'type': 'keyword'},
-                'update_date':   {'type': 'keyword'},
-                'create_time':   {'type': 'keyword'},
-                'source_pdf':    {'type': 'keyword'},
-                'source_url':    {'type': 'keyword'},
-            },
-        },
-    }
+    from gov_price_etl.mappings import build_ods_mapping
+    mapping = build_ods_mapping()
     es.indices.create(index=index, body=mapping)
 
 
