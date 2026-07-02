@@ -1,12 +1,12 @@
-"""chongqing_collector.py - chongqing SyncRunner 试点（v0.8 实验性, 2026-07-02）
+"""chongqing_collector.py - chongqing 默认同步路径（v0.9 默认, 2026-07-02）
 
-将 chongqing v3 的 cmd_sync 主流程用 SyncRunner 抽象基类重构。
+将 chongqing v3 的 cmd_sync 主流程用 SyncRunner 抽象基类重构，2026-07-02 起
+切为 sync.py 默认路径。已在 2026-07-02 生产试跑 1 次（run_id=v08_pilot_full_20260702，
+5 个月全量：district + mortar + citywide）。
 
-⚠️ **实验性**（未生产验证）：
-- 这是 P2 阶段 chongqing 试点，仅做**接口适配性验证**
-- 不切换生产！sync.py 默认走原 cmd_sync，加 --use-collector 才走本类
-- 浏览器自动化部分保留在 _process_one 钩子内（与原 _run_sync_source 逻辑等价）
-- 完整 e2e 验证需在生产 browser tab 环境跑 dry-run
+已知非问题（原网站结构）：
+- citywide 下的「装配式建筑工程成品构件」+「城市轨道交通工程材料」两个分类
+  在原网站页面存在但未发布任何材料数据，collector 抓取为空属预期（不是 bug）
 
 设计：
 - 继承 gov_price_etl.collectors.base.SyncRunner
@@ -14,7 +14,7 @@
 - 重写 _process_one()：浏览器点击 + 抓数据 + 写 ES
 - 重写 _compute_unit_key()：本地进度 key = 'done_<source>_<period>' 列表项
 
-迁移到本类后预期收益：
+迁移收益：
 - 主流程结构与原 cmd_sync 等价，但解耦到 SyncRunner 基类
 - 通用基础设施（SIGINT / 进度 / 汇总）由基类提供
 - 未来加新城市可直接复用 SyncRunner 框架
@@ -25,7 +25,7 @@ import json
 import os
 import sys
 import time
-from typing import Optional
+from typing import Optional, List
 
 # 复用 chongqing v3 的工具函数（浏览器 API / 解析 / ES 写入）
 _ETL_PROJECT_ROOT = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl"
@@ -255,14 +255,23 @@ class ChongqingCollector(SyncRunner):
 # 工厂方法
 # ─────────────────────────────────────────────────────────────
 
-def make_collector(cfg_path: str, tab_id: str, periods: list[str], run_id: str) -> ChongqingCollector:
+def make_collector(
+    cfg_path: str,
+    tab_id: str,
+    periods: list[str],
+    run_id: str,
+    sources: Optional[list[str]] = None,
+) -> ChongqingCollector:
     """从 config.yml 构造 ChongqingCollector。
 
-    用法（未来 sync.py 的 --use-collector 路径）：
+    用法（sync.py 默认路径）：
         cfg = load_config(cfg_path)
-        collector = make_collector(cfg_path, tab_id, periods, run_id)
+        collector = make_collector(cfg_path, tab_id, periods, run_id, sources=sources)
         result = collector.run()
         # result = {total, done, failed, skipped, docs_written, duration_sec, interrupted}
+
+    Args:
+        sources: 限定 source 列表（None=默认 3 sources）。
     """
     # 委托到 chongqing utils.py 的 load_config（避免重新实现）
     import sys as _sys
@@ -270,10 +279,11 @@ def make_collector(cfg_path: str, tab_id: str, periods: list[str], run_id: str) 
     if cmds_dir not in _sys.path:
         _sys.path.insert(0, cmds_dir)
     import utils
-    cfg = utils.load_config()
+    cfg = utils.load_config(cfg_path)
     return ChongqingCollector(
         cfg=cfg,
         tab_id=tab_id,
         run_id=run_id,
         periods=periods,
+        sources=sources or ("district", "mortar", "citywide"),
     )

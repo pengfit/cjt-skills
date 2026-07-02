@@ -1,169 +1,97 @@
 ---
 name: chongqing-price
-description: "重庆工程造价材料信息采集：从 www.cqsgczjxx.org 抓取区县材料价格数据。"
+description: "重庆工程造价材料信息采集：从 www.cqsgczjxx.org 抓取 3 个 source（district/mortar/citywide）+ 5 个 citywide 子分类的材料价格，支持 v4 区间价解析。"
 ---
 
 # chongqing-price
 
-重庆工程造价材料信息采集 Skill。从 `www.cqsgczjxx.org`（重庆市建设工程造价信息网）抓取区县材料价格数据，通过 openclaw browser 自动化抓取页面，批量写入本地 ES 索引 `ods_material_chongqing_price`。
+重庆工程造价材料信息采集 Skill。从 `www.cqsgczjxx.org` 抓取**3 个 source × 5 个 citywide 子分类**的建材价格，写入本地 ES `ods_material_chongqing_price`。
+
+> 默认走 `chongqing_collector`（v0.9 SyncRunner 抽象基类版本）。`--legacy` 走 v3 `cmd_sync`。
+> 已在 2026-07-02 生产试跑 1 次（run_id=`v08_pilot_full_20260702`，5 个月全量）。
 
 ## 数据源
 
-- **网址**：`http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx`
-- **分类**：材料信息价（点击"材料信息价"标签页）
-- **页面结构**：区县下拉 → 分页表格（材料名称 / 规格型号 / 单位 / 含税价格 / 不含税价格）
-- **目标周期**：从 config.yml 的 `sync.last_period` 读取，格式如 `2026年01月`
+| source | 区县数 | 页面 div | 价格特征 |
+|---|---|---|---|
+| `district` | 35 | `gqxdfclDiv` | 7 列单值 |
+| `mortar` | 4 | `ybsjDiv` | 7 列单值 |
+| `citywide` | 1（主城区） | `zyclDiv` | 见下 |
+
+**citywide 5 个子分类**（实际 3 个有数据）：
+
+| category | 列数 | 价格特征 | 源站现状 |
+|---|---|---|---|
+| 建安工程材料 | 7 | 单值 | ✅ |
+| **园林绿化工程材料** | **11** | **区间价**（"115-173 元/株"）+ 全冠/全干特殊值 | ✅ |
+| 绿色、节能建筑工程材料 | 7 | 单值 | ✅ |
+| 装配式建筑工程成品构件 | 7 | 单值 | ⚪ 原站无数据 |
+| 城市轨道交通工程材料 | 7 | 单值 | ⚪ 原站无数据 |
 
 ## 项目结构
 
 ```
 chongqing-price/
-├── config.yml                    # 配置文件（ES、站点、同步周期）
-├── .chongqing_sync_progress.json # 本地进度文件（断点续传）
+├── config.yml                    # ES / 站点配置
+├── .chongqing_sync_progress.json # 本地进度（断点续传）
+├── run.sh                        # 启动脚本
+├── skill.yml                     # dashboard registry
 └── commands/
-    ├── sync.py        # 同步入口（调用 write_es.cmd_sync）
-    ├── write_es.py    # ES 写入核心 + 浏览器自动化实现
-    ├── check.py       # 增量检测：根据页面最新周期触发同步
-    ├── status.py      # 查看本地/ES 同步进度
-    ├── test.py        # 测试 ES 连接
-    └── utils.py       # load_config 工具函数
+    ├── sync.py               # 同步入口（默认 Collector；--legacy 走 v3）
+    ├── write_es.py           # v3 fallback + ES 写入 + 进度
+    ├── chongqing_collector.py# v0.9 默认：SyncRunner 抽象基类化
+    ├── check.py              # 增量检测（页面月份 vs ES 最新）
+    ├── status.py             # 查看本地/ES 进度
+    ├── test.py               # ES 连通性测试
+    └── utils.py              # load_config
 ```
 
-## 命令详解
-
-### sync.py — 同步入口
+## 快速开始
 
 ```bash
-python3 commands/sync.py --tab-id <tab-id> [--period <周期>] [--reset] [--run-id <id>] [--source <source>]
+cd ~/.openclaw/workspace/skills/chongqing-price
+
+# 同步（默认 Collector 路径）
+python3 commands/sync.py --tab-id t1 --source all --period "2026年05月"
+
+# 多周期批量
+python3 commands/sync.py --tab-id t1 --periods "2026年01月,2026年02月,2026年03月,2026年04月,2026年05月"
+
+# 单 source
+python3 commands/sync.py --tab-id t1 --source district --period "2026年05月"
+
+# v3 兼容（仅 Collector 异常时备用）
+python3 commands/sync.py --tab-id t1 --legacy --source all --period "2026年05月"
+
+# 其他命令（用 run.sh 也行）
+python3 commands/check.py      # 增量检测
+python3 commands/status.py     # 查看进度
+python3 commands/test.py       # ES 连通性
 ```
 
-- **--tab-id**：必填，openclaw browser 已打开的标签页 ID（格式如 `t1`）
-- **--period**：目标周期，默认 `2026年01月`（从 URL 提取月份数字，如 `04` 月）
-- **--reset**：清除本地进度文件，重新全量同步
-- **--run-id**：指定本次运行的标识，默认自动生成
-- **--source**：数据来源标签页，默认 `district`；可用 `district` / `mortar` / `citywide` / `all`
+## 关键特性
 
-流程：
-1. 初始化 ES 索引（若不存在则创建）
-2. 聚焦指定 browser tab，点击"材料信息价"标签页
-3. 选中目标月份，遍历所有 36 个区县
-4. 每个区县：点击区县 → 翻页提取表格 → 写入 ES → 更新进度
-5. 支持 Ctrl+C 中断，保存进度后退出
-
-### write_es.py — 多子命令工具
-
-```bash
-# 初始化 ES 索引
-python3 commands/write_es.py init
-
-# 写入数据（供 browser 侧调用）
-python3 commands/write_es.py write <run_id> <county> <period> <result_json>
-
-# 更新进度
-python3 commands/write_es.py progress <run_id> <county> <period> <page> <total_pages> <docs_written> <status> [error] [duration]
-
-# 同步完成汇总
-python3 commands/write_es.py summary <run_id> <total_counties> <completed> <total_docs> <duration_sec>
-
-# 完整同步流程
-python3 commands/write_es.py sync --tab-id <tab-id> [--period <周期>] [--reset]
-```
-
-### check.py — 增量检测（推荐自动化使用）
-
-```bash
-python3 commands/check.py
-```
-
-自动判断是否需要触发同步：
-- 对比 config `last_period` 与网站当前周期，发现新周期则触发全量同步
-- 对比 ES 最新已完成周期与 config，判断增量或断点续传
-- 后台启动 `sync.py`，日志写入 `/tmp/chongqing-incremental-sync-<timestamp>.log`
-
-前提：browser 已打开目标页面并聚焦到重庆市建设工程造价信息网标签页。
-
-### status.py — 查看进度
-
-```bash
-python3 commands/status.py
-```
-
-输出：
-- 本地进度文件（`.chongqing_sync_progress.json`）：run_id、已完成区县数、保存时间
-- ES 进度索引（`ods_chongqing_price_progress`）：各区县同步状态、文档数
-- config 中的 `last_period`
-
-### test.py — ES 连接测试
-
-```bash
-python3 commands/test.py
-```
-
-验证 ES 集群连接是否正常，输出集群状态。
-
-## 配置（config.yml）
-
-```yaml
-es:
-  host: http://localhost:59200        # ES 地址
-  index: ods_material_chongqing_price # 数据索引
-  progress_index: ods_chongqing_price_progress  # 进度索引
-  sync_log_index: ods_chongqing_price_sync_log  # 同步日志索引
-  timeout: 30
-
-site:
-  url: http://www.cqsgczjxx.org/Pages/CQZJW/priceInformation.aspx
-
-sync:
-  last_period: '2026'                 # 上次同步周期（自动更新）
-```
-
-## 数据字段
-
-| 字段 | 说明 |
-|------|------|
-| `breed` | 材料名称 |
-| `spec` | 规格型号 |
-| `unit` | 单位 |
-| `price` | 不含税价格（浮点数） |
-| `tax_price` | 含税价格（浮点数） |
-| `is_tax` | 含税/不含税 |
-| `period` | 周期（格式 `YYYY-MM-DD`，如 `2026-01-01`） |
-| `province` | 重庆 |
-| `city` / `county` | 区县名称 |
-| `area_code` | 同 county |
-| `update_date` | 更新日期（YYYY-MM-DD） |
-| `create_time` | 入库时间（YYYY-MM-DD HH:MM:SS） |
-
-## ES 索引
-
-| 索引 | 说明 |
-|------|------|
-| `ods_material_chongqing_price` | 材料价格数据 |
-| `ods_chongqing_price_progress` | 同步进度记录（每区县一条） |
-
-## 支持区县（36 个）
-
-主城区、万州区、涪陵区、黔江区、长寿区、江津区、合川区、永川区、南川区、梁平区、城口县、丰都县、垫江县、忠县、开州区、云阳县、奉节县、巫山县、巫溪县、石柱县、秀山县、酉阳县、大足区、綦江区、万盛经开区、双桥经开区、铜梁区、璧山区、彭水县1、彭水县2、彭水县3、荣昌区1、荣昌区2、潼南区、武隆区
-
-> 注：彭水县分 3 个价格区（1/2/3），荣昌区分 2 个价格区（1/2）。
-
-## 幂等写入
-
-```
-_id = MD5(breed + spec + period + price + tax_price + county)
-```
-
-同一材料在同一周期同一区县下重复写入会自动覆盖，保证数据一致性。
-
-## 断点续传
-
-- 本地进度文件：`.chongqing_sync_progress.json`（JSON 格式，记录已完成的区县列表）
-- 中断后重新运行 `sync.py`，自动跳过已完成的区县
-- 传 `--reset` 可清除进度，从头开始
+- **断点续传**：本地 + ES 双层进度，按 `done_<source>_<period>` 隔离；`--reset` 清除
+- **幂等写入**：`_id` = `hash(breed + spec + period + price_min/max + county)`
+- **v4.1 区间价**：`"115-173"` → `price_min/price_max/is_range`；特殊值"全冠/全干"走 `range_notes`
+- **2 道保护告警**（仅园林景观类目触发）：
+  - 列数 < 11 → 跳过 + WARN（防原站表头变化）
+  - 价格解析失败 → WARN+sample（仍入库但 DWS 过滤）
+- **SIGINT 安全**：Ctrl+C 保存进度后退出
+- **Collector 默认**：`chongqing_collector.py` 用 `gov_price_etl.collectors.base.SyncRunner` 抽象基类
 
 ## 依赖
 
-- Python 3
-- openclaw（browser 自动化，需先打开目标页面）
-- requests、pyyaml、elasticsearch
+- Python 3.10+
+- openclaw（browser 自动化）
+- requests、pyyaml
+- **gov-price-etl skill**（部署在 `~/.openclaw/workspace/skills/gov-price-etl`）— 强依赖：
+  - `parse_price.parse_interval_price`
+  - `indexer.ensure_progress_index`
+  - `collectors.base.SyncRunner`
+  - `build_ods_mapping` / `build_progress_mapping`
+  - 部署缺失时 `write_es.py` 顶部会 hard raise
+
+---
+
+**完整手册见 [README.md](./README.md)**（含完整参数表、数据字段、故障排查、变更日志）。

@@ -1,6 +1,11 @@
 # 重庆工程造价材料信息采集
 
-> **v0.6 (2026-07-02) 重写**：3 个 source × 5 个 citywide 子分类、v4 价格模型（区间价）、
+> **v0.9 (2026-07-02)**：`chongqing_collector` SyncRunner 路径切为默认（`sync.py` 不再需要 `--use-collector`），`--legacy` 走 v3 `cmd_sync`。
+>
+> **v0.8 (2026-07-02) 重写**：在 v0.6 基础上加 `ChongqingCollector` SyncRunner 试点；
+> `run.sh` 启动脚本；`check.py` 增强（自动开 tab）；sync.py 多周期 + 多 source。
+>
+> **v0.6 (2026-07-02)**：3 个 source × 5 个 citywide 子分类、v4 价格模型（区间价）、
 > 通用层进度跟踪、2 道保护告警。
 
 从 [重庆市建设工程造价信息网](http://www.cqsgczjxx.org) 抓取重庆市区县材料价格数据，
@@ -22,15 +27,17 @@
 | `mortar` | 预拌砂浆信息价 | 4 | `ybsjDiv` | 7 列单值价 |
 | `citywide` | 重庆市材料信息价 | 1（主城区） | `zyclDiv` | 见下表 ↓ |
 
-**citywide 5 个子分类**（左侧类目切换）：
+**citywide 5 个子分类**（左侧类目切换，实际原站仅 3 个分类有数据）：
 
-| category | 列数 | 价格特征 | 备注 |
+| category | 列数 | 价格特征 | 源站现状 |
 |---|---|---|---|
-| 建安工程材料 | 7 | 单值价 | 默认 |
-| **园林绿化工程材料** | **11** | **区间价**（"115-173 元/株"）+ 全冠/全干特殊值 | v4.1 重点 |
-| 绿色、节能建筑工程材料 | 7 | 单值价 | |
-| 装配式建筑工程成品构件 | 7 | 单值价 | |
-| 城市轨道交通工程材料 | 7 | 单值价 | |
+| 建安工程材料 | 7 | 单值价 | ✅ 有数据 |
+| **园林绿化工程材料** | **11** | **区间价**（"115-173 元/株"）+ 全冠/全干特殊值 | ✅ 有数据（v4.1 重点）|
+| 绿色、节能建筑工程材料 | 7 | 单值价 | ✅ 有数据 |
+| 装配式建筑工程成品构件 | 7 | 单值价 | ⚪ 原站无数据 |
+| 城市轨道交通工程材料 | 7 | 单值价 | ⚪ 原站无数据 |
+
+> 后两个分类页面存在但未发布任何材料条目，抓取预期为空。
 
 ### 当前生产状态（截至 2026-07-02）
 
@@ -38,10 +45,67 @@
 - 进度文档：242 条（180 district + 42 citywide + 20 mortar，35 个 county）
 - 区间价记录：**940 条**（is_range=true）
 - 当前已采集到 **2026年05月**（源站 06 月份尚未发布）
+- **v0.9 默认路径**：重庆接入 `gov_price_etl.collectors.base.SyncRunner` 抽象基类，
+  `sync.py` 默认走 `ChongqingCollector`；`--legacy` 走 v3 `cmd_sync`（逃生通道）
+- **v0.8 生产试跑**（run_id=`v08_pilot_full_20260702`，5 个月全量）：
+  - district：175 county 全 completed
+  - mortar：20 county 全 completed
+  - citywide：15 subcategory 全 completed（仅 3 个有数据的分类 × 5 月）
+  - 注："装配式"和"城市轨道"两个 citywide 分类原网站无数据，ES progress 里 status=error 实为预期空
 
 ---
 
-## 2. v0.6 更新要点（2026-07-02）
+## 2. v0.9 更新要点（2026-07-02）
+
+### Collector 切默认路径
+
+`sync.py` 不再需要 `--use-collector` flag，`--legacy` 走 v3 `cmd_sync`（仅作逃生通道）。
+
+```bash
+# 默认走 Collector（推荐）
+python3 commands/sync.py --tab-id t1 --source all --period "2026年05月"
+
+# Collector 验证用：仅跑前 5 个工作单元
+python3 commands/sync.py --tab-id t1 --source all \
+  --max-units 5 --periods "2026年05月"
+
+# v3 兼容（仅 Collector 异常时备用）
+python3 commands/sync.py --tab-id t1 --legacy --source all --period "2026年05月"
+```
+
+### v0.8 生产试跑结果
+
+2026-07-02 用 `v08_pilot_full_20260702` 跑 5 个月全量（district + mortar + citywide）：
+- ✅ district 175 county + mortar 20 county 全 completed
+- ✅ citywide 5 × 3 = 15 subcategory 全 completed（建安/园林/绿色节能 3 个有数据分类）
+
+> "装配式建筑工程成品构件"和"城市轨道交通工程材料"两个分类在原网站页面存在但未发布任何材料数据，
+> collector 抓取结果为空属预期（ES progress 文档 status=error 是因"无数据可写"，不是 bug）。
+
+### v0.8 新增基础设施
+
+- `chongqing_collector.py`：用 `gov_price_etl.collectors.base.SyncRunner` 抽象基类重构主流程
+- `run.sh`：启动脚本封装
+- `check.py`：browser tab 不存在时自动 `openclaw browser open`
+
+### run.sh 启动脚本
+
+```bash
+cd ~/.openclaw/workspace/skills/chongqing-price
+./run.sh sync   --tab-id t1 --source all --period "2026年05月"
+./run.sh check
+./run.sh status
+./run.sh test
+```
+
+### check.py 增强
+
+- browser tab 不存在 → 主动调用 `openclaw browser open`（cron 友好）
+- 返回 `tabId` 而非 `targetId`（与 sync.py 一致）
+
+---
+
+## 3. v0.6 更新要点（2026-07-02）
 
 ### P0 · 进度跟踪统一
 
@@ -76,26 +140,27 @@ from gov_price_etl.indexer import ensure_progress_index as _ensure_progress_inde
 
 ---
 
-## 3. 项目结构
+## 4. 项目结构
 
 ```
 chongqing-price/
 ├── config.yml                    # ES / 站点 / 同步配置
 ├── .chongqing_sync_progress.json # 本地进度（断点续传）
-├── run.sh                        # 启动脚本（preview/sync/status/test/check）
+├── run.sh                        # 启动脚本（sync/status/test/check）
 ├── skill.yml                     # skill 注册信息（dashboard registry 读取）
 └── commands/
-    ├── sync.py        # 同步入口（转发到 write_es.cmd_sync）
-    ├── write_es.py    # 核心：浏览器自动化 + ES 写入 + 进度跟踪
-    ├── check.py       # 增量检测（页面解析 + 后台 sync）
-    ├── status.py      # 查看本地/ES 进度
-    ├── test.py        # 测试 ES 连接
-    └── utils.py       # load_config
+    ├── sync.py               # 同步入口（默认 Collector；--legacy 走 v3 cmd_sync）
+    ├── write_es.py           # 核心：浏览器自动化 + ES 写入 + 进度跟踪（v3 fallback）
+    ├── chongqing_collector.py# v0.8+ 默认：SyncRunner 抽象基类化
+    ├── check.py              # 增量检测（页面解析 + 后台 sync）
+    ├── status.py             # 查看本地/ES 进度
+    ├── test.py               # 测试 ES 连接
+    └── utils.py              # load_config
 ```
 
 ---
 
-## 4. 快速开始
+## 5. 快速开始
 
 ### 前提条件
 
@@ -151,7 +216,7 @@ python3 commands/write_es.py init
 
 ---
 
-## 5. 数据字段（v4 ODS）
+## 6. 数据字段（v4 ODS）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -184,7 +249,7 @@ python3 commands/write_es.py init
 
 ---
 
-## 6. ES 索引
+## 7. ES 索引
 
 | 索引 | mapping 来源 | 说明 |
 |---|---|---|
@@ -218,7 +283,7 @@ _id: {run_id}__summary__{period}              (run 汇总)
 
 ---
 
-## 7. 同步命令详解
+## 8. 同步命令详解
 
 ### sync.py — 同步入口（参数透传给 `write_es.cmd_sync`）
 
@@ -234,6 +299,8 @@ python3 commands/sync.py [选项]
 | `--source` | `all` | district / mortar / citywide / all |
 | `--reset` | false | 清除本地进度文件，重新开始 |
 | `--run-id` | 自动 | 指定 run_id（默认 `cq_<timestamp>`） |
+| `--legacy` | false | **v3 兼容**：走原 `cmd_sync`（逃生通道），默认走 Collector |
+| `--max-units` | None | **Collector 路径**：仅跑前 N 个工作单元（验证用） |
 
 **流程**：
 1. 初始化 ES 索引（已存在走 noop）
@@ -299,7 +366,7 @@ python3 commands/test.py
 
 ---
 
-## 8. 保护机制（2026-07-02 加）
+## 9. 保护机制（2026-07-02 加）
 
 防源站表格格式变化导致 silent 漏抓。**只在园林绿化工程材料类目触发**，其他类目不受影响。
 
@@ -342,7 +409,7 @@ if is_landscape and price_str and price_str != "0" and price_min == 0 and price_
 
 ---
 
-## 9. 断点续传 + 进度跟踪（v0.6）
+## 10. 断点续传 + 进度跟踪（v0.6）
 
 ### 两层进度
 
@@ -368,7 +435,7 @@ run 汇总: {run_id}__summary__{period}
 
 ---
 
-## 10. 配置（config.yml）
+## 11. 配置（config.yml）
 
 ```yaml
 es:
@@ -400,7 +467,7 @@ expand_label: "▾ 区县详情"
 
 ---
 
-## 11. 故障排查
+## 12. 故障排查
 
 ### 同步失败
 
@@ -490,7 +557,7 @@ tail -f /tmp/chongqing-incremental-sync-*.log
 
 ---
 
-## 12. 依赖
+## 13. 依赖
 
 - Python 3.10+
 - openclaw（browser 自动化）
@@ -499,7 +566,7 @@ tail -f /tmp/chongqing-incremental-sync-*.log
 
 ---
 
-## 13. 区县清单（district source 35 个 + mortar 4 个）
+## 14. 区县清单（district source 35 个 + mortar 4 个 + citywide 5 子分类）
 
 **district（35 个）**：主城区、万州区、涪陵区、黔江区、长寿区、江津区、合川区、永川区、
 南川区、梁平区、城口县、丰都县、垫江县、忠县、开州区、云阳县、奉节县、巫山县、巫溪县、
@@ -510,14 +577,18 @@ tail -f /tmp/chongqing-incremental-sync-*.log
 
 **citywide（1 个）**：主城区（5 个子分类：建安工程、园林绿化、绿色节能、装配式、城市轨道）
 
+**citywide 5 子分类**：建安工程材料 / 园林绿化工程材料 / 绿色、节能建筑工程材料 / 装配式建筑工程成品构件 / 城市轨道交通工程材料
+
 > 注：彭水县分 3 个价格区（1/2/3），荣昌区分 2 个价格区（1/2）。
 
 ---
 
-## 14. 变更日志
+## 15. 变更日志
 
 | 版本 | 日期 | 主要变更 |
 |---|---|---|
+| **v0.9** | 2026-07-02 | `chongqing_collector` 切为默认路径；`--legacy` 走 v3 `cmd_sync` |
+| **v0.8** | 2026-07-02 | 新增 `chongqing_collector.py` SyncRunner 试点（`--use-collector`）；`run.sh` 启动脚本；`check.py` 自动开 tab；sync.py 多周期 + 多 source |
 | **v0.6** | 2026-07-02 | 进度跟踪切到 gov_price_etl 通用层；_id 标准化（双下划线）；园林景观 11 列 + 区间价；2 道保护告警 |
 | v0.5 | 2026-06-28 | 切到通用层 parse_price + build_ods_mapping（45 字段，dynamic=strict）|
 | v0.4 | 2026-06-15 | 多周期 `--periods` + 4 道保护告警 + 进度 percent 字段 |
