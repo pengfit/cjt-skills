@@ -627,6 +627,17 @@ def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
     - jinan / rizhao：group_by=latest（按最新 last_updated 去重）
     """
     catalogue_field = cfg.get("catalogue_field", "catalogue")
+
+    # percent 兜底派生 helper（rizhao 历史文档漏写 percent，靠 docs/total_records 补）
+    def _scrape_derive_percent(d: dict) -> float:
+        raw = d.get("percent")
+        if raw is not None and raw != 0:
+            return round(float(raw), 1)
+        dw = d.get("docs_written", 0) or 0
+        tr = d.get("total_records", 0) or d.get("total_count", 0) or 0
+        if dw and tr:
+            return round(dw / tr * 100, 1)
+        return 0.0
     group_by = cfg.get("group_by", "run_id")
 
     if catalogue_field == "tab_name":
@@ -723,25 +734,31 @@ def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
         for b in buckets:
             doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
             status = doc.get("status", "completed")
+            # 状态归一化：'ok' 视为 'completed'（兼容 rizhao 历史写入格式）
+            if status == "ok":
+                status_norm = "completed"
+            else:
+                status_norm = status
             # 取中文名（兼容 sichuan area_name / jinan catalogue_name / rizhao tab_name）
             cat_name = (doc.get(f"{catalogue_field}_name", "")
                         or doc.get("catalogue_name", "")
                         or doc.get("area_name", "")
                         or doc.get("tab_name", "")
                         or "")
-            if status == "completed":
+            if status_norm == "completed":
                 comp += 1
-            elif status == "running":
+            elif status_norm == "running":
                 run += 1
             else:
                 err += 1
             counties.append({
-                "county": b["key"], "status": status,
+                "county": b["key"], "status": status_norm,
                 "catalogue_name": cat_name,
                 "area_name": cat_name if catalogue_field == "area" else "",
                 "tab_name": cat_name if catalogue_field == "tab_name" else "",
                 "name": cat_name or b["key"],
-                "percent": round(doc.get("percent", 0), 1),
+                # percent 兜底派生：优先 ES 原值，缺失则用 docs_written/total_records 派生
+                "percent": _scrape_derive_percent(doc),
                 "docs_written": doc.get("docs_written", 0),
                 "current_page": doc.get("current_page", 0),
                 "total_pages": doc.get("total_pages", 0),
@@ -3475,24 +3492,42 @@ def _catalogue_sync_progress(cfg: dict) -> dict:
             unique.append(r)
 
     # 详情字段映射：默认 "catalogue_details" 列表元素以 catalogue/catalogue_name 为 id
+    def _derive_percent(src: dict) -> float:
+        """percent 兜底派生：优先用 ES 文档原值，缺失时用 docs_written/total_records 派生。
+
+        触发场景：rizhao v1.0 collector 写 ES progress 时漏写 percent 字段，
+        但 docs_written/total_records 都有，足以派生（unit 完成时 = 100%）。
+        """
+        raw = src.get("percent")
+        if raw is not None and raw != 0:
+            return round(float(raw), 2)
+        dw = src.get("docs_written", 0) or 0
+        tr = src.get("total_records", 0) or src.get("total_count", 0) or 0
+        if dw and tr:
+            return round(dw / tr * 100, 2)
+        return 0.0
+
     cat_details = sorted([{
         "catalogue": r["_source"].get(catalogue_field, ""),
         "catalogue_name": r["_source"].get(f"{catalogue_field}_name", "") or r["_source"].get("catalogue_name", "") or r["_source"].get("tab_name", ""),
         "tab_type": r["_source"].get("tab_type", ""),
         "tab_name": r["_source"].get("tab_name", ""),
-        "status": r["_source"].get("status", ""),
+        # 状态归一化：'ok' → 'completed'（兼容 rizhao 历史写入格式）
+        "status": "completed" if r["_source"].get("status") == "ok" else r["_source"].get("status", ""),
         "period": r["_source"].get("period", ""),
         "current_page": r["_source"].get("current_page", 0),
         "total_pages": r["_source"].get("total_pages", 0),
         "total_records": r["_source"].get("total_records", 0) or r["_source"].get("total_count", 0),
         "docs_written": r["_source"].get("docs_written", 0),
-        "percent": round(r["_source"].get("percent", 0), 2),
+        "percent": _derive_percent(r["_source"]),
         "last_updated": r["_source"].get("last_updated", ""),
         "duration_sec": round(r["_source"].get("duration_sec", 0), 2),
     } for r in unique], key=lambda x: x.get("catalogue_name") or x.get("catalogue"))
 
     latest_record = all_hits[0]["_source"]
-    overall_status = latest_record.get("status", "completed")
+    # 状态归一化：'ok' → 'completed'
+    _raw_status = latest_record.get("status", "completed")
+    overall_status = "completed" if _raw_status == "ok" else _raw_status
     overall_run_id = latest_record.get("run_id", "")
     overall_duration = round(latest_record.get("duration_sec", 0), 2)
     last_updated = latest_record.get("last_updated", "")

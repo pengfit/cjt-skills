@@ -71,7 +71,7 @@
                     <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
                     <span class="list-status">
                       <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
-                      <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                      <span v-else-if="item.status === 'completed' || item.status === 'ok'" class="badge badge-green">✓ 已完成</span>
                       <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
                       <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
                       <span v-else class="list-status-dash">—</span>
@@ -98,7 +98,7 @@
                   <span class="list-date">{{ (item.last_updated || '').slice(5, 16) || '—' }}</span>
                   <span class="list-status">
                     <span v-if="item.status === 'running'" class="badge badge-blue">● 同步中</span>
-                    <span v-else-if="item.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                    <span v-else-if="item.status === 'completed' || item.status === 'ok'" class="badge badge-green">✓ 已完成</span>
                     <span v-else-if="item.status === 'interrupted'" class="badge badge-yellow">⚠ 已中断</span>
                     <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
                     <span v-else class="list-status-dash">—</span>
@@ -138,7 +138,7 @@
                 <span class="list-date">{{ p.publish_date || '—' }}</span>
                 <span class="list-status">
                   <span v-if="p.status === 'running'" class="badge badge-blue">● 同步中</span>
-                  <span v-else-if="p.status === 'completed'" class="badge badge-green">✓ 已完成</span>
+                  <span v-else-if="p.status === 'completed' || p.status === 'ok'" class="badge badge-green">✓ 已完成</span>
                   <span v-else class="list-status-dash">—</span>
                 </span>
                 <span class="list-num">{{ (p.docs_written || 0).toLocaleString() }}</span>
@@ -211,6 +211,9 @@ const isCompleted = computed(() => {
 
 const isRunning = computed(() => props.data.status === 'running')
 
+// 兼容历史数据：'completed' 与 'ok' 都视为完成（rizhao 老 run 写的是 'ok'）
+const isItemDone = (s) => s === 'completed' || s === 'ok'
+
 const ringDone = computed(() => {
   // 优先使用后端 summary 字段，否则从 details 数组中实时统计 completed
   if (props.data.completed_counties) return props.data.completed_counties
@@ -220,7 +223,7 @@ const ringDone = computed(() => {
     || props.data.tab_details
     || props.data.catalogue_details
     || []
-  return details.filter(d => d.status === 'completed').length
+  return details.filter(d => isItemDone(d.status)).length
 })
 
 const ringTotal = computed(() => {

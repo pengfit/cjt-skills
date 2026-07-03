@@ -425,6 +425,15 @@ class RizhaoCollector(SyncRunner):
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         progress_doc_id = f"{self.run_id}_{unit['tab_type']}_{unit['period']}"
 
+        # v1.0+ 进度百分比：unit 完成即 100%，error 为 0%（dashboard 兜底也会派生）
+        total_records = unit.get('period_total', 0) or 0
+        if status == 'completed' and total_records > 0:
+            percent = round(docs_count / total_records * 100, 2)
+        elif status == 'completed':
+            percent = 100.0  # 抓到但源站无 total 记录（兜底）
+        else:
+            percent = 0.0
+
         # 1. ES progress
         try:
             import requests
@@ -437,10 +446,11 @@ class RizhaoCollector(SyncRunner):
                 'period_start': unit['period_start'],
                 'period_end': unit['period_end'],
                 'period_days': unit['period_days'],
-                'total_records': unit.get('period_total', 0),
+                'total_records': total_records,
                 'total_pages': unit.get('period_pages', 0),
                 'docs_written': docs_count,
-                'status': 'ok' if status == 'completed' else 'error',
+                'percent': percent,
+                'status': 'completed' if status == 'completed' else 'error',
                 'error': error,
                 'created_at': now,
                 'last_updated': now,
