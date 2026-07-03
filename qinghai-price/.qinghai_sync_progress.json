@@ -1,24 +1,44 @@
 {
   "done": {
+    "http://zjt.qinghai.gov.cn/Detailed-document//files/202607021541586965.pdf": {
+      "period": "2026.第3期",
+      "period_start": "2026-05-01",
+      "period_end": "2026-06-30",
+      "period_days": 61,
+      "publish_date": "2026-07-02",
+      "pdf_url": "http://zjt.qinghai.gov.cn/Detailed-document//files/202607021541586965.pdf",
+      "minio_key": "qinghai-price/2026.第3期/202607021541586965.pdf",
+      "docs_written": 3918,
+      "status": "ok",
+      "error": "",
+      "created_at": "2026-07-03T16:57:23"
+    },
     "http://zjt.qinghai.gov.cn/Detailed-document//files/202604291720164599.pdf": {
-      "period": "2026年第3—4期《青海建设工程市场价格信息》",
+      "period": "2026.第2期",
+      "period_start": "2026-03-01",
+      "period_end": "2026-04-30",
+      "period_days": 61,
       "publish_date": "2026-04-29",
       "pdf_url": "http://zjt.qinghai.gov.cn/Detailed-document//files/202604291720164599.pdf",
-      "minio_key": "qinghai-price/2026年第3—4期《青海建设工程市场价格信息》/202604291720164599.pdf",
+      "minio_key": "qinghai-price/2026.第2期/202604291720164599.pdf",
       "docs_written": 3992,
       "status": "ok",
-      "duration_sec": 23.5,
-      "created_at": "2026-06-27T08:00:28"
+      "error": "",
+      "created_at": "2026-07-03T16:57:55"
     },
     "http://zjt.qinghai.gov.cn/Detailed-document//files/202602281448376974.pdf": {
-      "period": "2026年第1—2期《青海建设工程市场价格信息》",
+      "period": "2026.第1期",
+      "period_start": "2026-01-01",
+      "period_end": "2026-02-28",
+      "period_days": 59,
       "publish_date": "2026-02-28",
       "pdf_url": "http://zjt.qinghai.gov.cn/Detailed-document//files/202602281448376974.pdf",
-      "minio_key": "qinghai-price/2026年第1—2期《青海建设工程市场价格信息》/202602281448376974.pdf",
+      "minio_key": "qinghai-price/2026.第1期/202602281448376974.pdf",
       "docs_written": 3985,
       "status": "ok",
-      "duration_sec": 33.3,
-      "created_at": "2026-06-27T08:01:02"
+      "error": "",
+      "created_at": "2026-07-03T16:58:31"
     }
-  }
+  },
+  "saved_at": "2026-07-03 16:58:31"
 }

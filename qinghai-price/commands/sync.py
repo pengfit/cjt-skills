@@ -1,21 +1,18 @@
-"""青海建设工程市场价格信息 - 同步主程序
+"""青海建设工程市场价格信息 - 同步主程序（v0.8 SyncRunner 抽象基类化, 2026-07-03）
 
-流程：
-1. 抓取列表 html（List.html + List-1.html + List-2.html + List-3.html），
-   提取每期（标题含 PDF 链接）
-2. 过滤：
-   - 标题必须包含 `journal_keyword`（默认"青海建设工程市场价格信息"）
-   - 跳过"青海工程造价管理信息"等其他期刊
-   - 跳过 progress['done'] 已 ok 的期
-3. 对每期：
-   a. 下载 PDF → 本地临时文件
-   b. 上传 MinIO
-   c. pdfplumber.extract_tables() 解析 → 长表
-   d. bulk_index 到 ods_material_qinghai_price（幂等 _id）
-   e. 写进度（本地 JSON + ES progress 索引）
+v0.8 改造：
+  - 默认走 QinghaiCollector（SyncRunner 化版本，commands/qinghai_collector.py）
+  - --legacy 走原 v0.x cmd_legacy_sync（逃生通道）
+  - 内置工具函数（fetch_all_periods / parse_pdf / parse_list_page / ...）保留，
+    供 collector / legacy / preview 复用，不再被 main() 直接调用
+  - v0.8 字段扩展：doc 中新增 period_start / period_end / period_days
 
-PDF 结构：
-- 268 页（双月合刊）
+参考 chongqing v0.8 试点（chongqing_collector.py）+ henan v0.8（henan_collector.py）
++ huhehaote v0.8（huhehaote_collector.py）——
+P2 阶段（2026-07-02 启动）的核心目标：把通用基础设施（SIGINT / 进度 / 汇总）抽到
+SyncRunner 基类，各 city 保留站点特化逻辑。
+
+PDF 结构（268 页，双月合刊）：
 - 5 列基础表：序号 / 材料名称 / 规格型号 / 单位 / 单价
 - 6 列双价表：序号 / 材料名称 / 规格型号 / 单位 / 除税价 / 含税价
 - 7-10 列扩展表（型号/强度/牌号 等）：简单抽取关键列
@@ -32,7 +29,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import pdfplumber
 import requests
@@ -184,7 +181,6 @@ def parse_pdf(pdf_path):
     """
     out = []
     current_section = ''
-    current_period = ''  # 暂留空（main 里覆盖）
     seen_sections = set()
 
     with pdfplumber.open(pdf_path) as pdf:
@@ -193,10 +189,9 @@ def parse_pdf(pdf_path):
             if not text:
                 continue
 
-            # 跳过目录/封面（text 开头含"目 录"/"目录"或纯标题）
+            # 跳过目录/封面
             stripped = text.strip()[:30]
-            if '目 录' in stripped or '目录' in stripped or '青海建设工程市场价格信息' in stripped.split('\n')[0] and '部分产品报价' not in text[:500] and len(text) < 300:
-                # 简化的封面/目录跳过
+            if '目 录' in stripped or '目录' in stripped or ('青海建设工程市场价格信息' in stripped.split('\n')[0] and '部分产品报价' not in text[:500] and len(text) < 300):
                 continue
 
             # 章节识别（页眉）
@@ -209,7 +204,6 @@ def parse_pdf(pdf_path):
             for tbl in tables:
                 if not tbl or len(tbl) < 2:
                     continue
-                # 表头行（找"序号"/"材料名称"）
                 n_cols = len(tbl[0]) if tbl[0] else 0
                 if n_cols < 5:
                     continue
@@ -223,11 +217,9 @@ def parse_pdf(pdf_path):
                             header_idx = i
                             break
 
-                # 兜底：第一行第一列是数字 + 列数 5-10 → 当数据表
                 data_start = 0
                 if header_idx is not None:
                     data_start = header_idx + 1
-                    # 可能还有第二行表头（"型号"/"规格"等子表头）
                     if data_start < len(tbl):
                         row = tbl[data_start]
                         if row and (row[0] is None or not str(row[0]).strip().isdigit()):
@@ -239,14 +231,12 @@ def parse_pdf(pdf_path):
                     if not first_seq.isdigit() or n_cols < 5 or n_cols > 10:
                         continue
 
-                # 跳过空行/表头后无数据的表
                 if data_start >= len(tbl):
                     continue
 
                 for row in tbl[data_start:]:
                     if not row or len(row) < n_cols:
                         continue
-                    # 跳过空行
                     if all(c is None or str(c).strip() == '' for c in row):
                         continue
                     seq = str(row[0] or '').strip()
@@ -261,14 +251,13 @@ def parse_pdf(pdf_path):
                         price = _parse_price(raw_price)
                         if price is None:
                             continue
-                        # 不确定是含税还是不含税：标记为 tax_price，price 反推
                         tax_price = price
                         price_excl = round(price / (1 + VAT_RATE), 2)
                         out.append({
                             'no': seq, 'breed': breed, 'spec': spec, 'unit': unit,
                             'price': price_excl, 'tax_price': tax_price,
                             'remark': '', 'section': current_section,
-                            'price_kind': '含税',  # 5列表默认含税
+                            'price_kind': '含税',
                         })
 
                     # ── 6 列：序号 / 材料 / 规格 / 单位 / 除税价 / 含税价 ──
@@ -278,7 +267,6 @@ def parse_pdf(pdf_path):
                         p_incl = _parse_price(raw_incl)
                         if p_excl is None and p_incl is None:
                             continue
-                        # 优先取除税价，反推含税
                         if p_excl is not None:
                             price_excl = p_excl
                             tax_price = p_incl if p_incl is not None else round(p_excl * (1 + VAT_RATE), 2)
@@ -292,17 +280,12 @@ def parse_pdf(pdf_path):
                             'price_kind': '双价',
                         })
 
-                    # ── 7-10 列扩展表：取关键列 + 其他拼到 spec ──
+                    # ── 7-10 列扩展表 ──
                     elif 7 <= n_cols <= 10:
-                        # 推断位置：
-                        # 序号 | 材料 | 规格1 | [规格2] | ... | 单位 | 价格
-                        # 但厂商表有"含税价/除税价/品牌/牌号/直径"等混合列
-                        # 简单策略：取最后一列数字作为价格，倒数第二列为单位，其余合并为 spec
                         last_col = cells[n_cols - 1]
                         second_last = cells[n_cols - 2]
                         price = _parse_price(last_col)
                         if price is None:
-                            # 尝试倒数第二列
                             price = _parse_price(second_last)
                             if price is not None:
                                 unit = cells[n_cols - 3]
@@ -336,7 +319,7 @@ def load_progress():
 
 def save_progress(prog):
     with open(PROGRESS_FILE, 'w') as f:
-        json.dump(prog, f, ensure_ascii=False, indent=2)
+        json.dump(prog, prog, ensure_ascii=False, indent=2) if False else json.dump(prog, f, ensure_ascii=False, indent=2)
 
 
 # ─── 入库 ────────────────────────────────────────────────────────────────────
@@ -361,17 +344,17 @@ def bulk_index(es, index, docs):
     return len(docs), 0
 
 
-# ─── 主流程 ──────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='青海建设工程材料价格同步')
-    parser.add_argument('--period', default='', help='指定周期（如"2026年第1—2期"）')
-    parser.add_argument('--year', type=int, default=0, help='只入库指定年份（默认 0=不限制，2026=仅2026）')
-    parser.add_argument('--exclude-period', default='', help='排除指定周期')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+# ─── 主流程（v0.x 兼容路径） ────────────────────────────────────────────────
+def cmd_legacy_sync(args):
+    """v0.x 原 main 流程（逃生通道，仅在 --legacy 时调用）。
+
+    与原 v0.x 行为等价：
+      - 抓列表 → 过滤 → 下载 PDF → MinIO → 解析 → bulk_index → 进度
+      - v0.8 字段扩展：doc 中也补 period_start / period_end / period_days
+        （通过 qinghai_collector.parse_period_window 复用解析逻辑）
+    """
+    # v0.8 字段扩展：复用 collector 的窗口解析
+    from qinghai_collector import parse_period_window
 
     cfg = load_config()
     es_host = cfg['es']['host']
@@ -385,20 +368,17 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[qinghai] ES: {es_host}')
-    print(f'[qinghai] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
-    print(f'[qinghai] journal_keyword: {cfg.get("journal_keyword", "")}')
+    print(f'[qinghai v0.x legacy] ES: {es_host}')
+    print(f'[qinghai v0.x legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[qinghai v0.x legacy] journal_keyword: {cfg.get("journal_keyword", "")}')
 
-    # 1. 抓所有期
-    print('[qinghai] 抓取列表...')
+    print('[qinghai v0.x legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[qinghai] 共 {len(items)} 期')
+    print(f'[qinghai v0.x legacy] 共 {len(items)} 期')
 
-    # 2. 过滤：keyword + 年份 + 排除
     journal_kw = cfg.get('journal_keyword', '')
     todo = []
     for it in items:
-        # 只保留目标期刊
         if journal_kw and journal_kw not in it['title']:
             continue
         if args.period and args.period not in it['title']:
@@ -414,28 +394,38 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[qinghai] 待处理 {len(todo)} 期')
+    print(f'[qinghai v0.x legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[qinghai] 无新数据')
+        print('[qinghai v0.x legacy] 无新数据')
         return
 
-    # 3. 逐期处理
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[qinghai] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        win = parse_period_window(item['title'])
+        period = win['period'] or item['title'][:30]
+        print(f'\n[qinghai v0.x legacy] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        print(f'  period: {period}  {win["period_start"]}~{win["period_end"]}  ({win["period_days"]}天)')
         start = time.time()
         try:
-            # period 直接用 title（已经是"2026年第1—2期"格式）
-            period = item['title']
             basename = pdf_basename(item['pdf_url'])
             minio_key = f'{cfg["minio"]["prefix"]}/{period}/{basename}'
 
-            print(f'  PDF: {item["pdf_url"]}')
-            print(f'  period: {period}')
-
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_pdf = os.path.join(tmpdir, 'source.pdf')
-                download_file(item['pdf_url'], local_pdf, timeout=600)
+                # v0.8.1：青海政府站大文件（~95-275MB）易断流，加 3 次重试
+                ok_dl = False
+                last_err = None
+                for attempt in range(3):
+                    try:
+                        download_file(item['pdf_url'], local_pdf, timeout=600)
+                        ok_dl = True
+                        break
+                    except Exception as e:
+                        last_err = e
+                        print(f"  ⚠ 下载失败(尝试 {attempt + 1}/3): {e}")
+                        time.sleep(2 + attempt * 2)
+                if not ok_dl:
+                    raise RuntimeError(f'下载 PDF 最终失败: {last_err}')
 
                 if not args.dry_run:
                     upload_to_minio(s3, cfg['minio']['bucket'], minio_key, local_pdf)
@@ -455,9 +445,13 @@ def main():
                         'price': r['price'],
                         'tax_price': r['tax_price'],
                         'remark': r.get('remark', ''),
-                        'section': r['section'],
-                        'category': r['section'].split('、')[0] if r['section'] else '',
+                        'section': r.get('section', ''),
+                        'category': r.get('section', '').split('、')[0] if r.get('section') else '',
                         'period': period,
+                        # v0.8 字段扩展
+                        'period_start': win['period_start'],
+                        'period_end': win['period_end'],
+                        'period_days': win['period_days'],
                         'province': '青海',
                         'city': '青海',
                         'price_kind': r.get('price_kind', ''),
@@ -484,6 +478,9 @@ def main():
                 elapsed = time.time() - start
                 progress['done'][item['pdf_url']] = {
                     'period': period,
+                    'period_start': win['period_start'],
+                    'period_end': win['period_end'],
+                    'period_days': win['period_days'],
                     'publish_date': item['publish_date'],
                     'pdf_url': item['pdf_url'],
                     'minio_key': minio_key,
@@ -497,6 +494,9 @@ def main():
                 if not args.dry_run:
                     es.index(index=cfg['es']['progress_index'], body={
                         'period': period,
+                        'period_start': win['period_start'],
+                        'period_end': win['period_end'],
+                        'period_days': win['period_days'],
                         'publish_date': item['publish_date'],
                         'pdf_url': item['pdf_url'],
                         'minio_key': minio_key,
@@ -521,7 +521,60 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[qinghai] 全部完成: total_written={total_written}')
+    print(f'\n[qinghai v0.x legacy] 全部完成: total_written={total_written}')
+
+
+# ─── CLI 入口（v0.8） ──────────────────────────────────────────────────────
+def main():
+    """v0.8 CLI 入口：默认走 QinghaiCollector（SyncRunner 化），--legacy 走 v0.x。
+
+    字段扩展（v0.8）：doc 中新增 period_start / period_end / period_days。
+    """
+    parser = argparse.ArgumentParser(
+        description='青海建设工程材料价格同步（v0.8 SyncRunner 化）',
+    )
+    parser.add_argument('--period', default='', help='指定周期（如"2026年第1—2期"）')
+    parser.add_argument('--year', type=int, default=datetime.now().year,
+                        help='只入库指定年份的期（默认本年，0=不限制）')
+    parser.add_argument('--exclude-period', default='', help='排除指定周期')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
+    parser.add_argument('--reset', action='store_true', help='重置进度')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 支持）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.x 兼容：走原 main 流程。默认走 Collector（推荐）。')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用）')
+    args = parser.parse_args()
+
+    cfg_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'config.yml',
+    )
+
+    if args.legacy:
+        # v0.x 兼容路径
+        print('[v0.x 兼容路径] cmd_legacy_sync 启动')
+        print(f'  period={args.period}, year={args.year}, latest={args.latest}, dry-run={args.dry_run}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：QinghaiCollector（v0.8 SyncRunner 抽象基类）
+    from qinghai_collector import make_collector
+    run_id = args.run_id or f"qinghai_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print('[Collector 路径 v0.8] QinghaiCollector 启动')
+    print(f'  year={args.year}, period={args.period}, latest={args.latest}, run_id={run_id}')
+
+    collector = make_collector(
+        cfg_path=cfg_path,
+        run_id=run_id,
+        year=args.year,
+        period=args.period,
+        latest=args.latest,
+    )
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f'\n[Collector 路径 v0.8] 完成: {result}')
 
 
 if __name__ == '__main__':
