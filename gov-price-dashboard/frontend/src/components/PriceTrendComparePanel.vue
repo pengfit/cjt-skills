@@ -3,7 +3,12 @@
     <!-- 筛选条 -->
     <div class="compare-filter-bar">
       <div class="filter-group-breed">
-        <label class="filter-label">品种</label>
+        <label class="filter-label">
+          品种
+          <button class="browse-tree-btn" @click="openTreeDrawer" title="按分类体系浏览">
+            📂 按分类浏览
+          </button>
+        </label>
         <input
           v-model="breedInput"
           type="text"
@@ -11,7 +16,45 @@
           placeholder="输入品种名（如：热轧带肋钢筋、HRB400、商品混凝土）"
           @keydown.enter="doCompare"
         />
-        <div v-if="breedSuggestions.length" class="suggestions">
+
+        <!-- B 方案推荐区：分类标注 + 同 L3 推荐 -->
+        <div v-if="recommendLoading" class="recommend-hint">
+          <span class="loading-spinner"></span> 推荐中…
+        </div>
+        <div v-else-if="breedRecommend && breedRecommend.classifications" class="recommend-box">
+          <div class="classify-card">
+            <span class="classify-icon">🏷️</span>
+            <span class="classify-l3">
+              <strong>{{ breedRecommend.classifications.l3_code }}</strong>
+              {{ breedRecommend.classifications.name_l1 }} / {{ breedRecommend.classifications.name_l2 }} / <em>{{ breedRecommend.classifications.name_l3 }}</em>
+            </span>
+            <span v-if="breedRecommend.classifications.gb_50500" class="classify-gb">GB {{ breedRecommend.classifications.gb_50500 }}</span>
+            <span v-if="breedRecommend.siblings_total" class="classify-siblings">
+              同章节 <strong>{{ breedRecommend.siblings_total }}</strong> 个品种
+            </span>
+          </div>
+          <div v-if="breedRecommend.breeds.length" class="recommend-list">
+            <span
+              v-for="r in breedRecommend.breeds.slice(0, 12)"
+              :key="r.breed_clean"
+              class="recommend-chip"
+              :title="r.breed_clean + ' | L3=' + r.l3 + ' | conf=' + r.confidence"
+              @click="pickBreed(r.breed_clean)"
+            >
+              {{ r.breed_clean }}
+              <small v-if="r.city_count > 0" class="chip-city">{{ r.city_count }}城</small>
+            </span>
+            <span v-if="breedRecommend.breeds.length > 12" class="recommend-more">
+              还有 {{ breedRecommend.breeds.length - 12 }} 个 →
+            </span>
+          </div>
+          <div v-if="breedRecommend.coverage_note" class="recommend-note">
+            ⚠️ {{ breedRecommend.coverage_note }}
+          </div>
+        </div>
+
+        <!-- 保持兼容：旧 breedSuggestions 仍能渲染 -->
+        <div v-if="breedSuggestions.length && !breedRecommend" class="suggestions">
           <span
             v-for="s in breedSuggestions"
             :key="s"
@@ -224,6 +267,62 @@
         </div>
       </div>
     </div>
+
+    <!-- C 方案：分类树抽屉 -->
+    <Teleport to="body">
+      <div v-if="treeDrawerOpen" class="tree-drawer-mask" @click.self="treeDrawerOpen = false">
+        <div class="tree-drawer">
+          <div class="tree-drawer-head">
+            <h3>📂 按分类体系浏览品种</h3>
+            <button class="tree-close" @click="treeDrawerOpen = false">✕</button>
+          </div>
+          <div v-if="!treeData" class="tree-loading">加载分类树…</div>
+          <div v-else class="tree-body">
+            <div class="tree-stats">
+              {{ treeData.l1_count }} L1 / {{ treeData.l2_count }} L2 / {{ treeData.l3_count }} L3 · 共 <strong>{{ treeData.breed_total }}</strong> 个品种
+            </div>
+            <div class="tree-list">
+              <div v-for="l1 in treeData.tree" :key="l1.code" class="tree-node tree-l1">
+                <div class="tree-node-row" @click="toggleTreeNode(l1.code)">
+                  <span class="tree-toggle">{{ treeExpanded[l1.code] ? '▼' : '▶' }}</span>
+                  <span class="tree-code">{{ l1.code }}</span>
+                  <span class="tree-name">{{ l1.name }}</span>
+                  <span class="tree-meta">L2 {{ l1.l2_count }} · 品种 {{ l1.breed_count }}</span>
+                </div>
+                <div v-if="treeExpanded[l1.code]" class="tree-children">
+                  <div v-for="l2 in l1.l2_list" :key="l2.code" class="tree-node tree-l2">
+                    <div class="tree-node-row" @click.stop="toggleTreeNode(l2.code)">
+                      <span class="tree-toggle">{{ treeExpanded[l2.code] ? '▼' : '▶' }}</span>
+                      <span class="tree-code">{{ l2.code }}</span>
+                      <span class="tree-name">{{ l2.name }}</span>
+                      <span class="tree-meta">L3 {{ l2.l3_count }} · 品种 {{ l2.breed_count }}</span>
+                    </div>
+                    <div v-if="treeExpanded[l2.code]" class="tree-children">
+                      <div v-for="l3 in l2.l3_list" :key="l3.code" class="tree-node tree-l3">
+                        <div class="tree-node-row" @click.stop="toggleTreeNode(l3.code)">
+                          <span class="tree-toggle">{{ treeExpanded[l3.code] ? '▼' : '▶' }}</span>
+                          <span class="tree-code">{{ l3.code }}</span>
+                          <span class="tree-name">{{ l3.name }}</span>
+                          <span class="tree-meta">品种 {{ l3.breed_count }}</span>
+                        </div>
+                        <div v-if="treeExpanded[l3.code]" class="tree-l3-breeds">
+                          <button
+                            v-if="l3.breed_count > 0"
+                            class="tree-l3-btn"
+                            @click.stop="pickL3(l3.code)"
+                          >📦 看该 L3 下 {{ l3.breed_count }} 个品种</button>
+                          <span v-else class="tree-l3-empty">该 L3 下尚无品种</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -254,6 +353,15 @@ const topBreedsByCity = ref([])               // 用于空状态热门品种
 
 // 用户选的 spec_key
 const selectedSpecKeys = ref(new Set())
+
+// B 方案：品种推荐 (品种 → 同 L3 + 跨城覆盖度)
+const breedRecommend = ref(null)              // /api/stats/breed-recommend 返回
+const recommendLoading = ref(false)
+
+// C 方案：分类树抽屉
+const treeData = ref(null)                    // /api/stats/category-tree 返回
+const treeDrawerOpen = ref(false)
+const treeExpanded = ref({})                  // 展开状态 {l1|l2|l3: true}
 
 // 颜色分配（每城市一条线）— 与 API 返回 color 同步
 const COLOR_POOL_OVERRIDE = {}
@@ -357,6 +465,73 @@ function quickFill(breed) {
 function pickBreed(s) {
   breedInput.value = s
   breedSuggestions.value = []
+  // 填完后重新拉一次推荐（可能选出同 L3 其他品种）
+  loadBreedRecommend(s)
+}
+
+// ── B 方案：品种推荐 ──
+let _recommendDebounce = null
+function loadBreedRecommend(keyword) {
+  clearTimeout(_recommendDebounce)
+  const kw = (keyword || '').trim()
+  if (!kw) {
+    breedRecommend.value = null
+    return
+  }
+  _recommendDebounce = setTimeout(async () => {
+    recommendLoading.value = true
+    try {
+      const { data: d } = await axios.get(`${API}/stats/breed-recommend`, {
+        params: { keyword: kw, limit: 30, min_confidence: 0.9 },
+      })
+      if (!d.ok) throw new Error(d.error || '推荐服务异常')
+      breedRecommend.value = d
+    } catch (e) {
+      breedRecommend.value = null
+      console.warn('loadBreedRecommend failed:', e.message)
+    } finally {
+      recommendLoading.value = false
+    }
+  }, 300)
+}
+
+// ── C 方案：分类树 ──
+async function openTreeDrawer() {
+  treeDrawerOpen.value = true
+  if (!treeData.value) {
+    try {
+      const { data: d } = await axios.get(`${API}/stats/category-tree`)
+      if (!d.ok) throw new Error(d.error || '分类树加载失败')
+      treeData.value = d
+    } catch (e) {
+      console.warn('loadCategoryTree failed:', e.message)
+    }
+  }
+}
+
+function toggleTreeNode(key) {
+  treeExpanded.value = { ...treeExpanded.value, [key]: !treeExpanded.value[key] }
+}
+
+function pickL3(l3Code) {
+  // 点 L3 下的“看该 L3 下 N 个品种”→ 调推荐（不传 keyword）
+  treeDrawerOpen.value = false
+  recommendLoading.value = true
+  breedRecommend.value = null
+  axios.get(`${API}/stats/breed-recommend`, {
+    params: { l3: l3Code, limit: 30, min_confidence: 0.9 },
+  }).then(({ data: d }) => {
+    if (!d.ok) throw new Error(d.error || '推荐异常')
+    breedRecommend.value = d
+    // 自动填充第一个品种名到输入框
+    if (d.breeds && d.breeds.length) {
+      breedInput.value = d.breeds[0].breed_clean
+    }
+  }).catch((e) => {
+    console.warn('pickL3 recommend failed:', e.message)
+  }).finally(() => {
+    recommendLoading.value = false
+  })
 }
 
 async function doCompare() {
@@ -569,7 +744,14 @@ watch(() => data.value?.series, () => nextTick(renderChart), { deep: true })
 // 生命周期
 onMounted(async () => {
   await loadCityOptions()
+  // 首次进入：默认品种触发一次推荐
+  if (breedInput.value.trim()) {
+    loadBreedRecommend(breedInput.value)
+  }
 })
+
+// watch 品种输入：实时推荐（debounce 300ms）
+watch(breedInput, (v) => loadBreedRecommend(v))
 onBeforeUnmount(() => {
   if (chartInstance) chartInstance.dispose()
 })
@@ -970,4 +1152,239 @@ onBeforeUnmount(() => {
 .align-tag.align-fallback { background: #f1f5f9; color: #64748b; }
 .sp-val { font-weight: 600; color: #0f172a; }
 .sp-meta { font-size: 9px; color: #94a3b8; }
+
+/* ── B 方案：品种推荐区 ─────────────────────────────────────────── */
+.browse-tree-btn {
+  float: right;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: normal;
+  transition: all 0.15s;
+}
+.browse-tree-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+.recommend-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.recommend-hint .loading-spinner {
+  width: 12px; height: 12px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.recommend-box {
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 8px 10px;
+}
+.classify-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #334155;
+}
+.classify-icon { font-size: 13px; }
+.classify-l3 { flex: 1; min-width: 0; }
+.classify-l3 strong { color: #0f172a; font-family: monospace; }
+.classify-l3 em { font-style: normal; color: #1d4ed8; font-weight: 500; }
+.classify-gb {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.classify-siblings {
+  font-size: 11px;
+  color: #64748b;
+}
+.classify-siblings strong { color: #7c3aed; }
+
+.recommend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.recommend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #334155;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.recommend-chip:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+.chip-city {
+  font-size: 9px;
+  padding: 0 4px;
+  background: #dcfce7;
+  color: #15803d;
+  border-radius: 2px;
+  font-weight: 500;
+}
+.recommend-more {
+  font-size: 11px;
+  color: #64748b;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.recommend-more:hover { color: #1d4ed8; }
+
+.recommend-note {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 3px;
+  line-height: 1.5;
+}
+
+/* ── C 方案：分类树抽屉 ───────────────────────────────────────── */
+.tree-drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+.tree-drawer {
+  width: 480px;
+  max-width: 90vw;
+  height: 100%;
+  background: #fff;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease-out;
+}
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.tree-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.tree-drawer-head h3 { margin: 0; font-size: 14px; color: #0f172a; }
+.tree-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 6px;
+}
+.tree-close:hover { color: #0f172a; }
+
+.tree-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.tree-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.tree-stats {
+  font-size: 11px;
+  color: #64748b;
+  padding: 4px 16px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.tree-stats strong { color: #7c3aed; }
+
+.tree-list { padding: 0 8px; }
+.tree-node { font-size: 12px; }
+.tree-node-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.tree-node-row:hover { background: #f1f5f9; }
+.tree-toggle {
+  width: 12px;
+  font-size: 9px;
+  color: #94a3b8;
+  font-family: monospace;
+}
+.tree-code {
+  font-family: monospace;
+  font-size: 10px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 2px;
+  min-width: 40px;
+  text-align: center;
+}
+.tree-name {
+  flex: 1;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-meta {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.tree-children { padding-left: 16px; border-left: 1px dashed #e2e8f0; margin-left: 12px; }
+.tree-l2 .tree-node-row { padding: 3px 6px; font-size: 12px; }
+.tree-l2 .tree-code { background: #ecfdf5; color: #047857; }
+.tree-l3 .tree-node-row { padding: 2px 6px; font-size: 11px; }
+.tree-l3 .tree-code { background: #fef3c7; color: #92400e; }
+.tree-l3-breeds { padding: 4px 6px 6px 24px; }
+.tree-l3-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px dashed #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.tree-l3-btn:hover { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+.tree-l3-empty { font-size: 11px; color: #94a3b8; }
 </style>
