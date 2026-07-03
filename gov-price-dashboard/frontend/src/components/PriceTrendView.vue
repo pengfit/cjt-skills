@@ -5,9 +5,33 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`"
+      :subtitle="trendMode === 'single'
+        ? `基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`
+        : '跨城同品种时序对比 · 按 attr-based spec_key 拼接 · 同单位约束，周期以日历对齐'"
       :stats="topStats"
-    ><template #icon>📈</template></PageHeader>
+    >
+      <template #icon>📈</template>
+      <template #right>
+        <div class="trend-mode-tabs">
+          <button
+            class="mode-tab"
+            :class="{ active: trendMode === 'single' }"
+            @click="trendMode = 'single'"
+          >单城市</button>
+          <button
+            class="mode-tab"
+            :class="{ active: trendMode === 'compare' }"
+            @click="trendMode = 'compare'"
+          >跨城市对比</button>
+        </div>
+      </template>
+    </PageHeader>
+
+    <!-- 跨城对比面板 -->
+    <PriceTrendComparePanel v-if="trendMode === 'compare'" />
+
+    <!-- 单城市面板（默认） -->
+    <template v-if="trendMode === 'single'">
 
     <!-- 筛选条 -->
     <div class="trend-filter-bar">
@@ -146,11 +170,17 @@
         </table>
       </div>
     </div>
+    </template>
+    <!-- /单城市面板 -->
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import PriceTrendComparePanel from './PriceTrendComparePanel.vue'
+
+// 顶部 tab 状态：'single' | 'compare'
+const trendMode = ref('single')
 import axios from 'axios'
 import * as echarts from 'echarts'
 import PageHeader from './PageHeader.vue'
@@ -459,6 +489,32 @@ watch(periodsLimit, () => loadData())
   padding: 16px 20px 80px;
   min-height: 100vh;
   color: #1e293b;
+}
+
+/* 顶部 tab：单城市 / 跨城对比 */
+.trend-mode-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 2px;
+}
+.mode-tab {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-tab:hover { color: #0f172a; }
+.mode-tab.active {
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.08);
 }
 
 .trend-filter-bar {
