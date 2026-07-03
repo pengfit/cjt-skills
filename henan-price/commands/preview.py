@@ -1,4 +1,8 @@
-"""预览模式：不写入 ES / minio，仅打印将处理的内容"""
+"""预览模式：不写入 ES / minio，仅打印将处理的内容（v0.8, 2026-07-03）
+
+v0.8 改造：去掉对 sync.main 的引用（已拆分到 cmd_legacy_sync + henan_collector）。
+预览时也展示新字段 period_start / period_end / period_days。
+"""
 import argparse
 import os
 import sys
@@ -7,8 +11,11 @@ from datetime import datetime
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from sync import main as sync_main
-from sync import fetch_all_periods, parse_detail_page, parse_pdf_tables, extract_period_from_title
+from sync import (
+    fetch_all_periods, parse_detail_page, parse_pdf_tables,
+    extract_period_from_title,
+)
+from henan_collector import parse_period_window
 from utils import load_config, fetch_html, download_file
 import tempfile
 
@@ -38,8 +45,14 @@ def main():
             html = fetch_html(it['detail_url'], timeout=cfg['site']['timeout_sec'])
             detail = parse_detail_page(html, cfg['site']['base_url'])
             print(f'  pdf: {detail["pdf_url"]}  ({detail["pdf_name"]})')
-            period = extract_period_from_title(detail['title'] or it['title'])
-            print(f'  period: {period}')
+            win = parse_period_window(detail['title'] or it['title'])
+            print(
+                f'  period: {win["period"]}  '
+                f'start: {win["period_start"]}  '
+                f'end: {win["period_end"]}  '
+                f'days: {win["period_days"]}  '
+                f'months: {win["months"]}'
+            )
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 local = os.path.join(tmpdir, 's.pdf')

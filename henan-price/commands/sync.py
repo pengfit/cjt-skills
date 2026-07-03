@@ -1,15 +1,15 @@
-"""河南工程造价信息 - 同步主程序
+"""河南工程造价信息 - 同步入口（v0.8 SyncRunner 抽象基类化, 2026-07-03）
 
-流程：
-1. 抓列表 4 页，提取每期（标题、发布日、详情页、PDF URL）
-2. 过滤：未入库 & 增量起点之后
-3. 对每期：
-   a. 下载 PDF → 本地临时文件
-   b. 上传 MinIO
-   c. pdfplumber 解析 → 长表（材料×规格×单位×18地市价格）
-      * 跨页续表：主表页（材料列+地市列1组）+ 续表页（仅地市列1组）拼接
-   d. bulk_index 到 ods_material_henan_price（幂等 _id）
-   e. 写进度（本地 JSON + ES progress 索引）
+v0.8 改造：
+  - 默认走 HenanCollector（SyncRunner 化版本，commands/henan_collector.py）
+  - --legacy 走原 v0.7 cmd_legacy_sync（逃生通道）
+  - 内置工具函数（fetch_all_periods / parse_pdf_tables / ...）保留，
+    供 collector / preview 复用，不再被 main() 直接调用
+  - v0.8 字段扩展：doc 中新增 period_start / period_end / period_days
+
+参考 chongqing v0.8 试点（chongqing_collector.py）—— P2 阶段（2026-07-02 启动）
+的核心目标：把通用基础设施（SIGINT / 进度 / 汇总）抽到 SyncRunner 基类，
+各 city 保留站点特化逻辑。
 """
 import argparse
 import hashlib
@@ -510,16 +510,13 @@ def bulk_index(es, index, docs):
 
 
 # ─── 主流程 ────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='河南工程造价材料信息同步')
-    parser.add_argument('--period', default='', help='指定周期（如 2026.3月）')
-    parser.add_argument('--year', type=int, default=datetime.now().year, help='只入库指定年份的期（默认本年，0=不限制）')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+def cmd_legacy_sync(args):
+    """v0.7 原 main 流程（逃生通道，仅在 --legacy 时调用）。
 
+    与原 v0.7 行为等价：
+      - 抓列表 → 过滤 → 下载 PDF → MinIO → 解析 → bulk_index → 进度
+      - 不含 period_start / period_end / period_days 字段
+    """
     cfg = load_config()
     es_host = cfg['es']['host']
     es = get_es_client(es_host)
@@ -532,13 +529,13 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[henan] ES: {es_host}')
-    print(f'[henan] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[henan v0.7 legacy] ES: {es_host}')
+    print(f'[henan v0.7 legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
 
     # 1. 抓所有期
-    print('[henan] 抓取列表...')
+    print('[henan v0.7 legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[henan] 共 {len(items)} 期')
+    print(f'[henan v0.7 legacy] 共 {len(items)} 期')
 
     # 2. 过滤
     todo = []
@@ -554,16 +551,16 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[henan] 待处理 {len(todo)} 期')
+    print(f'[henan v0.7 legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[henan] 无新数据')
+        print('[henan v0.7 legacy] 无新数据')
         return
 
     # 3. 逐期处理
     cities = cfg['cities']
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[henan] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        print(f'\n[henan v0.7 legacy] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
         start = time.time()
         try:
             detail_html = fetch_html(item['detail_url'], timeout=cfg['site']['timeout_sec'])
@@ -581,7 +578,10 @@ def main():
                     raise ValueError(f'无法从标题推断周期: {detail["title"]}')
                 print(f'  period: {period}')
 
-                minio_key = f'{cfg["minio"]["prefix"]}/{detail["pdf_name"]}' if detail['pdf_name'] else f'{cfg["minio"]["prefix"]}/{period}/source.pdf'
+                if detail['pdf_name']:
+                    minio_key = f"{cfg['minio']['prefix']}/{detail['pdf_name']}"
+                else:
+                    minio_key = f"{cfg['minio']['prefix']}/{period}/source.pdf"
                 if not args.dry_run:
                     upload_to_minio(s3, cfg['minio']['bucket'], minio_key, local_pdf)
                 print(f'  minio: {minio_key}')
@@ -659,7 +659,58 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[henan] 全部完成: total_written={total_written}')
+    print(f'\n[henan v0.7 legacy] 全部完成: total_written={total_written}')
+
+
+def main():
+    """v0.8 CLI 入口：默认走 HenanCollector（SyncRunner 化），--legacy 走 v0.7。
+
+    字段扩展（v0.8）：doc 中新增 period_start / period_end / period_days。
+    """
+    parser = argparse.ArgumentParser(
+        description='河南工程造价材料信息同步（v0.8 SyncRunner 化）',
+    )
+    parser.add_argument('--period', default='', help='指定周期（如 2026.3月）')
+    parser.add_argument('--year', type=int, default=datetime.now().year,
+                        help='只入库指定年份的期（默认本年，0=不限制）')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
+    parser.add_argument('--reset', action='store_true', help='重置进度')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 支持）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.7 兼容：走原 main 流程。默认走 Collector（推荐）。')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用）')
+    args = parser.parse_args()
+
+    cfg_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'config.yml',
+    )
+
+    if args.legacy:
+        # v0.7 兼容路径
+        print('[v0.7 兼容路径] cmd_legacy_sync 启动')
+        print(f'  period={args.period}, year={args.year}, latest={args.latest}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：HenanCollector（v0.8 SyncRunner 抽象基类）
+    from henan_collector import make_collector
+    run_id = args.run_id or f"hn_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print('[Collector 路径 v0.8] HenanCollector 启动')
+    print(f'  year={args.year}, period={args.period}, latest={args.latest}, run_id={run_id}')
+
+    collector = make_collector(
+        cfg_path=cfg_path,
+        run_id=run_id,
+        year=args.year,
+        period=args.period,
+        latest=args.latest,
+    )
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f'\n[Collector 路径 v0.8] 完成: {result}')
 
 
 if __name__ == '__main__':
