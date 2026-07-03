@@ -124,19 +124,45 @@ def minio_object_url(s3, bucket: str, key: str, expires: int = 3600) -> str:
 _DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
 
 
+def _curl_fallback_get(url: str, dest: str | None, headers: dict, timeout: int):
+    """SSL renegotiation 失败时回退到 curl -k（适用于老旧政府网站 zjt.jiangxi 等）
+
+    v0.7.1 (2026-07-03) P1 加：17 个 city skill 抽出 utils 时丢了 jiangxi-price 的
+    curl -k 兜底逻辑（SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED）。本兜底对其他城市
+    无副作用（其他城市 SSL 正常，requests 直接成功，根本不会走到 except 分支）。
+
+    Args:
+        dest: 文件路径，None 时输出到 stdout（HTML）；非 None 时 -o $dest
+    """
+    import subprocess
+    ua = headers.get('User-Agent', _DEFAULT_USER_AGENT)
+    cmd = ['curl', '-k', '-L', '-A', ua, '-s', '--max-time', str(timeout), url]
+    if dest is not None:
+        cmd += ['-o', dest]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
+    if r.returncode != 0:
+        raise RuntimeError(f'curl fallback failed: rc={r.returncode} stderr={r.stderr[:200]}')
+    return r.stdout
+
+
 def fetch_html(url: str, headers: Optional[dict] = None, timeout: int = 30) -> str:
     """GET 页面 HTML，返回 text（raise_for_status）。
 
     v0.7 抽取：10 个城市（qingdao/weihai/.../shaanxi/hainan/henan）之前各自定义。
     中文站自动用 apparent_encoding 检测 GBK/GB2312。
+
+    v0.7.1 (2026-07-03) P1 加：SSL renegotiation 失败回退到 curl -k（jiangxi 等老旧站）。
     """
     h = {'User-Agent': _DEFAULT_USER_AGENT}
     if headers:
         h.update(headers)
-    r = requests.get(url, headers=h, timeout=timeout, verify=False)
-    r.raise_for_status()
-    r.encoding = r.apparent_encoding  # 中文站编码自动检测
-    return r.text
+    try:
+        r = requests.get(url, headers=h, timeout=timeout, verify=False)
+        r.raise_for_status()
+        r.encoding = r.apparent_encoding  # 中文站编码自动检测
+        return r.text
+    except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return _curl_fallback_get(url, None, h, timeout)
 
 
 def http_get(url: str, headers: Optional[dict] = None, timeout: int = 30) -> requests.Response:
@@ -172,6 +198,8 @@ def download_file(
     v0.7 抽取：11 个城市之前各自定义，timeout 默认 60 秒（绝大多数），
     henan/hainan 调用时显式传 600/600（大文件）。User-Agent 默认注入。
 
+    v0.7.1 (2026-07-03) P1 加：SSL renegotiation 失败回退到 curl -k（jiangxi 等老旧站）。
+
     Args:
         referer: 可选，自动加到 headers
     """
@@ -180,10 +208,14 @@ def download_file(
         hdrs.update(headers)
     if referer:
         hdrs.setdefault('Referer', referer)
-    with requests.get(url, headers=hdrs, timeout=timeout, stream=True, verify=False) as r:
-        r.raise_for_status()
-        with open(dest, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=64 * 1024):
-                if chunk:
-                    f.write(chunk)
-    return dest
+    try:
+        with requests.get(url, headers=hdrs, timeout=timeout, stream=True, verify=False) as r:
+            r.raise_for_status()
+            with open(dest, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=64 * 1024):
+                    if chunk:
+                        f.write(chunk)
+        return dest
+    except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        _curl_fallback_get(url, dest, hdrs, timeout)
+        return dest
