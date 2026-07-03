@@ -130,8 +130,18 @@ def breed_recommend(
           本接口同时报 match 与未命中原因，前端可展示
           “数据未对齐，需依赖 price-trend-compare 实时反馈”。
 
-          后续优化：ETL 在 DWD→DWS 阶段加 breed_clean 字段后，
-          改用 term 查询命中会更准。
+          TODO（2026-07-03，道友拍板暂不对齐）：
+            品种对齐的投入产出比取决于 DWS 数据普及度。
+            当前 15/17 城市 DWS 为 0，即使对齐也只能反映重庆/海南。
+            暂不动 ETL，只在 UI 标 “⚠️ 参考”。
+
+            启动条件（满足任一）才动手：
+              1. DWS 数据普及（空 DWS 至少补 5 城）
+              2. 用户反馈出现强需求（推荐后点开始对比报 “城市无数据”）
+
+            启动后可走两条路径：
+              A. ETL 端：DWD→DWS 阶段反查 breed_l3_map_v3 写 breed_clean，重跑 17 城
+              B. 服务端：breed-recommend 里加一次 /api/search 反查→拿原始名→terms 查 DWS
         """
         if not cities_with_dws:
             return (breed, [])
