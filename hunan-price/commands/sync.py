@@ -36,6 +36,7 @@ PDF 结构：
   - p15：行情报告（文本综述）
 """
 import argparse
+import calendar
 import hashlib
 import json
 import os
@@ -43,7 +44,7 @@ import re
 import sys
 import tempfile
 import time
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urljoin
 
 import pdfplumber
@@ -60,6 +61,179 @@ from utils import (
 )
 
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.hunan_sync_progress.json')
+
+
+# ─── period 窗口解析（v0.8 新增，道友要求字段不能缺）─────────────────────────
+_CN_NUM = {
+    '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+}
+
+
+def _cn_to_int(s: str) -> int:
+    """'一' / '十一' / '二十三' → 整数（百以内常用）"""
+    if not s:
+        return 0
+    s = s.strip()
+    if s.isdigit():
+        return int(s)
+    if s in _CN_NUM:
+        return _CN_NUM[s]
+    if s.startswith('十'):
+        rest = s[1:]
+        return 10 + (_CN_NUM.get(rest, 0) if rest else 0)
+    if '十' in s:
+        a, _, b = s.partition('十')
+        return _CN_NUM.get(a, 0) * 10 + _CN_NUM.get(b, 0)
+    return 0
+
+
+def _last_day(year: int, month: int) -> int:
+    return calendar.monthrange(year, month)[1]
+
+
+def _empty_window() -> dict:
+    return {'period_start': '', 'period_end': '', 'period_days': 0}
+
+
+def parse_period_window_zixun(title: str) -> dict:
+    """行情资讯：从 title 抽 (M1-M2月份) → period 窗口
+
+    title 模式：'2026年第一期（1-2月份）湖南省建设工程材料价格行情资讯'
+    """
+    if not title:
+        return _empty_window()
+    m = re.search(
+        r'(\d{4})\s*年\s*第?([一二三四五六七八九十\d]+)期[（(]\s*(\d{1,2})\s*[-–—~]\s*(\d{1,2})\s*月份?\s*[）)]',
+        title,
+    )
+    if m:
+        y = int(m.group(1))
+        m1, m2 = int(m.group(3)), int(m.group(4))
+        period_start = f'{y:04d}-{m1:02d}-01'
+        period_end = f'{y:04d}-{m2:02d}-{_last_day(y, m2):02d}'
+        period_days = sum(_last_day(y, m) for m in range(m1, m2 + 1))
+        return {
+            'period_start': period_start,
+            'period_end': period_end,
+            'period_days': period_days,
+        }
+    return _empty_window()
+
+
+def parse_period_window_hangqingbiao_from_pdf(pdf_path: str) -> dict:
+    """行情表：从 PDF 首页"编制说明"第 3 条"适用时间" → period 窗口
+
+    权威源：PDF 编制说明第 3 条文字（半月刊，每半月 1 期，PDF 明确写出起止日期）。
+    例：'适用时间：2026年1月1日-1月15日。' → (2026-01-01, 2026-01-15)
+    """
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            text = pdf.pages[0].extract_text() or ''
+    except Exception:
+        return _empty_window()
+    # 模式 A：同年内 'YYYY年M月D日-M月D日'（半月刊常见）
+    m = re.search(
+        r'适用时间[：:]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[-–—~]\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日',
+        text,
+    )
+    if m:
+        y, m1, d1, m2, d2 = [int(g) for g in m.groups()]
+        ds = date(y, m1, d1)
+        de = date(y, m2, d2)
+        return {
+            'period_start': ds.isoformat(),
+            'period_end': de.isoformat(),
+            'period_days': (de - ds).days + 1,
+        }
+    # 模式 B：跨年 'YYYY年M月D日-YYYY年M月D日'（罕见）
+    m = re.search(
+        r'适用时间[：:]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[-–—~]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日',
+        text,
+    )
+    if m:
+        y1, m1, d1, y2, m2, d2 = [int(g) for g in m.groups()]
+        ds = date(y1, m1, d1)
+        de = date(y2, m2, d2)
+        return {
+            'period_start': ds.isoformat(),
+            'period_end': de.isoformat(),
+            'period_days': (de - ds).days + 1,
+        }
+    return _empty_window()
+
+
+def parse_period_window_hangqingbiao_fallback(detail_url: str) -> dict:
+    """行情表兜底：从 URL YYYYMM → 当月窗口（PDF 解析失败时用）"""
+    if not detail_url:
+        return _empty_window()
+    m = re.search(r'/(\d{4})(\d{2})/t\d{8}_\d+\.html', detail_url)
+    if m:
+        y, mo = int(m.group(1)), int(m.group(2))
+        ds = date(y, mo, 1)
+        de = date(y, mo, _last_day(y, mo))
+        return {
+            'period_start': ds.isoformat(),
+            'period_end': de.isoformat(),
+            'period_days': (de - ds).days + 1,
+        }
+    return _empty_window()
+
+
+def compute_period_window(title: str, kind: str, pdf_path: str = '', detail_url: str = '') -> dict:
+    """统一入口：根据 kind 分发到 zixun / hangqingbiao 解析"""
+    if kind == 'zixun':
+        return parse_period_window_zixun(title)
+    if kind == 'hangqingbiao':
+        w = parse_period_window_hangqingbiao_from_pdf(pdf_path) if pdf_path else _empty_window()
+        if not w['period_start']:
+            w = parse_period_window_hangqingbiao_fallback(detail_url)
+        return w
+    return _empty_window()
+
+
+def _new_docs_for_es(rows, period, period_window, minio_key, pdf_url, publish_date=''):
+    """从 parse 出来的 row 列表生成 ES doc 列表，注入 period_start/end/days
+
+    Args:
+        rows: parse_*_pdf() / parse_half_month_table() 返回的 row 列表
+        period: 业务期号（'2026.第1期(行情资讯)' 等）
+        period_window: {'period_start', 'period_end', 'period_days'}
+        minio_key: MinIO 对象 key
+        pdf_url: PDF 源 URL
+        publish_date: 发布日期 YYYY-MM-DD（从 URL 文件名抽）
+    """
+    now = datetime.now().isoformat(timespec='seconds')
+    docs = []
+    for r in rows:
+        docs.append({
+            'no': r['no'],
+            'code': r.get('code', ''),
+            'breed': r['breed'],
+            'spec': r['spec'],
+            'unit': r['unit'],
+            'price': r['price'],
+            'tax_price': r['tax_price'],
+            'change_rate': r.get('change_rate'),
+            'index_value': r.get('index_value'),
+            'remark': r.get('remark', ''),
+            'category': r.get('category', ''),
+            'section': r['section'],
+            'period': period,
+            'period_sub': r.get('period_sub', ''),
+            'period_start': period_window.get('period_start', ''),
+            'period_end': period_window.get('period_end', ''),
+            'period_days': period_window.get('period_days', 0),
+            'price_kind': r.get('price_kind', ''),
+            'province': '湖南',
+            'city': r.get('city', ''),
+            'county': r.get('county', ''),
+            'update_date': publish_date,
+            'create_time': now,
+            'source_pdf': minio_key,
+            'source_url': pdf_url,
+        })
+    return docs
+
 
 # 14 个市州（按 PDF 表头列顺序）
 HUNAN_CITIES_13 = [
@@ -765,17 +939,11 @@ def bulk_index(es, index, docs):
 
 
 # ─── 主流程 ──────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='湖南建设工程材料价格行情同步')
-    parser.add_argument('--period', default='', help='指定周期')
-    parser.add_argument('--year', type=int, default=0, help='只入库指定年份')
-    parser.add_argument('--exclude-period', default='', help='排除指定周期')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+def cmd_legacy_sync(args):
+    """v0.x legacy 主流程（v0.8 Collector 的逃生通道）
 
+    用法：sync.py --legacy（仅在 Collector 异常时备用）
+    """
     cfg = load_config()
     es_host = cfg['es']['host']
     es = get_es_client(es_host)
@@ -788,25 +956,23 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[hunan] ES: {es_host}')
-    print(f'[hunan] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
-    print(f'[hunan] journal_keywords: {cfg.get("journal_keywords", [])}')
+    print(f'[hunan-legacy] ES: {es_host}')
+    print(f'[hunan-legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[hunan-legacy] journal_keywords: {cfg.get("journal_keywords", [])}')
 
-    print('[hunan] 抓取列表...')
+    print('[hunan-legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[hunan] 共 {len(items)} 条')
+    print(f'[hunan-legacy] 共 {len(items)} 条')
 
     keywords = cfg.get('journal_keywords', [])
     todo = []
     for it in items:
-        # 必须含至少一个关键字
         if not any(kw in it['title'] for kw in keywords):
             continue
         if args.period and args.period not in it['title']:
             continue
         if args.exclude_period and args.exclude_period in it['title']:
             continue
-        # 年份过滤：优先 --year 参数，其次 config.year，默认 2026
         effective_year = args.year or cfg.get('year', 2026)
         if effective_year and f'{effective_year}年' not in it['title']:
             continue
@@ -817,14 +983,14 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[hunan] 待处理 {len(todo)} 期')
+    print(f'[hunan-legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[hunan] 无新数据')
+        print('[hunan-legacy] 无新数据')
         return
 
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[hunan] [{idx}/{len(todo)}] {item["title"]}')
+        print(f'\n[hunan-legacy] [{idx}/{len(todo)}] {item["title"]}')
         start = time.time()
         try:
             title, pdf_url = fetch_detail_pdf(cfg, item['detail_url'])
@@ -839,21 +1005,12 @@ def main():
             print(f'  PDF: {pdf_url}')
 
             # period 从 title 提取
-            m = re.search(r'(\d{4})\s*年\s*第?([\d-]+)期|（(\d+)-(\d+)\s*月份）', item['title'])
             if '行情资讯' in item['title']:
-                # "2026年第一期（1-2月份）湖南省建设工程材料价格行情资讯"
                 mm = re.search(r'(\d{4})\s*年\s*第?([一二三四五六七八九十\d]+)期', item['title'])
-                if mm:
-                    period = f'{mm.group(1)}.第{mm.group(2)}期(行情资讯)'
-                else:
-                    period = item['title'][:30]
+                period = f'{mm.group(1)}.第{mm.group(2)}期(行情资讯)' if mm else item['title'][:30]
             elif '行情表' in item['title']:
-                # "2026年全省第八期钢筋、水泥、砂石、混凝土材料价格行情表"
                 mm = re.search(r'(\d{4})\s*年\s*全省\s*第?([\d]+)期', item['title'])
-                if mm:
-                    period = f'{mm.group(1)}.第{mm.group(2)}期(行情表)'
-                else:
-                    period = item['title'][:30]
+                period = f'{mm.group(1)}.第{mm.group(2)}期(行情表)' if mm else item['title'][:30]
             else:
                 period = item['title'][:30]
             print(f'  period: {period}')
@@ -870,42 +1027,25 @@ def main():
                 print(f'  minio: {minio_key}')
 
                 # 解析
-                if '行情资讯' in item['title']:
+                kind = _detect_period_kind(item['title'])
+                if kind == 'zixun':
                     rows = parse_zixun_pdf(local_pdf, period)
-                elif '行情表' in item['title']:
+                elif kind == 'hangqingbiao':
                     with pdfplumber.open(local_pdf) as pdf:
                         rows = parse_half_month_table(pdf.pages[0], period)
                 else:
                     rows = []
                 print(f'  parsed: {len(rows)} 行')
 
-                now = datetime.now().isoformat(timespec='seconds')
-                docs = []
-                for r in rows:
-                    docs.append({
-                        'no': r['no'],
-                        'code': r.get('code', ''),
-                        'breed': r['breed'],
-                        'spec': r['spec'],
-                        'unit': r['unit'],
-                        'price': r['price'],
-                        'tax_price': r['tax_price'],
-                        'change_rate': r.get('change_rate'),
-                        'index_value': r.get('index_value'),
-                        'remark': r.get('remark', ''),
-                        'category': r.get('category', ''),
-                        'section': r['section'],
-                        'period': r['period'],
-                        'period_sub': r.get('period_sub', ''),
-                        'price_kind': r.get('price_kind', ''),
-                        'province': '湖南',
-                        'city': r.get('city', ''),
-                        'county': r.get('county', ''),
-                        'update_date': item.get('publish_date', ''),
-                        'create_time': now,
-                        'source_pdf': minio_key,
-                        'source_url': pdf_url,
-                    })
+                # 解析 period 窗口（v0.8 新增）
+                period_window = compute_period_window(item['title'], kind, local_pdf, item['detail_url'])
+                print(f'  window: {period_window["period_start"]} ~ {period_window["period_end"]} ({period_window["period_days"]}d)')
+
+                # 从 URL 文件名抽 publish_date
+                m_pub = re.search(r't(\d{4})(\d{2})(\d{2})_\d+\.html', item['detail_url'])
+                publish_date = f'{m_pub.group(1)}-{m_pub.group(2)}-{m_pub.group(3)}' if m_pub else ''
+
+                docs = _new_docs_for_es(rows, period, period_window, minio_key, pdf_url, publish_date)
 
                 if args.dry_run:
                     print(f'  [dry-run] 将写 {len(docs)} 条到 {cfg["es"]["ods_index"]}')
@@ -930,28 +1070,34 @@ def main():
                 elapsed = time.time() - start
                 progress['done'][item['detail_url']] = {
                     'period': period,
-                    'publish_date': item.get('publish_date', ''),
+                    'period_start': period_window['period_start'],
+                    'period_end': period_window['period_end'],
+                    'period_days': period_window['period_days'],
+                    'publish_date': publish_date,
                     'detail_url': item['detail_url'],
                     'pdf_url': pdf_url,
                     'minio_key': minio_key,
                     'docs_written': ok,
                     'status': 'ok' if err == 0 else 'partial',
                     'duration_sec': round(elapsed, 1),
-                    'created_at': now,
+                    'created_at': datetime.now().isoformat(timespec='seconds'),
                 }
                 save_progress(progress)
 
                 if not args.dry_run:
                     es.index(index=cfg['es']['progress_index'], body={
                         'period': period,
-                        'publish_date': item.get('publish_date', ''),
+                        'period_start': period_window['period_start'],
+                        'period_end': period_window['period_end'],
+                        'period_days': period_window['period_days'],
+                        'publish_date': publish_date,
                         'detail_url': item['detail_url'],
                         'pdf_url': pdf_url,
                         'minio_key': minio_key,
                         'docs_written': ok,
                         'status': 'ok' if err == 0 else 'partial',
                         'duration_sec': round(elapsed, 1),
-                        'created_at': now,
+                        'created_at': datetime.now().isoformat(timespec='seconds'),
                     })
 
                 total_written += ok
@@ -971,7 +1117,51 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[hunan] 全部完成: total_written={total_written}')
+    print(f'\n[hunan-legacy] 全部完成: total_written={total_written}')
+
+
+def main():
+    """v0.8 主入口：默认走 Collector（SyncRunner 抽象基类化）
+
+    --legacy 走 v0.x cmd_legacy_sync（逃生通道，不推荐）
+    --max-units Collector 路径：只跑前 N 个工作单元（验证用）
+    """
+    parser = argparse.ArgumentParser(description='湖南建设工程材料价格行情同步（v0.8 默认 Collector 路径）')
+    parser.add_argument('--period', default='', help='指定周期（兼容旧参数；Collector 走 --year）')
+    parser.add_argument('--year', type=int, default=0, help='只入库指定年份（默认走 config.year）')
+    parser.add_argument('--exclude-period', default='', help='排除指定周期（仅 legacy 路径生效）')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期（仅 legacy 路径生效）')
+    parser.add_argument('--reset', action='store_true', help='重置本地进度，重新开始')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 路径生效）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期（仅 legacy 路径生效）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.x 兼容：走原 cmd_legacy_sync（旧主流程）。**默认走 Collector**。仅在 Collector 异常时备用。')
+    parser.add_argument('--kinds', default='zixun,hangqingbiao',
+                        help='Collector 限定 kind（逗号分隔），默认两种都跑')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用），不传则跑全部')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成 v08_YYYYMMDD_HHMMSS）')
+    args = parser.parse_args()
+
+    if args.legacy:
+        print(f'[v0.x legacy 路径] cmd_legacy_sync 启动')
+        print(f'  --year={args.year}  --period={args.period!r}  --reset={args.reset}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：HunanCollector（v0.8 SyncRunner 抽象基类）
+    from hunan_collector import make_collector
+    cfg = load_config()
+    year = args.year or cfg.get('year', 2026)
+    kinds = [k.strip() for k in args.kinds.split(',') if k.strip()]
+    run_id = args.run_id or f"hn_v08_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    print(f'[Collector 路径 v0.8] HunanCollector 启动')
+    print(f'  year={year}  kinds={kinds}  run_id={run_id}')
+    print(f'  --max-units={args.max_units}  --reset={args.reset}')
+    collector = make_collector(None, year, run_id, kinds=kinds)
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f"\n[Collector 路径] 完成: {result}")
 
 
 if __name__ == '__main__':

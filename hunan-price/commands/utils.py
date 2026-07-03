@@ -42,63 +42,54 @@ def ensure_bucket(s3, bucket):
 
 
 def ensure_ods_index(es, host, index):
-    """确保 ODS 索引存在，套用 mapping（如果不存在）"""
+    """确保 ODS 索引存在，套用标准 mapping（v0.8, 2026-07-03）
+
+    v0.5 起使用 gov_price_etl.mappings.build_ods_mapping(city_extension=...)
+    统一标准字段 + 城市特化字段，含 period_start/end/days（v0.5 新增）
+    """
     if es.indices.exists(index=index):
         return
-    mapping = {
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'no':            {'type': 'keyword'},
-                'code':          {'type': 'keyword'},   # 行业编码（如 RVYPTNP3810087DKG0）
-                'breed':         {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'breed_clean':   {'type': 'keyword'},
-                'spec':          {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 512}}},
-                'unit':          {'type': 'keyword'},
-                'price':         {'type': 'float'},
-                'tax_price':     {'type': 'float'},
-                'change_rate':   {'type': 'float'},     # 涨跌幅（百分点，如 2.43）
-                'index_value':   {'type': 'float'},     # 价格指数（定基/环比/同比）
-                'remark':        {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 1024}}},
-                'category':      {'type': 'keyword'},   # 类别（黑色金属/水泥/...）
-                'section':       {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
-                'period':        {'type': 'keyword'},
-                'period_sub':    {'type': 'keyword'},   # 子期（如 "1月"/"2月"/"1.1-1.10"）
-                'price_kind':    {'type': 'keyword'},   # 不含税
-                'province':      {'type': 'keyword'},
-                'city':          {'type': 'keyword'},
-                'county':        {'type': 'keyword'},
-                'update_date':   {'type': 'keyword'},
-                'create_time':   {'type': 'keyword'},
-                'source_pdf':    {'type': 'keyword'},
-                'source_url':    {'type': 'keyword'},
-            },
-        },
+    # 委托到 ETL 的标准 mapping（v0.5 起）
+    _etl_path = '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl'
+    if _etl_path not in sys.path:
+        sys.path.insert(0, _etl_path)
+    from gov_price_etl.mappings import build_ods_mapping
+
+    # hunan 特化字段：no, code, change_rate, index_value, period_sub, price_kind, minio_key, source_pdf, section
+    city_extension = {
+        'no':            {'type': 'keyword'},
+        'code':          {'type': 'keyword'},
+        'change_rate':   {'type': 'float'},
+        'index_value':   {'type': 'float'},
+        'period_sub':    {'type': 'keyword'},
+        'price_kind':    {'type': 'keyword'},
+        'minio_key':     {'type': 'keyword'},
+        'source_pdf':    {'type': 'keyword'},
+        'section':       {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+        'update_date':   {'type': 'keyword'},
+        'create_time':   {'type': 'keyword'},
     }
+    mapping = build_ods_mapping(city_extension=city_extension)
     es.indices.create(index=index, body=mapping)
 
 
 def ensure_progress_index(es, index):
-    """确保同步进度索引存在"""
+    """确保同步进度索引存在（v0.8 委托到 ETL 标准 mapping）"""
     if es.indices.exists(index=index):
         return
-    es.indices.create(index=index, body={
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0},
-        'mappings': {
-            'properties': {
-                'period':         {'type': 'keyword'},
-                'publish_date':   {'type': 'keyword'},
-                'detail_url':     {'type': 'keyword'},
-                'pdf_url':        {'type': 'keyword'},
-                'minio_key':      {'type': 'keyword'},
-                'docs_written':   {'type': 'integer'},
-                'status':         {'type': 'keyword'},
-                'error':          {'type': 'text'},
-                'duration_sec':   {'type': 'float'},
-                'created_at':     {'type': 'keyword'},
-            },
-        },
-    })
+    _etl_path = '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl'
+    if _etl_path not in sys.path:
+        sys.path.insert(0, _etl_path)
+    from gov_price_etl.mappings import build_progress_mapping
+
+    # hunan 特化进度字段
+    city_extension = {
+        'publish_date':   {'type': 'keyword'},
+        'duration_sec':   {'type': 'float'},
+        'created_at':     {'type': 'keyword'},
+    }
+    mapping = build_progress_mapping(city_extension=city_extension)
+    es.indices.create(index=index, body=mapping)
 
 
 def fetch_html(url, headers=None, timeout=30):
@@ -109,7 +100,7 @@ def fetch_html(url, headers=None, timeout=30):
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding
         return resp.text
-    except requests.exceptions.SSLError:
+    except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         # 回退：使用 curl 接受不安全 renegotiation（老旧政府网站常见）
         import subprocess
         ua = h.get('User-Agent', 'Mozilla/5.0')
@@ -118,7 +109,7 @@ def fetch_html(url, headers=None, timeout=30):
             capture_output=True, text=True, timeout=timeout + 10
         )
         if r.returncode != 0:
-            raise RuntimeError(f'curl fallback failed: {r.stderr[:200]}')
+            raise RuntimeError(f'curl fallback failed: rc={r.returncode} stderr={r.stderr[:200]}')
         return r.stdout
 
 
@@ -133,7 +124,7 @@ def download_file(url, dest, headers=None, timeout=60):
                     if chunk:
                         f.write(chunk)
         return dest
-    except requests.exceptions.SSLError:
+    except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         # 回退：使用 curl -k
         import subprocess
         ua = h.get('User-Agent', 'Mozilla/5.0')
@@ -142,7 +133,7 @@ def download_file(url, dest, headers=None, timeout=60):
             capture_output=True, text=True, timeout=timeout + 10
         )
         if r.returncode != 0:
-            raise RuntimeError(f'curl fallback failed: {r.stderr[:200]}')
+            raise RuntimeError(f'curl fallback failed: rc={r.returncode} stderr={r.stderr[:200]}')
         return dest
 
 
