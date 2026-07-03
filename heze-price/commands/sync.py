@@ -1,6 +1,15 @@
-"""菏泽工程造价信息 - 同步主程序
+"""菏泽工程造价信息 - 同步入口（v0.8 SyncRunner 抽象基类化, 2026-07-03）
 
-流程：
+v0.8 改造（道友要求）：
+  - 默认走 HezeCollector（SyncRunner 化版本，commands/heze_collector.py）
+  - --legacy 走原 v0.7 cmd_legacy_sync（逃生通道）
+  - 内置工具函数（fetch_all_periods / fetch_detail_pdf / parse_pdf_tables / ...）保留，
+    供 collector / preview 复用，不再被 main() 直接调用
+  - v0.8 字段扩展：doc 和 progress 中新增 period_start / period_end / period_days
+
+参考 chongqing v0.8 试点（chongqing_collector.py）+ henan v0.8 改造（henan_collector.py）。
+
+流程（v0.7 主程序保留，作为 legacy / 工具函数源）：
 1. POST /els-service/article/{page}/{size} 拉取列表 API，返回每期（xxid, subject, fwdate）
 2. 访问详情页 HTML，提取 <a class="media" href="/upload-service/.../WY{fileid}.pdf">
 3. 过滤：未入库 & 增量起点之后
@@ -543,16 +552,13 @@ def bulk_index(es, index, docs):
 
 
 # ─── 主流程 ────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='菏泽工程造价材料信息同步')
-    parser.add_argument('--period', default='', help='指定周期（如 2026.1期）')
-    parser.add_argument('--year', type=int, default=datetime.now().year, help='只入库指定年份的期（默认本年，0=不限制）')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+def cmd_legacy_sync(args):
+    """v0.7 原 main 流程（逃生通道，仅在 --legacy 时调用）。
 
+    与原 v0.7 行为等价：
+      - 抓列表 → 过滤 → 下载 PDF → MinIO → 解析 → bulk_index → 进度
+      - 不含 period_start / period_end / period_days 字段
+    """
     cfg = load_config()
     es_host = cfg['es']['host']
     es = get_es_client(es_host)
@@ -565,13 +571,13 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[heze] ES: {es_host}')
-    print(f'[heze] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[heze v0.7 legacy] ES: {es_host}')
+    print(f'[heze v0.7 legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
 
     # 1. 抓所有期
-    print('[heze] 抓取列表...')
+    print('[heze v0.7 legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[heze] 共 {len(items)} 期')
+    print(f'[heze v0.7 legacy] 共 {len(items)} 期')
 
     # 2. 过滤
     todo = []
@@ -593,15 +599,15 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[heze] 待处理 {len(todo)} 期')
+    print(f'[heze v0.7 legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[heze] 无新数据')
+        print('[heze v0.7 legacy] 无新数据')
         return
 
     cities = cfg['cities']
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[heze] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        print(f'\n[heze v0.7 legacy] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
         start = time.time()
         try:
             detail = fetch_detail_pdf(cfg, item['xxid'])
@@ -701,7 +707,58 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[heze] 全部完成: total_written={total_written}')
+    print(f'\n[heze v0.7 legacy] 全部完成: total_written={total_written}')
+
+
+def main():
+    """v0.8 CLI 入口：默认走 HezeCollector（SyncRunner 化），--legacy 走 v0.7。
+
+    字段扩展（v0.8）：doc 和 progress 中新增 period_start / period_end / period_days。
+    """
+    parser = argparse.ArgumentParser(
+        description='菏泽工程造价材料信息同步（v0.8 SyncRunner 化）',
+    )
+    parser.add_argument('--period', default='', help='指定周期（如 2026.1期）')
+    parser.add_argument('--year', type=int, default=datetime.now().year,
+                        help='只入库指定年份的期（默认本年，0=不限制）')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
+    parser.add_argument('--reset', action='store_true', help='重置进度')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 支持）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.7 兼容：走原 main 流程。默认走 Collector（推荐）。')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用）')
+    args = parser.parse_args()
+
+    cfg_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'config.yml',
+    )
+
+    if args.legacy:
+        # v0.7 兼容路径
+        print('[v0.7 兼容路径] cmd_legacy_sync 启动')
+        print(f'  period={args.period}, year={args.year}, latest={args.latest}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：HezeCollector（v0.8 SyncRunner 抽象基类）
+    from heze_collector import make_collector
+    run_id = args.run_id or f"hz_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print('[Collector 路径 v0.8] HezeCollector 启动')
+    print(f'  year={args.year}, period={args.period}, latest={args.latest}, run_id={run_id}')
+
+    collector = make_collector(
+        cfg_path=cfg_path,
+        run_id=run_id,
+        year=args.year,
+        period=args.period,
+        latest=args.latest,
+    )
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f'\n[Collector 路径 v0.8] 完成: {result}')
 
 
 if __name__ == '__main__':
