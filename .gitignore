@@ -24,6 +24,7 @@ venv/
 .xinjiang_sync_progress.json
 .hunan_sync_progress.json
 .huhehaote_sync_progress.json
+.jiangxi_sync_progress.json
 *.db-shm
 *.db-wal
 # 规格/分类规则库版本化入仓（breed_spec + category_v3 是权威规则库，git 跟踪变更）

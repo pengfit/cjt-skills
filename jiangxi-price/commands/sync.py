@@ -1,19 +1,12 @@
-"""江西建设工程材料信息参考价 - 同步主程序
+"""江西建设工程材料信息参考价 - 同步主程序（v0.9, 2026-07-03 重构）
 
-流程：
-1. 抓取列表（var articleList = [...] 直接嵌入 HTML），提取每期
-2. 过滤：标题含"江西省材料价格参考信息" + 年份
-3. 对每期：
-   a. 列表里直接给出 articleFiles[0].filePath → PDF URL（无需访问详情页）
-   b. 下载 PDF → 本地临时文件
-   c. 上传 MinIO
-   d. pdfplumber 解析 → 长表
-      - 17 列表格（含"南昌"/"九江"/..."鹰潭"列）：全省表 → melt
-      - ≥10 列表格（含"县"列）：县汇总表 → melt
-      - 7 列表格（"序号 / 材料价格 / 规格型号 / 单位 / 信息参考价 / 税率 / 备注"）：
-        设区市补充表 → 直接长表
-   e. bulk_index 到 ods_material_jiangxi_price（幂等 _id）
-   f. 写进度（本地 JSON + ES progress 索引）
+v0.9：默认走 JiangxiCollector（SyncRunner 抽象基类化）
+  - 主流程重写为 Collector 模式（参考 chongqing_collector / hunan_collector）
+  - 必含字段 period / period_start / period_end / period_days（道友要求）
+  - 列表页 articleList JSON 直接给 PDF URL（无需访问详情页）
+  - 11 个设区市全省表 / 多县汇总表 / 设区市补充表 / 单县表 / 园林苗木表 5 种表格类型
+
+--legacy 走 v0.8 cmd_legacy_sync（旧主流程逃生通道，不推荐）
 
 PDF 结构（92 页）：
 - p1 封面 / p2 编制说明 / p3 编制人员 / p4 目录
@@ -356,18 +349,12 @@ def _parse_province_table(tbl, header_idx, section_name, out):
         seq = _clean_cell(row[0])
         if not seq.isdigit():
             continue
-        category = _clean_cell(row[1])   # 材料类别
-        breed = _clean_cell(row[1])      # 实际"材料名称"在 row[2] 全省表 17 列
         # 全省表实际列：0=序号 1=材料类别 2=材料名称 3=规格 4=单位 5-15=城市 16=税率
-        # 修正：上面写错了，重读
-        if len(row) >= 17:
-            category = _clean_cell(row[1])   # 材料类别
-            breed = _clean_cell(row[2])      # 材料名称
-            spec = _clean_cell(row[3])
-            unit = _clean_cell(row[4])
-            vat_rate = _parse_vat_rate(row[16])
-        else:
-            continue
+        category = _clean_cell(row[1])   # 材料类别
+        breed = _clean_cell(row[2])      # 材料名称
+        spec = _clean_cell(row[3])
+        unit = _clean_cell(row[4])
+        vat_rate = _parse_vat_rate(row[16])
 
         for col_idx, city_name in city_cols:
             price = _parse_price(row[col_idx])
@@ -468,6 +455,7 @@ def _parse_plant_table(tbl, header_idx, section_name, parent_city, out):
     """
     if header_idx + 1 >= len(tbl):
         return
+
     data_rows = tbl[header_idx + 1:]
     for row in data_rows:
         if not row or len(row) < 9:
@@ -677,18 +665,12 @@ def bulk_index(es, index, docs):
     return len(docs), 0
 
 
-# ─── 主流程 ──────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='江西建设工程材料价格同步')
-    parser.add_argument('--period', default='', help='指定周期')
-    parser.add_argument('--year', type=int, default=0, help='只入库指定年份')
-    parser.add_argument('--exclude-period', default='', help='排除指定周期')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+# ─── v0.8 legacy 主流程（v0.9 Collector 的逃生通道）──────────────────────────
+def cmd_legacy_sync(args):
+    """v0.8 legacy 主流程（v0.9 Collector 的逃生通道）
 
+    用法：sync.py --legacy（仅在 Collector 异常时备用）
+    """
     cfg = load_config()
     es_host = cfg['es']['host']
     es = get_es_client(es_host)
@@ -701,13 +683,13 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[jiangxi] ES: {es_host}')
-    print(f'[jiangxi] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
-    print(f'[jiangxi] journal_keyword: {cfg.get("journal_keyword", "")}')
+    print(f'[jiangxi-legacy] ES: {es_host}')
+    print(f'[jiangxi-legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[jiangxi-legacy] journal_keyword: {cfg.get("journal_keyword", "")}')
 
-    print('[jiangxi] 抓取列表...')
+    print('[jiangxi-legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[jiangxi] 共 {len(items)} 期')
+    print(f'[jiangxi-legacy] 共 {len(items)} 期')
 
     journal_kw = cfg.get('journal_keyword', '')
     todo = []
@@ -729,14 +711,14 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[jiangxi] 待处理 {len(todo)} 期')
+    print(f'[jiangxi-legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[jiangxi] 无新数据')
+        print('[jiangxi-legacy] 无新数据')
         return
 
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[jiangxi] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        print(f'\n[jiangxi-legacy] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
         start = time.time()
         try:
             pdf_url = item['pdf_url']
@@ -763,6 +745,11 @@ def main():
                 rows = parse_pdf(local_pdf)
                 print(f'  parsed: {len(rows)} 行')
 
+                # period 窗口（v0.9 注入，道友要求字段不能缺）
+                from jiangxi_collector import parse_period_window
+                w = parse_period_window(item['publish_date'], item['title'])
+                print(f'  window: {w["period_start"]} ~ {w["period_end"]} ({w["period_days"]}d)')
+
                 now = datetime.now().isoformat(timespec='seconds')
                 docs = []
                 for r in rows:
@@ -781,6 +768,9 @@ def main():
                         'vat_rate': r.get('vat_rate'),
                         'price_kind': '含税',  # PDF 给的是含税价
                         'period': period,
+                        'period_start': w['period_start'],
+                        'period_end': w['period_end'],
+                        'period_days': w['period_days'],
                         'province': '江西',
                         'update_date': item['publish_date'],
                         'create_time': now,
@@ -813,6 +803,9 @@ def main():
                 elapsed = time.time() - start
                 progress['done'][item['id']] = {
                     'period': period,
+                    'period_start': w['period_start'],
+                    'period_end': w['period_end'],
+                    'period_days': w['period_days'],
                     'publish_date': item['publish_date'],
                     'detail_url': item['detail_url'],
                     'pdf_url': pdf_url,
@@ -827,6 +820,9 @@ def main():
                 if not args.dry_run:
                     es.index(index=cfg['es']['progress_index'], body={
                         'period': period,
+                        'period_start': w['period_start'],
+                        'period_end': w['period_end'],
+                        'period_days': w['period_days'],
                         'publish_date': item['publish_date'],
                         'detail_url': item['detail_url'],
                         'pdf_url': pdf_url,
@@ -854,7 +850,49 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[jiangxi] 全部完成: total_written={total_written}')
+    print(f'\n[jiangxi-legacy] 全部完成: total_written={total_written}')
+
+
+# ─── v0.9 主入口：默认走 Collector（SyncRunner 抽象基类化）────────────────────
+def main():
+    """v0.9 主入口：默认走 Collector（SyncRunner 抽象基类化）
+
+    --legacy 走 v0.8 cmd_legacy_sync（逃生通道，不推荐）
+    --max-units Collector 路径：只跑前 N 个工作单元（验证用）
+    """
+    parser = argparse.ArgumentParser(description='江西建设工程材料价格同步（v0.9 默认 Collector 路径）')
+    parser.add_argument('--period', default='', help='指定周期（兼容旧参数；Collector 走 --year）')
+    parser.add_argument('--year', type=int, default=0, help='只入库指定年份（默认 2026）')
+    parser.add_argument('--exclude-period', default='', help='排除指定周期（仅 legacy 路径生效）')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期（仅 legacy 路径生效）')
+    parser.add_argument('--reset', action='store_true', help='重置本地进度，重新开始')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 路径生效）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期（仅 legacy 路径生效）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.8 兼容：走原 cmd_legacy_sync（旧主流程）。**默认走 Collector**。仅在 Collector 异常时备用。')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用），不传则跑全部')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成 v09_YYYYMMDD_HHMMSS）')
+    args = parser.parse_args()
+
+    if args.legacy:
+        print(f'[v0.8 legacy 路径] cmd_legacy_sync 启动')
+        print(f'  --year={args.year}  --period={args.period!r}  --reset={args.reset}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：JiangxiCollector（v0.9 SyncRunner 抽象基类）
+    from jiangxi_collector import make_collector
+    cfg = load_config()
+    year = args.year or cfg.get('year', 2026)
+    run_id = args.run_id or f"jx_v09_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    print(f'[Collector 路径 v0.9] JiangxiCollector 启动')
+    print(f'  year={year}  run_id={run_id}')
+    print(f'  --max-units={args.max_units}  --reset={args.reset}')
+    collector = make_collector(None, year, run_id)
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f"\n[Collector 路径] 完成: {result}")
 
 
 if __name__ == '__main__':

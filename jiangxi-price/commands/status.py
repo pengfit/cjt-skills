@@ -23,12 +23,16 @@ def main():
             prog = json.load(f)
         done = prog.get('done', {})
         print(f'  总数: {len(done)}')
-        ok = sum(1 for v in done.values() if v.get('status') == 'ok')
+        # v0.9 兼容：Collector 路径写 status='completed'，legacy 路径写 'ok'
+        ok = sum(1 for v in done.values() if v.get('status') in ('ok', 'completed'))
         fail = sum(1 for v in done.values() if v.get('status') == 'failed')
         partial = sum(1 for v in done.values() if v.get('status') == 'partial')
         print(f'  ok: {ok}  partial: {partial}  failed: {fail}')
         for k, v in done.items():
-            print(f"    [{v.get('status','?'):8s}] {v.get('period','?'):15s} docs={v.get('docs_written',0):5d}  {v.get('minio_key','')[:60]}")
+            status = v.get('status', '?')
+            # v0.9 兼容显示
+            display_status = 'completed' if status == 'completed' else status
+            print(f"    [{display_status:10s}] {v.get('period','?'):15s} docs={v.get('docs_written',0):5d}  {v.get('minio_key','')[:60]}")
 
     print('\n=== ES ODS ===')
     try:
