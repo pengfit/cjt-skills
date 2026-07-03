@@ -7,7 +7,7 @@ from collections import Counter
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from sync import fetch_all_periods, parse_detail_page, parse_pdf, extract_period_from_title
+from parser import fetch_all_periods, parse_detail_page, parse_pdf, extract_period_from_title
 from utils import load_config, fetch_html, download_file
 import tempfile
 

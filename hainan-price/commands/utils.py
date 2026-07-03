@@ -22,11 +22,19 @@ def ensure_ods_index(es, host, index):
 
     v0.5 (2026-07-02) ：委托到 gov_price_etl.mappings.build_ods_mapping。
     新字段（区间价 price_min/max/range/is_range 等）自动生效。
+
+    v0.8 (2026-07-02) ：补 hainan 城市特化字段 region（北部/南部/西部/东部/中部）
+    和 section（一级章节：钢材/水泥...）。基础 mapping 不会主动加这些。
     """
     if es.indices.exists(index=index):
         return
     from gov_price_etl.mappings import build_ods_mapping
-    mapping = build_ods_mapping()
+    mapping = build_ods_mapping(city_extension={
+        # 海南区域（5 个区域分组：北部/南部/西部/东部/中部/全省）
+        "region":  {"type": "keyword"},
+        # 一级章节（钢材/水泥、砂石、墙体材料和预制桩/...）
+        "section": {"type": "keyword"},
+    })
     es.indices.create(index=index, body=mapping)
 
 def ensure_progress_index(es, index):
