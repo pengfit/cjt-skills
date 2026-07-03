@@ -71,7 +71,7 @@
                 :class="c.status || 'not-started'"
               >
                 <span class="chip-dot" :class="c.status || 'not-started'"></span>
-                <span class="chip-name">{{ c.county }}</span>
+                <span class="chip-name">{{ c.catalogue_name || c.area_name || c.tab_name || c.county }}</span>
                 <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
               </div>
             </template>
@@ -85,7 +85,7 @@
               :class="c.status || 'not-started'"
             >
               <span class="chip-dot" :class="c.status || 'not-started'"></span>
-              <span class="chip-name">{{ c.county }}</span>
+              <span class="chip-name">{{ c.catalogue_name || c.area_name || c.tab_name || c.county }}</span>
               <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
             </div>
           </template>

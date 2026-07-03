@@ -701,7 +701,9 @@ def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
                         "latest_doc": {
                             "top_hits": {
                                 "size": 1, "sort": [{"last_updated": "desc"}],
-                                "_source": [catalogue_field, "status", "docs_written", "percent",
+                                "_source": [catalogue_field, f"{catalogue_field}_name", "catalogue_name",
+                                            "area_name", "tab_name",
+                                            "status", "docs_written", "percent",
                                             "last_updated", "current_page", "total_pages", "total_records",
                                             "run_id"],
                             }
@@ -721,6 +723,12 @@ def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
         for b in buckets:
             doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
             status = doc.get("status", "completed")
+            # 取中文名（兼容 sichuan area_name / jinan catalogue_name / rizhao tab_name）
+            cat_name = (doc.get(f"{catalogue_field}_name", "")
+                        or doc.get("catalogue_name", "")
+                        or doc.get("area_name", "")
+                        or doc.get("tab_name", "")
+                        or "")
             if status == "completed":
                 comp += 1
             elif status == "running":
@@ -729,6 +737,10 @@ def _scrape_catalogue_progress(idx: str, cfg: dict) -> dict:
                 err += 1
             counties.append({
                 "county": b["key"], "status": status,
+                "catalogue_name": cat_name,
+                "area_name": cat_name if catalogue_field == "area" else "",
+                "tab_name": cat_name if catalogue_field == "tab_name" else "",
+                "name": cat_name or b["key"],
                 "percent": round(doc.get("percent", 0), 1),
                 "docs_written": doc.get("docs_written", 0),
                 "current_page": doc.get("current_page", 0),

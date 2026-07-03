@@ -213,7 +213,7 @@ def ensure_index(es_host: str, es_index: str):
 
 
 
-def ensure_progress_index(es_host: str, idx: str):
+def ensure_progress_index(es_host: str, idx: str, city_extension: dict = None):
     """确保同步进度索引存在
 
     v0.6 (2026-07-02) ：委托到 gov_price_etl.indexer.ensure_progress_index。
@@ -223,9 +223,11 @@ def ensure_progress_index(es_host: str, idx: str):
         区县进度：f"{run_id}__{source}__{county}__{period}"
         run 汇总：f"{run_id}__summary"
         spot check：f"{run_id}__spot__{county}"
+
+    v0.1 (2026-07-03) ：透传 city_extension 以支持城市特化字段（如 period_id）。
     """
     from gov_price_etl.indexer import ensure_progress_index as _ensure
-    if _ensure(es_host, idx):
+    if _ensure(es_host, idx, city_extension=city_extension):
         print(f"  [✓] 创建 progress: {idx}")
 
 
