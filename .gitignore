@@ -25,9 +25,8 @@ venv/
 .hunan_sync_progress.json
 *.db-shm
 *.db-wal
-# 规格/分类规则库（运行时累积，rule_editor/AI 重跑会重建）
-gov-price-etl/data/breed_spec_rules.db
-gov-price-etl/data/category_v3_rules.db
+# 规格/分类规则库版本化入仓（breed_spec + category_v3 是权威规则库，git 跟踪变更）
+# v1 已废 db（文件已删，schema 兼容保留）
 gov-price-etl/data/breed_category_rules.db
 # AI 调用结果缓存（运行时累积，重跑可重新生成）
 ai_cache.db
