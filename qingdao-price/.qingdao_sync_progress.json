@@ -8,8 +8,9 @@
       "minio_key": "qingdao-price/2026.5月/2026年5月青岛市建设工程材料价格.pdf",
       "docs_written": 236,
       "status": "ok",
-      "duration_sec": 2.4,
-      "created_at": "2026-06-16T11:48:01"
+      "error": "",
+      "created_at": "2026-07-03T16:35:53",
+      "run_id": "qd_run_20260703_163551"
     },
     "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202605/t20260509_10588919.html": {
       "period": "2026.4月",
@@ -19,8 +20,9 @@
       "minio_key": "qingdao-price/2026.4月/2026年4月青岛市建设工程材料价格.pdf",
       "docs_written": 236,
       "status": "ok",
-      "duration_sec": 2.0,
-      "created_at": "2026-06-16T11:48:03"
+      "error": "",
+      "created_at": "2026-07-03T16:35:55",
+      "run_id": "qd_run_20260703_163551"
     },
     "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202604/t20260413_10560459.html": {
       "period": "2026.3月",
@@ -30,8 +32,9 @@
       "minio_key": "qingdao-price/2026.3月/2026年3月青岛市建设工程材料价格.pdf",
       "docs_written": 236,
       "status": "ok",
-      "duration_sec": 2.0,
-      "created_at": "2026-06-16T11:48:05"
+      "error": "",
+      "created_at": "2026-07-03T16:35:57",
+      "run_id": "qd_run_20260703_163551"
     },
     "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202603/t20260309_10530489.html": {
       "period": "2026.2月",
@@ -41,8 +44,9 @@
       "minio_key": "qingdao-price/2026.2月/2026年2月青岛市建设工程材料价格.pdf",
       "docs_written": 221,
       "status": "ok",
-      "duration_sec": 7.7,
-      "created_at": "2026-06-16T11:48:12"
+      "error": "",
+      "created_at": "2026-07-03T16:35:59",
+      "run_id": "qd_run_20260703_163551"
     },
     "http://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/202602/t20260205_10504286.html": {
       "period": "2026.1月",
@@ -52,8 +56,10 @@
       "minio_key": "qingdao-price/2026.1月/2026年1月青岛市建设工程材料价格.pdf",
       "docs_written": 238,
       "status": "ok",
-      "duration_sec": 2.3,
-      "created_at": "2026-06-16T11:48:15"
+      "error": "",
+      "created_at": "2026-07-03T16:36:01",
+      "run_id": "qd_run_20260703_163551"
     }
-  }
+  },
+  "saved_at": "2026-07-03 16:36:01"
 }
