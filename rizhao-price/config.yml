@@ -1,10 +1,14 @@
 es:
   host: http://localhost:59200
   index: ods_material_rizhao_price
-  progress_index: ods_rizhao_price_progress
+  progress_index: ods_rizhao_price_sync_progress
   sync_log_index: ods_rizhao_price_sync_log
+
 site:
   base_url: http://58.59.43.227:81/EpointSDRZ
   price_page: http://58.59.43.227:81/dist/#/index/priceDissemination
+
 sync:
-  last_period: 2026-04
+  last_period: 2026-05
+  tabs: ["1", "2", "3"]   # 默认 3 个 tab 全抓（1=建设, 2=苗木, 3=区县）
+  progress_file: .rizhao_sync_progress.json

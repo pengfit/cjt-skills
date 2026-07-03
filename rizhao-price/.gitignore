@@ -1,0 +1,30 @@
+# ── v0 备份目录（重构时留底，不入仓）──
+.bak_v0/
+
+# ── 本地进度 / 调试产物（不入仓）──
+.rizhao_sync_progress.json
+tmp/
+
+# ── Python / Node 标准忽略 ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Node / Playwright ──
+node_modules/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ── OS / IDE ──
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── 日志 ──
+*.log
