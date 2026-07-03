@@ -57,5 +57,26 @@ def main():
         print(f'[jiangxi] ⚠️ 无法获取源站数据')
 
 
+# === dashboard status 同步（v0.8.1, 2026-07-03）===
+# 捕获 main() 的 stdout，按末行 [城市] 状态写到 /tmp/gov-check-status/<key>.json
+# 供 dashboard /sync 顶部 chip 复用。已存在则覆盖。
 if __name__ == '__main__':
-    main()
+    import sys as _sys, io as _io
+    _buf = _io.StringIO()
+    _old_stdout = _sys.stdout
+    _sys.stdout = _buf
+    try:
+        main()
+    finally:
+        _sys.stdout = _old_stdout
+    _output = _buf.getvalue()
+    print(_output, end='')  # 完整回放到屏幕（保留原行为）
+
+    # 写 check_status json
+    try:
+        if '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl' not in _sys.path:
+            _sys.path.insert(0, '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl')
+        from gov_price_etl.check_status import write_status_from_check_output
+        write_status_from_check_output('jiangxi', '江西', _output)
+    except Exception as _e:
+        print(f'⚠️ check_status 失败: {_e}', file=_sys.stderr)
