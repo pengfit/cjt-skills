@@ -1,19 +1,15 @@
-"""呼和浩特建设工程材料市场价格信息 - 同步主程序
+"""呼和浩特建设工程材料市场价格信息 - 同步主程序（v0.8 SyncRunner 抽象基类化, 2026-07-03）
 
-流程：
-1. 抓取列表（单页 index.html），提取每期（标题含 PDF 链接）
-2. 过滤：标题含"信息价"或"造价信息"，且 progress 未 ok
-3. 对每期：
-   a. 下载 PDF → 本地临时文件
-   b. 上传 MinIO
-   c. pdfplumber 解析 → 长表
-      - 7 列表材料（编码/名称/单位/含税价/除税价/税率/备注）
-        双价：price=除税价，tax_price=含税价
-      - 4 列表人工成本（序号/工种/日工资/备注）
-      - 5 列表机械租赁（序号/名称/型号/单位/价格）
-      - 5 列表建筑安装单方造价（区间，不入库）
-   d. bulk_index 到 ods_material_huhehaote_price（幂等 _id）
-   e. 写进度（本地 JSON + ES progress 索引）
+v0.8 改造：
+  - 默认走 HuhehaoteCollector（SyncRunner 化版本，commands/huhehaote_collector.py）
+  - --legacy 走原 v0.x cmd_legacy_sync（逃生通道）
+  - 内置工具函数（fetch_all_periods / fetch_detail_pdf / parse_pdf / ...）保留，
+    供 collector / legacy / preview 复用，不再被 main() 直接调用
+  - v0.8 字段扩展：doc 中新增 period_start / period_end / period_days
+
+参考 chongqing v0.8 试点（chongqing_collector.py）+ henan v0.8（henan_collector.py）——
+P2 阶段（2026-07-02 启动）的核心目标：把通用基础设施（SIGINT / 进度 / 汇总）抽到
+SyncRunner 基类，各 city 保留站点特化逻辑。
 
 PDF 结构（86 页）：
 - p1-p79: 呼市地区建设工程材料市场价格信息采集
@@ -35,7 +31,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import pdfplumber
 import requests
@@ -446,17 +442,17 @@ def bulk_index(es, index, docs):
     return len(docs), 0
 
 
-# ─── 主流程 ──────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description='呼和浩特建设工程材料价格同步')
-    parser.add_argument('--period', default='', help='指定周期')
-    parser.add_argument('--year', type=int, default=0, help='只入库指定年份')
-    parser.add_argument('--exclude-period', default='', help='排除指定周期')
-    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
-    parser.add_argument('--reset', action='store_true', help='重置进度')
-    parser.add_argument('--dry-run', action='store_true', help='预览，不写入')
-    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
-    args = parser.parse_args()
+# ─── 主流程（v0.x 兼容路径） ────────────────────────────────────────────────
+def cmd_legacy_sync(args):
+    """v0.x 原 main 流程（逃生通道，仅在 --legacy 时调用）。
+
+    与原 v0.x 行为等价：
+      - 抓列表 → 过滤 → 下载 PDF → MinIO → 解析 → bulk_index → 进度
+      - v0.8 字段扩展：doc 中也补 period_start / period_end / period_days
+        （通过 huhehaote_collector.parse_period_window 复用解析逻辑）
+    """
+    # v0.8 字段扩展：复用 collector 的窗口解析
+    from huhehaote_collector import parse_period_window
 
     cfg = load_config()
     es_host = cfg['es']['host']
@@ -470,13 +466,13 @@ def main():
     if args.reset:
         save_progress(progress)
 
-    print(f'[huhehaote] ES: {es_host}')
-    print(f'[huhehaote] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
-    print(f'[huhehaote] journal_keyword: {cfg.get("journal_keyword", "")}')
+    print(f'[huhehaote v0.x legacy] ES: {es_host}')
+    print(f'[huhehaote v0.x legacy] MinIO: {cfg["minio"]["endpoint"]} / {cfg["minio"]["bucket"]}')
+    print(f'[huhehaote v0.x legacy] journal_keyword: {cfg.get("journal_keyword", "")}')
 
-    print('[huhehaote] 抓取列表...')
+    print('[huhehaote v0.x legacy] 抓取列表...')
     items = fetch_all_periods(cfg)
-    print(f'[huhehaote] 共 {len(items)} 期')
+    print(f'[huhehaote v0.x legacy] 共 {len(items)} 期')
 
     journal_kw = cfg.get('journal_keyword', '')
     todo = []
@@ -496,14 +492,17 @@ def main():
     if args.latest:
         todo = todo[:1]
 
-    print(f'[huhehaote] 待处理 {len(todo)} 期')
+    print(f'[huhehaote v0.x legacy] 待处理 {len(todo)} 期')
     if not todo:
-        print('[huhehaote] 无新数据')
+        print('[huhehaote v0.x legacy] 无新数据')
         return
 
     total_written = 0
     for idx, item in enumerate(todo, 1):
-        print(f'\n[huhehaote] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        win = parse_period_window(item['title'])
+        period = win['period'] or item['title'][:30]
+        print(f'\n[huhehaote v0.x legacy] [{idx}/{len(todo)}] {item["title"]}  ({item["publish_date"]})')
+        print(f'  period: {period}  {win["period_start"]}~{win["period_end"]}  ({win["period_days"]}天)')
         start = time.time()
         try:
             title, pdf_url, _ = fetch_detail_pdf(cfg, item['detail_url'])
@@ -517,15 +516,8 @@ def main():
                 continue
             print(f'  PDF: {pdf_url}')
 
-            # period 从 title 提取（如"2026年信息价1期"）
-            m = re.search(r'(\d{4})年信息价(\d+)期', title or item['title'])
-            if m:
-                period = f'{m.group(1)}.第{m.group(2)}期'
-            else:
-                period = item['title'][:30]
             basename = pdf_basename(pdf_url)
             minio_key = f'{cfg["minio"]["prefix"]}/{period}/{basename}'
-            print(f'  period: {period}')
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_pdf = os.path.join(tmpdir, 'source.pdf')
@@ -555,6 +547,10 @@ def main():
                         'region': r.get('region', ''),
                         'city': r.get('city', ''),
                         'period': period,
+                        # v0.8 字段扩展
+                        'period_start': win['period_start'],
+                        'period_end': win['period_end'],
+                        'period_days': win['period_days'],
                         'province': '内蒙古',
                         'update_date': item['publish_date'],
                         'create_time': now,
@@ -585,6 +581,9 @@ def main():
                 elapsed = time.time() - start
                 progress['done'][item['detail_url']] = {
                     'period': period,
+                    'period_start': win['period_start'],
+                    'period_end': win['period_end'],
+                    'period_days': win['period_days'],
                     'publish_date': item['publish_date'],
                     'detail_url': item['detail_url'],
                     'pdf_url': pdf_url,
@@ -599,6 +598,9 @@ def main():
                 if not args.dry_run:
                     es.index(index=cfg['es']['progress_index'], body={
                         'period': period,
+                        'period_start': win['period_start'],
+                        'period_end': win['period_end'],
+                        'period_days': win['period_days'],
                         'publish_date': item['publish_date'],
                         'detail_url': item['detail_url'],
                         'pdf_url': pdf_url,
@@ -624,7 +626,60 @@ def main():
             }
             save_progress(progress)
 
-    print(f'\n[huhehaote] 全部完成: total_written={total_written}')
+    print(f'\n[huhehaote v0.x legacy] 全部完成: total_written={total_written}')
+
+
+# ─── CLI 入口（v0.8） ──────────────────────────────────────────────────────
+def main():
+    """v0.8 CLI 入口：默认走 HuhehaoteCollector（SyncRunner 化），--legacy 走 v0.x。
+
+    字段扩展（v0.8）：doc 中新增 period_start / period_end / period_days。
+    """
+    parser = argparse.ArgumentParser(
+        description='呼和浩特建设工程材料价格同步（v0.8 SyncRunner 化）',
+    )
+    parser.add_argument('--period', default='', help='指定周期（如"2026年信息价1期"）')
+    parser.add_argument('--year', type=int, default=datetime.now().year,
+                        help='只入库指定年份的期（默认本年，0=不限制）')
+    parser.add_argument('--exclude-period', default='', help='排除指定周期')
+    parser.add_argument('--all', action='store_true', help='同步所有未入仓的期')
+    parser.add_argument('--reset', action='store_true', help='重置进度')
+    parser.add_argument('--dry-run', action='store_true', help='预览，不写入（仅 legacy 支持）')
+    parser.add_argument('--latest', action='store_true', help='只同步最新一期')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.x 兼容：走原 main 流程。默认走 Collector（推荐）。')
+    parser.add_argument('--max-units', type=int, default=None,
+                        help='Collector 路径：只跑前 N 个工作单元（验证用）')
+    args = parser.parse_args()
+
+    cfg_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'config.yml',
+    )
+
+    if args.legacy:
+        # v0.x 兼容路径
+        print('[v0.x 兼容路径] cmd_legacy_sync 启动')
+        print(f'  period={args.period}, year={args.year}, latest={args.latest}, dry-run={args.dry_run}')
+        cmd_legacy_sync(args)
+        return
+
+    # 默认路径：HuhehaoteCollector（v0.8 SyncRunner 抽象基类）
+    from huhehaote_collector import make_collector
+    run_id = args.run_id or f"hhht_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print('[Collector 路径 v0.8] HuhehaoteCollector 启动')
+    print(f'  year={args.year}, period={args.period}, latest={args.latest}, run_id={run_id}')
+
+    collector = make_collector(
+        cfg_path=cfg_path,
+        run_id=run_id,
+        year=args.year,
+        period=args.period,
+        latest=args.latest,
+    )
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f'\n[Collector 路径 v0.8] 完成: {result}')
 
 
 if __name__ == '__main__':

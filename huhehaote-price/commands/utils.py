@@ -21,19 +21,17 @@ def ensure_ods_index(es, host, index):
     """确保 ODS 索引存在，套用 mapping（如果不存在）
 
     v0.5 (2026-07-02) ：委托到 gov_price_etl.mappings.build_ods_mapping。
-    新字段（区间价 price_min/max/range/is_range 等）自动生效。
-    Args:
-        es: elasticsearch SDK
-        host: ES 地址（保留兼容位，实际未用）
-        index: 索引名
-    城市特化字段：price_kind, section
+    v0.8 (2026-07-03) ：扩展 city_extension，加 vat_rate / region 字段。
+    城市特化字段：section / price_kind / vat_rate / region
     """
     if es.indices.exists(index=index):
         return
     from gov_price_etl.mappings import build_ods_mapping
     mapping = build_ods_mapping(city_extension={
-            "section": {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+            "section":   {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
             "price_kind": {'type': 'keyword'},
+            "vat_rate":  {'type': 'float'},  # 平均税率（PDF 直接给，huhehaote 用）
+            "region":    {'type': 'keyword'},  # 旗县区（土默特左旗 / 托克托县 / ...）
         })
     es.indices.create(index=index, body=mapping)
 

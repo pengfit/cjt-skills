@@ -2,14 +2,18 @@
   "done": {
     "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202603/t20260331_1987221.html": {
       "period": "2026.第1期",
+      "period_start": "2026-01-01",
+      "period_end": "2026-02-28",
+      "period_days": 59,
       "publish_date": "2026-03-31",
       "detail_url": "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202603/t20260331_1987221.html",
       "pdf_url": "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202603/P020260331555567457435.pdf",
       "minio_key": "huhehaote-price/2026.第1期/P020260331555567457435.pdf",
       "docs_written": 1854,
       "status": "ok",
-      "duration_sec": 4.3,
-      "created_at": "2026-06-27T12:35:04"
+      "error": "",
+      "created_at": "2026-07-03T13:34:34"
     }
-  }
+  },
+  "saved_at": "2026-07-03 13:34:34"
 }

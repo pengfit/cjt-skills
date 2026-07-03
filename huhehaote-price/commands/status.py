@@ -1,4 +1,7 @@
-"""查看呼和浩特同步进度"""
+"""查看呼和浩特同步进度（v0.8, 2026-07-03）
+
+v0.8 改造：本地进度展示增加 period_start / period_end / period_days 字段。
+"""
 import json
 import os
 import sys
@@ -28,7 +31,12 @@ def main():
         partial = sum(1 for v in done.values() if v.get('status') == 'partial')
         print(f'  ok: {ok}  partial: {partial}  failed: {fail}')
         for k, v in done.items():
-            print(f"    [{v.get('status','?'):8s}] {v.get('period','?'):15s} docs={v.get('docs_written',0):5d}  {v.get('minio_key','')[:60]}")
+            period_str = v.get('period', '?')
+            # v0.8 字段
+            win = ''
+            if v.get('period_start'):
+                win = f"  {v['period_start']}~{v['period_end']} ({v.get('period_days','?')}天)"
+            print(f"    [{v.get('status','?'):8s}] {period_str:12s}{win:35s} docs={v.get('docs_written',0):5d}  {v.get('minio_key','')[:60]}")
 
     print('\n=== ES ODS ===')
     try:
@@ -57,6 +65,22 @@ def main():
             print('  章节(TOP 30):')
             for b in r['aggregations']['by_section']['buckets'][:30]:
                 print(f'    {b["key"]:25s} {b["doc_count"]:,}')
+
+            # v0.8: 检查 period_start / period_end / period_days 字段填充率
+            print('\n=== v0.8 字段填充率 ===')
+            for field in ['period_start', 'period_end', 'period_days']:
+                stats = es.search(
+                    index=cfg['es']['ods_index'], size=0,
+                    aggs={
+                        'has_field': {
+                            'filter': {'exists': {'field': field}},
+                        },
+                    },
+                )
+                total = cnt
+                has = stats['aggregations']['has_field']['doc_count']
+                pct = (has / total * 100) if total else 0
+                print(f'  {field:15s}  {has:6,}/{total:6,}  ({pct:5.1f}%)')
     except Exception as e:
         print(f'  ✗ {e}')
 
