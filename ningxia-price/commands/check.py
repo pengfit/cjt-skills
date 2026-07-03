@@ -6,7 +6,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 from utils import load_config, get_es_client
-from sync import fetch_all_periods
+from sync_legacy import fetch_all_periods
 
 
 def main():

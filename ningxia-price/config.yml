@@ -14,10 +14,10 @@ minio:
 
 site:
   base_url: https://jst.nx.gov.cn
-  # 列表路径规则：分页是 index.html / index_2.html / index_3.html（总计 6 页）
+  # 列表路径规则：分页是 index.html / index_2.html / index_3.html（总计 5 页，超出返回 404）
   list_path: /ztzl/gczj/zjtt/index.html
   list_page_pattern: /ztzl/gczj/zjtt/index_{n}.html
-  list_pages: 6   # 已发现总页数
+  list_pages: 5   # 实际可访问页数（page 6 已 404）
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
   timeout_sec: 30
 

@@ -23,8 +23,8 @@ def main():
             prog = json.load(f)
         done = prog.get('done', {})
         print(f'  总数: {len(done)}')
-        ok = sum(1 for v in done.values() if v.get('status') == 'ok')
-        fail = sum(1 for v in done.values() if v.get('status') == 'failed')
+        ok = sum(1 for v in done.values() if v.get('status') in ('ok', 'completed'))
+        fail = sum(1 for v in done.values() if v.get('status') in ('failed', 'error'))
         partial = sum(1 for v in done.values() if v.get('status') == 'partial')
         print(f'  ok: {ok}  partial: {partial}  failed: {fail}')
         for k, v in done.items():

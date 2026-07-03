@@ -34,6 +34,9 @@ def ensure_ods_index(es, host, index):
     mapping = build_ods_mapping(city_extension={
             "section": {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
             "price_kind": {'type': 'keyword'},
+            "region": {'type': 'keyword'},  # 宁夏地市分组（与 section 等价）
+            "breed_table_kind": {'type': 'keyword'},  # 表格类型（material/quota）
+            "publish_date": {'type': 'date', 'format': 'yyyy-MM-dd'},  # 期刊发布日期（list 页 time 标签）
         })
     es.indices.create(index=index, body=mapping)
 
