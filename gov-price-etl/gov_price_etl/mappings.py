@@ -131,6 +131,9 @@ _PROGRESS_BASE_FIELDS = {
     "area":         {"type": "keyword"},  # 业务区域原始字符串（含 source 前缀，如 '区县材料-万州区'）
     "county":       {"type": "keyword"},  # 简化区县名（dashboard 解析后写入）
     "period":       {"type": "keyword"},  # 业务期（'2026年01月' / '2026.5期' / '2026-04'）
+    "period_start": {"type": "date", "format": "yyyy-MM-dd"},
+    "period_end":   {"type": "date", "format": "yyyy-MM-dd"},
+    "period_days":  {"type": "integer"},
     # ── 进度计数 ────────────────────────────────
     "current_page":  {"type": "integer"},  # 当前页（HTML 抓取类）
     "total_pages":   {"type": "integer"},  # 总页数
