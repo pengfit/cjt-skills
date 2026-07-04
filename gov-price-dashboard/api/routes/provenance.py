@@ -475,7 +475,8 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
                 "terms": {"field": "status", "size": 10},
                 "aggs": {
                     "runs": {
-                        "terms": {"field": "run_id", "size": 5},
+                        # missing:"" 让无 run_id 字段的 progress 文档（如 xinjiang）也进桶
+                        "terms": {"field": "run_id", "size": 5, "missing": ""},
                         "aggs": {
                             "latest_doc": {
                                 "top_hits": {
@@ -492,7 +493,7 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
                                         "docs_written", "percent", "duration_sec",
                                         "period", "update_date", "last_updated",
                                         "error", "spot_check_ok",
-                                        "area", "catalogue_name", "tab_name",
+                                        "area", "area_name", "catalogue_name", "tab_name",
                                     ]
                                 }
                             },
@@ -539,9 +540,9 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
     if summary_marker:
         ch = [h for h in ch if h["_source"].get(county_field) != summary_marker]
 
-    ch = [h for h in ch if (h["_source"].get("county") or h["_source"].get("current_county")
-                            or h["_source"].get("area") or h["_source"].get("catalogue_name")
-                            or h["_source"].get("tab_name"))]
+    # 兼容 county / current_county / area / area_name / catalogue_name / tab_name 等多种主键
+    _COUNTY_KEYS = ("county", "current_county", "area", "area_name", "catalogue_name", "tab_name")
+    ch = [h for h in ch if any(h["_source"].get(k) for k in _COUNTY_KEYS)]
 
     # chongqing 这种 sync 会在 county/area 上拼 "区县材料-"/"预拌砂浆-"/"重庆材料信息价-"
     # 带 source 前缀的 raw 文本。_parse_area 反推 source + 剥离名字（2026-07-02
@@ -552,8 +553,7 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
     deduped_map: dict[str, dict] = {}
     for h in ch:
         src = h["_source"]
-        raw_area = (src.get("county", "") or src.get("current_county", "") or src.get("area", "")
-                    or src.get("catalogue_name", "") or src.get("tab_name", ""))
+        raw_area = next((src.get(k, "") for k in _COUNTY_KEYS if src.get(k)), "")
         clean_name, source_label = _parse_area(raw_area)
         lu_str = src.get("last_updated", "")
         period = src.get("period", "")
@@ -570,18 +570,22 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
                 "_last_updated": lu_str,
             }
     counties_raw = sorted(deduped_map.values(), key=lambda x: x["raw_area"])
+    # percent fallback：部分 skill（如 xinjiang）写入 ES 时不填 percent，但 status 已标 ok/completed。
+    # 这种"已知完成"场景前端显示成 0% 不合理，统一在出口处补成 100。
+    # running 不强制补 0：保留原 percent（若有真实进度），否则 0。
     counties = [{
         "county": c["county"],
         "source": c["source"],
         "status": c["status"],
-        "percent": c["percent"],
+        "percent": (100.0 if c["status"] in ("completed", "ok") else c["percent"]),
         "docs_written": c["docs_written"],
         "period": c["period"],
     } for c in counties_raw]
 
     td = sum(c["docs_written"] for c in counties_raw)
     tr = sum(h["_source"].get("total_records", 0) for h in ch)
-    comp = sum(1 for c in counties_raw if c["status"] == "completed")
+    # 兼容 'ok' 状态（xinjiang 等 skill 写入完成时的 status）
+    comp = sum(1 for c in counties_raw if c["status"] in ("completed", "ok"))
     run = sum(1 for c in counties_raw if c["status"] == "running")
     err = sum(1 for c in counties_raw if c["status"] == "error")
     skip = sum(1 for c in counties_raw if c["status"] == "skipped")
@@ -594,7 +598,8 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
             s = c["source"]
             b = source_summary.setdefault(s, {"total": 0, "completed": 0, "running": 0, "error": 0, "skipped": 0})
             b["total"] += 1
-            if c["status"] == "completed":
+            # 兼容 'ok' 状态（xinjiang 等）
+            if c["status"] in ("completed", "ok"):
                 b["completed"] += 1
             elif c["status"] == "running":
                 b["running"] += 1
@@ -3374,12 +3379,13 @@ def _county_sync_progress(cfg: dict) -> dict:
     source_set = {d.get("source", "district") for d in county_details}
     if len(source_set) > 1:
         # 多 source 的 skill（如 chongqing）：只统计主项区县
+        # 兼容 'ok' 状态（xinjiang 等 skill 写入的完成状态）
         completed_counties = sum(
             1 for d in county_details
-            if d.get("status") == "completed" and d.get("source") == "district"
+            if d.get("status") in ("completed", "ok") and d.get("source") == "district"
         )
     else:
-        completed_counties = sum(1 for d in county_details if d.get("status") == "completed")
+        completed_counties = sum(1 for d in county_details if d.get("status") in ("completed", "ok"))
 
     # 多 source 分组汇总：返回每个 source 的总数 / 完成 / 错误
     source_summary: dict[str, dict] = {}
@@ -3388,8 +3394,12 @@ def _county_sync_progress(cfg: dict) -> dict:
         bucket = source_summary.setdefault(src, {"total": 0, "completed": 0, "error": 0, "running": 0})
         bucket["total"] += 1
         st = d.get("status", "")
-        if st == "completed":
+        # 兼容 'ok'（xinjiang）。'partial' 单独归到 partial 桶，不算 completed
+        if st in ("completed", "ok"):
             bucket["completed"] += 1
+        elif st == "partial":
+            bucket.setdefault("partial", 0)
+            bucket["partial"] += 1
         elif st == "error":
             bucket["error"] += 1
         elif st == "running":
