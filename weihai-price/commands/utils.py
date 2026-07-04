@@ -1,6 +1,12 @@
 """威海工程造价信息采集 - 工具函数"""
+import calendar
+import re
+from datetime import date
+
 import os
 import sys
+
+import requests
 
 import yaml
 
@@ -9,6 +15,52 @@ sys.path.insert(0, '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl')
 from gov_price_etl.collectors import ( get_es_client, get_s3_client, ensure_bucket,
     upload_to_minio, minio_object_url, fetch_html, download_file,
 )
+
+PERIOD_KEYWORDS = ['主要工程建设材料信息价', '部分工程建设材料指导价格']
+
+
+def is_price_entry(title: str) -> bool:
+    """判断是否为价目相关通知（参考 sync.py 中 _is_price_entry 抽出）"""
+    return any(kw in (title or '') for kw in PERIOD_KEYWORDS)
+
+
+def quarter_period_to_dates(period: str):
+    """威海季度 period → (period_start, period_end, period_days)
+
+    支持格式：
+      '2026.1-3月'    → ('2026-01-01', '2026-03-31', 90)
+      '2026.4-6月'    → ('2026-04-01', '2026-06-30', 91)
+      '2026.7-9月'    → ('2026-07-01', '2026-09-30', 92)
+      '2026.10-12月'  → ('2026-10-01', '2026-12-31', 92)
+      '2026.5月'      → ('2026-05-01', '2026-05-31', 31)  # 单月也支持（2025 之前可能用）
+
+    解析失败返回 (None, None, None)。
+    """
+    if not period:
+        return None, None, None
+    # 跨月区间 YYYY.M1-M2月
+    m = re.match(r'(\d{4})\.(\d{1,2})-(\d{1,2})月$', period)
+    if m:
+        year, m1, m2 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            last_day = calendar.monthrange(year, m2)[1]
+        except Exception:
+            return None, None, None
+        start = date(year, m1, 1)
+        end = date(year, m2, last_day)
+        return start.isoformat(), end.isoformat(), (end - start).days + 1
+    # 单月 YYYY.M月
+    m = re.match(r'(\d{4})\.(\d{1,2})月$', period)
+    if m:
+        year, m1 = int(m.group(1)), int(m.group(2))
+        try:
+            last_day = calendar.monthrange(year, m1)[1]
+        except Exception:
+            return None, None, None
+        start = date(year, m1, 1)
+        end = date(year, m1, last_day)
+        return start.isoformat(), end.isoformat(), (end - start).days + 1
+    return None, None, None
 
 def load_config():
     """加载 skill 根目录的 config.yml"""

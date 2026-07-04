@@ -41,7 +41,7 @@ def main():
     print('\n=== 源站（dataproxy.jsp 第 1 页）===')
     try:
         xml = fetch_list_page(cfg, 1)
-        from sync import parse_list_xml
+        from weihai_collector import parse_list_xml
         items = parse_list_xml(xml)
         print(f'  OK  {len(items)} 条记录')
         if items:

@@ -1,19 +1,23 @@
-"""预览模式：不写入 ES / minio，仅打印将处理的内容"""
+"""预览模式：不写入 ES / minio，仅打印将处理的内容
+
+v1.0 (2026-07-04)：函数从老 sync.py 迁到 weihai_collector.py，本文件相应更新。
+"""
 import argparse
 import os
 import sys
 import tempfile
-from datetime import datetime
 from urllib.parse import urljoin
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from sync import (
-    fetch_all_periods, _is_price_entry,
-    parse_detail_page, parse_pdf_tables, extract_period_from_title,
+from weihai_collector import (
+    fetch_all_periods,
+    parse_detail_page,
+    parse_pdf_tables,
+    extract_period_from_title,
 )
-from utils import load_config, fetch_html, download_file
+from utils import load_config, is_price_entry, fetch_html, download_file
 
 
 def main():
@@ -30,7 +34,7 @@ def main():
     if args.year is None:
         args.year = cfg.get('sync', {}).get('default_year', 0) or 0
 
-    items = [it for it in items if _is_price_entry(it['title'])]
+    items = [it for it in items if is_price_entry(it['title'])]
     if args.period:
         items = [it for it in items if args.period in it['title']]
     if args.year:
