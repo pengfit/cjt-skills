@@ -6,6 +6,10 @@ dwd_index: dwd_xinjiang_price
 dws_index: dws_xinjiang_price
 progress_index: ods_material_xinjiang_price_sync_progress
 progress_mode: county
+# county 模式主字段：新疆进度文档写入的是 area_name（如「阿克苏」），不是 area
+county_field: area_name
+# 进度文档无 run_id/period_start 等运行级字段，按 created_at desc 取最新
+group_by: latest
 expand_label: "▾ 地区详情"
 config_path: config.yml
 cities:
