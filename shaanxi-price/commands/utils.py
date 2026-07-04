@@ -1,5 +1,6 @@
 """陕西省工程造价材料信息采集 - 工具函数"""
 import os
+import re
 import sys
 
 import yaml

@@ -48,17 +48,47 @@ def _doc_id(areaid, period, sheet_name, breed, spec, unit):
     return hashlib.md5(raw.encode('utf-8')).hexdigest()
 
 
+def _period_dates(period: str):
+    """从 period 名称（'2026-04-01'）推导 period_start / period_end / period_days。
+
+    与重庆 / 四川 同步逻辑一致。v0.8 (2026-07-04) 统一补充。
+    """
+    import calendar as _cal
+    if not period or len(period) < 10:
+        return period, period, 0
+    try:
+        y, m, _ = period.split("-")
+        yi, mi = int(y), int(m)
+        last_day = _cal.monthrange(yi, mi)[1]
+    except Exception:
+        return period, period, 0
+    period_end_date = f"{period[:8]}{last_day:02d}"
+    return period, period_end_date, last_day
+
+
 def bulk_index(es, index, docs):
     if not docs:
         return 0, 0
     body = ''
     for d in docs:
         _id = _doc_id(d['_areaid'], d['_period'], d['_sheet'], d['breed'], d['spec'], d['unit'])
+        # v0.8 (2026-07-04) 修复：ES mapping 是 dynamic:strict，写入 _areaid/_period/_sheet 会
+        # 被拒绝（"_ 开头" 未声明）。这些字段只用于生成 _id，运行时 pop 掉。
+        d.pop('_areaid', None)
+        d.pop('_period', None)
+        d.pop('_sheet', None)
         body += json.dumps({'index': {'_index': index, '_id': _id}}, ensure_ascii=False) + '\n'
         body += json.dumps(d, ensure_ascii=False) + '\n'
     resp = es.bulk(body=body, refresh=False)
     if resp.get('errors'):
         errors = sum(1 for it in resp['items'] if 'error' in it.get('index', {}))
+        # v0.8.1 (2026-07-04)：打印首次错误详情供排查
+        if errors:
+            for it in resp['items']:
+                err = it.get('index', {}).get('error')
+                if err:
+                    print(f'    [bulk error] {err}')
+                    break
         return len(docs) - errors, errors
     return len(docs), 0
 
@@ -125,6 +155,7 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
                 # 4. 构造 ES 文档
                 # 注意:ES create_time mapping 是 'yyyy-MM-dd HH:mm:ss',不能用 ISO 'T'
                 now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                period_start, period_end, period_days = _period_dates(period)
                 docs = []
                 for r in rows:
                     # 拆分 breed 和 spec
@@ -143,6 +174,9 @@ def sync_one_policy(es, s3, cfg, area, policy, year, minio_prefix, dry_run=False
                         'tax_price': round(r['tax_price'], 2) if r['tax_price'] is not None else None,
                         'category': r['category'],
                         'period': period,
+                        'period_start': period_start,
+                        'period_end': period_end,
+                        'period_days': period_days,
                         'province': '新疆',
                         'city': area['city'],
                         'county': r['sheet_name'],
@@ -259,13 +293,16 @@ def sync_one_area(es, s3, cfg, area, year, progress, minio_prefix, dry_run=False
 
     # 写一条 area 级别的汇总进度（供 dashboard 的 county_details 用）
     # county_field 用 area_name（与 dashboard registry 推断一致）
+    #
+    # v0.8 (2026-07-04) 修复：
+    #   - doc_id 改为 f'area_{areaid}__{run_id}' 避免跨同步轮次覆盖
+    #   - 去掉 current_county（progress mapping 未声明，dynamic:strict 会拒绝）
     if not dry_run and targets:
         try:
             area_summary = {
                 'run_id': run_id,
                 'status': 'completed',  # dashboard 期望 completed
                 'area': area['name'],
-                'current_county': area['name'],
                 'areaid': str(areaid),
                 'period': f'{year}',
                 'docs_written': total_written,
@@ -276,7 +313,7 @@ def sync_one_area(es, s3, cfg, area, year, progress, minio_prefix, dry_run=False
                 'update_date': last_updated[:10],
                 'error': '',
             }
-            es.index(index=cfg['es']['progress_index'], id=f'area_{areaid}_summary', body=area_summary)
+            es.index(index=cfg['es']['progress_index'], id=f'area_{areaid}__{run_id}', body=area_summary)
             print(f'  [progress] area summary 写入: {area["name"]} ({total_written} 条)')
         except Exception as e:
             print(f'  [progress] area summary 写入失败: {e}')

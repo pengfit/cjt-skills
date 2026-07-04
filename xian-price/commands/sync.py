@@ -1,4 +1,32 @@
-"""同步命令 - 抓取西安材料价格数据并写入 ES（支持增量+断点续传+执行日志）"""
+"""同步入口 - 默认走 xian_collector（v0.8 SyncRunner 抽象基类化, 2026-07-04）
+
+v0.8 改造：
+  - 默认走 XianCollector（commands/xian_collector.py，SyncRunner 化版本）
+  - --legacy 走原 v0.6 main 流程（逃生通道，保留全部 v0.6 行为）
+  - 字段扩展（道友要求）：doc 中新增 period_start / period_end / period_days
+  - 通用基础设施（SIGINT / 进度 / 汇总）由 SyncRunner 基类提供
+
+模块建构参考 chongqing v0.8 试点 + huhehaote v0.8。
+
+CLI 速览：
+  # 抓 2026 年所有月份（6 区县 × 5 月 = 30 个 unit）
+  python3 commands/sync.py --periods-year 2026
+
+  # 指定区县 / 月份
+  python3 commands/sync.py --period 2026-01 --counties "阎良区,周至县"
+
+  # 多周期
+  python3 commands/sync.py --periods "2026-01,2026-02,2026-03" --counties 阎良区
+
+  # 列出所有区县 × 年的可用周期
+  python3 commands/sync.py --list-periods
+  python3 commands/sync.py --list-periods --counties 阎良区 --list-year 2026
+
+  # 重置 / 限制 / 兼容
+  python3 commands/sync.py --periods-year 2026 --reset
+  python3 commands/sync.py --periods-year 2026 --max-units 1  # 验证用
+  python3 commands/sync.py --periods-year 2026 --legacy        # 走 v0.6 老流程
+"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -6,13 +34,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import warnings
 warnings.filterwarnings('ignore')
 
+import argparse
 import hashlib
 import json
 import time
 import signal
+from datetime import datetime
 
 import requests
-from datetime import datetime
 from commands.utils import (
     SiteSession, parse_page_date, parse_county, parse_total_records, parse_table_rows,
     get_last_update_date, get_last_update_date_by_county, spot_check_county, save_sync_time, ensure_index, load_config, COUNTY_CODES,
@@ -250,14 +279,10 @@ def _make_doc(r, county, update_date, period="", gkbh="", published_at=""):
     return doc
 
 
-def main():
-    start_time = time.time()
-
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
-
+def _parse_args_for_legacy():
+    """v0.6 老 main 流程用的 argparse（与新 CLI 兼容）。"""
     import argparse
-    parser = argparse.ArgumentParser(description='同步西安材料价格数据')
+    parser = argparse.ArgumentParser(description='同步西安材料价格数据（v0.6 兼容）')
     parser.add_argument('--config', type=str, default=None)
     parser.add_argument('--force', action='store_true')
     parser.add_argument('--max-pages', type=int, default=2000)
@@ -277,7 +302,18 @@ def main():
                         help='只列出可用周期，不抓取')
     parser.add_argument('--dry-run', action='store_true',
                         help='预览模式（不写入 ES）')
-    args = parser.parse_args()
+    return parser
+
+
+def cmd_legacy_sync(args=None):
+    """v0.6 老同步流程（保留全部旧行为，作为 --legacy 逃生通道）。"""
+    start_time = time.time()
+
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+
+    if args is None:
+        args = _parse_args_for_legacy().parse_args()
 
     script_dir = __file__.rsplit('/', 1)[0]
     config_path = args.config or f"{script_dir}/../config.yml"
@@ -693,6 +729,132 @@ def _write_docs(es_host, es_index, rows, county, update_date, dry_run, period=""
         return 0
 
     return 0
+
+
+# ─────────────────────────────────────────────────────────────
+# CLI 入口（v0.8 新版）
+# ─────────────────────────────────────────────────────────────
+
+def _build_periods(args) -> list[str]:
+    """根据 --period / --periods / --periods-year 拼装 periods 列表（YYYY-MM）。"""
+    out: list[str] = []
+    if getattr(args, 'period', None):
+        for p in args.period.split(','):
+            p_norm = normalize_period(p.strip())
+            if p_norm:
+                out.append(p_norm)
+    if getattr(args, 'periods', None):
+        for p in args.periods.split(','):
+            p_norm = normalize_period(p.strip())
+            if p_norm:
+                out.append(p_norm)
+    if getattr(args, 'periods_year', None):
+        y = args.periods_year
+        for m in range(1, 13):
+            out.append(f"{y}-{m:02d}")
+    # 去重 + 排序
+    return sorted(set(out))
+
+
+def _list_periods_cli(cfg_path: str, counties: list[str], year: int | None) -> None:
+    """打印所有 (county, year, period) 组合。"""
+    from commands.xian_collector import list_available_periods
+    data = list_available_periods(cfg_path, counties=counties, year=year)
+    print(f"\n[i] 可用周期列表：")
+    for county, year_map in data.items():
+        print(f"\n  === {county} ===")
+        for y in sorted(year_map.keys(), reverse=True):
+            print(f"    -- {y}年 --")
+            for p in year_map[y]:
+                print(f"      {p['period']:8s}  gkbh={p['gkbh']:14s}  "
+                      f"{p['period_start']}~{p['period_end']} ({p['period_days']}天)  "
+                      f"{p['name']}")
+
+
+def main():
+    """v0.8 CLI 入口：默认走 XianCollector（SyncRunner 化），--legacy 走 v0.6。"""
+    parser = argparse.ArgumentParser(
+        description='西安工程造价材料信息同步（v0.8 SyncRunner 化）',
+    )
+    parser.add_argument('--config', default=None, help='config.yml 路径（默认 skill 根目录）')
+    # Collector 路径参数（推荐）
+    parser.add_argument('--period', default='', help='单周期，如 2026-01')
+    parser.add_argument('--periods', default='', help='多周期，逗号分隔，如 "2026-01,2026-02"')
+    parser.add_argument('--periods-year', type=int, default=0,
+                        help='整年所有月份，如 2026')
+    parser.add_argument('--counties', default='', help='指定区县，逗号分隔，如 "阎良区,周至县"')
+    parser.add_argument('--list-periods', action='store_true', help='只列出可用周期，不抓取')
+    parser.add_argument('--list-year', type=int, default=0, help='--list-periods 时限定年份')
+    parser.add_argument('--reset', action='store_true', help='重置进度')
+    parser.add_argument('--max-units', type=int, default=None, help='只跑前 N 个 unit（验证用）')
+    parser.add_argument('--run-id', default='', help='指定 run_id（默认自动生成）')
+    parser.add_argument('--legacy', action='store_true',
+                        help='v0.6 兼容：走原 main 流程。默认走 Collector。')
+    parser.add_argument('--no-progress', action='store_true', help='不写 ES progress 索引')
+
+    args = parser.parse_args()
+
+    cfg_path = args.config or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'config.yml',
+    )
+
+    # ── --legacy：走 v0.6 老 main 流程 ──
+    if args.legacy:
+        print('[v0.6 兼容路径] cmd_legacy_sync 启动')
+        legacy_args = _parse_args_for_legacy().parse_args()
+        # 同步新 CLI 的参数到 legacy（让两者行为一致）
+        if args.counties:
+            legacy_args.counties = args.counties
+        if args.period:
+            legacy_args.period = args.period
+        if args.periods:
+            legacy_args.period = args.periods
+        if args.periods_year:
+            legacy_args.periods_year = args.periods_year
+        if args.reset:
+            legacy_args.reset = True
+        cmd_legacy_sync(legacy_args)
+        return
+
+    # ── 默认路径：XianCollector（v0.8 SyncRunner 抽象基类） ──
+    from commands.xian_collector import make_collector
+
+    # --list-periods
+    if args.list_periods:
+        counties = [c.strip() for c in args.counties.split(',')] if args.counties else None
+        _list_periods_cli(cfg_path, counties=counties, year=args.list_year or None)
+        return
+
+    # 没有指定任何 period → 默认 2026 年（道友要求范围）
+    periods = _build_periods(args)
+    if not periods:
+        periods = [f"2026-{m:02d}" for m in range(1, 13)]
+        print(f"[i] 未指定 period，默认 2026 年（{len(periods)} 个月份）")
+
+    # 区县过滤
+    counties: list[str] = []
+    if args.counties:
+        counties = [c.strip() for c in args.counties.split(',') if c.strip()]
+    # counties 为空 → 走默认从 config 读（在 make_collector 内部处理）
+
+    run_id = args.run_id or f"xian_v08_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print(f'[Collector 路径 v0.8] XianCollector 启动')
+    print(f'  run_id      = {run_id}')
+    print(f'  periods     = {periods}')
+    print(f'  counties    = {counties or "<全部 6 区县>"}')
+    print(f'  reset       = {args.reset}')
+    print(f'  max_units   = {args.max_units}')
+
+    collector = make_collector(
+        cfg_path=cfg_path,
+        run_id=run_id,
+        counties=counties or None,
+        periods=periods,
+        skip_progress=args.no_progress,
+    )
+    result = collector.run(reset=args.reset, max_units=args.max_units)
+    print(f'\n[Collector 路径 v0.8] 完成: {result}')
 
 
 if __name__ == '__main__':

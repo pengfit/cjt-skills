@@ -3,6 +3,7 @@ import os
 import sys
 
 import yaml
+import requests
 
 # v0.7 (2026-07-02) P1 抽取：工具函数委托到 gov_price_etl.collectors
 sys.path.insert(0, '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl')
@@ -70,7 +71,9 @@ def http_get(url, headers=None, timeout=30):
 
 def extract_period(title, target_year):
     """从政策标题解析 period 与 year，例如 '伊犁州2026年4月份建设工程综合价格信息' → ('2026-04-01', 2026)"""
-    m = YEAR_RE.search(title or '')
+    import re as _re
+    _YEAR_RE = _re.compile(r'(\d{4})\s*年\s*(\d{1,2})\s*月')
+    m = _YEAR_RE.search(title or '')
     if not m:
         return '', 0
     y, mo = int(m.group(1)), int(m.group(2))

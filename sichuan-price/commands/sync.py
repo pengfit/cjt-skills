@@ -37,6 +37,25 @@ def _doc_id_key(breed, spec, period, price, tax_price, city, county):
     return hashlib.md5(raw.encode('utf-8')).hexdigest()
 
 
+def _period_dates(period: str):
+    """从 period 名称（"2026年03月"）推导 period_start / period_end / period_days。
+    缺失年份时兜底为 2026（与重庆 chongqing-write_es.py 逻辑一致）。"""
+    import calendar as _cal
+    period_date = f"{period.replace('年', '-').replace('月', '-01')}"
+    if len(period_date) > 10:
+        period_date = period_date[:10]
+    if len(period_date) < 10:
+        period_date = f"2026-{period_date[5:]}"
+    try:
+        y, m, _ = period_date.split("-")
+        yi, mi = int(y), int(m)
+        last_day = _cal.monthrange(yi, mi)[1]
+    except Exception:
+        last_day = 28
+    period_end_date = f"{period_date[:8]}{last_day:02d}"
+    return period_date, period_end_date, last_day
+
+
 def _make_doc(row, city, county, period, update_date):
     price = row.get('price', 0.0)
     tax_price = round(price * 1.1, 2) if row.get('is_tax') == '不含税' else price
@@ -45,6 +64,7 @@ def _make_doc(row, city, county, period, update_date):
         period, str(price), str(tax_price),
         city, county
     )
+    period_start, period_end, period_days = _period_dates(period)
     return {
         '_id': doc_id,
         'breed': row.get('breed', ''),
@@ -54,6 +74,9 @@ def _make_doc(row, city, county, period, update_date):
         'tax_price': tax_price,
         'is_tax': row.get('is_tax', ''),
         'period': period,
+        'period_start': period_start,
+        'period_end': period_end,
+        'period_days': period_days,
         'province': '四川',
         'city': city,
         'county': county,
@@ -195,10 +218,19 @@ class ProgressLogger:
         self._upsert()
 
     def _upsert(self):
-        """写入当前地区的进度（每个地区一条独立记录）"""
+        """写入当前地区的进度（每个 (run_id, area, period) 一条独立记录）
+
+        v0.7 (2026-07-04)：doc_id 拼接 period，避免多周期跑时 doc 互相覆盖；
+        area 字段为空时跳过写入（防止 stale 空 doc 出现）。
+        """
         try:
             doc = dict(self.state)
-            doc_id = f"{self.run_id}_{doc.get('area', 'unknown')}"
+            area = doc.get('area', '')
+            period = doc.get('period', '')
+            # 跳过 stale（area 为空的中间过渡状态）
+            if not area:
+                return
+            doc_id = f"{self.run_id}_{area}_{period}"
             requests.post(
                 f"{self.es_host}/{self.index}/_doc/{doc_id}",
                 json=doc, timeout=15, verify=False)
@@ -219,9 +251,20 @@ class ProgressLogger:
         self._upsert()
 
     def set_area_period(self, area, period):
-        # 上一地区状态写入（保持 completed/running 不变，仅切换 area）
-        self.state["area"] = area
-        self.state["period"] = period
+        """切换到新 (area, period)：先 reset 状态，避免上一地区状态继承。"""
+        self.state = {
+            "run_id": self.run_id,
+            "status": self.STATUS_RUNNING,
+            "area": area,
+            "period": period,
+            "current_page": 0,
+            "total_pages": 0,
+            "docs_written": 0,
+            "percent": 0.0,
+            "duration_sec": 0.0,
+            "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "error": "",
+        }
         self._upsert()
     
     def finish_area(self, page, total, docs):
@@ -260,57 +303,11 @@ class ProgressStore:
             json.dump({}, f)
 
 
-def main():
+def run_one_period(args, es_host, es_index, progress_index, period_name, period_guid, logger):
+    """跑单个周期：遍历 21 个地级市，每个地区抓完全部页。
+
+    返回该周期写入的文档数。"""
     global interrupted
-    parser = argparse.ArgumentParser(description='四川工程造价信息同步')
-    parser.add_argument('--reset', action='store_true', help='重置进度，重新开始')
-    parser.add_argument('--dry-run', action='store_true', help='预览模式，不写入 ES')
-    parser.add_argument('--force', action='store_true', help='强制全量同步')
-    parser.add_argument('--period', default='', help='指定周期（如 2026年03月），默认自动获取最新）')
-    parser.add_argument('--max-pages', type=int, default=2000, help='最大页数')
-    parser.add_argument('--no-check', action='store_true', help='跳过增量检测，直接同步')
-    args = parser.parse_args()
-
-    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config = load_config(os.path.join(script_dir, 'config.yml'))
-    es_host = config.get('es', {}).get('host', 'http://localhost:59200')
-    es_index = config.get('es', {}).get('index', 'ods_material_sichuan_price')
-    progress_index = config.get('es', {}).get('progress_index', 'ods_material_sichuan_price_sync_progress')
-
-    signal.signal(signal.SIGINT, _signal_handler)
-
-    if not args.dry_run:
-        ensure_index(es_host, es_index)
-
-    # 解析目标周期
-    if args.period:
-        periods = get_all_periods()
-        period_map = {p['PeriodName']: p['Guid'] for p in periods}
-        period_guid = period_map.get(args.period, '')
-        if not period_guid:
-            print(f"[!] 未找到周期 '{args.period}'，自动获取最新周期")
-            period_name, period_guid = get_latest_period()
-        else:
-            period_name = args.period
-    else:
-        period_name, period_guid = get_latest_period()
-
-    print(f"[i] 目标周期: {period_name} (Guid={period_guid})")
-
-    # 增量检测（当 args.no_check 为 False 时）
-    if not args.no_check:
-        cfg = load_config(CONFIG_PATH)
-        last_period = cfg.get('sync', {}).get('last_period', '') or ''
-        if last_period == period_name and not args.force:
-            print(f"[—] 上次已同步至 {period_name}，无新数据。如需强制同步，加 --force")
-            print(f"    检查新周期请运行: ./run.sh check")
-            return
-        elif last_period and last_period > period_name:
-            print(f"[!] config 中记录的周期 {last_period} 晚于目标周期 {period_name}")
-            return
-        else:
-            print(f"[i] 增量检测通过: {last_period or '(首次)'} → {period_name}")
-
     progress = ProgressStore()
     if args.reset:
         print("[i] 重置进度...")
@@ -318,10 +315,9 @@ def main():
 
     saved_area, saved_period, saved_page = progress.get()
 
-    logger = ProgressLogger(es_host, progress_index)
     session = SiteSession()
     start_time = time.time()
-    total_docs = 0
+    period_docs = 0
 
     # 跳过的已完成地区（用于断点续传）
     skip_areas = set()
@@ -355,7 +351,7 @@ def main():
                 print(f"\n  [!] 页 {page} 中断，已保存进度")
                 logger.set_status(ProgressLogger.STATUS_INTERRUPTED)
                 progress.save(area_code, period_name, page)
-                return
+                return period_docs
 
             html, _, period_str = session.fetch(area_code, period_guid, page)
             if not html:
@@ -367,12 +363,12 @@ def main():
             written = _write_docs(es_host, es_index, docs, args.dry_run)
             _print_page(page, total_pages, written, args.dry_run)
             page_docs += written
-            total_docs += written
+            period_docs += written
 
             if not args.dry_run:
                 progress.save(area_code, period_name, page)
                 elapsed = time.time() - start_time
-                logger.page_progress(page, total_pages, total_docs, elapsed)
+                logger.page_progress(page, total_pages, period_docs, elapsed)
 
             time.sleep(0.8)
 
@@ -381,21 +377,134 @@ def main():
         logger.finish_area(total_pages, total_pages, page_docs)
         print(f"\n  ✓ {area_name} 完成，共 {page_docs} 条")
 
+    return period_docs
+
+
+def main():
+    global interrupted
+    parser = argparse.ArgumentParser(description='四川工程造价信息同步')
+    parser.add_argument('--reset', action='store_true', help='重置进度，重新开始')
+    parser.add_argument('--dry-run', action='store_true', help='预览模式，不写入 ES')
+    parser.add_argument('--force', action='store_true', help='强制全量同步')
+    parser.add_argument('--period', default='', help='指定周期（如 2026年03月），默认自动获取最新）')
+    parser.add_argument('--periods', default='', help='批量周期（逗号分隔，如 "2026年01月,2026年02月"）')
+    parser.add_argument('--year', default='', help='按年份批量抓取（如 2026 → 该年所有 State=1 周期）')
+    parser.add_argument('--max-pages', type=int, default=2000, help='最大页数')
+    parser.add_argument('--no-check', action='store_true', help='跳过增量检测，直接同步')
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config = load_config(os.path.join(script_dir, 'config.yml'))
+    es_host = config.get('es', {}).get('host', 'http://localhost:59200')
+    es_index = config.get('es', {}).get('index', 'ods_material_sichuan_price')
+    progress_index = config.get('es', {}).get('progress_index', 'ods_material_sichuan_price_sync_progress')
+
+    signal.signal(signal.SIGINT, _signal_handler)
+
+    if not args.dry_run:
+        ensure_index(es_host, es_index)
+
+    # 解析目标周期列表（参考重庆 sync.py 多周期结构）
+    all_periods_meta = get_all_periods()
+    period_map = {p['PeriodName']: p['Guid'] for p in all_periods_meta}
+
+    target_periods = []  # [(period_name, period_guid)]
+
+    if args.periods:
+        for pname in [p.strip() for p in args.periods.split(',') if p.strip()]:
+            guid = period_map.get(pname, '')
+            if not guid:
+                print(f"[!] 未找到周期 '{pname}'，跳过")
+                continue
+            target_periods.append((pname, guid))
+    elif args.period:
+        guid = period_map.get(args.period, '')
+        if not guid:
+            print(f"[!] 未找到周期 '{args.period}'，回退到最新周期")
+            pname, guid = get_latest_period()
+            target_periods.append((pname, guid))
+        else:
+            target_periods.append((args.period, guid))
+    elif args.year:
+        year_prefix = f"{args.year}年"
+        for p in all_periods_meta:
+            if p.get('State') == 1 and p['PeriodName'].startswith(year_prefix):
+                target_periods.append((p['PeriodName'], p['Guid']))
+        if not target_periods:
+            print(f"[!] 未找到 {args.year} 年的可用周期，回退到最新周期")
+            pname, guid = get_latest_period()
+            target_periods.append((pname, guid))
+    else:
+        pname, guid = get_latest_period()
+        target_periods.append((pname, guid))
+
+    # 按 PeriodName 升序（"2026年01月" < "2026年02月"，字符串排序即可）
+    target_periods.sort(key=lambda x: x[0])
+
+    print(f"[i] 目标周期数: {len(target_periods)}")
+    for pn, _ in target_periods:
+        print(f"    - {pn}")
+
+    # 增量检测（多周期：仅检查首个目标周期）
+    first_target = target_periods[0][0] if target_periods else ''
+    if not args.no_check:
+        cfg = load_config(CONFIG_PATH)
+        last_period = cfg.get('sync', {}).get('last_period', '') or ''
+        if last_period == first_target and not args.force:
+            print(f"[—] 上次已同步至 {last_period}，无新数据。如需强制同步，加 --force")
+            print(f"    检查新周期请运行: ./run.sh check")
+            return
+        elif last_period and first_target and last_period > first_target:
+            print(f"[!] config 中记录的周期 {last_period} 晚于目标周期 {first_target}")
+            return
+        else:
+            print(f"[i] 增量检测通过: {last_period or '(首次)'} → {first_target}")
+
+    logger = ProgressLogger(es_host, progress_index)
+    grand_start = time.time()
+    grand_total = 0
+    summary = []  # [(period_name, docs)]
+
+    for idx, (period_name, period_guid) in enumerate(target_periods, 1):
+        if interrupted:
+            print(f"\n[!] 检测到中断，停止周期循环（已完成 {idx-1}/{len(target_periods)}）")
+            break
+        print(f"\n{'='*60}")
+        print(f"[#{idx}/{len(target_periods)}] 周期: {period_name}")
+        print(f"{'='*60}")
+
+        # 多周期时，--reset 只对第一个周期生效，避免清掉前一周期的进度
+        prev_reset = args.reset
+        if idx > 1:
+            args.reset = False
+
+        period_docs = run_one_period(args, es_host, es_index, progress_index,
+                                     period_name, period_guid, logger)
+        grand_total += period_docs
+        summary.append((period_name, period_docs))
+        print(f"\n  ▶ 周期 {period_name} 完成，写入 {period_docs} 条")
+
+        args.reset = prev_reset  # 恢复原值（虽然不影响后续，但保持干净）
+
     if not interrupted:
         logger.set_status(ProgressLogger.STATUS_COMPLETED)
-        elapsed = time.time() - start_time
-        print(f"\n\n[✓] 全部完成，共写入 {total_docs} 条文档")
-        print(f"[i] 耗时: {elapsed:.1f}s")
+        elapsed = time.time() - grand_start
+        print(f"\n\n[✓] 全部完成，共写入 {grand_total} 条文档")
+        print(f"[i] 周期汇总:")
+        for pn, dc in summary:
+            print(f"    {pn}: {dc} 条")
+        print(f"[i] 总耗时: {elapsed:.1f}s")
 
-        # 更新 config.yml 中的 last_period
-        import yaml
-        cfg_path = CONFIG_PATH
-        with open(cfg_path) as f:
-            cfg = yaml.safe_load(f)
-        cfg.setdefault('sync', {})['last_period'] = period_name
-        with open(cfg_path, 'w') as f:
-            yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
-        print(f"[i] 已更新 last_period: {period_name}")
+        # 更新 config.yml 中的 last_period = 最后一个目标周期
+        if target_periods:
+            last_target = target_periods[-1][0]
+            import yaml
+            with open(CONFIG_PATH) as f:
+                cfg = yaml.safe_load(f)
+            cfg.setdefault('sync', {})['last_period'] = last_target
+            with open(CONFIG_PATH, 'w') as f:
+                yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
+            print(f"[i] 已更新 last_period: {last_target}")
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ province: 四川
 ods_index: ods_material_sichuan_price
 dwd_index: dwd_sichuan_price
 dws_index: dws_sichuan_price
-progress_index: material_sichuan_price_sync_progress
+progress_index: ods_material_sichuan_price_sync_progress
 progress_mode: catalogue
 # catalogue 模式主字段：sichuan 用 area（地市）
 catalogue_field: area

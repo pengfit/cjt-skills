@@ -656,10 +656,104 @@ def _parse_type_D(text, counties):
     return rows
 
 
+def _parse_type_H(text):
+    """H 布局: 顶材料清单 + 底除税/含税 2 列价格表（汉中市本级价格，无 county 分布）。
+
+    结构：
+      [可选 category 行]  '01 黑色及有色金属'
+      [material 行]       '010101303 热轧光圆钢筋（高线） HPB300  Φ6~8 t'
+                          （被 pypdf 拆成多行：code 一行，后续字段各占一行）
+      ...
+      [price 表头]        '编   码 名      称 规格型号 单位 除税价格（元）   含税价格（元）'
+      [price 行]          '3344.00      3778.72'
+
+    材料清单条目数 == 价格表条目数（按出现顺序一一对应）。
+    """
+    rows = []
+    raw_lines = [l.strip() for l in text.split('\n') if l.strip()]
+
+    # 1. 找价格表头（编码 + 名称 + ... + 除税价格 + 含税价格）
+    header_idx = None
+    for idx, line in enumerate(raw_lines):
+        has_no_tax = ('除税价格' in line) or ('除税价' in line)
+        has_tax = ('含税价格' in line) or ('含税价' in line)
+        if has_no_tax and has_tax:
+            header_idx = idx
+            break
+    if header_idx is None:
+        return rows
+
+    # 2. 抽材料清单（header 之前），逐 code 收集
+    materials = []
+    i = 0
+    cur_category = ''
+    while i < header_idx:
+        line = raw_lines[i]
+        cat = _category_line(line)
+        if cat:
+            cur_category = cat
+            i += 1
+            continue
+        m = re.match(r'^(\d{6,9})\s*(.*)', line)
+        if m:
+            code = m.group(1)
+            rest = m.group(2).strip()
+            j = i + 1
+            collected = rest
+            while j < header_idx:
+                nxt = raw_lines[j]
+                if re.match(r'^\d{6,9}', nxt):
+                    break
+                if _category_line(nxt):
+                    break
+                collected = (collected + ' ' + nxt).strip() if collected else nxt
+                j += 1
+            materials.append((code, collected, cur_category))
+            i = j
+        else:
+            i += 1
+
+    # 3. 抽价格（header 之后）
+    prices = []
+    for k in range(header_idx + 1, len(raw_lines)):
+        line = raw_lines[k]
+        if '价格信息' in line or '材料信息价' in line:
+            continue
+        if '以下税率' in line or '以下材料税率' in line:
+            continue
+        if re.match(r'^·\d+·$', line):
+            continue
+        if '除税价格' in line or '含税价格' in line:
+            continue
+        nums = re.findall(r'\d+\.\d+', line)
+        if len(nums) >= 1:
+            no_tax = float(nums[0])
+            tax_p = float(nums[1]) if len(nums) >= 2 else None
+            prices.append((no_tax, tax_p))
+
+    # 4. 一一对应配对
+    n = min(len(materials), len(prices))
+    for k in range(n):
+        code, breed_spec_unit_text, cat = materials[k]
+        no_tax, tax_p = prices[k]
+        breed, spec, unit = _parse_breed_spec_unit_from_block(breed_spec_unit_text)
+        rows.append(MaterialRow(
+            code=code, breed=breed, spec=spec, unit=unit,
+            category=cat, county='',
+            price=no_tax, tax_price=tax_p,
+        ))
+    return rows
+
+
 def parse_hanzhong(text, page_obj=None):
-    """汉中《汉中建设工程造价信息》— 主要 F 布局，辅以 D 布局兜底。
-    
-    启发：若 county header 9-10 个县名连续 → F；否则若有 county + 仅除税价 → D。
+    """汉中《汉中建设工程造价信息》— F / B / H 三种布局合并。
+
+    启发：
+      - 若 9-10 个县名连续出现 → F 布局（county × 价格表，已有）
+      - 否则扫 B 布局（行内含 2 个价格）+ H 布局（清单+价格表），合并去重
+
+    修复 v1.1：原仅识别 page 2-4 的 F 布局，page 5-52（汉中市本级价格表）全部漏掉。
+    现按页并行解析 F/B/H，按 (code|breed|spec|unit|county) 去重。
     """
     if _is_skip_page(text):
         return []
@@ -668,13 +762,30 @@ def parse_hanzhong(text, page_obj=None):
 
     hz_counties_full = ['南郑', '城固', '洋县', '佛坪', '西乡', '镇巴', '留坝', '勉县', '略阳', '宁强']
     hz_hits = sum(1 for c in hz_counties_full if c in text)
+
+    # F 布局：仅在 county header 出现时识别
     if hz_hits >= 5:
         return _parse_type_F(text)
 
+    # 否则 B + H 兜底 + D 兑底
+    seen = set()
+    rows = []
+
+    def _add(rows_list):
+        for r in rows_list:
+            key = f'{r.code}|{r.breed}|{r.spec}|{r.unit}|{r.county}'
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(r)
+
+    _add(_parse_type_B(text))   # 行内含价格
+    _add(_parse_type_H(text))   # 清单 + 价格表
     counties = _extract_counties_from_text(text)
     if counties and '除税价' in text and '含税价' not in text:
-        return _parse_type_D(text, counties)
-    return []
+        _add(_parse_type_D(text, counties))
+
+    return rows
 
 
 # ─── 商洛 (G 布局: pdfplumber 两列布局) ──────────────────────────────────
