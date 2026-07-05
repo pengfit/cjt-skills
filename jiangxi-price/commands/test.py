@@ -7,7 +7,9 @@ def _resolve_etl_root():
       1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
       2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
          不依赖硬编码的 workspace 名 / 目录深度。
-      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+      3) 兜底扫描：~/.openclaw/workspace/*/skills/gov-price-etl,
+         不预设 workspace 名。
+      4) 仍找不到：抛错提示用户设环境变量。绝不默默返回错误路径。
     """
     import os
     from pathlib import Path
@@ -20,7 +22,17 @@ def _resolve_etl_root():
         if candidate.is_dir():
             return str(candidate)
         p = p.parent
-    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+    workspace_root = Path.home() / ".openclaw" / "workspace"
+    if workspace_root.is_dir():
+        for ws in workspace_root.iterdir():
+            candidate = ws / "skills" / "gov-price-etl"
+            if candidate.is_dir():
+                return str(candidate)
+    raise FileNotFoundError(
+        "找不到 gov-price-etl 项目根。"
+        "请设置环境变量 GOV_PRICE_ETL_ROOT 指向项目根，"
+        "或确认 ETL 已部署在 <workspace>/skills/gov-price-etl。"
+    )
 
 
 import sys, os
