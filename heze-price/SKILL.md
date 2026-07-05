@@ -1,131 +1,111 @@
 ---
-name: "heze-price"
-description: "菏泽工程造价材料价格采集：hzszjj.heze.gov.cn《工程造价信息》期刊，API 列表+HTML 抓 PDF，ods_material_heze_price。"
+name: heze-price
+description: "菏泽工程造价材料信息采集,从 `http://hzszjj.heze.gov.cn` 抓取数据,按期期刊跟踪,同步至 Elasticsearch。覆盖 1 个期数。"
 ---
 
-# heze-price
+# 菏泽 · 工程造价材料信息采集
 
-菏泽市住房和城乡建设局工程造价材料信息采集。从 `hzszjj.heze.gov.cn` 抓取《工程造价信息》期刊，PDF 解析为长表，按月周期增量同步至 ES，写入 `ods_material_heze_price`。
-
-> **v0.8 改造（2026-07-03）**：按重庆 v0.8 模式抽 SyncRunner 抽象基类化（heze_collector.py），CLI 默认走 Collector 路径，`--legacy` 走 v0.7。
-> doc / progress 新增 `period_start` / `period_end` / `period_days` 三个字段（业务期是单月自然月，按当月第 1 天 / 最后 1 天 / 总天数推算）。
+> 省份:山东 · 进度模式:`period` · 范围(1): 菏泽
 
 ## 数据流
 
 ```
-hzszjj.heze.gov.cn (列表 API)
-       ↓ POST /els-service/article/{page}/{size}
-列表 (每期: xxid, subject, fwdate) → 详情页 HTML
-       ↓ download
-详情页: /{dwid}/{xxid}.html  →  提取 <a class="media" href="/upload-service/.../WY{fileid}.pdf">
-       ↓ download + upload
-MinIO: gov-price-data/heze-price/{period}/source.pdf
-       ↓ pdfplumber.extract_tables
-长表 (材料 × N 个地市/规格价格)
-       ↓ bulk_index
+源站: http://hzszjj.heze.gov.cn
+   ↓ (commands/sync.py)
 ods_material_heze_price
+   ↓ (<skills>/gov-price-etl cli/etl.py --city heze)
+dwd_heze_price
+   ↓ (cli/sync_dws.py --city heze --mode quick)
+dws_heze_price
 ```
 
-## API 端点
-
-- **列表**：`POST http://hzszjj.heze.gov.cn/els-service/article/{page}/{size}`
-  - Body: `{"dw":["2c908088819842f701819a1a962f0005"], "catas":["1584708004996059136"], "fwzt":"3", "order":"fwdate", "type":[1]}`
-  - dwid: 站点标识（菏泽住建局 = 2c908088819842f701819a1a962f0005）
-  - catas: 栏目 ID（"材料价格" = 1584708004996059136）
-  - 响应: `data.contents[i].{xxid, subject, fwdate}`
-- **详情页**：`GET http://hzszjj.heze.gov.cn/{dwid}/{xxid}.html`
-  - 提取: `<a class="media" href="/upload-service/.../WY{fileid}.pdf">` 或 `<div class="pdf-box"><a ...>`
-  - PDF URL: `http://hzszjj.heze.gov.cn/upload-service/{dq}/{dwid}/WY{fileid}.pdf`
-- **PDF**：直接下载上面提取的 URL
-
-## 快速启动
+## 快速开始
 
 ```bash
-cd skills/heze-price
-
-# v0.8 默认走 HezeCollector（SyncRunner 抽象基类化）
-./run.sh sync --year 2026          # 同步 2026 年所有未入仓的期
-./run.sh sync --year 2026 --latest # 只同步最新一期
-./run.sh sync --period 2026.1期    # 指定单期
-./run.sh sync --reset --year 2026  # 重置本地进度 + 重新同步 2026 年
-
-# v0.7 兼容路径
-./run.sh sync --legacy --year 2026
-./run.sh sync --legacy --period 2026.1期 --dry-run
-
-# 其他命令
-./run.sh preview                  # 预览（不写入 ES、不上传 minio）
-./run.sh preview --period 2026.1  # 指定周期预览
-./run.sh status                   # 查看同步状态
-./run.sh check                    # 增量检测（页面月份 vs ES 最新）
-./run.sh test                     # ES + minio + 源站连通性
+cd <skills>/heze-price
+./run.sh preview          # 预览数据(不写 ES)
+./run.sh sync             # 增量同步(自动断点续传)
+./run.sh sync --force     # 强制全量同步
+./run.sh status           # 查看同步状态
+./run.sh check            # 增量检测
+./run.sh test             # 测试 ES / 源站连通性
 ```
 
-## 数据源
+## 命令清单
 
-- **API 基础**：`http://hzszjj.heze.gov.cn/els-service/article/{page}/{size}`
-- **栏目 ID**：`1584708004996059136`（工程造价信息/材料价格）
-- **subsite**：`2c908088819842f701819a1a962f0005`
-- **标题格式**：《工程造价信息》YYYY 年第 N 期
-- **发布日期**：列表 `fwdate` 字段
+| 命令 | 脚本 | 说明 |
+|------|------|------|
+| `preview` | `commands/preview.py` | 预览数据 |
+| `sync` | `commands/sync.py` | 同步到 ES（v0.8 默认走 HezeCollector，加 --legacy 走 v0.7） |
+| `status` | `commands/status.py` | 查看状态 |
+| `check` | `commands/check.py` | 增量检测（不写入） |
+| `sync` | `commands/sync.py` | 常用参数: |
+| `--year` | `commands/--year.py` | 2026          只入库指定年份（默认本年，0=不限制） |
+| `--period` | `commands/--period.py` | 2026.1期    指定单期 |
+| `--latest` | `commands/--latest.py` | 只同步最新一期 |
+| `--reset` | `commands/--reset.py` | 重置本地进度 |
+| `--legacy` | `commands/--legacy.py` | 走 v0.7 cmd_legacy_sync（逃生通道） |
+| `--dry-run` | `commands/--dry-run.py` | 预览不写入（仅 legacy 支持） |
+| `--max-units` | `commands/--max-units.py` | N        Collector 路径：只跑前 N 个工作单元（验证用） |
 
-## 数据字段
+## sync 关键参数
 
-| 字段 | 说明 |
-|------|------|
-| `breed` | 材料名称 |
-| `spec` | 规格型号 |
-| `unit` | 单位 |
-| `price` | 价格 |
-| `period` | 周期（`2026.1期`，首月标识） |
-| **`period_start`** | **业务期窗口起始日**（如 `2026-01-01`，v0.8 新增） |
-| **`period_end`** | **业务期窗口结束日**（如 `2026-01-31`，v0.8 新增） |
-| **`period_days`** | **业务期总天数**（如 `31`，v0.8 新增） |
-| `province` | 山东 |
-| `city` | 菏泽 |
-| `update_date` | 发布日期（`fwdate`） |
-| `create_time` | 入库时间 |
-| `source_pdf` | MinIO 对象 key |
+- `--period` — 指定周期（如 2026.1期）
+- `--year` — _无说明_
+- `--all` — 同步所有未入仓的期
+- `--reset` — 重置进度
+- `--dry-run` — 预览，不写入（仅 legacy 支持）
+- `--latest` — 只同步最新一期
+- `--run-id` — 指定 run_id（默认自动生成）
+- `--legacy` — v0.7 兼容：走原 main 流程。默认走 Collector（推荐）。
+- `--max-units` — Collector 路径：只跑前 N 个工作单元（验证用）
 
 ## ES 索引
 
 | 索引 | 说明 |
 |------|------|
-| `ods_material_heze_price` | 材料价格数据 |
-| `ods_material_heze_price_sync_progress` | 同步进度记录 |
+| `ods_material_heze_price` | 原始抓取数据(主数据) |
+| `ods_material_heze_price_sync_progress` | 同步进度(按 run_id 分组) |
+| `dwd_heze_price` | ETL 清洗层 |
+| `dws_heze_price` | 看板查询层 |
 
-## 幂等写入
+## 配置(config.yml)
 
-```
-_id = MD5(period + breed + spec + city)
+```yaml
+es:
+  host: http://localhost:59200
+  index: ods_material_heze_price
+  progress_index: ods_material_heze_price_sync_progress
+site:
+  base_url: http://hzszjj.heze.gov.cn
+  counties/tabs:
+  - 菏泽
+sync:
+  last_period: 
+  last_publish_date: 
 ```
 
 ## 项目结构
 
 ```
 heze-price/
-├── SKILL.md
-├── config.yml
 ├── run.sh
-├── skill.yml                    # dashboard registry（v0.8 新增）
-├── .heze_sync_progress.json
+├── config.yml
 └── commands/
-    ├── sync.py                  # v0.8 CLI 入口：默认走 Collector，--legacy 走 v0.7
-    ├── heze_collector.py        # v0.8 默认路径：HezeCollector(SyncRunner)
-    ├── preview.py               # 预览（不写入）
-    ├── status.py                # 进度查询
-    ├── check.py                 # 增量检测（页面月份 vs ES 最新）
-    └── utils.py                 # 配置加载 + 委托到 gov_price_etl.collectors
+    ├── check.py
+    ├── heze_collector.py
+    ├── preview.py
+    ├── status.py
+    ├── sync.py
+    ├── utils.py
 ```
 
 ## 依赖
 
 - Python 3
-- requests / beautifulsoup4 / pyyaml
-- pdfplumber
-- boto3 (MinIO S3 兼容)
-- elasticsearch
-- **gov-price-etl skill**（部署在 `~/.openclaw/workspace/skills/gov-price-etl`）—— 强依赖：
-  - `collectors.base.SyncRunner` / `LocalProgressStore`
-  - `mappings.build_ods_mapping` / `build_progress_mapping`（v0.8 走新 mapping）
-  - `collectors.fetch_html` / `download_file` / `upload_to_minio` / `get_es_client` / `get_s3_client`
+- requests / beautifulsoup4 / pyyaml / elasticsearch
+
+## 相关
+
+- <skills>/gov-price-dashboard — 看板(查 DWS 数据)
+- <skills>/gov-price-etl — ETL 公共层

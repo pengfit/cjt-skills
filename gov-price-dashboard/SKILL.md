@@ -290,18 +290,27 @@ GET /api/search?keyword=&province=&city=&county=&category=
 | `SKILLS_ROOT` | `~/.openclaw/workspace/skills` | skill.yml 扫描根目录 |
 | `CATEGORY_DB` | `../gov-price-etl/data/category_v3_rules.db` | v3 分类库 SQLite 路径 |
 
-## 支持城市（8 个）
+## 支持城市（17 个）
 
-| City | Province | progress_mode | 说明 |
-|------|----------|---------------|------|
-| 西安 | 陕西 | county | 6 区县 |
-| 四川 | 四川 | catalogue | 21 地市/自治州 |
-| 重庆 | 重庆 | county | 35 区县 |
-| 济南 | 山东 | catalogue | 41 分类目录 |
-| 日照 | 山东 | catalogue | 3 类别 |
-| 菏泽 | 山东 | period | 按期期刊 |
-| 河南 | 河南 | period | 18 地市，按期期刊 |
-| 青岛 | 山东 | period | 月度期刊 |
+| City | Province | progress_mode | 数据源类型 | 说明 |
+|------|----------|---------------|-----------|------|
+| 西安 | 陕西 | county | HTML 6 区县 | 按造价信息表月份 |
+| 四川 | 四川 | catalogue | ASP.NET 21 地市 | 月度 |
+| 重庆 | 重庆 | county | Browser 35 区县 + 3 source | 月份 + v4 区间价 |
+| 济南 | 山东 | catalogue | Playwright + REST API 41 目录 | 周期 |
+| 日照 | 山东 | catalogue | Playwright + REST 3 tab | 月份 |
+| 菏泽 | 山东 | period | API + HTML + PDF | 期刊 |
+| 河南 | 河南 | period | HTML 4 页 + PDF | 18 地市，期刊 |
+| 青岛 | 山东 | period | HTML + PDF | 月度期刊 |
+| 海南 | 海南 | period | HTML 10 页 + PDF | 月度期刊 |
+| 呼和浩特 | 内蒙古 | period | HTML + PDF | 双月刊 |
+| 湖南 | 湖南 | period | HTML 14 页 + PDF（2 类）| 期刊 |
+| 江西 | 江西 | period | HTML articleList JSON + PDF | 期刊 |
+| 宁夏 | 宁夏 | period | HTML 5 页 + PDF | 双月刊 |
+| 青海 | 青海 | period | HTML 4 页 + PDF | 双月合刊 |
+| 陕西 | 陕西 | period | HTML 5 页 + 7 种 PDF 格式 | 省本级 + 9 设区市 |
+| 威海 | 山东 | period | jpage dataproxy + PDF | 季度 |
+| 新疆 | 新疆 | county | HTML + xlsx 多 sheet | 16 地州 |
 
 ## ES 索引结构
 

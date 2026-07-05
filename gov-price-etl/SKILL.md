@@ -1,11 +1,11 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL（v0.4 重构，v3 分类（2026-06-18 起按 GB 章节重建））：ODS→DWD 二段式（先 DB 5 段式后 AI 攒批），DWD→DWS 三段式（attr / 本地规则库 / AI 串行），未命中走 Dify workflow AI。"
+description: "政府材料价格数据入仓 ETL（v0.6，2026-06-19）：17 个城市 ODS→DWD 三段式（DB 5 段式 + AI 攒批）+ DWD→DWS 三段式（attr / 本地规则库 / AI 串行），v3 GB 章节 4 层分类体系（8 L1 / 42 L2 / 145 L3），AI 调用走 Dify workflow。"
 ---
 
 # gov-price-etl
 
-政府材料价格数据入仓 ETL，**v0.4 重构后**：
+政府材料价格数据入仓 ETL，**v0.6（2026-06-19）**：
 - **ODS → DWD**：**二段式**（先 DB 5 段式后 AI 攒批）— 阶段 1 breed_l3_map 精确 → 阶段 2 Jaccard 模糊 → 阶段 3 L4 pattern → 阶段 4 unit 兜底 → 阶段 5 AI 攒批（classify_v3_batch，未命中时 Dify workflow）
 - **DWD → DWS**：**三段式**（attr / 本地规则库 / AI 串行）— 阶段 1 已有 attr → 阶段 2 走 breed_spec_rules.db → 阶段 3 Dify AI 攒批
 
@@ -407,24 +407,41 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 | rizhao | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` |
 | henan | `ods_material_henan_price` | `dwd_henan_price` | `dwd_henan_price` |
 | heze | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` |
+| qingdao | `ods_material_qingdao_price` | `dwd_qingdao_price` | `dws_qingdao_price` |
+| hainan | `ods_material_hainan_price` | `dwd_hainan_price` | `dws_hainan_price` |
+| huhehaote | `ods_material_huhehaote_price` | `dwd_huhehaote_price` | `dws_huhehaote_price` |
+| hunan | `ods_material_hunan_price` | `dwd_hunan_price` | `dws_hunan_price` |
+| jiangxi | `ods_material_jiangxi_price` | `dwd_jiangxi_price` | `dws_jiangxi_price` |
+| ningxia | `ods_material_ningxia_price` | `dwd_ningxia_price` | `dws_ningxia_price` |
+| qinghai | `ods_material_qinghai_price` | `dwd_qinghai_price` | `dws_qinghai_price` |
+| shaanxi | `ods_material_shaanxi_price` | `dwd_shaanxi_price` | `dws_shaanxi_price` |
+| weihai | `ods_material_weihai_price` | `dwd_weihai_price` | `dws_weihai_price` |
+| xinjiang | `ods_material_xinjiang_price` | `dwd_xinjiang_price` | `dws_xinjiang_price` |
 
 ---
 
-## v2 分类体系（4 层 / 64 节点）
+## v3 分类体系（4 层 GB 章节）
 
-**结构**：8 L1 专业大类 / 30 L2 分部工程 / 50 L3 分项工程 / 64 行 nodes（4 层：L1+L2+L3+L4 联合主键）。
+**结构**（按 GB 50854-2013 / GB/T 50856-2024 / GB 50857-2013 / GB 50858-2013 重建）：
 
-**8 大 L1 专业**：建筑工程 / 装饰装修 / 安装工程 / 市政工程 / 园林景观 / 水利工程 / 公路工程 / 其他。
+- **8 L1 专业大类**：建筑工程 / 装饰装修 / 安装工程 / 市政工程 / 园林景观 / 水利工程 / 公路工程 / 其他
+- **42 L2 分部工程**
+- **145 L3 分项工程**
+- 4 层联合主键：L1 + L2 + L3 + L4
 
-数据源：`data/category_v2.json`（4 层树定义）+ `data/std_codes.json`（GB 50500 / IFC / Uniclass 编码）+ `data/category_v2_rules.db`（SQLite 实例）。
+数据源：`data/breed_category_rules.db`（SQLite）+ `data/category_in_system.json`（体系映射）。
+
+v1 大类字典（28 类）+ v2 4 层 64 节点已于 2026-06 废止。
 
 ---
 
-## 重构历史（v0.1 → v0.2 → v0.3 → v0.4）
+## 重构历史（v0.1 → v0.6）
 
 | 版本 | 日期 | 重点 |
 |---|---|---|
 | **v0.1** | 2026-04 | 单文件 1107 行上帝模块 `etl.py` |
 | **v0.2** | 2026-05 | 拆分为 gov_price_etl 包（7 个模块，每个 < 250 行）；拍平 src/ 层级；DWS sync 三合一（quick/plain/ai） |
 | **v0.3** | 2026-06 初 | ODS→DWD 引入 v1 显式三段式（db_exact / db_fuzzy / ai），DWD→DWS 保持三段式（attr / local_db / ai） |
-| **v0.4** | 2026-06-17 | v1 大类字典废（28 类→v2 4 层 64 节点），分类重写为 5 段式（breed_l3_map 精确 / Jaccard 模糊 / L4 pattern / unit 兜底 / AI 攒批），DWD 走"先 DB 后 AI"两轮；2026-06-18 起 AI 切到 Dify workflow API |
+| **v0.4** | 2026-06-17 | v1 大类字典废，分类重写为 5 段式；DWD 走"先 DB 后 AI"两轮 |
+| **v0.5** | 2026-06-18 | AI 切到 Dify workflow API；prompts.yml 外部化；mappings 集中维护 |
+| **v0.6** | 2026-06-19 | v2 → v3 GB 章节 4 层体系重建；collectors 抽象基类 v0.8+ 提供 SyncRunner / SignalHandler / LocalProgressStore 供城市采集 skill 复用 |

@@ -1,173 +1,98 @@
-# rizhao-price · 日照工程造价材料信息采集
+# 日照 · 工程造价材料信息采集
 
-日照市住房和城乡建设局发布《日照市建设工程材料价格信息》，数据源：
-`http://58.59.43.227:81/dist/#/index/priceDissemination`（Vue + ElementUI 动态页面）。
+> 数据源:`http://58.59.43.227:81/EpointSDRZ`
+> 进度模式:`catalogue` · 范围(1): 日照市
+> ETL 索引:`ods_material_rizhao_price` → `dwd_rizhao_price` → `dws_rizhao_price`
 
-> 🆕 **v1.0（2026-07-03）模块建构参考重庆**（SyncRunner 抽象基类化）
-> + **必含字段** `period_start` / `period_end` / `period_days`
+日照工程造价材料信息采集,从 `http://58.59.43.227:81/EpointSDRZ` 抓取数据,按分类目录跟踪,同步至 Elasticsearch。覆盖 1 个分类。
 
-## 模块建构（参考重庆 v0.8 + 河南 v0.8）
+## 功能特性
 
-```
-旧 v0：sync.py 流式主程序（单文件 ~500 行）
-      ↓
-v1.0：RizhaoCollector(SyncRunner)
-      ├── 继承 ETL 公共基类（gov_price_etl.collectors.base.SyncRunner）
-      ├── 重写 4 个钩子（_list_work_units / _process_one / _on_unit_done / _compute_unit_key）
-      ├── CLI 默认 Collector；--legacy 兼容 v0
-      └── 文档字段含 period_start / period_end / period_days
-```
-
-## 数据范围
-
-| 类别（tab_type）| 名称 | 2026-05 数量 |
-|---|---|---|
-| 1 | 建设工程材料 | 1084 |
-| 2 | 园林绿化苗木 | 2 |
-| 3 | 区县建设工程材料 | 60 |
-| **合计** | | **1146** |
-
-- 源站只暴露当前期（`'2026-05'`），历史期不支持回溯
-- 默认同步策略：3 tab × 最新期 = 3 units
-
-## 数据字段（v1.0 完整列表）
-
-```json
-{
-  "breed": "普线",
-  "spec": "Φ6.5 Q235",
-  "unit": "吨",
-  "price": 3863.12,
-  "price_min": 3863.12,
-  "price_max": 3863.12,
-  "price_range": "3863.12",
-  "is_range": false,
-
-  "period": "2026-05",
-  "period_start": "2026-05-01",
-  "period_end": "2026-05-31",
-  "period_days": 31,
-
-  "update_date": "2026-05-01",
-  "create_time": "2026-07-03 17:12:49",
-
-  "province": "山东",
-  "city": "日照市",
-  "county": "日照市",
-  "tab_type": "1",
-  "tab_name": "建设工程材料",
-  "source_index": "ods_material_rizhao_price",
-  "remark": ""
-}
-```
-
-**v1.0 必含字段**（道友要求）：
-- `period_start`：周期起始日（`'2026-05-01'`）
-- `period_end`：周期结束日（`'2026-05-31'`）
-- `period_days`：周期天数（`'31'`，5月有31天；2月平年28/闰年29；`calendar.monthrange` 推算）
+- **进度模式**:`catalogue` — 按分类目录跟踪
+- **覆盖范围**:1 个 区县/分类/期数
+- **断点续传**:进度保存本地 + ES,中断自动恢复
+- **增量检测**:基于 `update_date` / `period` 自动判断
+- **幂等写入**:基于 MD5(_id),重复同步不重复入库
+- **可降级**:支持 `--legacy` 走老流程(逃生通道)
 
 ## 快速开始
 
 ```bash
-cd ~/.openclaw/workspace/skills/rizhao-price
-
-# 默认同步（Collector 路径）
-./run.sh sync
-
-# 只抓某个 tab
-./run.sh sync --tabs 1
-
-# 抓多 tab
-./run.sh sync --tabs 1,3
-
-# 重置进度重新开始
-./run.sh sync --reset
-
-# 验证模式：只跑前 1 个 unit
-./run.sh sync --max-units 1
-
-# v0 兼容路径（逃生通道）
-./run.sh sync --legacy
-
-# 查看状态
-./run.sh status
+cd <skills>/rizhao-price
+./run.sh preview          # 预览(默认 1 页)
+./run.sh sync             # 增量同步(自动断点续传)
+./run.sh sync --force     # 强制全量
+./run.sh status           # 查看同步状态
 ```
 
-## CLI 高级参数
+## 命令清单
 
-```bash
-python3 commands/sync.py --help
-#  --tabs      tab 列表（逗号分隔），如 '1,2,3' 或 '1'
-#  --period    指定周期（如 '2026-05'）。默认从源站自动探测
-#  --reset     重置本地进度，重新开始
-#  --max-units 只跑前 N 个工作单元（验证用）
-#  --legacy    走 v0 流式旧路径（逃生通道）
-#  --max-pages 最大页数（默认 2000）
-#  --run-id    指定 run_id（默认自动生成）
+| 命令 | 脚本 | 说明 |
+|------|------|------|
+| `sync` | `commands/sync.py` | 同步到 ES（默认 Collector 路径，推荐） |
+| `sync` | `commands/sync.py` | --periods 2026-01..2026-05  多期范围语法：5 期 × 3 tab = 15 units |
+| `sync` | `commands/sync.py` | --periods 2026-01,2026-02   多期列表语法 |
+| `sync` | `commands/sync.py` | --tabs 1                 只抓建设工程材料（1=建设, 2=苗木, 3=区县） |
+| `sync` | `commands/sync.py` | --tabs 1,3               抓建设+区县，跳过苗木 |
+| `sync` | `commands/sync.py` | --reset                  重置本地进度，重新开始 |
+| `sync` | `commands/sync.py` | --max-units 1            验证模式：只跑前 1 个 unit |
+| `sync` | `commands/sync.py` | --legacy                 走 v0 流式旧路径（逃生通道） |
+| `preview` | `commands/preview.py` | 预览前 N 页数据（默认 2 页，兼容旧调用） |
+| `status` | `commands/status.py` | 查看同步状态 |
+| `check` | `commands/check.py` | 检查源站是否有新数据（兼容旧调用） |
+| `test` | `commands/test.py` | 测试 ES 和源站连接 |
+| `每个` | `commands/每个.py` | doc 必含 period_start / period_end / period_days（v1.0 新增） |
+| `period` | `commands/period.py` | 格式：'YYYY-MM'（如 '2026-05'）→ 推算 start/end/days |
+| `源站支持` | `commands/源站支持.py` | 2026-01 ~ 2026-05 历史期回溯 |
+| `5` | `commands/5.py` | 期 × 3 tab = 15 units，约 80 秒（1 次浏览器启动 + 15 unit API） |
+
+## sync 关键参数
+
+- `--tabs` — tab 列表（逗号分隔），如
+- `--period` — 指定单个周期（如
+- `--periods` — 多周期（v1.1）：逗号分隔
+- `--run-id` — 指定 run_id（默认自动生成）
+- `--max-pages` — 最大页数（默认 2000，v1.1 已无实际作用）
+- `--reset` — 重置本地进度，重新开始
+- `--max-units` — Collector 路径：只跑前 N 个工作单元（验证用）
+- `--legacy` — v0 兼容：走原流式同步（旧生产路径）。默认走 Collector
+- `--dry-run` — 预览模式（仅 legacy 路径支持）
+- `--force` — 强制全量同步（仅 legacy 路径支持）
+
+## 配置说明
+
+`config.yml` 主要字段:
+
+```yaml
+es:
+  host: http://localhost:59200        # Elasticsearch 地址
+  index: ods_material_rizhao_price      # ODS 索引
+  progress_index: ods_rizhao_price_sync_progress  # 同步进度索引
+
+site:
+  base_url: http://58.59.43.227:81/EpointSDRZ    # 源站地址
+  counties/tabs:
+  - 日照市
+
+sync:
+  last_period: 2026-05
+  progress_file: .rizhao_sync_progress.json
 ```
 
-## 项目结构
+## 数据流
 
-```
-rizhao-price/
-├── run.sh                       # CLI 入口
-├── config.yml                   # 配置文件
-├── package.json                 # npm 依赖（playwright）
-├── .rizhao_sync_progress.json   # 本地进度（自动生成）
-├── .bak_v0/                     # v0 备份（重构前）
-└── commands/
-    ├── sync.py                  # 同步入口（默认 Collector / --legacy）
-    ├── rizhao_collector.py      # v1.0 Collector（SyncRunner 化）★ 新增
-    ├── legacy_sync.py           # v0 兼容路径 ★ 新增
-    ├── fetch_data.js            # Playwright 浏览器抓取
-    ├── utils.py                 # 共用函数
-    ├── status.py                # v1.0 状态查看
-    ├── check.py                 # 增量检测
-    ├── test.py                  # ES 连接测试
-    └── preview.py               # 预览（兼容 v0）
-```
+源站 → `commands/sync.py` → `ods_material_rizhao_price` → ETL → `dwd_rizhao_price` → `dws_rizhao_price`
 
-## ES 索引
+ETL 公共层:<skills>/gov-price-etl
 
-| 索引 | 说明 |
-|------|------|
-| `ods_material_rizhao_price` | 材料价格数据（套用 `gov_ods` ETL 共享 mapping） |
-| `ods_rizhao_price_sync_progress` | 同步进度（每个 tab × period 一条） |
+## 常见问题
 
-## 依赖
+- **断点续传**:进度写入本地 `.sync_progress.json` + ES `ods_rizhao_price_sync_progress`,中断后 `./run.sh sync` 自动续传。
+- **幂等写入**:`_id` = MD5(breed + spec + unit + county + 月份 + 价格),重复同步不会产生重复数据。
+- **增量检测**:基于 `sync.last_update_date` / `sync.last_period`,网站未更新则跳过抓取。
 
-- **Python 3.10+** + `requests` `pyyaml`
-- **Node.js** + `playwright`（需提前 `npx playwright install chromium`）
-- **gov-price-etl skill**（`~/.openclaw/workspace/skills/gov-price-etl`）— 强依赖：
-  - `collectors.base.SyncRunner`
-  - `indexer.ensure_ods_index`
-  - `indexer.ensure_progress_index`
-  - `mappings.build_ods_mapping` / `build_progress_mapping`
-- **本地 ES**：`http://localhost:59200`
+## 相关
 
-## 故障排查
-
-| 问题 | 解决 |
-|------|------|
-| `fetch_data.js` 启动失败 | 检查 `package.json` 是否安装 playwright + chromium |
-| 进度文件残留导致重复抓 | `rm .rizhao_sync_progress.json` 或 `--reset` |
-| ES `dynamic=strict` 写入失败 | 用 `mappings.build_ods_mapping()` 重建 mapping；不可写未声明字段 |
-| 浏览器连接超时 | 检查 `CHROME_PATH` 是否有效 |
-
-## 变更日志
-
-### v1.0（2026-07-03）
-
-- **模块建构参考重庆 v0.8**：默认走 `RizhaoCollector`（继承 `SyncRunner` 抽象基类）
-  - 重写 4 个钩子：`_list_work_units` / `_process_one` / `_on_unit_done` / `_compute_unit_key`
-  - `--legacy` 保留 v0 流式路径作为逃生通道
-- **字段扩展**（道友要求）：每个 doc 必含 `period_start` / `period_end` / `period_days`
-  - `parse_period_window('2026-05')` → `{'period_start': '2026-05-01', 'period_end': '2026-05-31', 'period_days': 31}`
-- **mapping 标准化**：委托到 `gov_price_etl.indexer`，自动含 17 城合集字段
-- **CLI 扩展**：`--tabs` / `--period` / `--max-units` / `--legacy`
-- **status.py 重写**：按 tab × period 聚合展示，含 period 窗口字段
-
-### v0（2026-05-22）
-
-- 流式 Playwright 抓取（3 tab）
-- 单文件 `sync.py` 主程序
+- <skills>/gov-price-dashboard — 看板
+- <skills>/gov-price-etl — ETL 公共层
+- <skills>/gov-price-etl/SKILL.md — ETL 使用文档

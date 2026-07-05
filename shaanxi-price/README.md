@@ -1,34 +1,28 @@
----
-name: shaanxi-price
-description: "陕西工程造价材料信息采集,从 `https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html` 抓取数据,按期期刊跟踪,同步至 Elasticsearch。覆盖 11 个期数。"
----
-
 # 陕西 · 工程造价材料信息采集
 
-> 省份:陕西 · 进度模式:`period` · 范围(11): 陕西, 安康, 汉中, 咸阳, 铜川, 渭南, 延安, 榆林, 商洛, 宝鸡, 西安
+> 数据源:`https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html`
+> 进度模式:`period` · 范围(11): 陕西, 安康, 汉中, 咸阳, 铜川, 渭南, 延安, 榆林, 商洛, 宝鸡, 西安
+> ETL 索引:`ods_material_shaanxi_price` → `dwd_shaanxi_price` → `dws_shaanxi_price`
 
-## 数据流
+陕西工程造价材料信息采集,从 `https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html` 抓取数据,按期期刊跟踪,同步至 Elasticsearch。覆盖 11 个期数。
 
-```
-源站: https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html
-   ↓ (commands/sync.py)
-ods_material_shaanxi_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city shaanxi)
-dwd_shaanxi_price
-   ↓ (cli/sync_dws.py --city shaanxi --mode quick)
-dws_shaanxi_price
-```
+## 功能特性
+
+- **进度模式**:`period` — 按期期刊跟踪
+- **覆盖范围**:11 个 区县/分类/期数
+- **断点续传**:进度保存本地 + ES,中断自动恢复
+- **增量检测**:基于 `update_date` / `period` 自动判断
+- **幂等写入**:基于 MD5(_id),重复同步不重复入库
+- **可降级**:支持 `--legacy` 走老流程(逃生通道)
 
 ## 快速开始
 
 ```bash
 cd <skills>/shaanxi-price
-./run.sh preview          # 预览数据(不写 ES)
+./run.sh preview          # 预览(默认 1 页)
 ./run.sh sync             # 增量同步(自动断点续传)
-./run.sh sync --force     # 强制全量同步
+./run.sh sync --force     # 强制全量
 ./run.sh status           # 查看同步状态
-./run.sh check            # 增量检测
-./run.sh test             # 测试 ES / 源站连通性
 ```
 
 ## 命令清单
@@ -61,24 +55,18 @@ cd <skills>/shaanxi-price
 - `--max-units` — Collector 路径：只跑前 N 个工作单元（验证用）
 - `--legacy` — v0.5 兼容：走 sync_legacy.py（旧生产路径）。**默认走 Collector**。
 
-## ES 索引
+## 配置说明
 
-| 索引 | 说明 |
-|------|------|
-| `ods_material_shaanxi_price` | 原始抓取数据(主数据) |
-| `ods_material_shaanxi_price_sync_progress` | 同步进度(按 run_id 分组) |
-| `dwd_shaanxi_price` | ETL 清洗层 |
-| `dws_shaanxi_price` | 看板查询层 |
-
-## 配置(config.yml)
+`config.yml` 主要字段:
 
 ```yaml
 es:
-  host: http://localhost:59200
-  index: ods_material_shaanxi_price
-  progress_index: ods_material_shaanxi_price_sync_progress
+  host: http://localhost:59200        # Elasticsearch 地址
+  index: ods_material_shaanxi_price      # ODS 索引
+  progress_index: ods_material_shaanxi_price_sync_progress  # 同步进度索引
+
 site:
-  base_url: https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html
+  base_url: https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/index.html    # 源站地址
   counties/tabs:
   - 陕西
   - 安康
@@ -91,37 +79,27 @@ site:
   - 商洛
   - 宝鸡
   - 西安
+
 sync:
   target_year: 2026
   last_period: 
   last_publish_date: 
 ```
 
-## 项目结构
+## 数据流
 
-```
-shaanxi-price/
-├── run.sh
-├── config.yml
-└── commands/
-    ├── check.py
-    ├── city_parsers.py
-    ├── pdf_parser.py
-    ├── preview.py
-    ├── shaanxi_collector.py
-    ├── status.py
-    ├── sync.py
-    ├── sync_legacy.py
-    ├── test.py
-    ├── utils.py
-```
+源站 → `commands/sync.py` → `ods_material_shaanxi_price` → ETL → `dwd_shaanxi_price` → `dws_shaanxi_price`
 
-## 依赖
+ETL 公共层:<skills>/gov-price-etl
 
-- Python 3
-- requests / beautifulsoup4 / pyyaml / elasticsearch
+## 常见问题
+
+- **断点续传**:进度写入本地 `.sync_progress.json` + ES `ods_material_shaanxi_price_sync_progress`,中断后 `./run.sh sync` 自动续传。
+- **幂等写入**:`_id` = MD5(breed + spec + unit + county + 月份 + 价格),重复同步不会产生重复数据。
+- **增量检测**:基于 `sync.last_update_date` / `sync.last_period`,网站未更新则跳过抓取。
 
 ## 相关
 
-- <skills>/gov-price-dashboard — 看板(查 DWS 数据)
+- <skills>/gov-price-dashboard — 看板
 - <skills>/gov-price-etl — ETL 公共层
+- <skills>/gov-price-etl/SKILL.md — ETL 使用文档
