@@ -138,6 +138,92 @@ def _load_attr_label_cn() -> dict:
     for k, v in hainan_extras.items():
         labels.setdefault(k, v)
 
+    # 4) DWS 实际数据补全（2026-07-05 修复：trend 页 chip 拆分维度仍残留英文）
+    #    覆盖 17 城 dws_*_price 索引里实际出现但上面三类未定义的 attr.k。
+    dws_extras = {
+        # ─ 物理/几何 ─
+        "outer_diameter": "外径",
+        "inner_thickness": "内厚",
+        "short_leg_width": "短边宽",
+        "long_leg_width": "长边宽",
+        "web_thickness": "腹板厚度",
+        "flange_thickness": "翼缘厚度",
+        "flange_type": "翼缘形式",
+        "small_diameter": "小径",
+        "volume": "体积",
+        "distance": "距离",
+        "angle": "角度",
+        "cut_angle": "切口角度",
+        # ─ 颗粒/筛分/配合比 ─
+        "particle_size": "粒径",
+        "particle_size_max": "最大粒径",
+        "particle_size_min": "最小粒径",
+        "particle_size_range": "粒径范围",
+        "mesh_size": "筛孔尺寸",
+        "mix_ratio": "配合比",
+        "concentration": "浓度",
+        # ─ 苗木/景观 ─
+        "branch_diameter": "分枝径",
+        "branch_diameter_max": "最大分枝径",
+        "branch_diameter_min": "最小分枝径",
+        "branch_count": "分枝数",
+        "branch_count_range": "分枝数范围",
+        "single_branch_length": "单枝长",
+        "trunk_count": "主干数",
+        "pot_diameter": "盆径",
+        "crown_width": "冠幅",
+        "growth_period": "生长周期",
+        "bud_count": "芽数",
+        "leaf_count": "叶数",
+        # ─ 电/电伴热 ─
+        "power": "功率",
+        "power_range": "功率范围",
+        "output_voltage": "输出电压",
+        "frequency": "频率",
+        "backup_time": "备用时间",
+        "light_source": "光源",
+        "voltage_range": "电压范围",
+        "voltage_rating": "电压等级",
+        "temperature_rating": "温度等级",
+        # ─ 防水/管材/材料 ─
+        "fire_resistance": "耐火极限",
+        "surface_type": "表面类型",
+        "coating": "涂层",
+        "socket_type": "套接形式",
+        "outlet_count": "出水口数",
+        "sleeve_count": "套筒数",
+        "layer_count": "层数",
+        "flow_coefficient": "流量系数",
+        "interlayer_material": "夹层材质",
+        "glass_type": "玻璃类型",
+        # ─ 通用 ─
+        "model": "型号",
+        "brand": "品牌",
+        "standard": "标准",
+        "code": "编号",
+        "origin": "产地",
+        "plant_spec": "苗木规格",
+        "process": "工艺",
+        "structure": "结构",
+        "capacity": "容量",
+        "air_volume": "风量",
+        "humidity": "湿度",
+        "duration_max": "最长时间",
+        "duration_min": "最短时间",
+        "base_type": "基层类型",
+        "material_type": "材质类型",
+        "pole_count": "杆数",
+        "glass": "玻璃",
+        "washing_method": "洗涤方式",
+        "water_absorption": "吸水率",
+        "water_repellency": "防水性",
+        "softening_rate": "软化率",
+        "price_range": "价格区间",
+        "cross_section_range": "截面范围",
+    }
+    for k, v in dws_extras.items():
+        labels.setdefault(k, v)
+
     return labels
 
 

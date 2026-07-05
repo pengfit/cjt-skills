@@ -109,9 +109,10 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
         "dwd": "dwd_xinjiang_price",
         "dws": "dws_xinjiang_price",
         "city_label": "新疆",
-        # 2026-06-29 新疆：ODS 里 update_date 是 keyword，_period 是 date。
-        # 用 _period 做 scroll 排序 + 增量 range（确保时间排序正确）。
-        "sort_field": "_period",
+        # 2026-07-05 修：原 sort_field=_period，但 ODS mapping 实际有 update_date(date) 且无 _period，
+        # 导致 _scroll_ods 返回 0 条（sort 字段不存在会静默失败）。
+        # 当前 mapping update_date 已是 date 类型，直接用 update_date 即可。
+        "sort_field": "update_date",
     },
 }
 
