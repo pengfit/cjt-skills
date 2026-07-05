@@ -154,6 +154,24 @@ def _build_spec_tokens(spec: str) -> set:
     return tokens
 
 
+# ── 2026-07-05 性能优化：缓存 tokens 解码 + 预编译 regex ─────────────────
+# 背景：500 docs 压测 cProfile 显示 1.5M 次 json.loads + 591K 次 re._compile
+# 优化：模块级缓存，单例生命周期内有效；DB 文件变更会自动失效（重建 VecStore）
+_TOKENS_CACHE: dict = {}
+_EMPTY_FROZENSET = frozenset()
+_COMPILED_RULE_PATTERN_CACHE: dict = {}  # pattern_str -> compiled_regex or None
+
+
+def _get_compiled_rule_pattern(pat: str):
+    """懒加载 + 模块级缓存：rule pattern → compiled regex。None 表示编译失败。"""
+    if pat not in _COMPILED_RULE_PATTERN_CACHE:
+        try:
+            _COMPILED_RULE_PATTERN_CACHE[pat] = re.compile(pat)
+        except re.error:
+            _COMPILED_RULE_PATTERN_CACHE[pat] = None
+    return _COMPILED_RULE_PATTERN_CACHE[pat]
+
+
 class VecStore:
     __slots__ = ("db_path", "_lock", "_conn")
 
@@ -206,9 +224,19 @@ class VecStore:
         return True
 
     def _row_to_rule(self, row: tuple) -> dict:
-        """Map a DB row to a rule dict."""
+        """Map a DB row to a rule dict.
+
+        2026-07-05 优化：缓存 tok_json → tokens frozenset（避免重复 json.loads）。
+        """
         pat, attr, note, code, breed, cat, tok_json = row
-        tokens = frozenset(json.loads(tok_json)) if tok_json else frozenset()
+        if tok_json:
+            cached = _TOKENS_CACHE.get(tok_json)
+            if cached is None:
+                cached = frozenset(json.loads(tok_json))
+                _TOKENS_CACHE[tok_json] = cached
+            tokens = cached
+        else:
+            tokens = _EMPTY_FROZENSET
         return dict(pattern=pat, attr=attr, note=note or "", code=code or "",
                     breed=breed or "", category=cat or "", tokens=tokens)
 
@@ -306,11 +334,11 @@ class VecStore:
                 # 降级策略：keyword score >= 0.001 正常保留；
                 # score == 0 但 regex 能匹配 spec → 强制加入（解决 Φ HRB 等规则 token 不 overlap 的问题）
                 if score < 0.001:
-                    try:
-                        import re
-                        if not re.search(rule["pattern"], spec or ""):
-                            continue
-                    except re.error:
+                    # 2026-07-05 优化：用预编译 regex，避免每条规则都重新编译
+                    cp = _get_compiled_rule_pattern(rule["pattern"])
+                    if cp is None:
+                        continue
+                    if not cp.search(spec or ""):
                         continue
                     # regex 能匹配但 score 为 0，给一个低分使其排在后面
                     score = 0.0001
