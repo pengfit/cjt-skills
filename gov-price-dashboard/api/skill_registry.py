@@ -18,11 +18,26 @@ import yaml
 
 log = logging.getLogger("skill_registry")
 
-# 默认扫描根目录（可用 SKILLS_ROOT 环境变量覆盖）
-SKILLS_ROOT = os.environ.get(
-    "SKILLS_ROOT",
-    str(Path.home() / ".openclaw" / "workspace" / "skills"),
-)
+
+def _resolve_skills_root() -> str:
+    """解析 SKILLS_ROOT 扫描根目录。
+
+    优先级：
+      1) 环境变量 SKILLS_ROOT（部署/调试可显式覆盖）
+      2) 自动从本文件路径反推：
+         <skills>/gov-price-dashboard/api/skill_registry.py 的 parents[2]
+         就是 <skills> 根目录。这样无论 workspace 叫 cjt 还是别的，
+         都能定位到正确的 skills/，不依赖硬编码的 workspace 名。
+    """
+    env_root = os.environ.get("SKILLS_ROOT")
+    if env_root:
+        return env_root
+    # 本文件路径：<skills>/gov-price-dashboard/api/skill_registry.py
+    # parents[2] 即 <skills>
+    return str(Path(__file__).resolve().parents[2])
+
+
+SKILLS_ROOT = _resolve_skills_root()
 
 # 必须排除的目录（这些不是抓取 skill）
 EXCLUDE_DIRS = {
