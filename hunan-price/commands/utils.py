@@ -1,4 +1,27 @@
 """湖南建设工程材料价格行情 - 工具函数"""
+def _resolve_etl_root():
+    """解析 gov-price-etl 项目根路径。
+
+    优先级：
+      1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
+      2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
+         不依赖硬编码的 workspace 名 / 目录深度。
+      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+    """
+    import os
+    from pathlib import Path
+    env = os.environ.get("GOV_PRICE_ETL_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    p = Path(__file__).resolve().parent
+    for _ in range(6):
+        candidate = p / "gov-price-etl"
+        if candidate.is_dir():
+            return str(candidate)
+        p = p.parent
+    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+
+
 import os
 import sys
 
@@ -50,9 +73,9 @@ def ensure_ods_index(es, host, index):
     if es.indices.exists(index=index):
         return
     # 委托到 ETL 的标准 mapping（v0.5 起）
-    _etl_path = '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl'
-    if _etl_path not in sys.path:
-        sys.path.insert(0, _etl_path)
+    _etl_root = _resolve_etl_root()
+    if _etl_root not in sys.path:
+        sys.path.insert(0, _etl_root)
     from gov_price_etl.mappings import build_ods_mapping
 
     # hunan 特化字段：no, code, change_rate, index_value, period_sub, price_kind, minio_key, source_pdf, section
@@ -77,9 +100,9 @@ def ensure_progress_index(es, index):
     """确保同步进度索引存在（v0.8 委托到 ETL 标准 mapping）"""
     if es.indices.exists(index=index):
         return
-    _etl_path = '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl'
-    if _etl_path not in sys.path:
-        sys.path.insert(0, _etl_path)
+    _etl_root = _resolve_etl_root()
+    if _etl_root not in sys.path:
+        sys.path.insert(0, _etl_root)
     from gov_price_etl.mappings import build_progress_mapping
 
     # hunan 特化进度字段

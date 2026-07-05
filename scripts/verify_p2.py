@@ -12,13 +12,36 @@ collectors.base 的基类 API 正确性 + 单元级 mock 测试。
 
 用法：python3 scripts/verify_p2.py
 """
+def _resolve_etl_root():
+    """解析 gov-price-etl 项目根路径。
+
+    优先级：
+      1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
+      2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
+         不依赖硬编码的 workspace 名 / 目录深度。
+      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+    """
+    import os
+    from pathlib import Path
+    env = os.environ.get("GOV_PRICE_ETL_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    p = Path(__file__).resolve().parent
+    for _ in range(6):
+        candidate = p / "gov-price-etl"
+        if candidate.is_dir():
+            return str(candidate)
+        p = p.parent
+    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+
+
 import os
 import sys
 import tempfile
 from pathlib import Path
 
 # 让 etl 模块可被 import
-ETL_ROOT = Path("/Users/pengfit/.openclaw/workspace/skills/gov-price-etl")
+ETL_ROOT = Path(_resolve_etl_root())
 sys.path.insert(0, str(ETL_ROOT))
 
 from gov_price_etl.collectors.base import (

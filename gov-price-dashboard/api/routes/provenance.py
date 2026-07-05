@@ -4,6 +4,29 @@
 来源分布、各省新鲜度、近30天入库趋势 — 支持多城市
 """
 
+def _resolve_etl_root():
+    """解析 gov-price-etl 项目根路径。
+
+    优先级：
+      1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
+      2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
+         不依赖硬编码的 workspace 名 / 目录深度。
+      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+    """
+    import os
+    from pathlib import Path
+    env = os.environ.get("GOV_PRICE_ETL_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    p = Path(__file__).resolve().parent
+    for _ in range(6):
+        candidate = p / "gov-price-etl"
+        if candidate.is_dir():
+            return str(candidate)
+        p = p.parent
+    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+
+
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch, NotFoundError, RequestError
@@ -11,7 +34,7 @@ import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, y
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # etl 项目根（v0.2 重构后不再用 commands/ 路径，全部用 etl 的 paths.py 中心解析）
-ETL_PROJECT_ROOT = "/Users/pengfit/.openclaw/workspace/skills/gov-price-etl"
+ETL_PROJECT_ROOT = _resolve_etl_root()
 sys.path.insert(0, ETL_PROJECT_ROOT)  # 让 `import gov_price_etl` 可用
 sys.path.insert(0, os.path.join(ETL_PROJECT_ROOT, "gov_price_etl", "parse_spec", "rules"))  # 保留旧 import 路径
 

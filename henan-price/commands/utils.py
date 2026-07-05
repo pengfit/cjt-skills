@@ -1,11 +1,36 @@
 """河南工程造价信息采集 - 工具函数"""
+def _resolve_etl_root():
+    """解析 gov-price-etl 项目根路径。
+
+    优先级：
+      1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
+      2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
+         不依赖硬编码的 workspace 名 / 目录深度。
+      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+    """
+    import os
+    from pathlib import Path
+    env = os.environ.get("GOV_PRICE_ETL_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    p = Path(__file__).resolve().parent
+    for _ in range(6):
+        candidate = p / "gov-price-etl"
+        if candidate.is_dir():
+            return str(candidate)
+        p = p.parent
+    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+
+
 import os
 import sys
 
 import yaml
 
 # v0.7 (2026-07-02) P1 抽取：工具函数委托到 gov_price_etl.collectors
-sys.path.insert(0, '/Users/pengfit/.openclaw/workspace/skills/gov-price-etl')
+_etl_root = _resolve_etl_root()
+if os.path.isdir(_etl_root) and _etl_root not in sys.path:
+    sys.path.insert(0, _etl_root)
 from gov_price_etl.collectors import ( get_es_client, get_s3_client, ensure_bucket,
     upload_to_minio, minio_object_url, fetch_html, download_file,
 )

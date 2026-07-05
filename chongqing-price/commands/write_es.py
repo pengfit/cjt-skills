@@ -8,6 +8,29 @@
   python3 write_es.py summary <run_id> <total_counties> <completed> <total_docs> <duration_sec>
   python3 write_es.py sync [--tab-id <id>] [--reset]    # 完整同步流程（CLI browser + ES）
 """
+def _resolve_etl_root():
+    """解析 gov-price-etl 项目根路径。
+
+    优先级：
+      1) 环境变量 GOV_PRICE_ETL_ROOT（部署/调试可显式覆盖）
+      2) 自动反推：从本文件路径向上找 'gov-price-etl' 同级目录，
+         不依赖硬编码的 workspace 名 / 目录深度。
+      3) 兜底 fallback（cjt 子目录布局），让上层 log warning，不抛异常。
+    """
+    import os
+    from pathlib import Path
+    env = os.environ.get("GOV_PRICE_ETL_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    p = Path(__file__).resolve().parent
+    for _ in range(6):
+        candidate = p / "gov-price-etl"
+        if candidate.is_dir():
+            return str(candidate)
+        p = p.parent
+    return str(Path.home() / ".openclaw" / "workspace" / "cjt" / "skills" / "gov-price-etl")
+
+
 import sys, os, json, time, hashlib, re, signal, argparse, subprocess, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -22,7 +45,7 @@ import yaml as _yaml
 # 与 dashboard 的 ETL_PROJECT_ROOT 模式一致：
 # 让 chongqing-price 能直接用 gov_price_etl.parse_price 的权威实现，
 # 避免两边维护同一份正则（_parse_interval_price 在 chongqing v3 + 通用版同时改易漏）。
-_ETL_PROJECT_ROOT = os.path.expanduser("~/.openclaw/workspace/skills/gov-price-etl")
+_ETL_PROJECT_ROOT = _resolve_etl_root()
 if os.path.isdir(_ETL_PROJECT_ROOT) and _ETL_PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _ETL_PROJECT_ROOT)
 try:
