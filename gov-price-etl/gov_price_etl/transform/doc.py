@@ -21,7 +21,7 @@ import re
 
 from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.parse_spec import get_parser
-from gov_price_etl.transform.clean import clean_breed, clean_unit, clean_price
+from gov_price_etl.transform.clean import clean_breed, clean_unit, clean_price, clean_spec
 
 
 def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = None) -> dict:
@@ -50,7 +50,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
     unit_raw = raw.get("unit", "")
 
     breed_clean = clean_breed(breed_raw)
-    spec_clean = spec_raw
+    spec_clean = clean_spec(spec_raw)
     unit_clean = clean_unit(unit_raw)
 
     # ── spec 规范化（与原 etl.py 逻辑一致，迁入 transform_doc 让返回值可直接写 DWD）──

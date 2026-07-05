@@ -90,11 +90,16 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
     try:
         vs = get_vec_store()
         # 跳过 category 和 breed 过滤，纯靠 Jaccard 召回 + regex 最终验证
+        # 注意：2026-07-04 fix — search() 内部对 breed/category 用精确匹配 SQL 过滤，
+        # breed='球墨铸铁给水管DN100' 会把所有 breed='球墨铸铁给水管' 的规则排除掉。
+        # 这里传空字符串让 SQL 跳过对应过滤，规则全量召回后由 Jaccard + regex 双层把关。
+        # 2026-07-04 fix2 — 调大 top_k=5000，因为通用空 breed 规则 score 较低（0.37），
+        # 容易被有 breed 的具体规则（0.575）挤出 top 500，导致电缆/管材 N*M 通用规则不命中。
         results = vs.search(
             spec=spec,
-            category=category,        # 跳过 category 过滤
-            breed=breed,           # 跳过 breed 过滤（Jaccard 已做相似度排序）
-            top_k=100,          # 扩大召回量，确保不漏
+            category=category,
+            breed="",  # 传空跳过 breed 精确过滤
+            top_k=5000,
             attr_filter=attr_filter if attr_filter else None,
         )
         return [(r["pattern"], r["attr"], r["note"], r["code"]) for _, r in results]
