@@ -24,9 +24,29 @@ def _run_cli(args, timeout=30):
     return r.stdout, r.stderr
 
 
+# openclaw CLI 有时在 stdout 里前置 doctor warnings 边框（框内嵌警告文案），
+# 会污染 _eval_js 的首尾 strip。把这些装饰行过滤掉再剥 JSON-string 引号。
+_DOCTOR_FRAME_CHARS = ('│', '┌', '┐', '└', '┘', '┤', '├', '┬', '┴', '┼',
+                       '─', '╮', '╯', '╭', '╰', '◇')
+_DOCTOR_KEYWORDS = ('Doctor', 'warnings', 'config-health', 'SQLite state',
+                    'legacy config', 'Left')
+
+
+def _strip_doctor_box(text: str) -> str:
+    """丢弃 openclaw doctor warnings 框（边框字符行 + 关键词行）。"""
+    cleaned = []
+    for line in text.splitlines():
+        if any(c in line for c in _DOCTOR_FRAME_CHARS):
+            continue
+        if any(kw in line for kw in _DOCTOR_KEYWORDS):
+            continue
+        cleaned.append(line)
+    return '\n'.join(cleaned).strip()
+
+
 def _eval_js(js_body: str) -> str:
     out, _ = _run_cli(["browser", "evaluate", "--fn", js_body])
-    s = out.strip()
+    s = _strip_doctor_box(out).strip()
     if s.startswith('"') and s.endswith('"'):
         s = s[1:-1]
     return s.replace('\\"', '"')
