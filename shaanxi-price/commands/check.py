@@ -60,10 +60,10 @@ def main():
     if args.year == 0:
         args.year = cfg.get('sync', {}).get('target_year', datetime.now().year)
 
-    print(f'[check] year={args.year}')
+    print(f'[陕西] year={args.year}')
 
     items = fetch_all_periods(cfg)
-    print(f'[check] 共 {len(items)} 期')
+    print(f'[陕西] 共 {len(items)} 期')
 
     progress = load_progress()
     done = progress.get('done', {})
@@ -79,7 +79,7 @@ def main():
             continue
         todo.append(it)
 
-    print(f'[check] 已入仓: {len(skipped)}, 待入仓: {len(todo)}\n')
+    print(f'[陕西] 已入仓: {len(skipped)}, 待入仓: {len(todo)}\n')
 
     if todo:
         print('待入仓:')

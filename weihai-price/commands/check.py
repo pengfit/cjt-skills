@@ -41,8 +41,8 @@ from urllib.parse import urljoin
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from utils import load_config, get_es_client, fetch_list_page
-from sync import fetch_all_periods, _is_price_entry
+from utils import load_config, get_es_client, fetch_list_page, is_price_entry
+from weihai_collector import fetch_all_periods
 
 
 def main():
@@ -66,7 +66,7 @@ def main():
     site_title = ''
     try:
         items = fetch_all_periods(cfg)
-        price_items = [it for it in items if _is_price_entry(it['title'])]
+        price_items = [it for it in items if is_price_entry(it['title'])]
         if price_items:
             site_latest = price_items[0]['publish_date']
             site_title = price_items[0]['title']

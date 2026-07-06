@@ -61,7 +61,7 @@ def main():
         if hits:
             es_latest = hits[0]['_source'].get('update_date', '') or ''
     except Exception as e:
-        print(f'[hunan] ES 查询失败: {e}')
+        print(f'[湖南] ES 查询失败: {e}')
 
     # 2. 获取源站最新发布
     site_latest = ''
@@ -76,16 +76,16 @@ def main():
             site_title = items_sorted[0].get('title', '')
             site_latest = site_title[:30]
     except Exception as e:
-        print(f'[hunan] 源站查询失败: {e}')
+        print(f'[湖南] 源站查询失败: {e}')
 
-    print(f'[hunan] 源站最新: {site_title}')
-    print(f'[hunan] ES 最新:   {es_latest or "无"}')
+    print(f'[湖南] 源站最新: {site_title}')
+    print(f'[湖南] ES 最新:   {es_latest or "无"}')
 
     if site_title:
         if not es_latest:
-            print(f'[hunan] 🔔 源站有数据，ES 无记录，需首次同步')
+            print(f'[湖南] 🔔 源站有数据，ES 无记录，需首次同步')
         else:
-            print(f'[hunan] ✅ ES 有数据，按 --year / --period 增量同步')
+            print(f'[湖南] ✅ ES 有数据，按 --year / --period 增量同步')
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===

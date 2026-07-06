@@ -1,4 +1,8 @@
 """新疆 - 增量检测：对比 ES 最新 update_date vs 源站最新政策（按 area 汇总）"""
+import os
+import sys
+
+
 def _resolve_etl_root():
     """解析 gov-price-etl 项目根路径。
 
@@ -50,8 +54,8 @@ def main():
     ods_index = cfg['es']['ods_index']
     year = cfg['sync']['year']
 
-    print(f'[xinjiang] 检测年份: {year}')
-    print(f'[xinjiang] ES 索引: {ods_index}')
+    print(f'[新疆] 检测年份: {year}')
+    print(f'[新疆] ES 索引: {ods_index}')
     print()
 
     has_updates = False
@@ -71,14 +75,14 @@ def main():
             r = es.search(
                 index=ods_index,
                 size=1,
-                query={'term': {'_areaid': str(areaid)}},
+                query={'term': {'area_name': area['name']}},
                 sort=[{'update_date': 'desc'}],
                 _source=['update_date'],
             )
             hits = r['hits']['hits']
             if hits:
                 es_latest = hits[0]['_source'].get('update_date', '') or ''
-            cnt = es.count(index=ods_index, query={'term': {'_areaid': str(areaid)}})
+            cnt = es.count(index=ods_index, query={'term': {'area_name': area['name']}})
             es_count = cnt['count']
         except Exception:
             pass
@@ -105,9 +109,9 @@ def main():
 
     print()
     if has_updates:
-        print('[xinjiang] 有待同步数据，运行 sync.py')
+        print('[新疆] 有待同步数据，运行 sync.py')
     else:
-        print('[xinjiang] ✅ 所有 area 都是最新')
+        print('[新疆] ✅ 所有 area 都是最新')
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===

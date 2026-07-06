@@ -42,6 +42,7 @@ def _parse_year_month_from_title(title: str) -> tuple[str, str]:
 def _write_check_status(
     site_title, site_publish_date, site_year, site_month,
     es_update_date, status, message,
+    es_latest_period: str = "",
 ):
     """写检查状态到 /tmp/gov-check-status/hainan.json
 
@@ -70,7 +71,7 @@ def _write_check_status(
         "site_latest_year": site_year or "",
         "site_latest_month": site_month or "",
         "site_latest_publish_date": site_publish_date or "",
-        "es_latest_period": "",
+        "es_latest_period": es_latest_period or "",
         "es_latest_update_date": es_update_date or "",
     }
 
@@ -120,15 +121,65 @@ def main():
     site_year, site_month = _parse_year_month_from_title(site_title)
     status = "unknown"
     message = ""
-    if es_latest and site_latest:
-        if site_latest > str(es_latest)[:10]:
-            print(f'[海南] 🔔 有更新！{site_title}')
-            status = "new_data"
-            message = f"源站 {site_latest} > ES {es_latest}，需同步"
+    # 3a. 取 ES 端最新 period（按归一化 YYYYMM 数字字符串 desc）
+    es_latest_period = ""
+    es_period_sort = ""
+    try:
+        r2 = es.search(
+            index=ods_index, size=1,
+            sort=[{'period': 'desc'}],
+            _source=['period'],
+        )
+        hits2 = r2['hits']['hits']
+        if hits2:
+            es_latest_period = hits2[0]['_source'].get('period', '') or ''
+            m2 = re.match(r'(\d{4})\.(\d{1,2})月', es_latest_period)
+            if m2:
+                es_period_sort = f"{m2.group(1)}{int(m2.group(2)):02d}"
+    except Exception as e:
+        print(f'[海南] ES period 查询失败: {e}')
+
+    # 3b. 源站最新 period 归一化为 YYYYMM
+    site_period_sort = ""
+    if site_year and site_month:
+        m1 = re.match(r'(\d{1,2})月', site_month)
+        if m1:
+            site_period_sort = f"{site_year}{int(m1.group(1)):02d}"
+
+    if es_period_sort and site_period_sort:
+        if site_period_sort > es_period_sort:
+            # 额外检查：源站最新期是否已在本地进度里标了 skipped_image_pdf
+            # （扫描图片 PDF sync 会跳过，留待 OCR），这种情况下不再报 update
+            try:
+                prog_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    ".hainan_sync_progress.json",
+                )
+                if os.path.exists(prog_path):
+                    with open(prog_path, encoding="utf-8") as _f:
+                        prog = json.load(_f).get("done", {})
+                    # 遍历找源站最新期对应的 detail_url 是否标了 skipped_image_pdf
+                    site_norm = f"{site_year}.{int(re.match(r'(\d{1,2})', site_month).group(1))}月" if site_year and site_month else ""
+                    for url, info in prog.items():
+                        if info.get("status") == "skipped_image_pdf" and site_norm:
+                            # 这个 URL 对应的期跟源站最新期是否一致（用 progress 里的 period 字段、或 fallback title 含最新期）
+                            prog_period = info.get("period", "")
+                            if prog_period == site_norm or (not prog_period and site_year in info.get("error", "") + info.get("detail_url", "")):
+                                print(f'[海南] · 跳过（已 OCR 标记）{site_year}年{site_month} 留待 OCR')
+                                status = "ok"
+                                message = f"已标记 OCR 跳过：源站 {site_year}年{site_month} 留待 OCR"
+                                break
+            except Exception as _e:
+                print(f'[海南] progress 检查跳过: {_e}')
+
+            if status == "unknown":
+                print(f'[海南] 🔔 有更新！{site_title} ({site_year}年{site_month})')
+                status = "new_data"
+                message = f"源站 {site_year}年{site_month} > ES {es_latest_period}，需同步"
         else:
             print(f'[海南] ✅ 无新数据')
             status = "ok"
-            message = f"无新数据（源站 == ES = {site_latest}）"
+            message = f"无新数据（源站 {site_year}年{site_month} == ES {es_latest_period}）"
     elif site_latest:
         print(f'[海南] 🔔 源站有数据，ES 无记录，需首次同步')
         status = "no_es_data"
@@ -142,6 +193,7 @@ def main():
     _write_check_status(
         site_title, site_latest, site_year, site_month,
         es_latest, status, message,
+        es_latest_period=es_latest_period,
     )
 
 

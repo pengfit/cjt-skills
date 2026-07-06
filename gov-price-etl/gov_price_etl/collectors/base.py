@@ -296,6 +296,8 @@ class SyncRunner(ABC):
                     if status == "completed":
                         done += 1
                         total_docs += docs_count
+                    elif status in ("skipped", "skipped_image_pdf"):
+                        skipped += 1
                     else:
                         failed += 1
                 except Exception as e:

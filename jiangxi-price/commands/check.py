@@ -61,7 +61,7 @@ def main():
         if hits:
             es_latest = hits[0]['_source'].get('update_date', '') or ''
     except Exception as e:
-        print(f'[jiangxi] ES 查询失败: {e}')
+        print(f'[江西] ES 查询失败: {e}')
 
     # 2. 获取源站最新发布（仅过滤"江西省材料价格参考信息"期刊）
     site_latest = ''
@@ -76,20 +76,20 @@ def main():
             site_latest = items_sorted[0].get('publish_date', '')
             site_title = items_sorted[0].get('title', '')
     except Exception as e:
-        print(f'[jiangxi] 源站查询失败: {e}')
+        print(f'[江西] 源站查询失败: {e}')
 
-    print(f'[jiangxi] 源站最新: {site_title} ({site_latest})')
-    print(f'[jiangxi] ES 最新:   {es_latest or "无"}')
+    print(f'[江西] 源站最新: {site_title} ({site_latest})')
+    print(f'[江西] ES 最新:   {es_latest or "无"}')
 
     if es_latest and site_latest:
         if site_latest > str(es_latest)[:10]:
-            print(f'[jiangxi] 🔔 有更新！{site_title}')
+            print(f'[江西] 🔔 有更新！{site_title}')
         else:
-            print(f'[jiangxi] ✅ 无新数据')
+            print(f'[江西] ✅ 无新数据')
     elif site_latest:
-        print(f'[jiangxi] 🔔 源站有数据，ES 无记录，需首次同步')
+        print(f'[江西] 🔔 源站有数据，ES 无记录，需首次同步')
     else:
-        print(f'[jiangxi] ⚠️ 无法获取源站数据')
+        print(f'[江西] ⚠️ 无法获取源站数据')
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===

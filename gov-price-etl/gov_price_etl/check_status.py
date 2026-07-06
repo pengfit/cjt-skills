@@ -111,7 +111,7 @@ def write_status_from_check_output(
             status = "error"
             has_update = False
             message = line
-        elif any(k in line for k in ["🔔", "有更新", "需同步", "需首次同步", "缺月"]):
+        elif any(k in line for k in ["🔔", "有更新", "需同步", "需首次同步", "缺月", "有待同步", "待入仓"]):
             status = "update"
             has_update = True
             message = line

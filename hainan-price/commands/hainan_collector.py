@@ -85,6 +85,38 @@ from gov_price_etl.collectors.base import (  # noqa: E402
 )
 
 
+def _is_image_pdf(pdf_path: str, img_threshold: float = 10.0, samples: int = 5) -> bool:
+    """检测 PDF 是否为「表格在图片里」型 PDF（v0.8.2, 2026-07-06）。
+
+    判定依据（组合指标，【平均图片数/页】为主）：
+      纯文本 PDF（4 月期）：平均 < 1 图/页
+      文字+图片混合 PDF（5 月期）：平均 ~90 图/页（表格被扫成图片）
+      纯扫描图片 PDF：平均 ~1 图/页 但总页数=图片数（即整页一张图）
+
+    主信号：平均图片数/页 ≥ img_threshold → 表格在图片里，pdfplumber 抽不到。
+      阈值依据：5 月 PDF 90 图/页，4 月 PDF < 1 图/页，阈值 10 能可靠区分。
+
+    Returns:
+        True → 表格数据在图片里（应跳过入库，留待 OCR）
+        False → 可正常 pdfplumber 解析
+
+    Exceptions:
+        静默吞掉异常返回 False（不阻塞正常 sync）。
+    """
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(pdf_path)
+        n = len(doc)
+        if n == 0:
+            return False
+        sample_indices = [min(int(n * pct), n - 1) for pct in (0.2, 0.3, 0.5, 0.7, 0.8)]
+        total_imgs = sum(len(doc[i].get_images()) for i in sample_indices)
+        avg_imgs_per_page = total_imgs / len(sample_indices)
+        return avg_imgs_per_page >= img_threshold
+    except Exception:
+        return False
+
+
 # ─────────────────────────────────────────────────────────────
 # HainanCollector - 海南工程造价材料采集器（v0.8 Collector 化）
 # ─────────────────────────────────────────────────────────────
@@ -203,11 +235,19 @@ class HainanCollector(SyncRunner):
                 upload_to_minio(s3, cfg["minio"]["bucket"], minio_key, local_pdf)
             print(f"  minio: {minio_key}")
 
-            # 4. pdfplumber 解析
+            # 4. 检测是否为扫描图片 PDF（v0.8.2, 2026-07-06）
+            #    扫描图片 PDF 文字密度极低（PDF 是图片拼起来的，没文本层），
+            #    pdfplumber 抽不到结构化字段（no/breed/spec/unit 全空），
+            #    写 ES 会污染数据。这种情况跳过入库，标 skipped_image_pdf。
+            if _is_image_pdf(local_pdf):
+                print(f"  [skip] 检测到扫描图片 PDF，需 OCR 才能解析，跳过入库（PDF 已上传 minio 留底）")
+                return 0, "skipped_image_pdf"
+
+            # 5. pdfplumber 解析
             rows = _h.parse_pdf(local_pdf)
             print(f"  parsed: {len(rows)} 行")
 
-            # 5. 组装 ES 文档（字段映射与旧 main() 等价）
+            # 6. 组装 ES 文档（字段映射与旧 main() 等价）
             # period 例 '2026.1月' → 同步补 period_start/end/days（标准 ODS 字段）
             period_start, period_end, period_days = _h.compute_period_range(period)
             now = datetime.now().isoformat(timespec="seconds")
@@ -241,7 +281,7 @@ class HainanCollector(SyncRunner):
                 print(f"  [dry-run] 将写 {len(docs)} 条到 {cfg['es']['ods_index']}")
                 return 0, "skipped"
 
-            # 6. bulk 写 ES
+            # 7. bulk 写 ES
             es = get_es_client(cfg["es"]["host"])
             ensure_ods_index(es, cfg["es"]["host"], cfg["es"]["ods_index"])
             ensure_progress_index(es, cfg["es"]["progress_index"])
@@ -296,7 +336,7 @@ class HainanCollector(SyncRunner):
             except Exception as e:
                 print(f"  [warn] ES progress 写入失败: {e}")
 
-        icon = "✓" if status == "completed" else ("·" if status == "skipped" else "✗")
+        icon = "✓" if status == "completed" else ("⊘" if status == "skipped_image_pdf" else ("·" if status == "skipped" else "✗"))
         err_msg = f" — {error}" if error else ""
         print(f"  [{icon}] {item['title'][:60]}...  {docs_count} docs ({status}){err_msg}")
 

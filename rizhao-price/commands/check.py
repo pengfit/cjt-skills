@@ -50,35 +50,38 @@ def main():
     ods_index = cfg['es']['index']
     sync_cfg = cfg.get('sync', {})
 
-    # 1. 获取 ES 最新 update_date
+    # 1. 获取 ES 最新入库日期 + period（v0.8.2, 2026-07-06）
     es_latest = ''
+    es_latest_period = ''
     try:
         r = es.search(index=ods_index, size=1, sort=[{'update_date': 'desc'}],
                        _source=['update_date', 'period'])
         hits = r['hits']['hits']
         if hits:
             es_latest = hits[0]['_source'].get('update_date', '') or ''
+            es_latest_period = hits[0]['_source'].get('period', '') or ''
     except Exception as e:
         print(f'[日照] ES 查询失败: {e}')
 
-    # 2. 获取源站最新周期
+    # 2. 源站"上次同步周期"——从 config.yml 读取。
+    #    注：日照源站是内网 OA 系统，需登录才能抓取，check 不远程去拉；
+    #    config.last_period 需要道友在 sync 后手动维护（或 sync 脚本自动写）。
     last_period = sync_cfg.get('last_period', '')
 
-    print(f'[日照] 源站最新周期: {last_period}')
-    print(f'[日照] ES 最新入库:   {es_latest or "无"}')
+    print(f'[日照] config 上次同步周期: {last_period}')
+    print(f'[日照] ES 最新入库:         {es_latest or "无"}')
+    print(f'[日照] ES 最新 period:      {es_latest_period or "无"}')
 
-    if es_latest:
-        # 简单日期对比：ES 最新日期 vs 当日
-        from datetime import datetime
-        es_str = str(es_latest)[:10]
-        es_dt = datetime.strptime(es_str, '%Y-%m-%d')
-        days_ago = (datetime.now() - es_dt).days
-        if days_ago > 30:
-            print(f'[日照] ⚠️ 最新入库 {days_ago} 天前，可能需检查')
-        else:
-            print(f'[日照] ✅ 最新入库 {days_ago} 天前')
-    else:
+    # 3. 判定：优先看 ES period 跟 config 是否对齐
+    if not es_latest_period:
         print(f'[日照] 🔔 ES 无数据，需首次同步')
+    elif not last_period:
+        print(f'[日照] ⚠️ config 缺 last_period，请 sync 后填上（ES 已有 {es_latest_period}）')
+    elif es_latest_period >= last_period:
+        print(f'[日照] ✅ 已对齐（ES={es_latest_period} >= config={last_period}）')
+    else:
+        # ES < config：config 过期，sync 时应以 config 为准重新对齐
+        print(f'[日照] ⚠️ ES 落后 config：ES={es_latest_period} < config={last_period}，需检查')
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===
