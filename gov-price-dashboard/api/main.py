@@ -266,7 +266,10 @@ def search(
         "query": query,
         "from": from_idx,
         "size": page_size,
-        "sort": [{"_score": {"order": "desc"}}],
+        "sort": [
+            {"period_end": {"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+            {"_score": {"order": "desc"}},
+        ],
         "aggs": {}
     }
 

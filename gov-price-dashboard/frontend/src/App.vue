@@ -12,10 +12,6 @@
       </div>
       <div class="top-bar-meta">
         <span class="meta-item">
-          <span class="meta-label">数据总量</span>
-          <span class="meta-value">{{ overview.total_docs.toLocaleString() }}</span>
-        </span>
-        <span class="meta-item">
           <span class="meta-label">省份</span>
           <span class="meta-value">{{ overview.total_provinces }}</span>
         </span>
