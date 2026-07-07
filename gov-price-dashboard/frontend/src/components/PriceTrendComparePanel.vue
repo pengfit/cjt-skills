@@ -142,6 +142,19 @@
 
     <!-- 主视图 -->
     <div v-if="data && data.ok" class="compare-content">
+      <!-- 单位冲突警告（跨城均价对比失真警告） -->
+      <div v-if="unitConflict" class="unit-conflict-warning">
+        <span class="warn-icon">⚠️</span>
+        <span class="warn-text">
+          跨城单位不一致：
+          <strong v-for="(uc, i) in unitConflict" :key="uc.unit">
+            <template v-if="i > 0"> · </template>
+            <span>{{ uc.cities.join('、') }}</span> 用 <em>{{ uc.unit }}</em>
+          </strong>。
+          <span class="warn-tip">同业均价对比可能失真，建议上方“单位”下拉显式约束、或退选冲突城市。</span>
+        </span>
+      </div>
+
       <!-- 关键统计 -->
       <div class="summary-bar">
         <div class="summary-cell">
@@ -178,9 +191,30 @@
         <span class="spec-bar-hint">{{ selectedSpecKeys.size }} / {{ commonSpecKeys.length }} 选中</span>
       </div>
 
-      <!-- 主图：每城市 × 每spec_key 一条线 -->
+      <!-- 主图：每个 spec_key 一个独立 ECharts 实例 -->
       <div class="compare-card">
-        <div ref="chartEl" class="compare-chart"></div>
+        <div v-if="!subChartGroups.length" class="compare-empty">无 spec_key 可绘</div>
+        <div v-else class="compare-charts-grid" :style="layoutStyle">
+          <div
+            v-for="(g, idx) in subChartGroups"
+            :key="g.spec_key"
+            class="compare-chart-cell"
+          >
+            <div class="cell-header">
+              <span class="cell-seq">{{ idx + 1 }}/{{ subChartGroups.length }}</span>
+              <span class="cell-title" :title="g.spec_label">
+                {{ g.spec_label.length > 18 ? g.spec_label.slice(0, 18) + '…' : g.spec_label }}
+              </span>
+              <span class="cell-align" :class="`align-${g.align_method}`" :title="`对齐方式：${g.align_method}`">
+                [{{ g.align_method }}]
+              </span>
+            </div>
+            <div
+              class="cell-chart"
+              :ref="el => setChartRef(el, idx)"
+            ></div>
+          </div>
+        </div>
       </div>
 
       <!-- 同期对比表 -->
@@ -345,8 +379,14 @@ const topSpecs = ref(3)
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)                        // API 返回
-const chartEl = ref(null)
-let chartInstance = null
+
+// 多子图：小 multiples，每个 spec_key 一个独立 echarts 实例
+const chartCells = ref([])                    // DOM ref 数组（索引 → cell div）
+const chartInstances = new Map()              // 索引 → echarts 实例
+function setChartRef(el, idx) {
+  if (el) chartCells.value[idx] = el
+  else chartCells.value[idx] = null
+}
 
 const commonUnits = ref(['t', 'm', 'kg', 'm³', 'm²', '根', '只', '块'])
 const topBreedsByCity = ref([])               // 用于空状态热门品种
@@ -366,10 +406,26 @@ const treeExpanded = ref({})                  // 展开状态 {l1|l2|l3: true}
 // 颜色分配（每城市一条线）— 与 API 返回 color 同步
 const COLOR_POOL_OVERRIDE = {}
 
+// small multiples 上限（每个 spec_key 一张子图；>此值会被提示"图表拥挤"）
+const MAX_SMALL_MULTIPLES = 4
+
 // 计算属性
 const selectedCityCfgs = computed(() =>
   cityOptions.value.filter(c => selectedCities.value.includes(c.key))
 )
+
+// 跨城单位冲突检测：不同城市出现 ≥2 种 unit_used 时报警（均价对比失真）
+const unitConflict = computed(() => {
+  if (!data.value?.series?.length) return null
+  const usage = new Map()  // unit -> cities[]
+  for (const s of data.value.series) {
+    if (!s.unit_used) continue
+    if (!usage.has(s.unit_used)) usage.set(s.unit_used, [])
+    usage.get(s.unit_used).push(s.label)
+  }
+  if (usage.size <= 1) return null
+  return [...usage.entries()].map(([unit, cities]) => ({ unit, cities }))
+})
 
 // 跨城公共规格（同 spec_key 在 ≥ 2 城市出现）
 const commonSpecKeys = computed(() => {
@@ -392,6 +448,56 @@ const commonSpecKeys = computed(() => {
   // 优先按城市数，再按样本数
   arr.sort((a, b) => (b.cities - a.cities) || (b.total - a.total))
   return arr
+})
+
+// 子图分组：每个 spec_key 一组，含该 spec 在各城市的点列
+const subChartGroups = computed(() => {
+  if (!data.value?.aligned_periods?.length) return []
+  const selected = selectedSpecKeys.value.size === 0
+    ? new Set(data.value.series.flatMap(s => s.spec_groups.map(g => g.spec_key)))
+    : selectedSpecKeys.value
+  const groupsBySpec = new Map()
+  for (const s of data.value.series) {
+    for (const sg of s.spec_groups) {
+      if (!selected.has(sg.spec_key)) continue
+      if (!groupsBySpec.has(sg.spec_key)) {
+        groupsBySpec.set(sg.spec_key, {
+          spec_key: sg.spec_key,
+          spec_label: sg.spec_label,
+          align_method: sg.align_method,
+          period_labels: data.value.aligned_periods.map(p => p.label),
+          cities: [],
+        })
+      }
+      const g = groupsBySpec.get(sg.spec_key)
+      g.cities.push({
+        city: s.city,
+        label: s.label,
+        color: s.color,
+        points: data.value.aligned_periods.map(p => {
+          const pt = sg.points.find(pt => pt.period_start === p.start)
+          return pt ? { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n } : null
+        }),
+      })
+    }
+  }
+  return [...groupsBySpec.values()]
+})
+
+// 网格布局：按子图数选列数、各行高（包含 header + chart 合计）
+const HEADER_H = 34
+const layoutStyle = computed(() => {
+  const N = subChartGroups.value.length
+  let cols, chartH
+  if (N === 1)      { cols = 1; chartH = 360 }
+  else if (N === 2) { cols = 2; chartH = 280 }
+  else if (N === 3) { cols = 1; chartH = 200 }
+  else if (N === 4) { cols = 2; chartH = 220 }   // 2×2
+  else              { cols = 1; chartH = 140 }
+  return {
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridAutoRows: `${chartH + HEADER_H}px`,
+  }
 })
 
 // ── 方法 ──
@@ -550,10 +656,23 @@ async function doCompare() {
     const { data: d } = await axios.get(url)
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d
-    // 默认全选公共 spec_key
-    selectedSpecKeys.value = new Set(d.series.flatMap(s => s.spec_groups.map(g => g.spec_key)))
+    // 默认选 top MAX_SMALL_MULTIPLES 个公共 spec_key（按跨城覆盖数 → 样本数倒序）
+    const _sk_counter = new Map()
+    for (const s of d.series) {
+      for (const g of s.spec_groups) {
+        const cur = _sk_counter.get(g.spec_key) || { label: g.spec_label, cities: 0, total: 0 }
+        cur.cities += 1
+        cur.total += g.n_total
+        _sk_counter.set(g.spec_key, cur)
+      }
+    }
+    const _top_spec = [..._sk_counter.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => (b.cities - a.cities) || (b.total - a.total))
+      .slice(0, MAX_SMALL_MULTIPLES)
+    selectedSpecKeys.value = new Set(_top_spec.map(s => s.key))
     await nextTick()
-    renderChart()
+    renderAllCharts()
   } catch (e) {
     error.value = e.message
   } finally {
@@ -566,7 +685,7 @@ function toggleSpecKey(key) {
   if (s.has(key)) s.delete(key); else s.add(key)
   selectedSpecKeys.value = s
   // 不重新发 API，前端过滤即可
-  renderChart()
+  renderAllCharts()
 }
 
 // 视图工具
@@ -630,116 +749,92 @@ function getSpecPt(sg, periodStart) {
   return sg.points.find(p => p.period_start === periodStart)
 }
 
-// ── 主图渲染 ──
-function renderChart() {
-  if (!chartEl.value || !data.value?.aligned_periods?.length) return
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartEl.value)
-    window.addEventListener('resize', chartInstance.resize)
-  }
-  const periodLabels = data.value.aligned_periods.map(p => p.label)
-  const selected = selectedSpecKeys.value.size === 0
-    ? new Set(data.value.series.flatMap(s => s.spec_groups.map(g => g.spec_key)))
-    : selectedSpecKeys.value
-
-  // 选最多 1 个 spec_key 作为主绘线（避免挤）；多选时只绘第一个
-  // 否则每城市 × 每 spec 一条线会太多
-  const pickedSpecKey = [...selected][0]
-
-  const series = []
-  for (const s of data.value.series) {
-    if (!s.spec_groups.length) continue
-    // 优先用 pickedSpecKey，否则取第一个
-    const sg = s.spec_groups.find(g => g.spec_key === pickedSpecKey) || s.spec_groups[0]
-    // 注意：不能用 const data = ...（与外层 ref(data) 同名触发 TDZ；ref 遮蔽导致 ReferenceError）
-    const points = data.value.aligned_periods.map(p => {
-      const pt = getSpecPt(sg, p.start)
-      if (!pt) return null
-      return {
-        value: pt.avg,
-        avg: pt.avg, min: pt.min, max: pt.max, n: pt.n,
-        spec_label: sg.spec_label,
-      }
-    })
-    series.push({
-      name: `${s.label} · ${sg.spec_label}`,
-      type: 'line',
-      data: points,
-      smooth: false,
-      symbol: 'circle',
-      symbolSize: 8,
-      lineStyle: { width: 2.5, color: s.color },
-      itemStyle: { color: s.color },
-      emphasis: { focus: 'series' },
-      connectNulls: true,
-    })
-  }
-
-  // 同期 overall（每城市加权均价，不分 spec）
-  for (const s of data.value.series) {
-    if (!s.spec_groups.length) continue
-    const overall = data.value.aligned_periods.map(p => {
-      const pts = s.spec_groups.flatMap(g => g.points).filter(pt => pt.period_start === p.start)
-      if (!pts.length) return null
-      const sum = pts.reduce((acc, pt) => acc + pt.avg * pt.n, 0)
-      const cnt = pts.reduce((acc, pt) => acc + pt.n, 0)
-      return cnt ? { value: sum / cnt, avg: sum / cnt, n: cnt, overall: true } : null
-    })
-    series.push({
-      name: `${s.label} · 同期整体`,
-      type: 'line',
-      data: overall,
-      smooth: false,
-      symbol: 'diamond',
-      symbolSize: 6,
-      lineStyle: { width: 1.5, color: s.color, type: 'dashed', opacity: 0.5 },
-      itemStyle: { color: s.color, opacity: 0.5 },
-      emphasis: { focus: 'series' },
-      connectNulls: true,
-    })
-  }
-
-  const option = {
+// ── 多子图渲染：每个 spec_key 一个独立 ECharts 实例 ──
+function buildSubChartOption(g) {
+  const alignColor = g.align_method === 'attr' ? '#1d4ed8'
+    : g.align_method === 'spec_norm' ? '#a16207'
+    : '#94a3b8'
+  const series = g.cities.map(pbc => ({
+    name: `${pbc.label} · ${g.spec_label}`,
+    type: 'line',
+    data: pbc.points,
+    smooth: false,
+    symbol: 'circle',
+    symbolSize: 4,
+    lineStyle: { width: 1.5, color: pbc.color },
+    itemStyle: { color: pbc.color },
+    emphasis: { focus: 'series' },
+    connectNulls: true,
+  }))
+  return {
+    // 标题改由 HTML header 渲染，避免与 grid 内容重叠
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255,255,255,0.98)',
       borderColor: '#cbd5e1',
       textStyle: { color: '#0f172a' },
       formatter: (params) => {
+        if (!params?.length) return ''
         const head = params[0]?.axisValue || ''
         let html = `<b>${head}</b><br/>`
         for (const p of params) {
           const d = p.data
-          if (!d) {
-            html += `${p.marker} ${p.seriesName}: <em>无数据</em><br/>`
-            continue
-          }
+          if (!d) { html += `${p.marker} ${p.seriesName}: <em>无数据</em><br/>`; continue }
           const v = d.avg.toFixed(2)
-          const tail = d.overall ? '' : ` <small>(min ${d.min} – max ${d.max})</small>`
-          html += `${p.marker} ${p.seriesName}: <b>${v}</b>${tail}<br/>`
+          html += `${p.marker} ${p.seriesName}: <b>${v}</b> <small>(min ${d.min} – max ${d.max})</small><br/>`
         }
         return html
-      }
+      },
     },
-    legend: { top: 0, type: 'scroll', textStyle: { color: '#475569' } },
-    grid: { left: 70, right: 24, top: 50, bottom: 70 },
+    legend: {
+      bottom: 0,
+      type: 'scroll',
+      textStyle: { color: '#475569', fontSize: 10 },
+      itemHeight: 10,
+    },
+    grid: { left: 50, right: 16, top: 28, bottom: 36 },
     xAxis: {
-      type: 'category', data: periodLabels,
+      type: 'category',
+      data: g.period_labels,
       axisLine: { lineStyle: { color: '#cbd5e1' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#94a3b8', fontSize: 9, hideOverlap: true },
     },
     yAxis: {
-      type: 'value', name: '均价',
-      nameTextStyle: { color: '#64748b' },
-      axisLabel: { color: '#475569' },
-      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      type: 'value',
+      axisLabel: { color: '#94a3b8', fontSize: 9 },
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
     },
     series,
   }
-  chartInstance.setOption(option, true)
+}
+
+function renderAllCharts() {
+  const groups = subChartGroups.value
+  // 释放多余实例
+  for (const [idx, inst] of chartInstances) {
+    if (idx >= groups.length) {
+      try { inst.dispose() } catch {}
+      chartInstances.delete(idx)
+    }
+  }
+  groups.forEach((g, idx) => {
+    const el = chartCells.value[idx]
+    if (!el) return
+    let inst = chartInstances.get(idx)
+    if (!inst) {
+      inst = echarts.init(el)
+      chartInstances.set(idx, inst)
+      window.addEventListener('resize', () => inst && inst.resize())
+    }
+    inst.setOption(buildSubChartOption(g), true)
+  })
 }
 
 // watch 渲染
-watch(() => data.value?.series, () => nextTick(renderChart), { deep: true })
+watch(subChartGroups, () => nextTick(renderAllCharts), { deep: true })
 
 // 生命周期
 onMounted(async () => {
@@ -753,7 +848,7 @@ onMounted(async () => {
 // watch 品种输入：实时推荐（debounce 300ms）
 watch(breedInput, (v) => loadBreedRecommend(v))
 onBeforeUnmount(() => {
-  if (chartInstance) chartInstance.dispose()
+  for (const inst of chartInstances.values()) { try { inst.dispose() } catch {} }; chartInstances.clear()
 })
 </script>
 
@@ -1022,12 +1117,124 @@ onBeforeUnmount(() => {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px 12px 8px;
   margin: 8px 0 16px;
-  min-height: 480px;
+  min-height: 320px;
   box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 }
-.compare-chart { width: 100%; height: 540px; }
+.compare-chart { width: 100%; min-height: 320px; }  /* 单图模式占位（不再使用；高度由 layoutStyle 控制） */
+
+/* small-multiples 网格容器：每格一个独立 echarts 实例 */
+.compare-charts-grid {
+  display: grid;
+  gap: 16px;
+}
+.compare-chart-cell {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 明确边界：浅边 + 圆角 + 阴影 */
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.compare-chart-cell:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+.cell-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: #fafbfc;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 7px 7px 0 0;
+}
+.cell-seq {
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.cell-title {
+  color: #0f172a;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-align {
+  font-family: monospace;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cell-align.align-attr       { background: #dbeafe; color: #1d4ed8; }
+.cell-align.align-spec_norm  { background: #fef3c7; color: #a16207; }
+.cell-align.align-fallback   { background: #f1f5f9; color: #64748b; }
+.cell-chart {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.compare-empty {
+  padding: 36px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+/* 跨城单位不一致警告 */
+.unit-conflict-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 8px 0 4px;
+  line-height: 1.6;
+}
+.unit-conflict-warning .warn-icon {
+  font-size: 16px;
+  line-height: 1.2;
+}
+.unit-conflict-warning strong {
+  font-weight: 600;
+  color: #b45309;
+}
+.unit-conflict-warning em {
+  font-style: normal;
+  font-family: var(--font-mono-num, monospace);
+  padding: 1px 6px;
+  background: #fff7ed;
+  border-radius: 3px;
+  color: #9a3412;
+}
+.unit-conflict-warning .warn-tip {
+  display: block;
+  margin-top: 4px;
+  color: #78350f;
+  font-size: 11px;
+}
 
 .period-table-scroll, .city-detail { overflow-x: auto; }
 .period-table {
