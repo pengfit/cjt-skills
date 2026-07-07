@@ -1,0 +1,21 @@
+key: jilin
+label: 吉林
+province: 吉林
+ods_index: ods_material_jilin_price
+dwd_index: dwd_jilin_price
+dws_index: dws_jilin_price
+progress_index: ods_material_jilin_price_sync_progress
+progress_mode: period
+# period 模式主字段：jilin 用 period（如 '2026年1月份'）+ county（如 '永吉县'）
+period_field: period
+county_field: county
+# 前端 SyncCard 展开按钮文案
+expand_label: "▾ 月份详情"
+config_path: config.yml
+cities:
+  - 吉林市
+  - 永吉县
+  - 蛟河市
+  - 桦甸市
+  - 舒兰市
+  - 磐石市

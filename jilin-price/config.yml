@@ -1,0 +1,30 @@
+es:
+  host: http://localhost:59200
+  index: ods_material_jilin_price
+  progress_index: ods_material_jilin_price_sync_progress
+
+site:
+  base_url: http://www.jlszjw.com/city/price_list.php
+  # PHP 页面查询字符串按 GBK 解析，所以 URL 中文参数必须用 GBK 编码。
+  # 不要用 UTF-8 编码的查询参数（"2026年1月份" → 2026%E5%B9%B41...），会查不到数据。
+  city_id: 140
+  city_name: 吉林市
+  # 源站支持的 diqu 取值（来自 select 选项）
+  counties:
+    - 吉林市      # 默认（diqu 空值 = 吉林市整体）
+    - 永吉县
+    - 蛟河市
+    - 桦甸市
+    - 舒兰市
+    - 磐石市
+
+sync:
+  # 只抓 2026 年数据（道友要求）。月份从 1 到当前月。
+  year: 2026
+  # 单位时间窗口（month/page）。源站一页 20 条，按月翻页直到空页为止。
+  page_size: 20
+  # 名称清洗：去掉前缀括号（"（2025年补充）干混抹灰砂浆" → "干混抹灰砂浆"）
+  strip_breed_prefix: true
+  # HTTP 重试
+  max_retries: 3
+  request_timeout: 30
