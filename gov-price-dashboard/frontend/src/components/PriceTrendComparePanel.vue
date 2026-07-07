@@ -155,26 +155,31 @@
         </span>
       </div>
 
-      <!-- 关键统计 -->
+      <!-- 关键统计：流式一行（pill + dot city） -->
       <div class="summary-bar">
-        <div class="summary-cell">
-          <span class="summary-label">📅 同期对齐</span>
-          <span class="summary-value">{{ data.aligned_periods.length }} 期</span>
-          <span class="summary-hint">已对齐所有城市时间轴</span>
-        </div>
-        <div class="summary-cell" v-for="s in data.series" :key="s.city" :style="{ '--accent': s.color }">
-          <span class="summary-label" :style="{ color: s.color }">● {{ s.label }}</span>
-          <span class="summary-value">
-            <template v-if="s.n_total">
-              {{ latestPrice(s) ?? '—' }} <small>{{ s.unit_used || '—' }}</small>
-            </template>
-            <template v-else>无数据</template>
+        <span class="sum-pill">
+          <span class="sum-emoji">📅</span>
+          <strong>{{ data.aligned_periods.length }}</strong> 期对齐
+        </span>
+        <span class="sum-pill">
+          <span class="sum-emoji">📦</span>
+          共 <strong>{{ summaryTotal.docs.toLocaleString() }}</strong> 样本 / {{ summaryTotal.spec_groups }} spec
+        </span>
+        <span class="sum-sep" aria-hidden="true">|</span>
+        <template v-for="s in data.series" :key="s.city">
+          <span class="sum-city" :class="{ 'sum-city-empty': !s.n_total }">
+            <span class="city-dot" :style="{ background: s.color }"></span>
+            <strong>{{ s.label }}</strong>
+            <span class="sum-price">
+              <template v-if="s.n_total">{{ latestPrice(s) ?? '—' }}<small>{{ s.unit_used || '' }}</small></template>
+              <template v-else>—</template>
+            </span>
+            <small v-if="s.n_total" class="sum-meta">
+              {{ s.n_total }} 样本 · {{ s.spec_groups.length }} spec
+              <em v-if="s.missing_periods.length">漏 {{ s.missing_periods.length }}</em>
+            </small>
           </span>
-          <span class="summary-hint" v-if="s.n_total">
-            {{ s.n_total }} 样本 · {{ s.spec_groups.length }} spec
-            <em v-if="s.missing_periods.length">漏 {{ s.missing_periods.length }} 期</em>
-          </span>
-        </div>
+        </template>
       </div>
 
       <!-- spec 选择（多选，按城市分别用 first spec） -->
@@ -498,6 +503,17 @@ const layoutStyle = computed(() => {
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
     gridAutoRows: `${chartH + HEADER_H}px`,
   }
+})
+
+// 汇总统计：所有城市合计样本与 spec_group 数
+const summaryTotal = computed(() => {
+  if (!data.value?.series) return { docs: 0, spec_groups: 0 }
+  let docs = 0, sg = 0
+  for (const s of data.value.series) {
+    docs += s.n_total || 0
+    sg += (s.spec_groups?.length || 0)
+  }
+  return { docs, spec_groups: sg }
 })
 
 // ── 方法 ──
@@ -1027,49 +1043,80 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+/* summary-bar：单行流式布局（pill + dot city） */
 .summary-bar {
-  display: grid;
-  grid-template-columns: auto repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
   margin: 12px 0;
-}
-.summary-cell {
+  padding: 8px 12px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-left: 3px solid #64748b;
   border-radius: 6px;
-  padding: 10px 14px;
-  --accent: #64748b;
-  border-left-color: var(--accent);
+  font-size: 12px;
+  line-height: 1.4;
 }
-.summary-label {
+.sum-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: 10px;
   font-size: 11px;
   color: #475569;
-  font-weight: 600;
 }
-.summary-value {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
+.sum-pill strong {
   color: #0f172a;
-  margin: 4px 0;
   font-variant-numeric: tabular-nums;
 }
-.summary-value small {
-  font-size: 11px;
+.sum-emoji { font-size: 12px; }
+.sum-sep {
+  color: #cbd5e1;
+  user-select: none;
+}
+.sum-city {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+}
+.sum-city .city-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+  transform: translateY(1px);
+}
+.sum-city strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+.sum-city .sum-price {
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+.sum-city .sum-price small {
+  font-size: 10px;
   font-weight: 400;
   color: #64748b;
   margin-left: 2px;
 }
-.summary-hint {
+.sum-city .sum-meta {
   font-size: 10px;
   color: #94a3b8;
-}
-.summary-hint em {
-  font-style: normal;
-  color: #ea580c;
   margin-left: 4px;
 }
+.sum-city .sum-meta em {
+  font-style: normal;
+  color: #ea580c;
+  margin-left: 2px;
+}
+.sum-city-empty { opacity: 0.55; }
 
 .spec-bar {
   display: flex;
