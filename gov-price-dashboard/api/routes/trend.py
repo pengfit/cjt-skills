@@ -229,8 +229,19 @@ def _load_attr_label_cn() -> dict:
 
 K_LABEL_CN = _load_attr_label_cn()
 
+# 后端 attr 聚合用的 fallback sentinel 键名，在 K_LABEL_CN 里查不到，
+# 这里给一个可读中文标签（前端 chip + spec 列展示都不再出现 "__spec__"）。
+#   __spec__    : 文档 attr=[] 但 spec 字符串还在 — 以 spec 原文作为唯 一维度
+#   __general__ : 文档 attr=[] 且 spec='' — 完全无规格信息
+_ATTR_KEY_SPECIAL = {
+    "__spec__":    "原文规格",
+    "__general__": "通用规格",
+}
+
 
 def _label_k(k: str) -> str:
+    if k in _ATTR_KEY_SPECIAL:
+        return _ATTR_KEY_SPECIAL[k]
     return K_LABEL_CN.get(k, k)
 
 
