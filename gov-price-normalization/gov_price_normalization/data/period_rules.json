@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "version": "0.1.0",
+    "updated": "2026-07-08",
+    "note": "每个城市的业务期粒度规则。monthly=月刊；quarterly=季刊（4 期/年）；bimonthly=双月刊；irregular=不定期（按 period_start 实际月份对齐）。anchor_month 为季刊/双月刊的发布月份。"
+  },
+  "xian":       {"granularity": "monthly",    "default_unit": "m³"},
+  "sichuan":    {"granularity": "monthly",    "default_unit": "m³"},
+  "chongqing":  {"granularity": "monthly",    "default_unit": "m³"},
+  "jinan":      {"granularity": "irregular",  "default_unit": "m³"},
+  "rizhao":     {"granularity": "monthly",    "default_unit": "m³"},
+  "heze":       {"granularity": "monthly",    "default_unit": "m³"},
+  "henan":      {"granularity": "monthly",    "default_unit": "m³"},
+  "qingdao":    {"granularity": "monthly",    "default_unit": "m³"},
+  "weihai":     {"granularity": "quarterly",  "default_unit": "m³", "anchor_month": [1, 4, 7, 10]},
+  "hunan":      {"granularity": "monthly",    "default_unit": "m³"},
+  "jiangxi":    {"granularity": "monthly",    "default_unit": "m³"},
+  "ningxia":    {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [2, 4, 6, 8, 10, 12]},
+  "qinghai":    {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [3, 5, 7, 9, 11]},
+  "shaanxi":    {"granularity": "monthly",    "default_unit": "m³"},
+  "hainan":     {"granularity": "monthly",    "default_unit": "m³"},
+  "huhehaote":  {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [1, 3, 5, 7, 9, 11]},
+  "xinjiang":   {"granularity": "monthly",    "default_unit": "m³"},
+  "jilin":      {"granularity": "monthly",    "default_unit": "m³"}
+}

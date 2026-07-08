@@ -222,6 +222,45 @@
         </div>
       </div>
 
+      <!-- 价差走势：跨城 max/min + spread% （P0-#3） -->
+      <SectionHeader
+        v-if="canShowSpreadSection"
+        title="价差走势（跨城 max/min + spread%）"
+        dot-color="orange"
+        :subtitle="spreadSubtitle"
+      >
+        <template #right>
+          <div v-if="spreadHasData" class="export-bar">
+            <button class="export-btn" @click="onExportSpreadPng" title="导出价差走势图 PNG">📸 PNG</button>
+            <button class="export-btn" @click="onExportCompareCsv" title="导出跨城同期价对比 + 价差为 CSV">📊 CSV</button>
+          </div>
+        </template>
+      </SectionHeader>
+      <div v-if="canShowSpreadSection" class="spread-card">
+        <div v-if="!spreadHasData" class="compare-empty">
+          <div class="empty-title">{{ spreadEmptyTitle }}</div>
+          <div class="empty-detail">{{ spreadEmptyDetail }}</div>
+        </div>
+        <div v-else ref="spreadChartEl" class="spread-chart"></div>
+        <div v-if="spreadHasData && spreadLatest" class="spread-quick">
+          <span class="spread-quick-pill">
+            <span class="sp-emoji">📍</span> 最新一期 <strong>{{ spreadLatest.label }}</strong>
+          </span>
+          <span class="spread-quick-pill">
+            🔺 最高 <strong>{{ cityLabelOf(spreadLatest.max_city) }}</strong>
+            <span class="sp-val">{{ spreadLatest.max }}</span>
+          </span>
+          <span class="spread-quick-pill">
+            🔻 最低 <strong>{{ cityLabelOf(spreadLatest.min_city) }}</strong>
+            <span class="sp-val">{{ spreadLatest.min }}</span>
+          </span>
+          <span class="spread-quick-pill" :class="spreadSeverityClass(spreadLatest.spread_pct)">
+            📏 价差 <strong>{{ spreadLatest.spread }}</strong>
+            <em class="sp-pct">{{ spreadLatest.spread_pct.toFixed(1) }}%</em>
+          </span>
+        </div>
+      </div>
+
       <!-- 同期对比表 -->
       <SectionHeader title="同期价对比表（按周期对齐）" dot-color="blue" :subtitle="`每个城市在每个对齐期的均价`" />
       <div class="period-table-scroll">
@@ -370,6 +409,7 @@ import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 import SectionHeader from './SectionHeader.vue'
+import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -392,6 +432,10 @@ function setChartRef(el, idx) {
   if (el) chartCells.value[idx] = el
   else chartCells.value[idx] = null
 }
+
+// 价差走势图：单一 ECharts 实例，双 y 轴（价格左 + spread%右）
+const spreadChartEl = ref(null)
+let spreadChartInstance = null
 
 const commonUnits = ref(['t', 'm', 'kg', 'm³', 'm²', '根', '只', '块'])
 const topBreedsByCity = ref([])               // 用于空状态热门品种
@@ -765,6 +809,45 @@ function getSpecPt(sg, periodStart) {
   return sg.points.find(p => p.period_start === periodStart)
 }
 
+// ── 导出（P1-#6）：PNG = 当前价差走势；CSV = 跨城同期价对比 + 价差 ──
+function onExportSpreadPng() {
+  if (!spreadChartInstance) {
+    console.warn('[export] no spread chart instance')
+    return
+  }
+  const cities = (data.value?.cities || []).map(c => c.label).join('-')
+  const fname = `${withTimestamp(`${breedInput.value}-${cities}-价差`)}.png`
+  exportChartAsPng(spreadChartInstance, fname)
+}
+
+function onExportCompareCsv() {
+  if (!data.value?.series?.length) return
+  const rows = []
+  // 表头：周期 | <每城: 城市名(单位)_均价> | max | min | spread | spread%
+  const cityHeaders = data.value.series.map(s => `${s.label}${s.unit_used ? `(${s.unit_used})` : ''}`)
+  rows.push(['周期', ...cityHeaders, '最高价', '最高价城市', '最低价', '最低价城市', '价差', 'spread%'])
+  const spByPeriod = new Map((data.value?.spread?.by_period || []).map(p => [p.period_start, p]))
+  for (const p of data.value.aligned_periods) {
+    const cells = data.value.series.map(s => {
+      const v = getPriceFor(s, p.start)
+      return v == null ? '' : v.toFixed(2)
+    })
+    const sp = spByPeriod.get(p.start)
+    rows.push([
+      p.label,
+      ...cells,
+      sp?.max ?? '',
+      sp ? cityLabelOf(sp.max_city) : '',
+      sp?.min ?? '',
+      sp ? cityLabelOf(sp.min_city) : '',
+      sp?.spread ?? '',
+      sp?.spread_pct != null ? sp.spread_pct.toFixed(2) + '%' : '',
+    ])
+  }
+  const cities = (data.value?.cities || []).map(c => c.label).join('-')
+  exportCsvAsFile(rows, `${withTimestamp(`${breedInput.value}-${cities}-对比`)}.csv`)
+}
+
 // ── 多子图渲染：每个 spec_key 一个独立 ECharts 实例 ──
 function buildSubChartOption(g) {
   const alignColor = g.align_method === 'attr' ? '#1d4ed8'
@@ -847,7 +930,209 @@ function renderAllCharts() {
     }
     inst.setOption(buildSubChartOption(g), true)
   })
+  // 价差走势图
+  renderSpreadChart()
 }
+
+// ── 价差走势图（P0-#3） ──
+function _cityColorByKey(key) {
+  const s = data.value?.series?.find(s => s.city === key)
+  return s?.color || '#94a3b8'
+}
+function cityLabelOf(key) {
+  if (!key) return '—'
+  const s = data.value?.series?.find(s => s.city === key)
+  return s?.label || key
+}
+function spreadSeverityClass(pct) {
+  if (pct == null) return ''
+  if (pct >= 20) return 'spread-severe'
+  if (pct >= 5) return 'spread-mid'
+  return 'spread-low'
+}
+const spreadSubtitle = computed(() => {
+  if (!data.value?.spread?.by_period?.length) return '跨城价差走势图（选 2 个以上城市）'
+  const periods = data.value.aligned_periods?.length || 0
+  return `${periods} 期 · 每期取跨城最高/最低均价，红色 max / 绿色 min · 柱状为 spread%（相对当月均值）`
+})
+const canShowSpreadSection = computed(() => selectedCities.value.length >= 2)
+const spreadHasData = computed(() => {
+  const arr = data.value?.spread?.by_period || []
+  return arr.some(p => p.n_cities >= 2)
+})
+// 诊断空状态：不同原因分别给出提示
+const spreadEmptyTitle = computed(() => {
+  if (selectedCities.value.length < 2) return '至少选 2 个城市才能看价差'
+  // 选了 2+ 城但仍无价差——进一步区分原因
+  const series = data.value?.series || []
+  const withData = series.filter(s => (s.n_total || 0) > 0).length
+  const noData = series.filter(s => (s.n_total || 0) === 0).length
+  if (series.length === 0) return '该品种在选中城市都无数据'
+  if (withData === 0) return '该品种在选中城市都无样本'
+  if (noData > 0 && withData < series.length) {
+    return `${withData} 城有数据 · ${noData} 城无样本，但跨城无同期重叠`
+  }
+  return '跨城 spec 未对齐（公共 spec_key 为空）'
+})
+const spreadEmptyDetail = computed(() => {
+  if (selectedCities.value.length < 2) return `当前选了 ${selectedCities.value.length} 个城市，上方多选几个 →`
+  const series = data.value?.series || []
+  const emptyCities = series.filter(s => (s.n_total || 0) === 0).map(s => s.label)
+  const cityWith = series.filter(s => (s.n_total || 0) > 0).map(s => s.label)
+  if (emptyCities.length) {
+    return `无样本城市：${emptyCities.join('、')} · 有数据：${cityWith.join('、') || '无'}。试试换个品种、或退化期数`
+  }
+  return '可试：调大 “Top spec/城” 上限、或换品种重试'
+})
+const spreadLatest = computed(() => {
+  const arr = data.value?.spread?.by_period || []
+  // 倒序找第一个 n_cities>=2 的
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i].n_cities >= 2) return arr[i]
+  }
+  return null
+})
+
+function buildSpreadChartOption() {
+  const arr = (data.value?.spread?.by_period || []).filter(p => p.n_cities >= 2)
+  if (!arr.length) return null
+  const xLabels = arr.map(p => p.label)
+  // 每点携带 max_city / min_city 给 tooltip 用
+  const maxData = arr.map(p => ({
+    value: p.max,
+    max_city: p.max_city,
+    min_city: p.min_city,
+    period_start: p.period_start,
+  }))
+  const minData = arr.map(p => ({
+    value: p.min,
+    max_city: p.max_city,
+    min_city: p.min_city,
+    period_start: p.period_start,
+  }))
+  const spreadData = arr.map(p => p.spread)
+  const spreadPctData = arr.map(p => p.spread_pct)
+  return {
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255,255,255,0.98)',
+      borderColor: '#cbd5e1',
+      textStyle: { color: '#0f172a' },
+      formatter: (params) => {
+        if (!params?.length) return ''
+        const head = params[0].axisValue
+        const idx = params[0].dataIndex
+        const pt = arr[idx]
+        const maxCityLabel = cityLabelOf(pt.max_city)
+        const minCityLabel = cityLabelOf(pt.min_city)
+        const maxColor = _cityColorByKey(pt.max_city)
+        const minColor = _cityColorByKey(pt.min_city)
+        let html = `<b>${head}</b> <small style="color:#94a3b8">(${pt.period_start})</small><br/>`
+        const maxP = params.find(p => p.seriesName === '最高价')
+        const minP = params.find(p => p.seriesName === '最低价')
+        const spP = params.find(p => p.seriesName === '价差%')
+        if (maxP) {
+          html += `${maxP.marker} 最高价 <b style="color:${maxColor}">${maxCityLabel}</b>: <b>${pt.max}</b><br/>`
+        }
+        if (minP) {
+          html += `${minP.marker} 最低价 <b style="color:${minColor}">${minCityLabel}</b>: <b>${pt.min}</b><br/>`
+        }
+        html += `<span style="display:inline-block;width:8px"></span>价差 <b>${pt.spread}</b> · <em style="color:${spreadSeverityClass(pt.spread_pct)==='spread-severe'?'#dc2626':spreadSeverityClass(pt.spread_pct)==='spread-mid'?'#d97706':'#16a34a'}">${pt.spread_pct.toFixed(1)}%</em><br/>`
+        if (spP && pt.spread_pct > 0) {
+          html += `${spP.marker} 价差%: ${pt.spread_pct.toFixed(1)}%<br/>`
+        }
+        return html
+      },
+    },
+    legend: {
+      top: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 },
+    },
+    grid: { left: 60, right: 60, top: 36, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: xLabels,
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
+      axisLabel: { color: '#64748b', fontSize: 10, hideOverlap: true },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '价格',
+        nameTextStyle: { color: '#64748b', fontSize: 10 },
+        axisLabel: { color: '#475569', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#f1f5f9' } },
+      },
+      {
+        type: 'value',
+        name: 'spread %',
+        nameTextStyle: { color: '#94a3b8', fontSize: 10 },
+        axisLabel: { color: '#94a3b8', fontSize: 10, formatter: '{value}%' },
+        splitLine: { show: false },
+        max: (val) => Math.max(50, Math.ceil(val.max * 1.2)),
+      },
+    ],
+    series: [
+      {
+        name: '最高价',
+        type: 'line',
+        data: maxData,
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#dc2626', width: 2 },
+        itemStyle: { color: '#dc2626' },
+        z: 3,
+      },
+      {
+        name: '最低价',
+        type: 'line',
+        data: minData,
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#16a34a', width: 2 },
+        itemStyle: { color: '#16a34a' },
+        z: 3,
+      },
+      {
+        name: '价差%',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: spreadPctData,
+        barMaxWidth: 18,
+        itemStyle: {
+          color: (p) => {
+            const v = p.value || 0
+            if (v >= 20) return '#dc2626'
+            if (v >= 5) return '#d97706'
+            return '#16a34a'
+          },
+          opacity: 0.6,
+        },
+        z: 2,
+      },
+    ],
+  }
+}
+
+function renderSpreadChart() {
+  if (!spreadChartEl.value) {
+    if (spreadChartInstance) { try { spreadChartInstance.dispose() } catch {}; spreadChartInstance = null }
+    return
+  }
+  const opt = buildSpreadChartOption()
+  if (!opt) {
+    if (spreadChartInstance) { try { spreadChartInstance.dispose() } catch {}; spreadChartInstance = null }
+    return
+  }
+  if (!spreadChartInstance) {
+    spreadChartInstance = echarts.init(spreadChartEl.value)
+    window.addEventListener('resize', () => spreadChartInstance && spreadChartInstance.resize())
+  }
+  spreadChartInstance.setOption(opt, true)
+}
+
+watch(spreadHasData, () => nextTick(renderSpreadChart))
 
 // watch 渲染
 watch(subChartGroups, () => nextTick(renderAllCharts), { deep: true })
@@ -865,6 +1150,7 @@ onMounted(async () => {
 watch(breedInput, (v) => loadBreedRecommend(v))
 onBeforeUnmount(() => {
   for (const inst of chartInstances.values()) { try { inst.dispose() } catch {} }; chartInstances.clear()
+  if (spreadChartInstance) { try { spreadChartInstance.dispose() } catch {}; spreadChartInstance = null }
 })
 </script>
 
@@ -1237,7 +1523,7 @@ onBeforeUnmount(() => {
   position: relative;
 }
 .compare-empty {
-  padding: 36px;
+  padding: 24px 16px;
   text-align: center;
   color: #94a3b8;
   font-size: 13px;
@@ -1245,6 +1531,74 @@ onBeforeUnmount(() => {
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
 }
+.compare-empty .empty-title { font-size: 13px; font-weight: 600; color: #475569; }
+.compare-empty .empty-detail { font-size: 12px; color: #94a3b8; margin-top: 6px; line-height: 1.5; }
+
+/* 价差走势区（P0-#3） */
+.export-bar {
+  display: inline-flex;
+  gap: 6px;
+}
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.export-btn:hover {
+  border-color: #ea580c;
+  color: #c2410c;
+  background: #fff7ed;
+}
+.spread-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 0 16px;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.spread-chart { width: 100%; height: 320px; }
+.spread-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+.spread-quick-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  color: #475569;
+}
+.spread-quick-pill strong { color: #0f172a; }
+.sp-emoji { font-size: 12px; }
+.sp-val { color: #1e293b; font-weight: 600; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.sp-pct {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-style: normal;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #16a34a;
+}
+.spread-quick-pill.spread-mid .sp-pct { background: #fef3c7; color: #d97706; }
+.spread-quick-pill.spread-severe .sp-pct { background: #fee2e2; color: #dc2626; }
 
 /* 跨城单位不一致警告 */
 .unit-conflict-warning {

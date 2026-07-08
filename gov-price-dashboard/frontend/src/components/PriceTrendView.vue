@@ -98,6 +98,18 @@
 
     <!-- 主图 -->
     <div class="trend-card">
+      <!-- 主次曲线分层（P0-#1）：focused 系列高亮，其余半透明 -->
+      <!-- 导出按钮（P1-#6） -->
+      <div class="chart-toolbar">
+        <div v-if="focusedSeriesName" class="focus-pill">
+          🎯 聚焦：<strong>{{ focusedSeriesName }}</strong>
+          <button class="focus-clear" @click="clearFocus" title="清除聚焦">×</button>
+        </div>
+        <div v-if="!loading && allPeriods.length && chartSeries.length" class="export-bar">
+          <button class="export-btn" @click="onExportPng" title="导出当前主图为 PNG">📸 PNG</button>
+          <button class="export-btn" @click="onExportCsv" title="导出当前规格时序为 CSV">📊 CSV</button>
+        </div>
+      </div>
       <div v-if="loading" class="trend-loading">
         <SkeletonCard :lines="6" :hide-footer="true" />
       </div>
@@ -187,6 +199,7 @@ import PageHeader from './PageHeader.vue'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
 import SkeletonCard from './SkeletonCard.vue'
+import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -211,6 +224,10 @@ let chartInstance = null
 // attr_key 多选过滤。默认全选；用户在 chip 栏勾选/取消。仅显示选中 attr_key 的 specs。
 // 切换材料时重置为“所有出现的 attr_key 全选”（避免保留旧选择导致 0 specs）。
 const selectedAttrKeys = ref(new Set())
+
+// 主次曲线分层（P0-#1）：hover 自动高亮（ECharts 内置），
+// click 系列则“锁定聚焦”，其余曲线变淡 + 减细
+const focusedSeriesName = ref(null)
 watch(selectedMaterials, () => {
   const keys = new Set()
   for (const s of data.value.series) {
@@ -407,6 +424,75 @@ function trendClass(pct) {
   return pct >= 0 ? 'trend-up' : 'trend-down'
 }
 
+// ── 导出（P1-#6） ──
+function onExportPng() {
+  const base = `${cityLabel.value}-${selectedMaterials.value.join('+') || 'data'}`
+  const fname = `${withTimestamp(base)}.png`
+  exportChartAsPng(chartInstance, fname)
+}
+
+function onExportCsv() {
+  // 表头：材料 | 规格 | 单位 | 样本数 | <每期: 期_均价> | 首期均价 | 末期均价 | 涨跌幅%
+  const rows = []
+  const header = ['材料', '规格', '单位', '样本数', ...allPeriods.value.map(p => `${p.label}_均价`), '首期', '末期', '涨跌幅%']
+  rows.push(header)
+  for (const s of chartSeries.value) {
+    const fullName = `${s.name}${s.unit ? ` (${s.unit})` : ''}`
+    const [mat, spec] = s.name.split(' / ')
+    const ptByPeriod = {}
+    let first = null, last = null
+    for (const p of allPeriods.value) {
+      const pt = getPoint(s, p.start)
+      if (pt) {
+        ptByPeriod[p.start] = pt.avg
+        if (first === null) first = pt.avg
+        last = pt.avg
+      }
+    }
+    const cells = allPeriods.value.map(p => {
+      const v = ptByPeriod[p.start]
+      return v == null ? '' : v.toFixed(2)
+    })
+    const changePct = (first && last) ? (((last - first) / first) * 100).toFixed(2) + '%' : ''
+    rows.push([
+      mat || fullName,
+      spec || '',
+      s.unit || '',
+      String(s.points.reduce((acc, p) => acc + (p.n || 0), 0)),
+      ...cells,
+      first == null ? '' : first.toFixed(2),
+      last == null ? '' : last.toFixed(2),
+      changePct,
+    ])
+  }
+  const base = `${cityLabel.value}-${selectedMaterials.value.join('+') || 'data'}`
+  exportCsvAsFile(rows, `${withTimestamp(base)}.csv`)
+}
+
+function clearFocus() {
+  focusedSeriesName.value = null
+  renderChart()
+}
+
+function onChartClick(params) {
+  // 点击系列 → 锁定聚焦；再点同一系列或点击空白区域 → 清除
+  if (params && params.componentType === 'series') {
+    const name = params.seriesName
+    if (focusedSeriesName.value === name) {
+      focusedSeriesName.value = null
+    } else {
+      focusedSeriesName.value = name
+    }
+    renderChart()
+  } else if (params && (params.componentType === 'xAxis' || params.componentType === 'yAxis')) {
+    // 点击坐标轴 → 清除聚焦
+    if (focusedSeriesName.value) {
+      focusedSeriesName.value = null
+      renderChart()
+    }
+  }
+}
+
 function renderChart() {
   if (!chartEl.value || !allPeriods.value.length) {
     if (chartInstance) { chartInstance.dispose(); chartInstance = null }
@@ -415,28 +501,41 @@ function renderChart() {
   if (!chartInstance) {
     chartInstance = echarts.init(chartEl.value)
     window.addEventListener('resize', chartInstance.resize)
+    chartInstance.on('click', onChartClick)
   }
   const periodMap = {}
   allPeriods.value.forEach(p => { periodMap[p.start] = p })
 
   const xData = allPeriods.value.map(p => p.label)
 
-  const seriesArr = chartSeries.value.map(s => ({
-    name: `${s.name}${s.unit ? ` (${s.unit})` : ''}`,
-    type: 'line',
-    data: allPeriods.value.map(p => {
-      const pt = getPoint(s, p.start)
-      if (!pt) return { value: null, avg: null, min: null, max: null, n: 0, unit: s.unit }
-      return { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n, unit: s.unit }
-    }),
-    smooth: false,
-    symbol: 'circle',
-    symbolSize: 7,
-    lineStyle: { width: 2, color: colorOf(s.name) },
-    itemStyle: { color: colorOf(s.name) },
-    emphasis: { focus: 'series' },
-    connectNulls: true,
-  }))
+  const seriesArr = chartSeries.value.map(s => {
+    const fullName = `${s.name}${s.unit ? ` (${s.unit})` : ''}`
+    const isFocused = focusedSeriesName.value
+    const isThis = isFocused === fullName
+    const opacity = !isFocused ? 1 : (isThis ? 1 : 0.18)
+    const lineW = isThis ? 3 : 2
+    return {
+      name: fullName,
+      type: 'line',
+      data: allPeriods.value.map(p => {
+        const pt = getPoint(s, p.start)
+        if (!pt) return { value: null, avg: null, min: null, max: null, n: 0, unit: s.unit }
+        return { value: pt.avg, avg: pt.avg, min: pt.min, max: pt.max, n: pt.n, unit: s.unit }
+      }),
+      smooth: false,
+      symbol: 'circle',
+      symbolSize: isThis ? 9 : 6,
+      lineStyle: { width: lineW, color: colorOf(s.name), opacity },
+      itemStyle: { color: colorOf(s.name), opacity },
+      emphasis: {
+        focus: 'series',
+        lineStyle: { width: 3, opacity: 1 },
+        itemStyle: { opacity: 1 },
+      },
+      connectNulls: true,
+      z: isThis ? 5 : 1,
+    }
+  })
 
   const option = {
     tooltip: {
@@ -647,6 +746,69 @@ watch(periodsLimit, () => loadData())
   min-height: 480px;
   box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 }
+
+/* 图表顶部工具栏：聚焦 pill + 导出按钮 */
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.export-bar {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.export-btn:hover {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+/* 聚焦 pill（P0-#1 主次曲线分层） */
+.focus-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 16px;
+  font-size: 12px;
+  color: #78350f;
+  margin-bottom: 10px;
+}
+.focus-pill strong { color: #92400e; }
+.focus-clear {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.focus-clear:hover { background: #d97706; }
 .trend-chart { width: 100%; height: 540px; }
 .trend-loading, .trend-error, .trend-empty {
   display: flex;

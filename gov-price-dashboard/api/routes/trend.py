@@ -466,6 +466,13 @@ def price_trend(
     if not dws_index:
         return {"ok": False, "error": f"未知城市: {city}"}
 
+    # NORM 优先查询：DWS → NORM 自动 fallback
+    from api.normalization_bridge import resolve_query_index
+    _idx_res = resolve_query_index(es, city, prefer="norm")
+    query_index = _idx_res["index"]
+    if not query_index:
+        return {"ok": False, "error": f"DWS 和 NORM 索引都不存在: city={city}"}
+
     granularity = next((g for k, g in [
         ("xian", "monthly"), ("sichuan", "monthly"), ("chongqing", "monthly"),
         ("jinan", "irregular"), ("rizhao", "monthly"), ("heze", "monthly"),
@@ -485,7 +492,7 @@ def price_trend(
         },
     }
     try:
-        ap = es.search(index=dws_index, body=all_periods_q, ignore_unavailable=True)
+        ap = es.search(index=query_index, body=all_periods_q, ignore_unavailable=True)
         all_period_buckets = ap.get("aggregations", {}).get("by_period", {}).get("buckets", [])
     except Exception:
         all_period_buckets = []
@@ -512,7 +519,11 @@ def price_trend(
             "ok": True,
             "city": city,
             "label": cfg.get("label", city),
+            "index_used": query_index,
             "dws_index": dws_index,
+            "norm_index": f"norm_{city}_price",
+            "index_fallback": _idx_res["fallback"],
+            "index_reason": _idx_res["reason"],
             "granularity": granularity,
             "periods": [],
             "series": [],
@@ -521,7 +532,7 @@ def price_trend(
     # 3) 拉材料列表
     if not materials or materials.strip() in ("*", "all", "ALL"):
         agg_r = es.search(
-            index=dws_index,
+            index=query_index,
             body={
                 "size": 0,
                 "query": {"terms": {"period_start": [p["start"] for p in selected_periods]}},
@@ -537,7 +548,7 @@ def price_trend(
     series = []
     period_starts = [p["start"] for p in selected_periods]
     for mat in mat_list:
-        hits = _fetch_all_hits_for_breed(dws_index, mat, period_starts)
+        hits = _fetch_all_hits_for_breed(query_index, mat, period_starts)
         if not hits:
             series.append({
                 "material": mat,
@@ -576,7 +587,7 @@ def price_trend(
 
     # 5) total_docs
     total = es.count(
-        index=dws_index,
+        index=query_index,
         body={"query": {"terms": {"period_start": period_starts}}},
         ignore_unavailable=True,
     ).get("count", 0)
@@ -585,7 +596,11 @@ def price_trend(
         "ok": True,
         "city": city,
         "label": cfg.get("label", city),
-        "dws_index": dws_index,
+        "index_used": query_index,                    # 实际查的索引（NORM 优先，DWS fallback）
+        "dws_index": dws_index,                        # 原始 DWS 索引名（保留向后兼容）
+        "norm_index": f"norm_{city}_price",           # 期望的 NORM 索引名
+        "index_fallback": _idx_res["fallback"],       # True = 走了 fallback
+        "index_reason": _idx_res["reason"],
         "granularity": granularity,
         "periods": selected_periods,
         "series": series,
@@ -738,13 +753,27 @@ def price_trend_compare(
         cfg = _registry_get(ck) or {}
         if not cfg.get("dws_index"):
             return {"ok": False, "error": f"未知城市或无 DWS 索引: {ck}"}
+        # NORM 优先 + DWS fallback
+        from api.normalization_bridge import resolve_query_index
+        _idx_res = resolve_query_index(es, ck, prefer="norm")
         city_cfgs.append({
             "key": ck,
             "label": cfg.get("label", ck),
             "color": _PROVINCE_COLOR.get(cfg.get("label", ck), _PROVINCE_COLOR.get(cfg.get("province", ""), "#64748b")),
             "dws_index": cfg["dws_index"],
+            "query_index": _idx_res["index"],       # 实际查的索引
+            "index_fallback": _idx_res["fallback"],
             "province": cfg.get("province", ""),
         })
+    # 在响应顶层附上每个城市的 fallback 情况（方便前端提示）
+    city_index_status = {
+        c["key"]: {
+            "query_index": c["query_index"],
+            "index_fallback": c["index_fallback"],
+            "reason": "norm_preferred" if not c["index_fallback"] else "norm_missing_fallback_dws",
+        }
+        for c in city_cfgs
+    }
 
     # 2. 解析 spec_filter
     spec_filter_pairs = []
@@ -765,7 +794,7 @@ def price_trend_compare(
 
     def fetch_city(cfg):
         """查一个城市：按 (period_start, spec_key, unit) 聚合"""
-        idx = cfg["dws_index"]
+        idx = cfg["query_index"]   # NORM 优先，缺失 fallback DWS
         city_result = {
             "city": cfg["key"], "label": cfg["label"], "color": cfg["color"],
             "dws_index": idx,
@@ -996,6 +1025,97 @@ def price_trend_compare(
     for k, cnt in attr_counter.most_common(15):
         cross_attr_keys.append({"key": k, "label": _label_k(k), "cities_with_it": cnt})
 
+    # 9. 价差走势（spread）— 按对齐期聚合 max/min/spread/spread_pct
+    #      spread_pct = (max - min) / mid * 100，mid = 当期均值
+    #      - spread_overall_by_period：整品种跨城聚合（来源 overall.by_city）
+    #      - spread_by_spec：每个 spec_key 跨城在每期的 max/min，并标注 max_city/min_city
+    spread_overall_by_period = []
+    for row in overall["by_period"]:
+        bcities = row["by_city"]
+        if len(bcities) < 2:
+            # 单城无法计算 spread；返回 max=min=该城均价，便于绘图留空
+            spread_overall_by_period.append({
+                "period_start": row["period_start"],
+                "label": period_labels.get(row["period_start"], row["period_start"]),
+                "max": round(bcities[0]["avg"], 2) if bcities else None,
+                "min": round(bcities[0]["avg"], 2) if bcities else None,
+                "spread": 0.0,
+                "spread_pct": 0.0,
+                "max_city": bcities[0]["city"] if bcities else None,
+                "min_city": bcities[0]["city"] if bcities else None,
+                "n_cities": len(bcities),
+            })
+            continue
+        vals = [(c["avg"], c["city"]) for c in bcities]
+        vmax = max(vals, key=lambda x: x[0])
+        vmin = min(vals, key=lambda x: x[0])
+        spread = vmax[0] - vmin[0]
+        mid = sum(v for v, _ in vals) / len(vals)
+        spread_overall_by_period.append({
+            "period_start": row["period_start"],
+            "label": period_labels.get(row["period_start"], row["period_start"]),
+            "max": round(vmax[0], 2),
+            "min": round(vmin[0], 2),
+            "spread": round(spread, 2),
+            "spread_pct": round((spread / mid) * 100, 2) if mid else 0.0,
+            "max_city": vmax[1],
+            "min_city": vmin[1],
+            "n_cities": len(bcities),
+        })
+
+    # spec_key 级别的价差（用于后续 per-spec 价差走势 small multiples）
+    spread_by_spec = []
+    all_spec_keys: dict = {}
+    for r in series_out:
+        for sg in r["spec_groups"]:
+            all_spec_keys.setdefault(sg["spec_key"], {
+                "spec_key": sg["spec_key"],
+                "spec_label": sg["spec_label"],
+                "align_method": sg["align_method"],
+            })
+    for sk, info in all_spec_keys.items():
+        by_period = []
+        for ap in aligned_periods:
+            ps = ap["start"]
+            # 收集该 spec_key 在该期的所有城市点
+            pts = []
+            for r in series_out:
+                for sg in r["spec_groups"]:
+                    if sg["spec_key"] != sk:
+                        continue
+                    for pt in sg["points"]:
+                        if pt["period_start"] == ps:
+                            pts.append((pt["avg"], r["city"]))
+                            break
+            if len(pts) < 2:
+                continue
+            vmax = max(pts, key=lambda x: x[0])
+            vmin = min(pts, key=lambda x: x[0])
+            spread = vmax[0] - vmin[0]
+            mid = sum(v for v, _ in pts) / len(pts)
+            by_period.append({
+                "period_start": ps,
+                "label": ap["label"],
+                "max": round(vmax[0], 2),
+                "min": round(vmin[0], 2),
+                "spread": round(spread, 2),
+                "spread_pct": round((spread / mid) * 100, 2) if mid else 0.0,
+                "max_city": vmax[1],
+                "min_city": vmin[1],
+                "n_cities": len(pts),
+            })
+        if by_period:
+            spread_by_spec.append({
+                "spec_key": sk,
+                "spec_label": info["spec_label"],
+                "align_method": info["align_method"],
+                "by_period": by_period,
+            })
+    # 按平均 spread_pct 倒序（最"分化"的规格排前面）
+    spread_by_spec.sort(key=lambda s: -(
+        sum(p["spread_pct"] for p in s["by_period"]) / len(s["by_period"]) if s["by_period"] else 0
+    ))
+
     return {
         "ok": True,
         "breed": breed,
@@ -1003,8 +1123,13 @@ def price_trend_compare(
         "aligned_periods": aligned_periods,
         "series": series_out,
         "overall": overall,
+        "spread": {
+            "by_period": spread_overall_by_period,
+            "by_spec": spread_by_spec,
+        },
         "cross_attr_keys": cross_attr_keys,
         "top_specs": top_specs,
         "align": align,
         "unit_constraint": unit,
+        "city_index_status": city_index_status,   # 各城市 NORM/DWS 选源情况（前端可提示）
     }
