@@ -3199,9 +3199,13 @@ def _read_last_period_from_cfg(cfg_path: str, key: str = "last_period") -> str:
 
 
 def _period_sync_progress(cfg: dict) -> dict:
-    """period 模式：heze / henan / qingdao / weihai 等按 PDF 期刊跟踪的 skill
+    """period 模式：heze / henan / qingdao / weihai / jilin 等按 PDF 期刊跟踪的 skill
 
-    进度索引里每期一条 status=ok 的记录，按 created_at 倒序列出详情。
+    进度索引里每期一条 status=ok 的记录，按 updated_at 倒序列出详情。
+
+    注：字段名不统一——henan/xian 等老 skill 写 'created_at'，jilin 等新 skill 写
+    'last_updated'。这里按优先级取 created_at → last_updated → publish_date，
+    ES sort 也同步多字段。所有 period skill 共用同一逻辑。
     """
     progress_index = cfg.get("progress_index")
     data_index = cfg.get("ods_index")
@@ -3209,10 +3213,22 @@ def _period_sync_progress(cfg: dict) -> dict:
 
     all_hits = es.search(index=progress_index, body={
         "size": 50,
-        "sort": [{"created_at": "desc"}],
+        "sort": [
+            {"created_at":  {"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+            {"last_updated": {"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+        ],
         "query": {"match_all": {}}
     }, ignore_unavailable=True)
     records = all_hits.get("hits", {}).get("hits", [])
+
+    def _updated_at(src):
+        # 取优先级：created_at（老 skill） → last_updated（新 skill） → publish_date
+        return (
+            src.get("created_at")
+            or src.get("last_updated")
+            or src.get("publish_date")
+            or ""
+        )
 
     period_details = []
     total_docs = 0
@@ -3220,7 +3236,7 @@ def _period_sync_progress(cfg: dict) -> dict:
     running = 0
     errored = 0
     latest_period = ""
-    latest_created_at = ""
+    latest_updated_at = ""
     latest_doc = None
 
     for h in records:
@@ -3237,6 +3253,7 @@ def _period_sync_progress(cfg: dict) -> dict:
             completed += 1
         docs_written = src.get("docs_written", 0) or 0
         total_docs += docs_written
+        ua = _updated_at(src)
         period_details.append({
             "period": src.get("period", ""),
             "publish_date": src.get("publish_date", ""),
@@ -3244,18 +3261,19 @@ def _period_sync_progress(cfg: dict) -> dict:
             "percent": 100.0 if status_norm == "completed" else 0,
             "docs_written": docs_written,
             "duration_sec": src.get("duration_sec", 0),
-            "created_at": src.get("created_at", ""),
+            "created_at": src.get("created_at", ""),  # 原始字段名保留，老前端用
+            "last_updated": src.get("last_updated", ""),  # jilin 等 skill 原始字段名
+            "updated_at": ua,  # 兼容读发专用，由 _updated_at() 计算
             "pdf_url": src.get("pdf_url", ""),
             "minio_key": src.get("minio_key", ""),
         })
-        ca = src.get("created_at", "")
-        if ca and ca > latest_created_at:
-            latest_created_at = ca
+        if ua and ua > latest_updated_at:
+            latest_updated_at = ua
             latest_period = src.get("period", "")
             latest_doc = src
 
     overall_status = "ok" if running == 0 and errored == 0 else ("running" if running else "error")
-    last_updated = latest_created_at[:19] if latest_created_at else ""
+    last_updated = latest_updated_at[:19] if latest_updated_at else ""
 
     last_sync_period = _read_last_period_from_cfg(cfg_path, "last_period")
     es_latest_period = latest_period
