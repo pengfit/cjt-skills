@@ -26,6 +26,11 @@
       "canonical_unit":    { "type": "keyword" },
       "canonical_price":   { "type": "double" },
       "breed":             { "type": "keyword" },
+      "normalized_breed":  {
+        "type": "text",
+        "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+      },
+      "breed_clean":       { "type": "keyword" },
       "spec":              { "type": "keyword" },
       "unit":              { "type": "keyword" },
       "province":          { "type": "keyword" },

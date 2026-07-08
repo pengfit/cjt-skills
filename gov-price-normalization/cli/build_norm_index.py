@@ -111,6 +111,10 @@ def _normalize_doc(dws_doc: dict, city: str) -> dict:
     # 顶层冗余字段（便于 dashboard 直接 filter）
     normed["canonical_period"] = normed.get("canonical_period")
     normed["canonical_unit"] = (normed.get("unit_norm") or {}).get("normalized")
+    # normalized_breed：跨城 join 用的归一化名（dashboard trend/compare 的 should OR 优先匹配这个字段）
+    #   来源：DWS.breed_clean（ETL AI 归一化）；缺失时降级用 breed
+    #   写到顶层，方便 trend.py 的 terms agg 和 compare 的 term 过滤直接命中
+    normed["normalized_breed"] = (src.get("breed_clean") or src.get("breed") or "").strip()
     # 注意：l3_code 没传 → price_norm 不会被设置
     return normed
 
