@@ -45,14 +45,25 @@
 
       <!-- Breed table -->
       <div class="detail-section">
-        <div class="section-title">品种列表 ({{ distinctBreedCount }})</div>
+        <div class="section-title">
+          品种列表 ({{ filteredBreeds.length }} / {{ distinctBreedCount }})
+        </div>
+        <div class="breed-search-wrap">
+          <input
+            v-model="breedSearch"
+            type="text"
+            class="breed-search-input"
+            placeholder="过滤该分类下的品种（例：商品砼、HRB400、C20）"
+          />
+          <button v-if="breedSearch" class="breed-search-clear" @click="breedSearch = ''" title="清除">×</button>
+        </div>
         <div class="breed-table">
           <!-- Breed list (grid layout: name + count) -->
           <div class="breed-name-grid">
             <div
               class="breed-grid-item"
               :class="{ active: expandedBreed === b.key }"
-              v-for="(b, idx) in displayedBreeds"
+              v-for="(b, idx) in filteredBreeds"
               :key="b.key"
               @click="toggleBreed(b)"
             >
@@ -202,6 +213,14 @@ watch(selectedUnit, (newVal, oldVal) => {
 
 const distinctBreedCount = computed(() => selectedCategory.value?.breed_count || selectedCategory.value?.breeds?.length || 0)
 const hasMoreBreeds = computed(() => displayedBreeds.value.length < distinctBreedCount.value)
+
+// 品种名本地过滤（限定当前分类下；跨城请到 /trend 跨城市对比）
+const breedSearch = ref('')
+const filteredBreeds = computed(() => {
+  const kw = breedSearch.value.trim().toLowerCase()
+  if (!kw) return displayedBreeds.value
+  return displayedBreeds.value.filter(b => (b.key || '').toLowerCase().includes(kw))
+})
 
 const displayedBreeds = computed(() => {
   if (!showAllBreeds.value) {
@@ -866,6 +885,48 @@ onMounted(() => loadCategories())
   border-collapse: collapse;
   width: 100%;
 }
+
+.breed-search-wrap {
+  position: relative;
+  margin: 8px 0 12px;
+  max-width: 420px;
+}
+.breed-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 32px 7px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  background: #fff;
+  color: #0f172a;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.breed-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.breed-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: #94a3b8;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.breed-search-clear:hover { background: #64748b; }
 
 .breed-thead {
   display: grid;

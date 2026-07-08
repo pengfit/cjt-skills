@@ -43,6 +43,16 @@ from gov_price_normalization import (  # noqa: E402
     __version__ as _NORM_VERSION,
 )
 
+# breed 格式归一（从 cli 模块拿，避免复制逻辑）
+try:
+    from gov_price_normalization.cli.normalize_breed_format import (  # noqa: E402
+        normalize_breed_format,
+    )
+    normalize_breed_text = normalize_breed_format
+except Exception:  # pragma: no cover
+    def normalize_breed_text(s: str) -> str:
+        return s or ""
+
 
 def resolve_query_index(es_client, city: str, *, prefer: str = "norm") -> dict:
     """决定该查询走哪个索引：NORM 优先，缺失 fallback DWS。
@@ -99,6 +109,7 @@ __all__ = [
     "data_loader",
     "errors",
     "resolve_query_index",
+    "normalize_breed_text",
     "_NORM_VERSION",
     "_NORM_PKG",
 ]

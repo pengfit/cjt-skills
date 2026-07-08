@@ -49,7 +49,14 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
     spec_raw = raw.get("spec", "")
     unit_raw = raw.get("unit", "")
 
-    breed_clean = clean_breed(breed_raw)
+    # 2026-07-08: 优先用 ODS 拆好的 breed_clean 字段（吉林 v0.2 等已入库前拆）
+    # 没有的话 fallback 到 clean_breed(breed_raw)。新疆/菏泽/陕西 ODS 也有
+    # breed_clean 字段，其他城市未提供时不影响行为。
+    ods_breed_clean = raw.get("breed_clean", "").strip()
+    if ods_breed_clean:
+        breed_clean = ods_breed_clean
+    else:
+        breed_clean = clean_breed(breed_raw)
     spec_clean = clean_spec(spec_raw)
     unit_clean = clean_unit(unit_raw)
 

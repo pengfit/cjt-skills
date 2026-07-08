@@ -53,18 +53,62 @@
       </div>
     </div>
 
-    <!-- 材料搜索框 -->
-    <div v-if="allMaterials.length > 6" class="material-search">
-      <div class="material-search-input-wrap">
+    <!-- 材料搜索框（跨城 NORM 统一品种 + 本地 chip 过滤 双能力） -->
+    <div v-if="allMaterials.length" class="material-search">
+      <div class="material-search-input-wrap" :class="{ focused: normDropdownOpen }">
         <input
           v-model="materialSearch"
           type="text"
           class="material-search-input"
-          placeholder="搜索材料名称（例：商品砼、HDPE、C20）"
+          placeholder="搜索材料（例：商品砼、HRB400、C20 · 跨城 NORM）"
+          @focus="normDropdownOpen = true"
+          @blur="setTimeout(() => normDropdownOpen = false, 200)"
+          @keydown.down.prevent="normMoveFocus(1)"
+          @keydown.up.prevent="normMoveFocus(-1)"
+          @keydown.enter.prevent="normPickFocused()"
+          @keydown.esc="normDropdownOpen = false"
         />
-        <button v-if="materialSearch" class="material-search-clear" @click="materialSearch = ''" title="清除">×</button>
+        <button v-if="materialSearch" class="material-search-clear" @click="clearMaterialSearch()" title="清除">×</button>
+        <!-- NORM 跨城候选下拉 -->
+        <div v-if="normDropdownOpen && materialSearch.trim() && (normCandidates.length || normLoading || filteredMaterials.length)" class="norm-dropdown">
+          <div v-if="normLoading" class="norm-dropdown-loading">⏳ 查询 NORM 索引…</div>
+          <template v-else>
+            <div v-if="normCandidates.length" class="norm-dropdown-section-title">
+              🌐 跨城归一品种（{{ normCandidates.length }}）
+            </div>
+            <div
+              v-for="(c, idx) in normCandidates"
+              :key="c.normalized_breed + '_n'"
+              class="norm-dropdown-item"
+              :class="{ focused: normFocusedIdx === idx }"
+              :title="c.cities.map(x => x.label + ':' + x.docs).join(' | ')"
+              @mousedown.prevent="pickNormCandidate(c)"
+            >
+              <span class="norm-dropdown-breed">{{ c.normalized_breed }}</span>
+              <span class="norm-dropdown-meta">{{ c.cities.length }} 城 · {{ c.total_docs }} 条</span>
+            </div>
+            <div v-if="filteredMaterials.length" class="norm-dropdown-section-title">
+              📦 本地材料（已加载 · 前 8）
+            </div>
+            <div
+              v-for="m in filteredMaterials.slice(0, 8)"
+              :key="m + '_l'"
+              class="norm-dropdown-item"
+              :class="{ dimmed: selectedMaterials.includes(m) }"
+              @mousedown.prevent="pickLocalMaterial(m)"
+            >
+              <span class="norm-dropdown-breed">{{ m }}</span>
+              <span class="norm-dropdown-meta">{{ selectedMaterials.includes(m) ? '已选' : '本地' }}</span>
+            </div>
+            <div v-if="!normCandidates.length && !filteredMaterials.length" class="norm-dropdown-empty">
+              无匹配
+            </div>
+          </template>
+        </div>
       </div>
-      <span class="material-search-hint">{{ filteredMaterials.length }} / {{ allMaterials.length }} 材料</span>
+      <span class="material-search-hint">
+        {{ filteredMaterials.length }} 本地 · {{ normCandidates.length }} NORM 跨城
+      </span>
     </div>
 
     <!-- 材料选择 chip 栏 -->
@@ -208,7 +252,7 @@ const city = ref('')
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
 const selectedMaterials = ref([])    // 当前显示的材料
-const materialSearch = ref('')        // 材料名搜索关键字（前端过滤 chip，不影响 selectedMaterials 状态）
+const materialSearch = ref('')        // 材料名搜索关键字（双用：本地过滤 + NORM 跨城调）
 const filteredMaterials = computed(() => {
   if (!materialSearch.value.trim()) return allMaterials.value
   const k = materialSearch.value.trim().toLowerCase()
@@ -251,13 +295,13 @@ function toggleAttrKey(k) {
   selectedAttrKeys.value = s
 }
 
-// 期数筛选
-const periodsLimit = ref(12)
+// 期数筛选（CustomSelect.modelValue 限定 String，options.key 一致）
+const periodsLimit = ref('12')
 const periodOptions = ref([
-  { key: 6, label: '最近 6 期' },
-  { key: 12, label: '最近 12 期' },
-  { key: 24, label: '最近 24 期' },
-  { key: 36, label: '最近 36 期' },
+  { key: '6',  label: '最近 6 期'  },
+  { key: '12', label: '最近 12 期' },
+  { key: '24', label: '最近 24 期' },
+  { key: '36', label: '最近 36 期' },
 ])
 
 // 颜色（按 seriesName 在 activeSpecs 里出现的位置分配稳定色）
@@ -347,6 +391,77 @@ const periodRangeText = computed(() => {
 })
 
 // ── 方法 ──
+// NORM 跨城品种搜索（debounce 300ms）
+const normCandidates = ref([])
+const normLoading = ref(false)
+const normFocusedIdx = ref(0)
+const normDropdownOpen = ref(false)
+let normSearchTimer = null
+
+async function searchNormBreeds(keyword) {
+  const kw = (keyword || '').trim()
+  if (!kw) {
+    normCandidates.value = []
+    normLoading.value = false
+    return
+  }
+  normLoading.value = true
+  try {
+    const { data: d } = await axios.get(`${API}/norm/breeds/search`, {
+      params: { keyword: kw, limit: 12 },
+    })
+    normCandidates.value = d.ok ? (d.results || []) : []
+    normFocusedIdx.value = 0
+  } catch (e) {
+    normCandidates.value = []
+  } finally {
+    normLoading.value = false
+  }
+}
+
+function clearMaterialSearch() {
+  materialSearch.value = ''
+  normCandidates.value = []
+  normFocusedIdx.value = 0
+}
+
+function pickNormCandidate(c) {
+  // 重载该品种趋势数据（点选式，覆盖当前 selectedMaterials）
+  selectedMaterials.value = [c.normalized_breed]
+  clearMaterialSearch()
+  normDropdownOpen.value = false
+  loadData({ materials: c.normalized_breed })
+}
+function pickLocalMaterial(m) {
+  // toggleMaterial 但不依赖 dropdown 是否开
+  toggleMaterial(m)
+  clearMaterialSearch()
+  normDropdownOpen.value = false
+}
+function normMoveFocus(delta) {
+  const len = normCandidates.value.length
+  if (!len) return
+  let i = normFocusedIdx.value + delta
+  if (i < 0) i = len - 1
+  if (i >= len) i = 0
+  normFocusedIdx.value = i
+}
+function normPickFocused() {
+  const c = normCandidates.value[normFocusedIdx.value]
+  if (c) pickNormCandidate(c)
+}
+
+watch(materialSearch, (v) => {
+  if (normSearchTimer) clearTimeout(normSearchTimer)
+  const kw = (v || '').trim()
+  if (!kw) {
+    normCandidates.value = []
+    normFocusedIdx.value = 0
+    return
+  }
+  normSearchTimer = setTimeout(() => searchNormBreeds(kw), 300)
+})
+
 async function loadCityOptions() {
   try {
     const { data: d } = await axios.get(`${API}/skill-registry`)
@@ -362,7 +477,7 @@ async function loadCityOptions() {
   }
 }
 
-async function loadData() {
+async function loadData(opts = {}) {
   if (!city.value) return
   if (chartInstance) {
     chartInstance.dispose()
@@ -377,14 +492,22 @@ async function loadData() {
   allPeriods.value = []
   allMaterials.value = []
   try {
-    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=*&periods=${periodsLimit.value}&top_specs=8&max_breeds=30`
+    // 支持从 NORM 点选后传单个品种（逗号分隔或多品种数组）
+    let materials = '*'
+    if (opts.materials != null) {
+      materials = Array.isArray(opts.materials) ? opts.materials.join(',') : String(opts.materials)
+    }
+    // 单品种调用时 max_breeds 不起作用，调小防 top_specs 误算（API 自己处理）
+    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=${encodeURIComponent(materials)}&periods=${parseInt(periodsLimit.value, 10)}&top_specs=8&max_breeds=30`
     const { data: d } = await axios.get(url)
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d
     allPeriods.value = d.periods || []
     allMaterials.value = (d.series || []).map(s => s.material)
-    // 默认选前 4 个材料（让图表不至于太挤）
-    selectedMaterials.value = allMaterials.value.slice(0, 4)
+    // 点选 NORM 后保持 selectedMaterials 不被自动重置（保留单品种突出显示）
+    if (!opts.materials) {
+      selectedMaterials.value = allMaterials.value.slice(0, 4)
+    }
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
@@ -578,6 +701,7 @@ watch(city, (newCity) => {
 
 onBeforeUnmount(() => {
   if (chartInstance) chartInstance.dispose()
+  if (normSearchTimer) clearTimeout(normSearchTimer)
 })
 
 watch(periodsLimit, () => loadData())
@@ -698,6 +822,65 @@ watch(periodsLimit, () => loadData())
   display: flex; align-items: center; justify-content: center;
 }
 .material-search-clear:hover { background: #64748b; }
+.material-search-input-wrap.focused { box-shadow: 0 0 0 2px rgba(59,130,246,0.18); border-color: #3b82f6; }
+.norm-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(15,23,42,0.12);
+  z-index: 30;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.norm-dropdown-loading, .norm-dropdown-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+}
+.norm-dropdown-section-title {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+.norm-dropdown-section-title:first-child { border-top: none; }
+.norm-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #0f172a;
+}
+.norm-dropdown-item:hover, .norm-dropdown-item.focused {
+  background: #eff6ff;
+}
+.norm-dropdown-item.dimmed { color: #94a3b8; }
+.norm-dropdown-breed {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.norm-dropdown-meta {
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
 .material-search-hint {
   font-size: 11px; color: var(--text-3, #94a3b8);
   white-space: nowrap;

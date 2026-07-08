@@ -240,8 +240,9 @@ class JilinCollector(SyncRunner):
             for r in p_rows:
                 county_clean = _u.normalize_county(r["county"], city=self.cfg["site"]["city_name"])
                 all_docs.append({
-                    "breed": r["breed"],
-                    "breed_raw": r["breed_raw"],
+                    "breed": r["breed"],                # 清洗后品种名（去括号前缀）
+                    "breed_clean": r["breed_clean"],    # 拆分后品种名（去末尾型号/规格）
+                    "breed_raw": r["breed_raw"],        # 源站原文（调试/追溯）
                     "spec": r["spec"],
                     "unit": r["unit"],
                     "price": r["price"] or 0.0,
@@ -402,12 +403,19 @@ def _index_exists(es_host: str, idx: str) -> bool:
 
 
 def _doc_id(doc: dict) -> str:
-    """构造幂等 _id。"""
+    """构造幂等 _id。
+
+    字段选择:
+      - `breed`        = 清洗后品种名（与 xinjiang/heze/shaanxi 一致）
+      - `breed_clean`  = 拆完的品种名（拆后可能比 breed 更短）
+      - `spec`         = 拆出的规格 + 原 spec 合并
+    """
     parts = [
         doc.get("province", ""),
         doc.get("period", ""),
         doc.get("county", ""),
         doc.get("breed", ""),
+        doc.get("breed_clean", ""),
         doc.get("spec", ""),
         doc.get("unit", ""),
         str(doc.get("price", "")),
@@ -422,6 +430,7 @@ def _build_ods_mapping() -> dict:
         "mappings": {
             "properties": {
                 "breed": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
+                "breed_clean": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
                 "breed_raw": {"type": "text"},
                 "spec": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
                 "unit": {"type": "keyword"},

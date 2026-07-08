@@ -202,6 +202,162 @@ def derive_breed_from_spec(spec: str) -> str:
     return first[:30].strip()
 
 
+# ── breed + spec 复合拆分 ───────────────────────────────────────────
+# 道友要求：breed 中存在"复合信息"时（如末尾紧跟型号代码），拆成 breed + spec。
+# 常见模式：
+#   1. 末尾括号（半角/全角）内是 ASCII 规格
+#      "分水器电镀双阀1寸（DC7）"                     → ("分水器电镀双阀1寸", "DC7")
+#      "APF-D100丁基自粘高分子防水卷材（TPO）"         → (..., "TPO")
+#   2. 末尾 ASCII 型号代码（前置中文、含数字、非纯单位）
+#      "球墨铸铁蝶阀D71X-16"                          → ("球墨铸铁蝶阀", "D71X-16")
+#      "低压主受柜  D01"                               → ("低压主受柜", "D01")
+#      "PE-RTⅡ型耐热塑料管 110*10.0  SDR11"          → (..., "SDR11")  优先取短型号
+#   3. 末尾数字开头的规格串（前置中文、ASCII 字符、含运算符号）
+#      "聚乙烯给水管（PE）630×57.2PN1.6MPA"            → ("聚乙烯给水管（PE）", "630×57.2PN1.6MPA")
+#      "PE100聚乙烯给水管1.6MPa  SDR11"               → ("PE100聚乙烯给水管", "1.6MPa  SDR11")
+#      "钢丝网骨架PE复合管1.6Mpa"                      → ("钢丝网骨架PE复合管", "1.6Mpa")
+# 安全约束：
+#   - 提取的 spec/model 必须是纯 ASCII（含字母+数字、非纯单位），
+#     防止把 "箱体500*600*180*1.2" 这种混乱描述误拆。
+#   - prefix 必须有 ≥ 2 个连续中文字符（"箱体"才 2 个字，太短就让拆分)。
+#   - 纯数字+单位（"2.0mm"/"500W"）不算规格代码，不拆。
+
+# 纯单位结尾识别（数字+常见单位，不是型号代码）
+_PURE_UNIT_RE = re.compile(
+    r"^\d+(?:\.\d+)?"                          # 数字（支持小数）
+    r"(?:mm2|mm|cm2|cm|dm|m3|m|kg|t|"
+    r"V|KV|kV|W|KW|kW|A|AH|MPa|Mpa|KN|Hz|°)"   # 常见单位
+    r"$"
+)
+# 数字 + 数字运算符（含横线/斜杠/乘号等）— 规格型
+_DIGIT_RUN_RE = re.compile(
+    r"\d+(?:[.\-*+×xX/÷]\d+)+"   # 至少 1 组 [运算符]+数字
+)
+# ASCII 字符型型号代码（以大写字母开头，含数字）
+_ASCII_MODEL_RE = re.compile(
+    r"^[A-Z][A-Za-z0-9()\-_/.]*\d[A-Za-z0-9()\-_/.]*$"
+)
+
+
+def _has_cjk(s: str) -> bool:
+    """字符串中是否含中文字符。"""
+    return bool(re.search(r"[\u4e00-\u9fa5]", s or ""))
+
+
+def _has_n_cjk(s: str, n: int) -> bool:
+    """字符串中是否含 ≥ n 个连续中文字符。"""
+    return bool(re.search(r"[\u4e00-\u9fa5]{" + str(n) + ",}", s or ""))
+
+
+def _has_2cjk(s: str) -> bool:
+    """字符串中是否含 ≥ 2 个连续中文字符（防止误拆短品种名）。"""
+    return _has_n_cjk(s, 2)
+
+
+def _is_pure_unit(s: str) -> bool:
+    """是否是纯数字+单位（不应被当作型号或规格代码）。"""
+    return bool(_PURE_UNIT_RE.match(s or ""))
+
+
+def _merge_spec(new_spec: str, old_spec: str) -> str:
+    """合并两个 spec，避免重复。用 ' | ' 分隔。"""
+    new_spec = (new_spec or "").strip()
+    old_spec = (old_spec or "").strip()
+    if not new_spec:
+        return old_spec
+    if not old_spec:
+        return new_spec
+    if new_spec in old_spec:
+        return old_spec
+    if old_spec in new_spec:
+        return new_spec
+    return f"{new_spec} | {old_spec}"
+
+
+def split_breed_spec(breed: str, spec: str = "") -> tuple[str, str]:
+    """从 breed 中拆出末尾规格信息。
+
+    Returns:
+        (新breed, 新spec)。无匹配时原样返回。
+
+    三条规则按优先级：
+      1. 末尾括号（半角/全角）内是 ASCII 规格
+      2. 末尾数字开头的规格串（ASCII、含运算符号）
+      3. 末尾 ASCII 型号代码（前置 ≥ 2 中文字、含字母+数字）
+    """
+    if not breed:
+        return breed, spec
+
+    cleaned = str(breed).replace("\r", "").replace("\n", "")
+    if not cleaned:
+        return cleaned, spec
+
+    # 规则1: 末尾括号（半角/全角）内是 ASCII 规格
+    # 例: 分水器电镀双阀1寸（DC7） → 分水器电镀双阀1寸 + DC7
+    m = re.match(
+        r"^(?P<prefix>.+?)[（(](?P<paren>[A-Za-z0-9.\-/*×x\s]+?)[)）]\s*$",
+        cleaned,
+    )
+    if m and re.search(r"[A-Za-z0-9]", m.group("paren")):
+        nb = m.group("prefix").strip()
+        ns = m.group("paren").strip()
+        if nb and _has_2cjk(nb):
+            return nb, _merge_spec(ns, spec)
+
+    # 规则2: 末尾数字开头的规格串（含至少一个 [运算符]+数字，后续可空格分隔的 ASCII 字母单位）
+    # 例: 聚乙烯给水管（PE）630×57.2PN1.6MPA → 聚乙烯给水管（PE） + 630×57.2PN1.6MPA
+    # 例: PE-RTⅡ型耐热塑料管 32*3.6   SDR9     → PE-RTⅡ型耐热塑料管 + 32*3.6   SDR9
+    # 例: 钢丝网骨架PE复合管1.6Mpa               → 钢丝网骨架PE复合管 + 1.6Mpa（prefix 够长时也接受纯单位）
+    # 必须先于规则3执行，避免短型号（如 SDR11）抢前面的数字规格
+    if _DIGIT_RUN_RE.search(cleaned):
+        m2 = re.match(
+            r"^(?P<prefix>.+?[\u4e00-\u9fa5]{2,}.*?)\s*"
+            r"(?P<num_spec>\d+(?:[.\-*+×xX/÷]\d+)+"
+            r"(?:\s*[A-Za-z][A-Za-z0-9()\-_/.×*]*)*)$",
+            cleaned,
+        )
+        if m2:
+            nb = m2.group("prefix").rstrip()
+            ns = m2.group("num_spec").strip()
+            # num_spec 是纯单位（如 1.6Mpa/12.5KN/450/750V）时，
+            # 要求 prefix 含 ≥ 5 连续 CJK 字符才拆，防止短品种名被误拆。
+            pure_unit_ok = (
+                not _is_pure_unit(ns)
+                or _has_n_cjk(nb, 5)
+            )
+            if (
+                nb
+                and ns
+                and len(ns) >= 5
+                and not _has_cjk(ns)
+                and pure_unit_ok
+            ):
+                return nb, _merge_spec(ns, spec)
+
+    # 规则3: 末尾 ASCII 型号代码（前置 ≥ 2 中文字、含字母+数字、非纯单位）
+    # 例: 球墨铸铁蝶阀D71X-16 → 球墨铸铁蝶阀 + D71X-16
+    m3 = re.match(
+        r"^(?P<prefix>.+?[\u4e00-\u9fa5]{2,}.*?)\s*"
+        r"(?P<model>[A-Z][A-Za-z0-9()\-_/.]*\d[A-Za-z0-9()\-_/.]*)$",
+        cleaned,
+    )
+    if m3:
+        nb = m3.group("prefix").rstrip()
+        ns = m3.group("model").strip()
+        if (
+            nb
+            and ns
+            and len(ns) >= 3
+            and _ASCII_MODEL_RE.match(ns)        # 整体纯 ASCII 型号
+            and not _is_pure_unit(ns)            # 不是纯数字+单位
+            and re.search(r"[A-Za-z]", ns)       # 含字母
+            and re.search(r"\d", ns)             # 含数字
+        ):
+            return nb, _merge_spec(ns, spec)
+
+    return cleaned, spec
+
+
 # ── 价格解析 ──────────────────────────────────────────────────
 
 def parse_price(s: str) -> Optional[float]:
@@ -227,18 +383,24 @@ def parse_rows(html: str) -> list[dict]:
     Returns:
         [
             {
-                'county': '吉林市',      # 地区
-                'period': '2026年7月份',  # 时间（业务期）
-                'breed_raw': '（2025年补充）干混抹灰砂浆',
-                'breed': '干混抹灰砂浆',  # 清洗后
-                'spec': 'M5.0',
+                'county': '吉林市',                # 地区
+                'period': '2026年7月份',            # 时间（业务期）
+                'breed_raw': '（2025年补充）干混抹灰砂浆',  # 源站原文（调试用）
+                'breed': '干混抹灰砂浆',             # 清洗后（去括号前缀）
+                'breed_clean': '干混抹灰砂浆',        # 拆分后（去末尾型号/规格）
+                'spec': 'M5.0',                      # 拆出的规格 + 源站 spec 合并
                 'unit': 't',
-                'price': 360.0,           # 除税价
-                'tax_price': 370.0,       # 含税价
+                'price': 360.0,                      # 除税价
+                'tax_price': 370.0,                  # 含税价
                 'remarks': '',
             },
             ...
         ]
+
+    字段名约定（与 xinjiang-price / heze-price / shaanxi-price 一致）：
+      - `breed`         = 清洗后（去 prefix 括号）的品种名
+      - `breed_clean`   = 复合拆分后（去末尾型号/规格代码）的品种名
+      - `spec`          = 拆出的规格 + 源站 spec 合并
     """
     rows = []
     for m in ROW_RE.finditer(html):
@@ -254,11 +416,20 @@ def parse_rows(html: str) -> list[dict]:
         if not breed_raw or breed_raw == "材料名称":
             continue
 
-        breed_clean = strip_breed_prefix(breed_raw)
+        # 1. 清洗 breed_raw：去掉 "（YYYY年补充）" 之类的 prefix 括号。
+        # 清洗后是 breed。
+        breed = strip_breed_prefix(breed_raw)
         # 清洗后如果只剩括号（说明 breed_raw 本身是 "（2024年补充）" 这种标题行），
         # 从 spec 推导一个 fallback breed。
-        if breed_clean == breed_raw and breed_clean.startswith("（") and breed_clean.endswith("）"):
-            breed_clean = derive_breed_from_spec(spec) or breed_clean
+        if breed == breed_raw and breed.startswith("（") and breed.endswith("）"):
+            breed = derive_breed_from_spec(spec) or breed
+
+        # 2. 拆分 breed 中的复合规格信息（型号代码 / 末尾括号规格 / 末尾数字规格）。
+        # 拆完后 breed_clean + spec。
+        # 安全约束：
+        #   - prefix 必须有 ≥ 2 连续中文字符（避免短品种名误拆）
+        #   - 提取的 spec 必须是纯 ASCII、含字母+数字、非纯单位
+        breed_clean, spec = split_breed_spec(breed, spec)
 
         # 过滤人工单价工种行（不是材料价格，应该从材料分析中剔除）
         # 源站里这些行：除税价列空、含税价列是区间（如 "260-280"），unit="工 日"。
@@ -270,7 +441,8 @@ def parse_rows(html: str) -> list[dict]:
             "county": county,
             "period": period,
             "breed_raw": breed_raw,
-            "breed": breed_clean,
+            "breed": breed,
+            "breed_clean": breed_clean,
             "spec": spec,
             "unit": unit,
             "price": parse_price(price_s),

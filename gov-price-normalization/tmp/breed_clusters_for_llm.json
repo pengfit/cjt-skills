@@ -1,0 +1,5681 @@
+{
+  "_meta": {
+    "method": "levenshtein_v1",
+    "max_distance": 3
+  },
+  "by_l3": {
+    "03.05.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "手轮平衡阀JP41F-16DN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "手轮平衡阀JP41F-16DN125",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "手轮平衡阀JP41F-16DN150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "手轮平衡阀JP41F-16DN32",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "手轮平衡阀JP41F-16DN65",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "手轮平衡阀JP41F-16DN80",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "数字锁定平衡阀SP45FDN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN125",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN200",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN40",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN50",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN65",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "数字锁定平衡阀SP45FDN80",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "法兰截止阀J41T-16DN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰截止阀J41T-16DN125",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰截止阀J41T-16DN150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰截止阀J41T-16DN200",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰截止阀J41T-16DN250",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰截止阀J41T-16DN300",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "法兰止回阀H44T-16DN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰止回阀H44T-16DN125",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰止回阀H44T-16DN150",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "蝶阀D371×5-16ZB DN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN300",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN350",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN400",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN450",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN50",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN500",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN600",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN65",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蝶阀D371×5-16ZB DN80",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.01.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "室外地上式消火栓(承插式)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "室外地上式消火栓(法兰式)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "室外地下式消火栓(承插式)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "室外地下式消火栓(法兰式)",
+            "doc_count": 55,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "螺纹异径管(大小头)",
+            "doc_count": 42,
+            "city_count": 1
+          },
+          {
+            "breed": "沟槽异径管(大小头)",
+            "doc_count": 22,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "室内消火栓(单栓)",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "室内消火栓(双栓)",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "室内消火栓(单出口)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D108×5",
+            "doc_count": 7,
+            "city_count": 2
+          },
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D133×5",
+            "doc_count": 7,
+            "city_count": 2
+          },
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D159×5",
+            "doc_count": 7,
+            "city_count": 2
+          },
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D48×3",
+            "doc_count": 7,
+            "city_count": 2
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D76×4",
+            "doc_count": 7,
+            "city_count": 2
+          },
+          {
+            "breed": "不锈钢压制90°弯头(SUS304) D89×4",
+            "doc_count": 7,
+            "city_count": 2
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "螺纹水表DN15(插卡)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "螺纹水表DN20(插卡)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "螺纹水表DN15(普通)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "螺纹水表DN25(普通)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "水喷淋钢管(沟槽连接)管件",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "消火栓钢管(沟槽连接)管件",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "室内PP-R管热熔接头零件φ110",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ20",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ25",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ32",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ40",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ50",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ63",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ75",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内PP-R管热熔接头零件φ90",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "室内消火栓(单栓)DN65",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "室内消火栓(双栓)DN65",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 9,
+        "items": [
+          {
+            "breed": "螺纹水表DN20(普通)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "螺纹水表DN32(普通)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 10,
+        "items": [
+          {
+            "breed": "法兰过滤器GL41-16Y型DN100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN125",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN200",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN250",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN300",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN350",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN40",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN400",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN50",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN65",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "法兰过滤器GL41-16Y型DN80",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.03.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "钢筋砼排水管(含橡胶圈)国标Ⅱ级",
+            "doc_count": 825,
+            "city_count": 1
+          },
+          {
+            "breed": "钢筋砼排水管(含橡胶圈)国标Ⅲ级",
+            "doc_count": 495,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口)",
+            "doc_count": 540,
+            "city_count": 1
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口)",
+            "doc_count": 540,
+            "city_count": 1
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口)",
+            "doc_count": 252,
+            "city_count": 1
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口)",
+            "doc_count": 144,
+            "city_count": 1
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(承插口)",
+            "doc_count": 36,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "钢承插钢筋砼排水顶管(含橡胶圈)国标Ⅱ级",
+            "doc_count": 275,
+            "city_count": 1
+          },
+          {
+            "breed": "钢承插钢筋砼排水顶管(含橡胶圈)国标Ⅲ级",
+            "doc_count": 275,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "承插混凝土排水管(按标准图集)",
+            "doc_count": 119,
+            "city_count": 12
+          },
+          {
+            "breed": "承插混凝土排水管(按标准 图集)",
+            "doc_count": 107,
+            "city_count": 11
+          },
+          {
+            "breed": "承插混凝土排水管(按 标准图集)",
+            "doc_count": 91,
+            "city_count": 11
+          },
+          {
+            "breed": "承插混凝土排水管 (按标准 图集)",
+            "doc_count": 7,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN10定制",
+            "doc_count": 66,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN16定制",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN20定制",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN25定制",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(B型)SN10定制",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(B型)SN16定制",
+            "doc_count": 24,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN8常规",
+            "doc_count": 66,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(B型)SN8常规",
+            "doc_count": 24,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "排水用钢筋混凝土管(III级)",
+            "doc_count": 44,
+            "city_count": 1
+          },
+          {
+            "breed": "排水用钢筋混凝土管(II级)",
+            "doc_count": 44,
+            "city_count": 1
+          },
+          {
+            "breed": "排水用钢筋混凝土管(I级)",
+            "doc_count": 44,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "屏蔽式树脂成品排水沟(含配套不锈钢盖)",
+            "doc_count": 38,
+            "city_count": 3
+          },
+          {
+            "breed": "屏蔽式树脂成品排水沟(含配套不锈",
+            "doc_count": 2,
+            "city_count": 2
+          },
+          {
+            "breed": "屏蔽式树脂成品排水沟(含配套不锈钢盖)内径",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(A型)SN12.5常规",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "聚乙烯共混聚氯乙烯高性能双壁波纹管管材(B型)SN12.5常规",
+            "doc_count": 24,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 9,
+        "items": [
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 1000×85×3000",
+            "doc_count": 16,
+            "city_count": 4
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 1200×85×3000",
+            "doc_count": 16,
+            "city_count": 4
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 800×80×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口) 1200×85×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(承插口) 1200×85×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口) 1000×85×3000",
+            "doc_count": 9,
+            "city_count": 2
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口) 1000*85*3000",
+            "doc_count": 7,
+            "city_count": 2
+          }
+        ]
+      },
+      {
+        "cluster_id": 10,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口) 800×80×3000",
+            "doc_count": 16,
+            "city_count": 4
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 300×40×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 400×40×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 500×50×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅰ级钢筋混凝土排水管(承插口) 600×60×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(承插口) 600×60×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 800×80×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 800×80×3000",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 11,
+        "items": [
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 2000×200×2500",
+            "doc_count": 16,
+            "city_count": 4
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 2000×200×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 2200×220×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 2400×240×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 2600×260×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 2800×280×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 3000×300×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 2200×220×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 2400×240×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 2600×260×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 2800×280×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 3000×300×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 3200×300×2500",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 12,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1000×100×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1200×120×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1000×100×3000",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1200×120×3000",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 13,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1350×135×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1650×165×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1350×135×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1650×165×2500",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 14,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1500×150×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 1800×180×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 3500×320×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1500×150×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 1800×180×2500",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 15,
+        "items": [
+          {
+            "breed": "Ⅱ级钢筋混凝土排水管(钢承口) 3200×300×2500",
+            "doc_count": 11,
+            "city_count": 3
+          },
+          {
+            "breed": "Ⅲ级钢筋混凝土排水管(钢承口) 3500×320×2500",
+            "doc_count": 11,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 16,
+        "items": [
+          {
+            "breed": "钢筋混凝土管Ⅱ级 承插口DN300",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "钢筋混凝土管Ⅲ级 承插口DN300",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.02.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "排水用钢带增强聚乙烯(PE)螺旋波纹管",
+            "doc_count": 70,
+            "city_count": 1
+          },
+          {
+            "breed": "钢带增强聚乙烯(PE)螺旋波纹管",
+            "doc_count": 35,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "MUHDPE-PANS合金管(中国绿色建材产品)",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "MUHDPE-PANS合金管(中国绿色 建材产品)",
+            "doc_count": 16,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "玻纤双壁增强管(GFPP)",
+            "doc_count": 8,
+            "city_count": 1
+          },
+          {
+            "breed": "玻纤双璧增强管(GFPP)",
+            "doc_count": 8,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "MPVE双壁波纹排水管 DN1000 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN1000 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN1200 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN1200 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN1400 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN1400 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN200 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN300 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN400 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN500 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN600 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN800 环刚度≥SN10",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "MPVE双壁波纹排水管 DN200 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN300 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN400 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN500 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN600 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "MPVE双壁波纹排水管 DN800 环刚度≥SN8",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "10000玻璃纤维增强塑料连续缠绕夹砂管DN1200-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "10000玻璃纤维增强塑料连续缠绕夹砂管DN2200-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "1玻00璃00纤维增强塑料连续缠绕夹砂管DN1400-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1玻00璃00纤维增强塑料连续缠绕夹砂管DN1600-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1玻00璃00纤维增强塑料连续缠绕夹砂管DN1800-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1玻00璃00纤维增强塑料连续缠绕夹砂管DN2000-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1玻00璃00纤维增强塑料连续缠绕夹砂管DN2400-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1000-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1200-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1400-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1600-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1800-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN2000-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN2200-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN2400-0.3-",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN1000-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN300-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN350-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN400-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN450-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN500-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN600-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN800-0.3-5000",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 9,
+        "items": [
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN300-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN350-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN400-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN450-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN500-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN600-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃纤维增强塑料连续缠绕夹砂管DN800-0.3-10000",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 10,
+        "items": [
+          {
+            "breed": "高度0.8m,长度3m,φ21.9cm铸铁管0.25cm厚,",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "高度0.8m,长度8m,φ21.9cm铸铁管0.25cm厚,",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.02.09": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "中空玻璃(普白)",
+            "doc_count": 153,
+            "city_count": 12
+          },
+          {
+            "breed": "中空玻璃(钢化)",
+            "doc_count": 140,
+            "city_count": 1
+          },
+          {
+            "breed": "中空玻璃(双钢)",
+            "doc_count": 109,
+            "city_count": 11
+          },
+          {
+            "breed": "中空玻璃(超白)",
+            "doc_count": 46,
+            "city_count": 1
+          },
+          {
+            "breed": "夹胶玻璃(普白)",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "夹胶玻璃(超白)",
+            "doc_count": 24,
+            "city_count": 1
+          },
+          {
+            "breed": "钢化玻璃(超白)",
+            "doc_count": 10,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "250不锈钢驳接爪(304)",
+            "doc_count": 25,
+            "city_count": 1
+          },
+          {
+            "breed": "300不锈钢驳接爪(304)",
+            "doc_count": 25,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "镀膜双钢化夹胶玻璃(单面)",
+            "doc_count": 15,
+            "city_count": 1
+          },
+          {
+            "breed": "镀膜双钢化夹胶玻璃(双面)",
+            "doc_count": 15,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "超白钢化夹胶玻璃(自洁超白)",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "钢化夹胶玻璃(自洁超白)",
+            "doc_count": 5,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "6(LOW-E)+12A+6mm中空钢化玻璃",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "6(超白LOW-E)+12A+6mm中空钢化玻璃",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.07.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "PVC阻燃电线管 φ16 重型",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "PVC阻燃电线管 φ20 重型",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "PVC阻燃电线管 φ25 重型",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "PVC阻燃电线管 φ32 重型",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "PVC阻燃电线管 φ40 重型",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "PVC 阻燃电线管 φ25 重型",
+            "doc_count": 7,
+            "city_count": 4
+          },
+          {
+            "breed": "PVC 阻燃电线管 φ32 重型",
+            "doc_count": 7,
+            "city_count": 4
+          },
+          {
+            "breed": "PVC 阻燃电线管 φ40 重型",
+            "doc_count": 7,
+            "city_count": 4
+          },
+          {
+            "breed": "PVC 阻燃电线管 φ 16 重型",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.05.06": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "内墙面刷乳胶漆(满刮腻子一遍,二遍涂料成活)",
+            "doc_count": 55,
+            "city_count": 8
+          },
+          {
+            "breed": "天棚面刷乳胶漆(满刮腻子一遍,二遍涂料成活)",
+            "doc_count": 55,
+            "city_count": 8
+          }
+        ]
+      }
+    ],
+    "04.04.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "单相二,三级插座",
+            "doc_count": 265,
+            "city_count": 9
+          },
+          {
+            "breed": "二,三孔插座",
+            "doc_count": 60,
+            "city_count": 5
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "三联单控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "三联双控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "单联单控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "单联双控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "双联单控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "双联双控开关(板式)",
+            "doc_count": 28,
+            "city_count": 2
+          },
+          {
+            "breed": "四联单控开关(板式)",
+            "doc_count": 15,
+            "city_count": 1
+          },
+          {
+            "breed": "四联双控开关(板式)",
+            "doc_count": 15,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.07.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "胶合板(模板)",
+            "doc_count": 255,
+            "city_count": 1
+          },
+          {
+            "breed": "胶合板(十五层)",
+            "doc_count": 15,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "松木板,枋料",
+            "doc_count": 67,
+            "city_count": 11
+          },
+          {
+            "breed": "杉木板,枋料",
+            "doc_count": 61,
+            "city_count": 10
+          },
+          {
+            "breed": "硬木板,枋料",
+            "doc_count": 55,
+            "city_count": 9
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "一等硬木(干)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "一等锯材(干)",
+            "doc_count": 55,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "原木(综合)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "杉原木(综合)",
+            "doc_count": 55,
+            "city_count": 1
+          },
+          {
+            "breed": "锯材(综合)",
+            "doc_count": 55,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "杉条木φ8-20",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "杉条木 φ8-20",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.04.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "多孔砖(非承重)",
+            "doc_count": 35,
+            "city_count": 1
+          },
+          {
+            "breed": "空心砖(非承重)",
+            "doc_count": 35,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "烧结多孔砖( 煤矸石, 页岩, 粘土)",
+            "doc_count": 16,
+            "city_count": 6
+          },
+          {
+            "breed": "烧结砖( 煤矸石, 页岩, 粘土)",
+            "doc_count": 16,
+            "city_count": 7
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "多孔砖 ( 240*115*90)",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "多孔砖(240*115*90)",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "多孔砖 (240*115*90)",
+            "doc_count": 8,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "砌筑水泥(M)",
+            "doc_count": 12,
+            "city_count": 6
+          },
+          {
+            "breed": "砌筑水泥(散装)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "砌筑水泥(袋装)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "机制红砖(标准砖)",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "机制青砖(标准砖)",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "商品水泥砂浆M10(含缓凝剂,不含泵送)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "商品水泥砂浆M5(含缓凝剂,不含泵送)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "商品水泥砂浆M7.5(含缓凝剂,不含泵送)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.04.07": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "65系列单框三玻塑钢平开窗(白色)",
+            "doc_count": 117,
+            "city_count": 10
+          },
+          {
+            "breed": "65系列单框双玻塑钢平开窗(白色)",
+            "doc_count": 117,
+            "city_count": 10
+          },
+          {
+            "breed": "65系列单框三玻塑钢平开窗(彩色)",
+            "doc_count": 113,
+            "city_count": 10
+          },
+          {
+            "breed": "65系列单框双玻塑钢平开窗(彩色)",
+            "doc_count": 113,
+            "city_count": 10
+          },
+          {
+            "breed": "70系列单框三玻塑钢平开窗(白色)",
+            "doc_count": 113,
+            "city_count": 10
+          },
+          {
+            "breed": "70系列单框双玻塑钢平开窗(白色)",
+            "doc_count": 113,
+            "city_count": 10
+          },
+          {
+            "breed": "75系列单框三玻塑钢平开窗(白色)",
+            "doc_count": 110,
+            "city_count": 8
+          },
+          {
+            "breed": "75系列单框双玻塑钢平开窗(白色)",
+            "doc_count": 106,
+            "city_count": 8
+          },
+          {
+            "breed": "60系列单框双玻塑钢平开窗(彩色)",
+            "doc_count": 50,
+            "city_count": 6
+          },
+          {
+            "breed": "60系列单框双玻塑钢平开窗(白色)",
+            "doc_count": 30,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "平开塑钢窗(彩色)",
+            "doc_count": 15,
+            "city_count": 1
+          },
+          {
+            "breed": "推拉塑钢窗(彩色)",
+            "doc_count": 15,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "65系列单框双玻塑钢平开窗(含安装费)",
+            "doc_count": 6,
+            "city_count": 2
+          },
+          {
+            "breed": "65系列单框三玻塑钢平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻塑钢平开窗(彩色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻塑钢平开窗(白色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "70系列单框双玻塑钢平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "60系列单框双玻塑钢平开窗(彩色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "60系列单框双玻塑钢平开窗(白色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框三玻塑钢平开窗(彩色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框三玻塑钢平开窗(白色不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "65系列单框三玻断桥隔热铝合金平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "75系列单框三玻断桥隔热铝合金平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "75系列单框双玻断桥隔热铝合金平开窗(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开窗 (含安装费)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "65系列单框双玻塑钢平开窗不附纱(不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "70系列单框三玻塑钢平开窗不附纱(不含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开窗 (型材壁厚1.4mm)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开窗 (型材壁厚2mm)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框三玻断桥隔热铝合金平开窗 (壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开窗(壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "75系列单框双玻断桥隔热铝合金平开窗 (壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "70系列单框三玻断桥隔热铝合金平开窗 (壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "70系列单框双玻断桥隔热铝合金平开窗 (壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "75系列单框三玻断桥隔热铝合金平开窗 (壁厚1.4mm)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.02.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "内墙面砖(陶土,5D喷墨)",
+            "doc_count": 220,
+            "city_count": 1
+          },
+          {
+            "breed": "微晶石内墙面砖(陶土,5D喷墨)",
+            "doc_count": 110,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "新世纪米黄(土耳其)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "阿曼米黄(土耳其)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "5mmlow-e+12A (结)+5mm 钢化中空",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "6mmlow-e+12A (结)+6mm 钢化中空",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "Low-E镀膜中空玻璃5Low-E+12A+5mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "Low-E镀膜中空玻璃5Low-E+9A+5mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "Low-E镀膜中空玻璃5TLow-E+12A+5Tmm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "Low-E镀膜中空玻璃6Low-E+12A+6mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "三玻中空玻璃5+6A+5+6A+5mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "三玻中空玻璃5+9A+5+9A+5mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "塑钢窗平开60系列, 含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "塑钢窗推拉60系列,含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "断桥铝合金窗平开55系列,含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "断桥铝合金窗平开60系列,含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "断桥铝合金窗平开65系列,含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金窗平开55系列,含中空玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "钢化夹胶玻璃10T+1.52PVB+10Tmm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "钢化夹胶玻璃12T+1.52PVB+12Tmm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "钢化夹胶玻璃5T+0.76PVB+5Tmm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "钢化夹胶玻璃6T+0.76PVB+6Tmm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.09.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "岩棉板 (容重100-120kg/m³)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "岩棉保温板(容重100-120kg/m³)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "绝热用挤塑聚苯乙烯泡沫塑料(XPS)",
+            "doc_count": 18,
+            "city_count": 2
+          },
+          {
+            "breed": "绝热用模塑聚苯乙烯泡沫塑料(EPS)",
+            "doc_count": 6,
+            "city_count": 2
+          },
+          {
+            "breed": "绝热用模塑聚苯乙烯泡沫塑料(EPS板)",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "绝热用挤塑聚苯乙烯泡沫塑(XPS)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "绝热用模塑聚苯乙烯泡沫塑(EPS)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "挤塑板(灰板)",
+            "doc_count": 14,
+            "city_count": 1
+          },
+          {
+            "breed": "挤塑板(兰板)",
+            "doc_count": 7,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "复合免拆保温模板(A+B)型(岩棉+石 墨挤塑板) 厚度:110mm",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "复合免拆保温模板(A+B)型(岩棉+石 墨挤塑板) 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "防水保温一体化板(轻钢屋面型)",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "防水保温一体化板(轻钢屋 面型)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "XPS阻燃性B1级挤塑板干容重≥32kg/m³",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "XPS阻燃性B1级挤塑板干容重≥25kg/m³",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "玻璃丝绵夹心板0.5mm H=100mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "玻璃丝绵夹心板0.5mm H=150mm",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "100厚PU封边岩棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "100厚PU封边玻璃丝棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "50厚PU封边岩棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "75厚PU封边岩棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "100厚聚氨酯复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "50厚聚氨酯复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "75厚聚氨酯复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 9,
+        "items": [
+          {
+            "breed": "50厚PU封边玻璃丝棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "75厚PU封边玻璃丝棉复合板(PE涂层)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 10,
+        "items": [
+          {
+            "breed": "复合保温与结构免拆一体板厚度5+80+30mm 芯材为XPS板",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "复合保温与结构免拆一体板厚度5+80+30mm 芯材为岩棉板",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.06.05": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "热轧钢板(中板)",
+            "doc_count": 25,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧钢板(厚板)",
+            "doc_count": 25,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "热轧板卷 1.6*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 1.8*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 2.0*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 2.3*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 2.5*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 2.75*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 3.0*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "热轧板卷 13.5*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 13.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 15.5*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 15.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 16.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 17.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 18.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 19.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 3.0*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 4.5*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧板卷 4.75*1500*C",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "APF-S330预制双道咬合型防水卷材(自粘)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "APF-S330预制双道咬合型防水卷材(预铺)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.09.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "集中电源集中控制型消防应急标志灯",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "集中电源集中控制型消防应急照明灯",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "荧光灯 1×20W",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "荧光灯 1×30W",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "荧光灯 1×40W",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "荧光灯 2×40W",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "荧光灯 3×40W",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "普通半圆球吸顶灯,灯罩直径250mm",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "普通半圆球吸顶灯,灯罩直径300mm",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "普通半圆球吸顶灯,灯罩直径350mm",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.04.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "砾石(20mm-40mm)作为骨料精选水洗",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "砾石(5mm-20mm)作为骨料精选水洗",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.01.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "乳化沥青(国产)",
+            "doc_count": 49,
+            "city_count": 8
+          },
+          {
+            "breed": "乳化沥青(进口)",
+            "doc_count": 31,
+            "city_count": 5
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "商品沥青砼AC-13(市政)",
+            "doc_count": 8,
+            "city_count": 1
+          },
+          {
+            "breed": "商品沥青砼AC-16(市政)",
+            "doc_count": 8,
+            "city_count": 1
+          },
+          {
+            "breed": "商品沥青砼AC-20(市政)",
+            "doc_count": 8,
+            "city_count": 1
+          },
+          {
+            "breed": "商品沥青砼AC-25(市政)",
+            "doc_count": 8,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "道路沥青(镇海)",
+            "doc_count": 8,
+            "city_count": 4
+          },
+          {
+            "breed": "道路沥青(鑫海)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "细粒式沥青砼(花岗岩)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "中粒式沥青砼(石灰岩)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "中粒式沥青砼(花岗岩)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "改性细粒式沥青砼(玄武岩)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "改性细粒式沥青砼(石灰岩)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.02.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "溢流雨水口(方形球墨铸铁)",
+            "doc_count": 49,
+            "city_count": 6
+          },
+          {
+            "breed": "溢流雨水口(方形球墨铸",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "排水管件(A型)斜三通",
+            "doc_count": 21,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)异径三通",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)管箍",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)顺水三通",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)瓶型三通",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "排水管件(A型)45度弯头",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)90度弯头",
+            "doc_count": 12,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.06.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "焊接法兰水表DN100(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "焊接法兰水表DN125(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "焊接法兰水表DN150(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "焊接法兰水表DN40(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "焊接法兰水表DN50(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          },
+          {
+            "breed": "焊接法兰水表DN80(普通)",
+            "doc_count": 7,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.06.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "MPP电力电缆保护管 φ110×6",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "MPP电力电缆保护管 φ110×7",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "MPP电力电缆保护管 φ160×10",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "MPP 电力电缆保护管 φ110×6",
+            "doc_count": 7,
+            "city_count": 4
+          },
+          {
+            "breed": "MPP 电力电缆保护管 φ110×7",
+            "doc_count": 5,
+            "city_count": 3
+          },
+          {
+            "breed": "MPP 电力电缆保护管 φ110×8",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "MPP电力电缆保护管 φ200×14",
+            "doc_count": 9,
+            "city_count": 3
+          },
+          {
+            "breed": "MPP 电力电缆保护管 φ200×14",
+            "doc_count": 7,
+            "city_count": 4
+          }
+        ]
+      }
+    ],
+    "06.03.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "电气火灾监控主机",
+            "doc_count": 21,
+            "city_count": 1
+          },
+          {
+            "breed": "电气火灾监控设备",
+            "doc_count": 9,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "多线消防电话主机",
+            "doc_count": 15,
+            "city_count": 1
+          },
+          {
+            "breed": "多线电话分机",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "总线消防电话主机",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "总线消防电话分机",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "总线消防电话插孔",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "多线电话手柄",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "多线电话插孔",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "手动火灾报警按钮",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "防爆手动火灾报警按钮",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "气体灭火控制器/1区",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "气体灭火控制器/2区",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "监控模块(单门)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "防火门模块(单门)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "甲型带灭火器箱组合式SNW-65栓头(含箱内枪栓带扣配件)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "乙型带灭火器箱组合式SNW-65栓头(含箱内枪栓带扣配件)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.05.16": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "六角螺栓带螺母,垫圈",
+            "doc_count": 120,
+            "city_count": 1
+          },
+          {
+            "breed": "镀锌六角螺栓带螺母,垫圈",
+            "doc_count": 5,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "多管组合双向支撑(T+L)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "多管组合侧向支撑(T)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.01.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "花岗岩道缘石(芝麻白)",
+            "doc_count": 42,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗石路沿石(芝麻白)",
+            "doc_count": 35,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "花岗岩人行道板(芝麻灰火烧面)",
+            "doc_count": 10,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻白荔枝面)",
+            "doc_count": 10,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻灰光面)",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻灰荔枝面)",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻灰 火烧面)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻灰 光面)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "花岗岩人行道板(芝麻灰 荔枝面)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "U型树脂混凝土线性排水沟(含配套盖 及不锈钢雨篦) 内径300×175 壁厚40",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "U型树脂混凝土线性排水沟(含配套 盖及不锈钢雨篦) 内径300*175 壁厚40",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "道路U型槽(含盖板) 内径260×230 壁厚80",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "道路U型槽(含盖板) 内径260*230 壁厚80",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "路缘石(75*18*30)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "路缘石(75*18*35)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "1m*0.3m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*0.5m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*0.6m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*0.8m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*1.5m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*1m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*2m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "1m*3m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "2m*0.8m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "2m*3m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "5m*1.5m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "5m*3m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "8m*0.6m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "2m*1m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "φd=1m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "φd=0.7m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "φd=0.8m 3层反光膜",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "混凝土侧石1000×350×120/140",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "混凝土侧石500×350×120/140",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.03.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "纤维水泥板(面层版)",
+            "doc_count": 25,
+            "city_count": 4
+          },
+          {
+            "breed": "纤维水泥板(面层板)",
+            "doc_count": 6,
+            "city_count": 2
+          },
+          {
+            "breed": "纤维水泥板(基层板)",
+            "doc_count": 5,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "泰山牌高强玻纤布石膏板(全能版)A1级防火",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "泰山牌高强玻纤布石膏板(标准版)A1级防火",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "泰山牌高强玻纤布石膏板(耐火版)A1级防火",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "轻钢龙骨不上人型,平面,300*300mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "轻钢龙骨不上人型,跌级,300*300mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "轻钢龙骨不上人型,平面,450*450mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "轻钢龙骨不上人型,跌级,450*450mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.01.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "给水用钢丝织绕增强聚乙烯复合管(WRCP)(1.6MPa)内外双电熔",
+            "doc_count": 27,
+            "city_count": 1
+          },
+          {
+            "breed": "给水用钢丝织绕增强聚乙烯复合管(WRCP)(1.0MPa)内外双电熔",
+            "doc_count": 21,
+            "city_count": 1
+          },
+          {
+            "breed": "给水用钢丝织绕增强聚乙烯复合管(WRCP)(2.5MPa)内外双电熔",
+            "doc_count": 15,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 PN1.6 D90×5.5",
+            "doc_count": 19,
+            "city_count": 6
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 PN1.6 D200×9.5",
+            "doc_count": 16,
+            "city_count": 6
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 PN1.6 D110×7.0",
+            "doc_count": 16,
+            "city_count": 6
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 PN1.6 D160×9.0",
+            "doc_count": 16,
+            "city_count": 6
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn110",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn160",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn200",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn225",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn250",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn280",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn315",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn355",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn400",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn450",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn50",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn63",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn75",
+            "doc_count": 12,
+            "city_count": 2
+          },
+          {
+            "breed": "热水用孔网钢带塑料复合管(L) Dn90",
+            "doc_count": 12,
+            "city_count": 2
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ110*7.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ160*9.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ200*9.5mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ50*4.5mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ90*5.5mm",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ250*12.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ355*14.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ400*15.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "钢丝网骨架塑料(PE)复合管 1.6Mpa,φ500*18.0mm",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn1000 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn110 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn125 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn140 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn160 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn180 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn200 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn250 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn280 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn400 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn450 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn50 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn500 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn560 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn630 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn710 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn800 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn90 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 8,
+        "items": [
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn110 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn125 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn140 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn160 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn180 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn200 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn225 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn250 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn280 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn315 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn355 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn400 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn450 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn50 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn500 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn63 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn75 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn90 2.0Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 9,
+        "items": [
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn225 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn315 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn355 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn63 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "PE钢丝网骨架(聚乙烯)复合管材 dn75 1.6Mpa",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 10,
+        "items": [
+          {
+            "breed": "铝塑板(室内)1220*2440*3mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝塑板(室内)1220*2440*4mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝塑板(室外)1220*2440*3mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝塑板(室外)1220*2440*4mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "05.02.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "格栅风口(配VD)",
+            "doc_count": 36,
+            "city_count": 1
+          },
+          {
+            "breed": "格栅风口(配",
+            "doc_count": 6,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "铝合金单层百叶风口(配MED)",
+            "doc_count": 36,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金单层百叶风口(配VD)",
+            "doc_count": 36,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.06.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "铜芯耐火聚氯乙烯绝缘聚氯乙烯护套控制电缆",
+            "doc_count": 26,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯阻燃聚氯乙烯绝缘聚氯乙烯护套控制电缆",
+            "doc_count": 20,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "铜芯阻燃聚氯乙烯绝缘铜丝编织屏蔽聚氯乙烯护套控制电缆",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘铜丝编织屏蔽聚氯乙烯护套控制电缆",
+            "doc_count": 16,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "控制电缆WDZBN-KYJY-5×1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "控制电缆WDZN-KYJ-4×1.5",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 10*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 10*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 10*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 10*4",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 14*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 14*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 16*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 16*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 19*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 19*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 24*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 30*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 30*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 37*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 4*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 4*4",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 5*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 5*4",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 6*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 6*4",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 7*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 7*4",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 8*1",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 8*4",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 14*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 16*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 19*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 24*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 24*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 30*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 37*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 37*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 4*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 4*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 5*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 5*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 6*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 6*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 7*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 7*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 8*1.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铜芯聚氯乙烯绝缘聚氯乙烯护套控制电缆KVV-450/750V 8*2.5",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.03.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "铸铁井座,井盖",
+            "doc_count": 520,
+            "city_count": 8
+          },
+          {
+            "breed": "铸铁井盖,井座",
+            "doc_count": 23,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "铸铁井盖井座(单盖)",
+            "doc_count": 64,
+            "city_count": 6
+          },
+          {
+            "breed": "铸铁井盖井座(双盖)",
+            "doc_count": 49,
+            "city_count": 5
+          },
+          {
+            "breed": "铸铁井盖井座(双 盖)",
+            "doc_count": 7,
+            "city_count": 4
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "球墨铸铁可调式检查井盖(配套垫 圈,防坠网)",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "球墨铸铁可调式检查井盖 (配套垫圈,防坠网)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "球墨铸铁可调式检查井盖(配 套垫圈,防坠网)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "球墨铸铁可调式检查井盖(配套垫圈,防坠 网)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "组合窖井(砼井座井盖)轻型",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "组合窖井(砼井座井盖)重型",
+            "doc_count": 5,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "铸铁井盖(30吨)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "铸铁井盖(50吨)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "复合井盖(30吨)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "复合井盖(50吨)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "复合井盖(700*5公分厚)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "复合井盖(700*7公分厚)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.02.07": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "PVC洁净板(基材) 1200×2400×3mm",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "PVC洁净板(基材) 1200×3000×3mm",
+            "doc_count": 8,
+            "city_count": 2
+          }
+        ]
+      }
+    ],
+    "01.04.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "加气混凝土砌块 (B07级)",
+            "doc_count": 44,
+            "city_count": 7
+          },
+          {
+            "breed": "加气混凝土砌块(B06级)",
+            "doc_count": 44,
+            "city_count": 3
+          },
+          {
+            "breed": "加气混凝土砌块 (B06级)",
+            "doc_count": 28,
+            "city_count": 6
+          },
+          {
+            "breed": "加气混凝土砌块(B07级)",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "加气混凝土块(B06级)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "加气混凝土砌块 B07",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "自保温砌块(干密度≤900kg/m³,抗压强度≥5.0MPa,严寒地区导热系数≤0.12〔W/(m·K)〕)",
+            "doc_count": 36,
+            "city_count": 7
+          },
+          {
+            "breed": "自保温砌块 (干密度≤900kg/m³,抗压强度≥5.0MPa, 严寒地区导热系数≤0.13〔W/(m·K)〕)",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "自保温砌块(干密度≤900kg/m³,抗压强度≥5.0MPa, 严寒地区导热系数≤0.13〔W/(m·K)〕)",
+            "doc_count": 8,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "加气砼砌块(砂)",
+            "doc_count": 10,
+            "city_count": 1
+          },
+          {
+            "breed": "加气砼砌块(粉煤灰)",
+            "doc_count": 10,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "加气混凝土砌块 B06",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "加气砼砌块 B06",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "蒸压加气砼砌块600*100*240",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*100*300",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*200*100",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*200*150",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*200*200",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*200*240",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "蒸压加气砼砌块600*200*300",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.02.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "预拌抹灰砂浆(湿拌)WP M10",
+            "doc_count": 19,
+            "city_count": 5
+          },
+          {
+            "breed": "预拌抹灰砂浆(湿拌)WP M15",
+            "doc_count": 19,
+            "city_count": 5
+          },
+          {
+            "breed": "预拌抹灰砂浆(湿拌)WP M7.5",
+            "doc_count": 19,
+            "city_count": 5
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "陶瓷-拖布池(大)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "陶瓷-拖布池(小)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.06.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "小便器(普通)",
+            "doc_count": 165,
+            "city_count": 1
+          },
+          {
+            "breed": "洗面盆(普通)",
+            "doc_count": 150,
+            "city_count": 2
+          },
+          {
+            "breed": "蹲便器(普通)",
+            "doc_count": 110,
+            "city_count": 1
+          },
+          {
+            "breed": "坐便器 (普通)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "小便器 (普通)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "蹲便器 (普通)",
+            "doc_count": 20,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "钢板搪瓷浴缸(含上下水及配件)",
+            "doc_count": 123,
+            "city_count": 4
+          },
+          {
+            "breed": "钢板搪瓷浴缸(含上下水及",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "洗涤盆 (普通)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "洗菜盆 (普通)",
+            "doc_count": 20,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.04.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "单相电压传感器",
+            "doc_count": 9,
+            "city_count": 1
+          },
+          {
+            "breed": "单相电压电流传感器",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "低压配电柜 1AN2壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 250A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台,",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN3壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 250A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台,",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN4壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 250A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN5壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 250A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台,",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "低压配电柜 1AN2壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-400F/3300 315A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台,交流接触器 CJ20-250-42 AC220V:1台,",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN3壳体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险 UK:4个,配电用交流塑壳断路器 CDM3S-400F/3300 315A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级 15匝:3台,交流接触器 CJ20-250-42 AC220V:1台",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "低压配电柜 1AN2柜体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险端子 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 200A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN3柜体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险端子 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 200A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN4柜体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险端子 UK:4个,配电用交流塑壳断路器 CDM3S-250S/3300 200A:1台,电流互感器 LMK3-0.66 10/5 φ30 0.5级",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "低压配电柜 1AN5柜体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险端子 UK:4个,电流互感器 LMK3-0.66 200/5 φ30 0.5级 15匝:3台,塑壳断路器 CDM3S-160S/3300 160A:1台,塑壳断路器 CDM3S-63S/3300 63A:1台,",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "低压配电柜 1AN6柜体 800*2200*600:1台,多动能仪表 91*91:1台,电流端子 UK:7个,保险端子 UK:4个,电流互感器 LMK3-0.66 200/5 φ30 0.5级 15匝:3台,塑壳断路器 CDM3S-160S/3300 160A:1台,塑壳断路器 CDM3S-63S/3300 63A:1台,",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.06.07": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "(2021年补充)闸门及埋件(5.0*5.4)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "(2021年补充)闸门及埋件(5.0*4.6)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "门窗-钢制丙级防火门(喷塑,带手续)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "门窗-钢制乙级防火门(喷塑,带手续)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "门窗-钢制甲级防火门(喷塑,带手续)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "成品医用气密钢质门,单开带观察窗",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "成品医用气密钢质门,双开带观察窗",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.02.10": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "ALC轻质墙板 厚度:120mm",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "ALC轻质墙板 厚度:200mm",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "ALC 轻质墙板 厚度:120mm",
+            "doc_count": 4,
+            "city_count": 2
+          },
+          {
+            "breed": "ALC 轻质墙板 厚度:200mm",
+            "doc_count": 4,
+            "city_count": 2
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "GRC隔墙板 厚度:120mm",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "GRC隔墙板 厚度:90mm",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "GRC 隔墙板 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 3
+          },
+          {
+            "breed": "GRC 隔墙板 厚度:90mm",
+            "doc_count": 6,
+            "city_count": 3
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "KTP轻质隔墙板 厚度:90mm",
+            "doc_count": 11,
+            "city_count": 2
+          },
+          {
+            "breed": "KTP 轻质隔墙板 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 3
+          },
+          {
+            "breed": "KTP 轻质隔墙板 厚度:90mm",
+            "doc_count": 6,
+            "city_count": 3
+          },
+          {
+            "breed": "KTP轻质隔墙板 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "VGM轻质隔墙板 厚度:90mm",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "VGM 轻质隔墙板 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 3
+          },
+          {
+            "breed": "VGM 轻质隔墙板 厚度:90mm",
+            "doc_count": 6,
+            "city_count": 3
+          },
+          {
+            "breed": "VGM轻质隔墙板 厚度:120mm",
+            "doc_count": 6,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.04.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "钢制防火门(成品) 丙级",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "钢制防火门(成品) 乙级",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "钢制防火门(成品) 甲级",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "防火防盗门(普通单门)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "防盗门(普通单门)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "防火门(木制)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火门(钢制)丙级",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火门(钢制)乙级",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火门(钢制)甲级",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.01.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "NFJ®-06A金属防爆地坪(7-9厚)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "NFJ®-06B金属防爆地坪(7-9厚)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "NFJ®-07C金属防爆地坪(7-9厚)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "NFJ®-07E金属防爆地坪(2-3厚)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "NFJ®-07J金属防爆地坪(2-3厚)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.04.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "铝合金地弹门(普通)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金平开门(普通)",
+            "doc_count": 20,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金推拉门(普通)",
+            "doc_count": 20,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "65系列单框双玻塑钢平开门(不含安装费)",
+            "doc_count": 8,
+            "city_count": 2
+          },
+          {
+            "breed": "65系列单框双玻塑钢平开门(含安装费)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开门(含安装费)",
+            "doc_count": 6,
+            "city_count": 2
+          },
+          {
+            "breed": "70系列单框双玻断桥隔热铝合金平开门(含安装费)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "65系列单框双玻断桥隔热氟碳铝合金平开门 (型材壁厚1.4mm)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "65系列单框双玻断桥隔热铝合金平开门(型材壁厚1.4mm)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "断桥铝合金地弹门(不含地弹簧)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金地弹门(不含地弹簧)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "断桥铝合金门自由100系列,含玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "断桥铝合金门自由70系列,含玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金门自由100系列,含玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "铝合金纱窗卷帘式纱窗,含制作及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金纱窗隐形式纱窗,含制作及安装",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 7,
+        "items": [
+          {
+            "breed": "铝合金门推拉70系列,含玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "铝合金门自由70系列,含玻璃及安装",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "04.03.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "沥青混凝土 AC-13",
+            "doc_count": 160,
+            "city_count": 11
+          },
+          {
+            "breed": "沥青混凝土 AC-16",
+            "doc_count": 160,
+            "city_count": 11
+          },
+          {
+            "breed": "沥青混凝土 AC-20",
+            "doc_count": 156,
+            "city_count": 11
+          },
+          {
+            "breed": "沥青混凝土 AC-25",
+            "doc_count": 156,
+            "city_count": 11
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "沥青混凝土 AC-13(含运输)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "沥青混凝土 AC-16(含运输)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "沥青混凝土 AC-20(含运输)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "沥青混凝土 AC-25(含运输)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "08.01.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "山桃草(烟花)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "醉蝶花(烟花)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "鸡冠花(赤碧)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "鸡冠花(世纪)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "火星花(球根)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "繁星花(星辰)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "落新妇(球根)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "红脉美人蕉(矮生)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "金脉美人蕉(矮生)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "美女樱(华彩球)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "美女樱(水晶)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "美女樱(精致)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.05.14": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "C40pc板仿芝麻灰(荔枝面)",
+            "doc_count": 5,
+            "city_count": 1
+          },
+          {
+            "breed": "C40pc板仿黄锈石(荔枝面)",
+            "doc_count": 5,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "预制管廊底板(叠合)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "预制管廊顶板(叠合)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "02.04.05": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "塑钢平开门(通色)",
+            "doc_count": 110,
+            "city_count": 1
+          },
+          {
+            "breed": "塑钢推拉门(通色)",
+            "doc_count": 110,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.04.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "分(集)水器[五回路]",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "分(集)水器[六回路]",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "08.02.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "灰色水泥道砖(S砖)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "灰色水泥道砖(工字砖)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "灰色水泥道砖(方形砖)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "灰色水泥道砖(方砖)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "灰色水泥道砖(荷兰砖)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "银白龙(广西)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "黑白根(广西)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "多色混合幻彩景观铺装板315型",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "多色混合幻彩景观铺装板615型",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "黄金麻火烧面(石凳)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "黄金麻自然面(石凳)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.01.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "中砂(2.2mm-3.0mm)(水洗)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "中砂(2.3mm-3.0mm)(水洗)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.06.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "热轧工字钢 I16a Q235B",
+            "doc_count": 20,
+            "city_count": 2
+          },
+          {
+            "breed": "热轧工字钢 I20a Q235B",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧工字钢 I22a Q235B",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "热轧工字钢 I25a Q235B",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "冷轧卷 0.5*1000*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "冷轧卷 0.5*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "冷轧卷 0.6*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "冷轧卷 0.7*1250*C",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "冷轧卷 1.0*1000*C",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.01.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "中(粗)砂",
+            "doc_count": 184,
+            "city_count": 13
+          },
+          {
+            "breed": "机制中(粗)砂",
+            "doc_count": 66,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "天然砂石(戈壁土)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "天然砂石(连砂石)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.02.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "螺旋管 φ426×8",
+            "doc_count": 120,
+            "city_count": 10
+          },
+          {
+            "breed": "螺旋管 φ630×8",
+            "doc_count": 120,
+            "city_count": 10
+          },
+          {
+            "breed": "螺旋管 φ720×8",
+            "doc_count": 103,
+            "city_count": 8
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "排水管件(A型)伸缩节",
+            "doc_count": 12,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)清扫口",
+            "doc_count": 6,
+            "city_count": 1
+          },
+          {
+            "breed": "排水管件(A型)单承插",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.05.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "手提式干粉灭火器(2*3Kg,带箱子)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "手提式干粉灭火器(2*5Kg,带箱子)",
+            "doc_count": 4,
+            "city_count": 1
+          },
+          {
+            "breed": "手提式干粉灭火器(3Kg,不带箱子)",
+            "doc_count": 4,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "05.03.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "分(集)水器[三回路]",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "分(集)水器[二回路]",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "分(集)水器[四回路]",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.07.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "CPT-XE高聚物改性 沥青(超强)聚乙烯 胎防水卷材",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "CPT-XE高聚物改性沥青(超 强)聚乙烯胎防水卷材",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "CZ-D118高效堵漏注浆液( 水溶性)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "CZ-D119高效堵漏注浆液( 油溶性)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 2,
+        "items": [
+          {
+            "breed": "防火电缆桥架(100+100)*100 1.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(100+100)*100 2.0",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(100+100)*200 1.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(200+100)*100 2.0",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 3,
+        "items": [
+          {
+            "breed": "防火电缆桥架(200+200)*200 2.0",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(300+300)*200 3.0",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(400+400)*200 3.0",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 4,
+        "items": [
+          {
+            "breed": "防火电缆桥架(50+50)*100 1.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架(50+50)×50 1.2",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 5,
+        "items": [
+          {
+            "breed": "防火电缆桥架100×1001.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架100×501.0",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架100×501.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架200×1001.2",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架200×1501.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架300×1001.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架300×1501.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架300×2001.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架400×1001.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架400×1501.5",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架400×2001.5",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 6,
+        "items": [
+          {
+            "breed": "防火电缆桥架300×1502.0",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "防火电缆桥架400×2002.0",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "03.04.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "地板辐射采暖耐热聚乙烯管(PE-RT-II型-S4)DE20*2.3mm",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "地板辐射采暖耐热聚乙烯管(PE-RT-II型-S4)DE25*2.3mm",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "01.09.03": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "隔热型(厚型)钢结构防火涂料",
+            "doc_count": 255,
+            "city_count": 1
+          },
+          {
+            "breed": "膨胀型(薄型)钢结构防火涂料",
+            "doc_count": 170,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "高分子井座,盖",
+            "doc_count": 105,
+            "city_count": 5
+          },
+          {
+            "breed": "高分子井盖,井座",
+            "doc_count": 95,
+            "city_count": 2
+          }
+        ]
+      }
+    ],
+    "09.05.05": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "柜式七氟丙烷灭火装置(单瓶组)",
+            "doc_count": 146,
+            "city_count": 5
+          },
+          {
+            "breed": "柜式七氟丙烷灭火装置(双瓶组)",
+            "doc_count": 52,
+            "city_count": 5
+          },
+          {
+            "breed": "柜式七氟丙烷灭火装置(单",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.09.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "汽车泵(泵送)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "地泵(泵送)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.05.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "乙型单栓带灭火器箱组合式消防柜 (减压稳压)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "乙型单栓带灭火器箱组合式消防柜(减压稳压)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "甲型单栓带消防软管卷盘消火栓箱 (减压稳压)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "甲型单栓带消防软管卷盘消火栓箱(减压稳压)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "06.04.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "F100-G5特征库3年升级授权",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "F1000-G5特征库3年升级授权",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      },
+      {
+        "cluster_id": 1,
+        "items": [
+          {
+            "breed": "薄型单栓带消防软管卷盘组合式消防 柜(减压稳压)",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "薄型单栓带消防软管卷盘组合式消防柜(减压稳 压)",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.07.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "抗裂膨胀剂(粉剂)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "膨胀剂(粉剂)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.07.04": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "泵送剂(液体)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "防冻泵送剂(液剂)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "08.02.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "混凝土树框(内圆型)",
+            "doc_count": 2,
+            "city_count": 1
+          },
+          {
+            "breed": "混凝土树框(内圆型,内径)",
+            "doc_count": 2,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "09.08.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "不锈钢合页(202系列)3”",
+            "doc_count": 1,
+            "city_count": 1
+          },
+          {
+            "breed": "不锈钢合页(202系列)4”",
+            "doc_count": 1,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "07.03.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "给水用预应力钢筒混凝土管(0.6MPa)",
+            "doc_count": 26,
+            "city_count": 1
+          },
+          {
+            "breed": "给水用预应力混凝土管(0.6MPa)",
+            "doc_count": 20,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "06.02.01": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "200万全彩警戒筒型网络摄像机",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "400万全彩警戒筒型网络摄像机",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ],
+    "05.03.02": [
+      {
+        "cluster_id": 0,
+        "items": [
+          {
+            "breed": "集分水器(3路)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "集分水器(4路)",
+            "doc_count": 3,
+            "city_count": 1
+          },
+          {
+            "breed": "集分水器(5路)",
+            "doc_count": 3,
+            "city_count": 1
+          }
+        ]
+      }
+    ]
+  }
+}

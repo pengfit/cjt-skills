@@ -269,9 +269,20 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
     all_hits = []
     pit = None
     page_size = 5000
+    # 跨城 join: normalized_breed 优先，breed 兑底（兼容老 NORM 索引）
     query = {
         "bool": {
-            "must": [{"term": {"breed": breed}}],
+            "must": [
+                {
+                    "bool": {
+                        "should": [
+                            {"term": {"normalized_breed.keyword": breed}},
+                            {"term": {"breed": breed}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                }
+            ],
             "filter": [{"terms": {"period_start": period_starts}}],
         }
     }
@@ -466,6 +477,9 @@ def price_trend(
     if not dws_index:
         return {"ok": False, "error": f"未知城市: {city}"}
 
+    # 注：price_trend 不接 breed 入参（旧 patch 把 compare 函数的归一化块误粘了进来，
+    #     会导致 UnboundLocalError）。aggs 那边 line 558 已经改为按 normalized_breed.keyword 聚合，
+    #     故此处不再做 per-call normalize。
     # NORM 优先查询：DWS → NORM 自动 fallback
     from api.normalization_bridge import resolve_query_index
     _idx_res = resolve_query_index(es, city, prefer="norm")
@@ -536,7 +550,7 @@ def price_trend(
             body={
                 "size": 0,
                 "query": {"terms": {"period_start": [p["start"] for p in selected_periods]}},
-                "aggs": {"b": {"terms": {"field": "breed", "size": max_breeds, "order": {"_count": "desc"}}}},
+                "aggs": {"b": {"terms": {"field": "normalized_breed.keyword", "size": max_breeds, "order": {"_count": "desc"}}}},
             },
             ignore_unavailable=True,
         )
@@ -741,6 +755,14 @@ def price_trend_compare(
     """
     from api.skill_registry import get as _registry_get
 
+    # 归一化入参 breed（与 price_trend 一致）
+    from api.normalization_bridge import normalize_breed_text
+    if breed:
+        breed_orig = breed
+        breed = normalize_breed_text(breed)
+        if breed != breed_orig:
+            print(f"[breed normalize compare] {breed_orig!r} → {breed!r}")
+
     # 1. 解析城市列表
     city_keys = [c.strip() for c in cities.split(",") if c.strip()]
     if not city_keys:
@@ -785,9 +807,20 @@ def price_trend_compare(
                 spec_filter_pairs.append((k.strip(), v.strip()))
 
     # 3. 并行查询各城市的全部 (period_start × spec × unit × price)
+    # 跨城 join: normalized_breed 优先，breed 兑底
     query = {
         "bool": {
-            "must": [{"term": {"breed": breed}}],
+            "must": [
+                {
+                    "bool": {
+                        "should": [
+                            {"term": {"normalized_breed.keyword": breed}},
+                            {"term": {"breed": breed}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                }
+            ],
             "filter": ([{"term": {"unit": unit}}] if unit else []),
         }
     }

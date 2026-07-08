@@ -17,6 +17,23 @@
           @keydown.enter="doCompare"
         />
 
+        <!-- NORM 跨城归一品种候选（deepext NORM 索引，与 breed-recommend 互补） -->
+        <div v-if="normCompareCandidates.length" class="norm-compare-box">
+          <span class="norm-compare-title">🌐 跨城归一品种（{{ normCompareCandidates.length }}）</span>
+          <div class="norm-compare-list">
+            <div
+              v-for="(c, idx) in normCompareCandidates.slice(0, 12)"
+              :key="c.normalized_breed + '_c'"
+              class="norm-compare-item"
+              :title="c.cities.map(x => x.label + ':' + x.docs).join(' | ')"
+              @click="pickNormCompare(c)"
+            >
+              <span class="norm-compare-breed">{{ c.normalized_breed }}</span>
+              <span class="norm-compare-meta">{{ c.cities.length }} 城 · {{ c.total_docs }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- B 方案推荐区：分类标注 + 同 L3 推荐 -->
         <div v-if="recommendLoading" class="recommend-hint">
           <span class="loading-spinner"></span> 推荐中…
@@ -634,6 +651,36 @@ function pickBreed(s) {
   // 填完后重新拉一次推荐（可能选出同 L3 其他品种）
   loadBreedRecommend(s)
 }
+
+// ── 跨城 NORM 候选（与 breed-recommend 互补，供跨城统一品种使用） ──
+const normCompareCandidates = ref([])
+let _normCompareTimer = null
+
+watch(breedInput, (v) => {
+  if (_normCompareTimer) clearTimeout(_normCompareTimer)
+  const kw = (v || '').trim()
+  if (!kw) { normCompareCandidates.value = []; return }
+  _normCompareTimer = setTimeout(async () => {
+    try {
+      const { data: d } = await axios.get(`${API}/norm/breeds/search`, {
+        params: { keyword: kw, limit: 12 },
+      })
+      normCompareCandidates.value = d.ok ? (d.results || []) : []
+    } catch {
+      normCompareCandidates.value = []
+    }
+  }, 300)
+})
+
+function pickNormCompare(c) {
+  breedInput.value = c.normalized_breed
+  // 触发分类推荐，验证品种分类位置
+  loadBreedRecommend(c.normalized_breed)
+}
+
+onBeforeUnmount(() => {
+  if (_normCompareTimer) clearTimeout(_normCompareTimer)
+})
 
 // ── B 方案：品种推荐 ──
 let _recommendDebounce = null
@@ -1881,6 +1928,60 @@ onBeforeUnmount(() => {
   background: #fef3c7;
   border-radius: 3px;
   line-height: 1.5;
+}
+
+/* NORM 跨城归一品种区（与 recommend 并列展示） */
+.norm-compare-box {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+}
+.norm-compare-title {
+  display: block;
+  font-size: 10px;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.norm-compare-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.norm-compare-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #fff;
+  border: 1px solid #7dd3fc;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #0c4a6e;
+  cursor: pointer;
+  transition: all 0.15s;
+  max-width: 100%;
+  overflow: hidden;
+}
+.norm-compare-item:hover {
+  background: #bae6fd;
+  color: #082f49;
+}
+.norm-compare-breed {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.norm-compare-meta {
+  font-size: 10px;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 0 5px;
+  border-radius: 2px;
+  white-space: nowrap;
 }
 
 /* ── C 方案：分类树抽屉 ───────────────────────────────────────── */
