@@ -31,6 +31,12 @@
         "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
       },
       "breed_clean":       { "type": "keyword" },
+      "_l3_code":          { "type": "keyword" },
+      "_canonical_source": {
+        "type": "text",
+        "fields": { "keyword": { "type": "keyword", "ignore_above": 64 } }
+      },
+      "_canonical_confidence": { "type": "float" },
       "spec":              { "type": "keyword" },
       "unit":              { "type": "keyword" },
       "province":          { "type": "keyword" },

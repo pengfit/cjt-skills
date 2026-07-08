@@ -37,3 +37,8 @@ ai_cache.db
 *.bak.*
 *.bak
 chongqing-price/.chongqing_sync_progress.json
+data/breed_canonical.db
+data/breed_canonical.db-wal
+data/breed_canonical.db-shm
+
+# canonical map DB (shared, large; AI pipeline writes here)

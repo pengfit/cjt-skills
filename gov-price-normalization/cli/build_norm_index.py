@@ -43,6 +43,7 @@ if str(_PKG) not in sys.path:
 from gov_price_normalization.pipeline import normalize_batch  # noqa: E402
 from gov_price_normalization.utils import data_loader  # noqa: E402
 from gov_price_normalization.utils.errors import NormalizationError  # noqa: E402
+from gov_price_normalization.data.breed_canonical import get_canonical  # noqa: E402
 
 # ES 配置（与 dashboard 一致；Phase D 可统一到 .env）
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
@@ -112,9 +113,22 @@ def _normalize_doc(dws_doc: dict, city: str) -> dict:
     normed["canonical_period"] = normed.get("canonical_period")
     normed["canonical_unit"] = (normed.get("unit_norm") or {}).get("normalized")
     # normalized_breed：跨城 join 用的归一化名（dashboard trend/compare 的 should OR 优先匹配这个字段）
-    #   来源：DWS.breed_clean（ETL AI 归一化）；缺失时降级用 breed
-    #   写到顶层，方便 trend.py 的 terms agg 和 compare 的 term 过滤直接命中
-    normed["normalized_breed"] = (src.get("breed_clean") or src.get("breed") or "").strip()
+    #   查表顺序：breed_clean → breed
+    #     命中 → 拿表里的 normalized_breed（可能与原始不同，多对一合并）+ 写 _canonical_source
+    #     未命中 → 野生品种：normalized_breed = raw breed，_canonical_source=raw_fallback
+    #   后续 AI 规范化累积进 breed_canonical.db 后会自动覆盖 raw_fallback（增量）
+    _key = (src.get("breed_clean") or src.get("breed") or "").strip()
+    _hit = get_canonical(_key) if _key else None
+    if _hit:
+        normed["normalized_breed"] = _hit["normalized_breed"]
+        normed["_l3_code"] = _hit.get("l3_code")
+        normed["_canonical_source"] = _hit["source"]
+        normed["_canonical_confidence"] = _hit.get("confidence", 0.0)
+    else:
+        normed["normalized_breed"] = _key  # 野生品种，兜底用 raw
+        normed["_l3_code"] = None
+        normed["_canonical_source"] = "raw_fallback"
+        normed["_canonical_confidence"] = 0.0
     # 注意：l3_code 没传 → price_norm 不会被设置
     return normed
 

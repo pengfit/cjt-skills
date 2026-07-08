@@ -87,6 +87,10 @@ KNOWN_APPS: Dict[str, Dict[str, str]] = {
         "app_id": "app-kgaF6jNrpd4PytjhUk3VTCQ4",
         "purpose": "建材规格解析（diameter / length / thickness 等）",
     },
+    "etl-canonicalize-breed": {
+        "app_id": "app-eBDpajkWuocjfbcod4y5MYjM",
+        "purpose": "品种规范化（breed_clean → normalized_breed 官方名，跨城 join key）",
+    },
 
 }
 
