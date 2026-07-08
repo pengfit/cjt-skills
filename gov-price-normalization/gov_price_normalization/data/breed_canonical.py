@@ -35,7 +35,7 @@ from typing import Optional
 # ── DB 路径解析 ────────────────────────────────────────────────────────
 # 优先级：
 #   1. 环境变量 BREED_CANONICAL_DB
-#   2. <skills>/data/breed_canonical.db（共享目录，与 category_v3_rules.db 同级）
+#   2. <skills>/data/breed_canonical.db（共享目录，独立于 etl 的 category_v3_rules.db，后者在 gov-price-etl/data/）
 #   3. 兼容旧路径：<pkg>/data/breed_canonical.db（早期开发版）
 #
 # 路径反推：

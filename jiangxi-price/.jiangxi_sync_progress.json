@@ -1,0 +1,89 @@
+{
+  "done": {
+    "2019230972087635968": {
+      "period": "2026.第1期",
+      "period_start": "2026-02-01",
+      "period_end": "2026-02-28",
+      "period_days": 28,
+      "publish_date": "2026-02-05",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2019230972087635968.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2019230972087635968/p39oJcbo.pdf",
+      "minio_key": "jiangxi-price/2026.第1期/p39oJcbo.pdf",
+      "docs_written": 7573,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-03T14:58:26"
+    },
+    "2031208798802153472": {
+      "period": "2026.第2期",
+      "period_start": "2026-03-01",
+      "period_end": "2026-03-31",
+      "period_days": 31,
+      "publish_date": "2026-03-10",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2031208798802153472.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2031208798802153472/8rE7IZ3M.pdf",
+      "minio_key": "jiangxi-price/2026.第2期/8rE7IZ3M.pdf",
+      "docs_written": 7513,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-03T14:58:39"
+    },
+    "2039999516498264064": {
+      "period": "2026.第3期",
+      "period_start": "2026-04-01",
+      "period_end": "2026-04-30",
+      "period_days": 30,
+      "publish_date": "2026-04-03",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2039999516498264064.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2039999516498264064/RmOEmklN.pdf",
+      "minio_key": "jiangxi-price/2026.第3期/RmOEmklN.pdf",
+      "docs_written": 8265,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-03T14:58:54"
+    },
+    "2052608492608471040": {
+      "period": "2026.第4期",
+      "period_start": "2026-05-01",
+      "period_end": "2026-05-31",
+      "period_days": 31,
+      "publish_date": "2026-05-08",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2052608492608471040.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2052608492608471040/yNA7wAxA.pdf",
+      "minio_key": "jiangxi-price/2026.第4期/yNA7wAxA.pdf",
+      "docs_written": 7697,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-03T14:59:06"
+    },
+    "2062796646723690496": {
+      "period": "2026.第5期",
+      "period_start": "2026-06-01",
+      "period_end": "2026-06-30",
+      "period_days": 30,
+      "publish_date": "2026-06-05",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2062796646723690496.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2062796646723690496/iGNhYG0T.pdf",
+      "minio_key": "jiangxi-price/2026.第5期/iGNhYG0T.pdf",
+      "docs_written": 7726,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-03T14:59:19"
+    },
+    "2073989362017280000": {
+      "period": "2026.第6期",
+      "period_start": "2026-07-01",
+      "period_end": "2026-07-31",
+      "period_days": 31,
+      "publish_date": "2026-07-06",
+      "detail_url": "https://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/pc/content/content_2073989362017280000.html",
+      "pdf_url": "http://zjt.jiangxi.gov.cn/jxszfhcxjst/gqcyc/2073989362017280000/d22eIQjO.pdf",
+      "minio_key": "jiangxi-price/2026.第6期/d22eIQjO.pdf",
+      "docs_written": 8143,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-07T06:01:05"
+    }
+  },
+  "saved_at": "2026-07-07 06:01:05"
+}
