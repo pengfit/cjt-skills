@@ -43,6 +43,7 @@ from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch, NotFoundError, RequestError
 import datetime, concurrent.futures, subprocess, json, os, sys, re, functools, yaml, sqlite3
+from pathlib import Path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # etl 项目根（v0.2 重构后不再用 commands/ 路径，全部用 etl 的 paths.py 中心解析）
@@ -2852,65 +2853,68 @@ def clean_summary(
 
 
 # ══════════════════════════════════════════════════════════════
-# category_v3_rules.db 查询端点（2026-06-18 起 v3 替代 v2）
+# 分类体系查询端点（2026-07-09 起统一读 breed_canonical.db）
 # ──────────────────────────────────────────────────────────────
-# 表 1：category_v3 (145 行) — 4 级分类体系（L1/L2/L3/L4 + 名称 + GB50500 + IFC + Uniclass）
-#       严格按 GB 50854-2013 / GB/T 50856-2024 / GB 50857-2013 / GB 50858-2013 章节重建
-# 表 2：breed_l3_map_v3 — 品种→L3 映射
+# 端点路径仍保留 category-v2-* 旧名（向前兼容前端 BreedMapTab /
+# CategoryTaxonomyView / CategoryTaxonomyTab），但底层数据源已切换。
+#
+# 表 1：category_v3 (191 行) — 4 级分类体系
+#   数据已从 category_v3_rules.db 复制到 breed_canonical.db
+#   （见迁移 commit d73cd49，migrate_catv3_into_canonical.py）
+# 表 2：breed_canonical (14507 行) — 品种→L3 映射
+#   替代旧 breed_l3_map_v3
+#   字段差异：l3 → l3_code；时间字段用 ISO 8601（带 Z）替代 SQLite CURRENT_TIMESTAMP
+#
+# 原 category_v3_rules.db 仍由 gov-price-etl 写入，本模块不再读
 # ══════════════════════════════════════════════════════════════
 
 
-def _ensure_cat_v3_tables():
-    """确保 category_v3_rules.db 的两张表存在（幂等）"""
-    if not _RULES_DB_CAT_V3 or not os.path.exists(_RULES_DB_CAT_V3):
+# 与 breed_recommend.py / category_trend.py 同源（2026-07-09）
+_PROV_CANON_DB = Path(os.environ.get(
+    "BREED_CANONICAL_DB",
+    "/Users/pengfit/.openclaw/workspace/cjt/skills/data/breed_canonical.db",
+))
+
+
+def _canon_db_ready() -> bool:
+    """检查 breed_canonical.db 是否存在且含必备表（替代旧 _ensure_cat_v3_tables）
+
+    不创建表：breed_canonical.db 的 schema 由 gov-price-etl 维护，
+    本模块只读。如果表不存在说明 ETL 没跑或数据丢失，应报错。
+    """
+    if not _PROV_CANON_DB.exists():
         return False
     try:
-        conn = sqlite3.connect(_RULES_DB_CAT_V3)
-        c = conn.cursor()
-        c.execute(
-            "CREATE TABLE IF NOT EXISTS category_v3 ("
-            "  l1 TEXT NOT NULL, l2 TEXT NOT NULL, l3 TEXT NOT NULL, l4 TEXT NOT NULL,"
-            "  gb_50500 TEXT NOT NULL,"
-            "  ifc_class TEXT DEFAULT '', uniclass_ss TEXT DEFAULT '',"
-            "  eng_part TEXT DEFAULT '', eng_stage TEXT DEFAULT '',"
-            "  main_or_aux TEXT DEFAULT '', unit TEXT DEFAULT '',"
-            "  billing_unit TEXT DEFAULT '', cost_method TEXT DEFAULT '',"
-            "  name_l1 TEXT NOT NULL, name_l2 TEXT NOT NULL,"
-            "  name_l3 TEXT NOT NULL, name_l4 TEXT DEFAULT '',"
-            "  PRIMARY KEY (l1, l2, l3, l4)"
-            ")"
-        )
-        c.execute(
-            "CREATE TABLE IF NOT EXISTS breed_l3_map_v3 ("
-            "  breed_clean TEXT PRIMARY KEY,"
-            "  l3 TEXT NOT NULL,"
-            "  source TEXT DEFAULT 'ai',"
-            "  confidence REAL DEFAULT 1.0,"
-            "  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-            "  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ")"
-        )
-        conn.commit()
-        conn.close()
-        return True
+        con = sqlite3.connect(str(_PROV_CANON_DB))
+        names = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        con.close()
+        return {"breed_canonical", "category_v3"}.issubset(names)
     except Exception:
         return False
+
+
+def _open_canon() -> sqlite3.Connection:
+    """打开 breed_canonical.db（行工厂 dict）"""
+    conn = sqlite3.connect(str(_PROV_CANON_DB))
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 @router.get("/api/stats/category-v2-stats")
 def category_v2_stats():
     """category_v3_rules.db 整体统计：分类法条数 / 映射条数 / 来源分布 / L3 覆盖率
 
-    端点路径保持 v2 名称（向前兼容），但底层数据来自 v3。
+    端点路径保持 v2 名称（向前兼容），数据源已切到 breed_canonical.db。
     """
-    if not _ensure_cat_v3_tables():
-        return {"ok": False, "message": "category_v3_rules.db 不存在或无法访问"}
+    if not _canon_db_ready():
+        return {"ok": False, "message": "breed_canonical.db 不存在或无法访问"}
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
-    conn.row_factory = sqlite3.Row
+    conn = _open_canon()
     c = conn.cursor()
 
-    # 分类法表
+    # 分类法表（category_v3 字段未变）
     c.execute("SELECT COUNT(*) AS n FROM category_v3")
     taxonomy_total = c.fetchone()["n"]
     c.execute("SELECT COUNT(DISTINCT l1) AS n FROM category_v3")
@@ -2922,30 +2926,32 @@ def category_v2_stats():
     c.execute("SELECT COUNT(DISTINCT l4) AS n FROM category_v3 WHERE l4 != 'UNCLASSIFIED'")
     l4_count = c.fetchone()["n"]
 
-    # 品种映射表
-    c.execute("SELECT COUNT(*) AS n FROM breed_l3_map_v3")
+    # 品种映射表（breed_l3_map_v3 → breed_canonical，l3 → l3_code）
+    c.execute("SELECT COUNT(*) AS n FROM breed_canonical WHERE l3_code IS NOT NULL")
     map_total = c.fetchone()["n"]
     c.execute(
-        "SELECT source, COUNT(*) AS n FROM breed_l3_map_v3 GROUP BY source ORDER BY n DESC"
+        "SELECT source, COUNT(*) AS n FROM breed_canonical "
+        "WHERE l3_code IS NOT NULL GROUP BY source ORDER BY n DESC"
     )
     source_buckets = [{"source": r["source"], "count": r["n"]} for r in c.fetchall()]
     c.execute(
-        "SELECT confidence, COUNT(*) AS n FROM breed_l3_map_v3 "
+        "SELECT confidence, COUNT(*) AS n FROM breed_canonical "
+        "WHERE l3_code IS NOT NULL "
         "GROUP BY ROUND(confidence, 2) ORDER BY confidence DESC"
     )
     confidence_buckets = [
         {"confidence": round(r["confidence"], 2), "count": r["n"]} for r in c.fetchall()
     ]
-    # L3 命中率（映射的 l3 是否都存在于分类法）
+    # L3 命中率（映射的 l3_code 是否都存在于分类法）
     c.execute(
-        "SELECT COUNT(DISTINCT m.l3) AS n "
-        "FROM breed_l3_map_v3 m "
-        "WHERE m.l3 IN (SELECT l3 FROM category_v3)"
+        "SELECT COUNT(DISTINCT m.l3_code) AS n "
+        "FROM breed_canonical m "
+        "WHERE m.l3_code IS NOT NULL AND m.l3_code IN (SELECT l3 FROM category_v3)"
     )
     l3_hit = c.fetchone()["n"]
     c.execute(
-        "SELECT COUNT(DISTINCT m.l3) AS n FROM breed_l3_map_v3 m "
-        "WHERE m.l3 NOT IN (SELECT l3 FROM category_v3)"
+        "SELECT COUNT(DISTINCT m.l3_code) AS n FROM breed_canonical m "
+        "WHERE m.l3_code IS NOT NULL AND m.l3_code NOT IN (SELECT l3 FROM category_v3)"
     )
     l3_miss = c.fetchone()["n"]
     conn.close()
@@ -2979,8 +2985,12 @@ def category_v2_taxonomy(
     page: int = 1,
     page_size: int = 50,
 ):
-    """查询 category_v2（3 级分类体系），支持 L1/L2 过滤 + 关键字搜索（按名称/编码/GB50500）+ 排序"""
-    if not _ensure_cat_v3_tables():
+    """查询分类法（4 级：L1/L2/L3/L4），支持 L1/L2 过滤 + 关键字搜索（按名称/编码/GB50500）+ 排序
+
+    端点路径保留 category-v2-taxonomy（向前兼容前端 CategoryTaxonomyTab.vue）。
+    数据源：breed_canonical.db 内的 category_v3 表。
+    """
+    if not _canon_db_ready():
         return {"rows": [], "total": 0, "page": page, "page_size": page_size}
 
     # 白名单防 SQL 注入
@@ -2988,8 +2998,7 @@ def category_v2_taxonomy(
     sort_col = sort_by if sort_by in sort_cols else "l3"
     sort_d = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
-    conn.row_factory = sqlite3.Row
+    conn = _open_canon()
     c = conn.cursor()
 
     where = []
@@ -3053,37 +3062,43 @@ def category_v2_breed_map(
     page: int = 1,
     page_size: int = 50,
 ):
-    """查询 breed_l3_map（品种→L3 映射），支持品种关键字 / L3 过滤 / 来源过滤 / 置信度阈值"""
-    if not _ensure_cat_v3_tables():
+    """查询 breed_canonical（品种→L3 映射），支持品种关键字 / L3 过滤 / 来源过滤 / 置信度阈值
+
+    端点路径保留 category-v2-breed-map（向前兼容前端 BreedMapTab.vue）。
+    数据源：breed_canonical.db 内的 breed_canonical 表（替代旧 breed_l3_map_v3）。
+    """
+    if not _canon_db_ready():
         return {"rows": [], "total": 0, "page": page, "page_size": page_size}
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
-    conn.row_factory = sqlite3.Row
+    conn = _open_canon()
     c = conn.cursor()
 
-    where = []
+    where = ["m.l3_code IS NOT NULL"]  # 排除野生品种
     params = []
     if keyword:
-        where.append("breed_clean LIKE ?")
+        where.append("m.breed_clean LIKE ?")
         params.append(f"%{keyword}%")
     if l3:
-        where.append("m.l3 = ?")
+        where.append("m.l3_code = ?")
         params.append(l3)
     if source:
-        where.append("source = ?")
+        where.append("m.source = ?")
         params.append(source)
     if min_confidence and min_confidence > 0:
-        where.append("confidence >= ?")
+        where.append("m.confidence >= ?")
         params.append(min_confidence)
 
-    where_sql = " AND ".join(where) if where else "1=1"
+    where_sql = " AND ".join(where)
 
-    # 关联分类法表拿 name_l3
+    # 关联分类法表拿 name_l3（l3_code JOIN l3）
+    # 注：响应字段名沿用旧 'l3'（前端 BreedMapTab.vue:43 硬编码 r.l3），
+    #     SQL 内层用 l3_code，表层 alias 回去
     c.execute(
-        f"SELECT m.breed_clean, m.l3, m.source, m.confidence, m.created_at, m.updated_at, "
+        f"SELECT m.breed_clean, m.l3_code AS l3, m.source, m.confidence, "
+        f"m.created_at, m.updated_at, "
         f"t.name_l1, t.name_l2, t.name_l3 "
-        f"FROM breed_l3_map_v3 m "
-        f"LEFT JOIN category_v3 t ON m.l3 = t.l3 "
+        f"FROM breed_canonical m "
+        f"LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
         f"WHERE {where_sql} "
         f"ORDER BY m.confidence DESC, m.breed_clean LIMIT ? OFFSET ?",
         params + [page_size, (page - 1) * page_size],
@@ -3091,15 +3106,15 @@ def category_v2_breed_map(
     rows = [dict(r) for r in c.fetchall()]
 
     c.execute(
-        f"SELECT COUNT(*) AS n FROM breed_l3_map_v3 m WHERE {where_sql}", params
+        f"SELECT COUNT(*) AS n FROM breed_canonical m WHERE {where_sql}", params
     )
     total = c.fetchone()["n"]
 
     # 过滤选项
-    c.execute("SELECT DISTINCT source FROM breed_l3_map_v3 ORDER BY source")
+    c.execute("SELECT DISTINCT source FROM breed_canonical WHERE l3_code IS NOT NULL ORDER BY source")
     source_options = [r["source"] for r in c.fetchall()]
-    c.execute("SELECT DISTINCT l3 FROM breed_l3_map_v3 ORDER BY l3")
-    l3_options = [r["l3"] for r in c.fetchall()]
+    c.execute("SELECT DISTINCT l3_code FROM breed_canonical WHERE l3_code IS NOT NULL ORDER BY l3_code")
+    l3_options = [r["l3_code"] for r in c.fetchall()]
     conn.close()
 
     return {
@@ -3114,15 +3129,18 @@ def category_v2_breed_map(
 
 @router.get("/api/stats/category-v2-l3-detail")
 def category_v2_l3_detail(l3: str = Query(...)):
-    """查询指定 L3 的完整信息 + 该 L3 下所有品种映射（聚合）"""
-    if not _ensure_cat_v3_tables():
-        return {"ok": False, "message": "category_v2_rules.db 不存在或无法访问"}
+    """查询指定 L3 的完整信息 + 该 L3 下所有品种映射（聚合）
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
-    conn.row_factory = sqlite3.Row
+    端点路径保留 category-v2-l3-detail（向前兼容历史调用）。
+    数据源：breed_canonical.db（breed_canonical + category_v3）。
+    """
+    if not _canon_db_ready():
+        return {"ok": False, "message": "breed_canonical.db 不存在或无法访问"}
+
+    conn = _open_canon()
     c = conn.cursor()
 
-    # 分类法里该 L3 的所有 L4 行
+    # 分类法里该 L3 的所有 L4 行（category_v3 字段未变）
     c.execute(
         "SELECT l1, l2, l3, l4, gb_50500, ifc_class, uniclass_ss, "
         "eng_part, eng_stage, main_or_aux, unit, billing_unit, cost_method, "
@@ -3132,16 +3150,17 @@ def category_v2_l3_detail(l3: str = Query(...)):
     )
     taxonomy_rows = [dict(r) for r in c.fetchall()]
 
-    # 该 L3 下的品种数 + 来源分布
+    # 该 L3 下的品种数 + 来源分布（l3 → l3_code）
     c.execute(
-        "SELECT source, COUNT(*) AS n FROM breed_l3_map_v3 WHERE l3 = ? GROUP BY source",
+        "SELECT source, COUNT(*) AS n FROM breed_canonical "
+        "WHERE l3_code = ? GROUP BY source",
         (l3,),
     )
     source_dist = [{"source": r["source"], "count": r["n"]} for r in c.fetchall()]
-    c.execute("SELECT COUNT(*) AS n FROM breed_l3_map_v3 WHERE l3 = ?", (l3,))
+    c.execute("SELECT COUNT(*) AS n FROM breed_canonical WHERE l3_code = ?", (l3,))
     breed_count = c.fetchone()["n"]
     c.execute(
-        "SELECT AVG(confidence) AS avg_conf FROM breed_l3_map_v3 WHERE l3 = ?",
+        "SELECT AVG(confidence) AS avg_conf FROM breed_canonical WHERE l3_code = ?",
         (l3,),
     )
     avg_conf = c.fetchone()["avg_conf"] or 0
