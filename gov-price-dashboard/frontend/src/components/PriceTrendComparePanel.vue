@@ -34,51 +34,7 @@
           </div>
         </div>
 
-        <!-- B 方案推荐区：分类标注 + 同 L3 推荐 -->
-        <div v-if="recommendLoading" class="recommend-hint">
-          <span class="loading-spinner"></span> 推荐中…
-        </div>
-        <div v-else-if="breedRecommend && breedRecommend.classifications" class="recommend-box">
-          <div class="classify-card">
-            <span class="classify-icon">🏷️</span>
-            <span class="classify-l3">
-              <strong>{{ breedRecommend.classifications.l3_code }}</strong>
-              {{ breedRecommend.classifications.name_l1 }} / {{ breedRecommend.classifications.name_l2 }} / <em>{{ breedRecommend.classifications.name_l3 }}</em>
-            </span>
-            <span v-if="breedRecommend.classifications.gb_50500" class="classify-gb">GB {{ breedRecommend.classifications.gb_50500 }}</span>
-            <span v-if="breedRecommend.siblings_total" class="classify-siblings">
-              同章节 <strong>{{ breedRecommend.siblings_total }}</strong> 个品种
-            </span>
-          </div>
-          <div v-if="breedRecommend.breeds.length" class="recommend-list">
-            <span
-              v-for="r in breedRecommend.breeds.slice(0, 12)"
-              :key="r.breed_clean"
-              class="recommend-chip"
-              :title="r.breed_clean + ' | L3=' + r.l3 + ' | conf=' + r.confidence"
-              @click="pickBreed(r.breed_clean)"
-            >
-              {{ r.breed_clean }}
-              <small v-if="r.city_count > 0" class="chip-city">{{ r.city_count }}城</small>
-            </span>
-            <span v-if="breedRecommend.breeds.length > 12" class="recommend-more">
-              还有 {{ breedRecommend.breeds.length - 12 }} 个 →
-            </span>
-          </div>
-          <div v-if="breedRecommend.coverage_note" class="recommend-note">
-            ⚠️ {{ breedRecommend.coverage_note }}
-          </div>
-        </div>
-
-        <!-- 保持兼容：旧 breedSuggestions 仍能渲染 -->
-        <div v-if="breedSuggestions.length && !breedRecommend" class="suggestions">
-          <span
-            v-for="s in breedSuggestions"
-            :key="s"
-            class="suggestion-chip"
-            @click="pickBreed(s)"
-          >{{ s }}</span>
-        </div>
+        <!-- B 方案推荐区：分类标注 + 同 L3 推荐 (2026-07-09 移除展示，按道友要求) -->
       </div>
       <div class="filter-group-cities">
         <label class="filter-label">
@@ -460,9 +416,9 @@ const topBreedsByCity = ref([])               // 用于空状态热门品种
 // 用户选的 spec_key
 const selectedSpecKeys = ref(new Set())
 
-// B 方案：品种推荐 (品种 → 同 L3 + 跨城覆盖度)
-const breedRecommend = ref(null)              // /api/stats/breed-recommend 返回
-const recommendLoading = ref(false)
+// B 方案：品种推荐 (品种 → 同 L3 + 跨城覆盖度) — 2026-07-09 移除展示，状态也清理
+// const breedRecommend = ref(null)
+// const recommendLoading = ref(false)
 
 // C 方案：分类树抽屉
 const treeData = ref(null)                    // /api/stats/category-tree 返回
@@ -648,8 +604,6 @@ function quickFill(breed) {
 function pickBreed(s) {
   breedInput.value = s
   breedSuggestions.value = []
-  // 填完后重新拉一次推荐（可能选出同 L3 其他品种）
-  loadBreedRecommend(s)
 }
 
 // ── 跨城 NORM 候选（与 breed-recommend 互补，供跨城统一品种使用） ──
@@ -674,39 +628,11 @@ watch(breedInput, (v) => {
 
 function pickNormCompare(c) {
   breedInput.value = c.normalized_breed
-  // 触发分类推荐，验证品种分类位置
-  loadBreedRecommend(c.normalized_breed)
 }
 
 onBeforeUnmount(() => {
   if (_normCompareTimer) clearTimeout(_normCompareTimer)
 })
-
-// ── B 方案：品种推荐 ──
-let _recommendDebounce = null
-function loadBreedRecommend(keyword) {
-  clearTimeout(_recommendDebounce)
-  const kw = (keyword || '').trim()
-  if (!kw) {
-    breedRecommend.value = null
-    return
-  }
-  _recommendDebounce = setTimeout(async () => {
-    recommendLoading.value = true
-    try {
-      const { data: d } = await axios.get(`${API}/stats/breed-recommend`, {
-        params: { keyword: kw, limit: 30, min_confidence: 0.9 },
-      })
-      if (!d.ok) throw new Error(d.error || '推荐服务异常')
-      breedRecommend.value = d
-    } catch (e) {
-      breedRecommend.value = null
-      console.warn('loadBreedRecommend failed:', e.message)
-    } finally {
-      recommendLoading.value = false
-    }
-  }, 300)
-}
 
 // ── C 方案：分类树 ──
 async function openTreeDrawer() {
@@ -727,23 +653,17 @@ function toggleTreeNode(key) {
 }
 
 function pickL3(l3Code) {
-  // 点 L3 下的“看该 L3 下 N 个品种”→ 调推荐（不传 keyword）
+  // 点 L3 节点 → 自动填第一个品种名到输入框（不再显示推荐区）
   treeDrawerOpen.value = false
-  recommendLoading.value = true
-  breedRecommend.value = null
   axios.get(`${API}/stats/breed-recommend`, {
-    params: { l3: l3Code, limit: 30, min_confidence: 0.9 },
+    params: { l3: l3Code, limit: 1, min_confidence: 0.9 },
   }).then(({ data: d }) => {
     if (!d.ok) throw new Error(d.error || '推荐异常')
-    breedRecommend.value = d
-    // 自动填充第一个品种名到输入框
     if (d.breeds && d.breeds.length) {
       breedInput.value = d.breeds[0].breed_clean
     }
   }).catch((e) => {
-    console.warn('pickL3 recommend failed:', e.message)
-  }).finally(() => {
-    recommendLoading.value = false
+    console.warn('pickL3 failed:', e.message)
   })
 }
 
@@ -1187,14 +1107,9 @@ watch(subChartGroups, () => nextTick(renderAllCharts), { deep: true })
 // 生命周期
 onMounted(async () => {
   await loadCityOptions()
-  // 首次进入：默认品种触发一次推荐
-  if (breedInput.value.trim()) {
-    loadBreedRecommend(breedInput.value)
-  }
+  // 2026-07-09 移除首屏推荐触发（推荐区已不显示）
 })
 
-// watch 品种输入：实时推荐（debounce 300ms）
-watch(breedInput, (v) => loadBreedRecommend(v))
 onBeforeUnmount(() => {
   for (const inst of chartInstances.values()) { try { inst.dispose() } catch {} }; chartInstances.clear()
   if (spreadChartInstance) { try { spreadChartInstance.dispose() } catch {}; spreadChartInstance = null }
@@ -1826,109 +1741,7 @@ onBeforeUnmount(() => {
   border-color: #94a3b8;
   color: #0f172a;
 }
-.recommend-hint {
-  margin-top: 6px;
-  font-size: 11px;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.recommend-hint .loading-spinner {
-  width: 12px; height: 12px;
-  border: 2px solid #cbd5e1;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.recommend-box {
-  margin-top: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #f8fafc;
-  padding: 8px 10px;
-}
-.classify-card {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: #334155;
-}
-.classify-icon { font-size: 13px; }
-.classify-l3 { flex: 1; min-width: 0; }
-.classify-l3 strong { color: #0f172a; font-family: monospace; }
-.classify-l3 em { font-style: normal; color: #1d4ed8; font-weight: 500; }
-.classify-gb {
-  font-size: 10px;
-  padding: 1px 6px;
-  background: #dbeafe;
-  color: #1e40af;
-  border-radius: 3px;
-  font-family: monospace;
-}
-.classify-siblings {
-  font-size: 11px;
-  color: #64748b;
-}
-.classify-siblings strong { color: #7c3aed; }
-
-.recommend-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-.recommend-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  padding: 3px 8px;
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 3px;
-  cursor: pointer;
-  color: #334155;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: all 0.15s;
-}
-.recommend-chip:hover {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
-}
-.chip-city {
-  font-size: 9px;
-  padding: 0 4px;
-  background: #dcfce7;
-  color: #15803d;
-  border-radius: 2px;
-  font-weight: 500;
-}
-.recommend-more {
-  font-size: 11px;
-  color: #64748b;
-  padding: 3px 6px;
-  cursor: pointer;
-}
-.recommend-more:hover { color: #1d4ed8; }
-
-.recommend-note {
-  margin-top: 6px;
-  padding: 4px 8px;
-  font-size: 10px;
-  color: #92400e;
-  background: #fef3c7;
-  border-radius: 3px;
-  line-height: 1.5;
-}
+/* recommend-box 样式已移除（2026-07-09，按道友要求） */
 
 /* NORM 跨城归一品种区（与 recommend 并列展示） */
 .norm-compare-box {
