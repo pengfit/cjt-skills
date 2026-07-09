@@ -491,20 +491,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { defineAsyncComponent } from 'vue'
 import axios from 'axios'
 import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
-import DistributionChart from './components/DistributionChart.vue'
-import PriceTrendView from './components/PriceTrendView.vue'
-import CategoryView from './components/CategoryView.vue'
-import SyncView from './components/SyncView.vue'
-import DataHealthView from './components/DataHealthView.vue'
-import CockpitView from './components/CockpitView.vue'
-import VecRulesView from './components/VecRulesView.vue'
-import CategoryTaxonomyView from './components/CategoryTaxonomyView.vue'
-import CategoryTreeSidebar from './components/CategoryTreeSidebar.vue'
+// 路由级 view 全部 async（首屏不加载，切 tab 时才按需下载；2026-07-09 优化）
+const DistributionChart = defineAsyncComponent(() => import('./components/DistributionChart.vue'))
+const PriceTrendView = defineAsyncComponent(() => import('./components/PriceTrendView.vue'))
+const CategoryView = defineAsyncComponent(() => import('./components/CategoryView.vue'))
+const SyncView = defineAsyncComponent(() => import('./components/SyncView.vue'))
+const DataHealthView = defineAsyncComponent(() => import('./components/DataHealthView.vue'))
+const CockpitView = defineAsyncComponent(() => import('./components/CockpitView.vue'))
+const VecRulesView = defineAsyncComponent(() => import('./components/VecRulesView.vue'))
+const CategoryTaxonomyView = defineAsyncComponent(() => import('./components/CategoryTaxonomyView.vue'))
+const CategoryTreeSidebar = defineAsyncComponent(() => import('./components/CategoryTreeSidebar.vue'))
+// 全局小工具（CmdPalette 始终挂载，保留 sync import；AttrTags/CustomSelect 多 tab 复用 → sync）
 import CmdPalette from './components/CmdPalette.vue'
 import { TAB_ROUTES, legacyTabPath } from './router'
 

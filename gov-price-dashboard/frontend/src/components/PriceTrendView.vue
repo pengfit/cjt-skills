@@ -242,11 +242,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
-import PriceTrendComparePanel from './PriceTrendComparePanel.vue'
-import CategoryTrendView from './CategoryTrendView.vue'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount, defineAsyncComponent } from 'vue'
+// 三个子 tab 视图都 async 化（首屏只加载 PageHeader 架子，切 tab 才拉对应代码；2026-07-09 优化）
+const PriceTrendComparePanel = defineAsyncComponent(() => import('./PriceTrendComparePanel.vue'))
+const CategoryTrendView = defineAsyncComponent(() => import('./CategoryTrendView.vue'))
 
-// 顶部 tab 状态：'single' | 'compare'
+// 顶部 tab 状态：'single'（默认）| 'category' | 'compare'
 const trendMode = ref('single')
 import axios from 'axios'
 import * as echarts from 'echarts'
