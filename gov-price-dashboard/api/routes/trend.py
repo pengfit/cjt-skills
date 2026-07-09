@@ -434,7 +434,7 @@ def price_trend(
     city: str = Query("qingdao", description="城市 key"),
     materials: str = Query(
         "热轧带肋钢筋（螺纹钢),预拌混凝土,热镀锌钢管,自粘聚合物改性沥青防水卷材",
-        description="逗号分隔的品种名列表；* 表示取该城市 top 30"
+        description="逗号分隔的 normalized_breed 列表；* 表示取该城市 top 30"
     ),
     periods: int = Query(12, ge=1, le=60, description="取最近 N 个业务期"),
     date_from: str = Query("", description="起始期 YYYY-MM-DD（含），优先于 periods"),
@@ -453,7 +453,7 @@ def price_trend(
       "periods": [{"start": "2026-02-01", "end": "2026-02-28", "label": "2026年02月"}, ...],
       "series": [
         {
-          "material": "闸阀",
+          "normalized_breed": "闸阀",
           "unit": "个",                    // 兼容字段：主要 unit
           "spec_count": 12,                // 该材料总共多少个 spec
           "n_total": 3096,                 // 该材料总样本
@@ -565,7 +565,7 @@ def price_trend(
         hits = _fetch_all_hits_for_breed(query_index, mat, period_starts)
         if not hits:
             series.append({
-                "material": mat,
+                "normalized_breed": mat,
                 "unit": "",
                 "spec_count": 0,
                 "n_total": 0,
@@ -590,7 +590,7 @@ def price_trend(
                 seen_keys_set.add(k)
                 seen_keys.append(k)
         series.append({
-            "material": mat,
+            "normalized_breed": mat,
             "unit": agg["units_seen"][0] if agg["units_seen"] else "",
             "spec_count": len(agg["specs"]),
             "n_total": sum(p["n"] for p in agg["overall_points"]),

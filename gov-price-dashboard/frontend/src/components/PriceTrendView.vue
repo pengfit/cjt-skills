@@ -7,6 +7,8 @@
       title="价格走势"
       :subtitle="trendMode === 'single'
         ? `基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`
+        : trendMode === 'category'
+        ? `基于 normalized_breed 的品类级视角 · ${cityLabel} · 规格热力图 + 价格带 + 同 L3 横向推荐`
         : '跨城同品种时序对比 · 按 attr-based spec_key 拼接 · 同单位约束，周期以日历对齐'"
       :stats="topStats"
     >
@@ -20,12 +22,20 @@
           >单城市</button>
           <button
             class="mode-tab"
+            :class="{ active: trendMode === 'category' }"
+            @click="trendMode = 'category'"
+          >品类聚合</button>
+          <button
+            class="mode-tab"
             :class="{ active: trendMode === 'compare' }"
             @click="trendMode = 'compare'"
           >跨城市对比</button>
         </div>
       </template>
     </PageHeader>
+
+    <!-- 品类聚合面板 -->
+    <CategoryTrendView v-if="trendMode === 'category'" />
 
     <!-- 跨城对比面板 -->
     <PriceTrendComparePanel v-if="trendMode === 'compare'" />
@@ -191,10 +201,10 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="s in activeSeries" :key="s.material">
-              <tr v-for="(sp, spIdx) in s.specs" :key="`${s.material}-${sp.spec}-${sp.unit}`">
+            <template v-for="s in activeSeries" :key="s.normalized_breed">
+              <tr v-for="(sp, spIdx) in s.specs" :key="`${s.normalized_breed}-${sp.spec}-${sp.unit}`">
                 <td v-if="spIdx === 0" class="cell-material" :rowspan="s.specs.length">
-                  {{ s.material }}
+                  {{ s.normalized_breed }}
                   <div class="cell-material-meta" v-if="s.specs.length > 1">
                     {{ s.spec_count }}规格 · {{ s.n_total }}样本
                   </div>
@@ -216,7 +226,7 @@
                 </td>
               </tr>
               <tr v-if="s.specs.length === 0" class="row-empty">
-                <td class="cell-material">{{ s.material }}</td>
+                <td class="cell-material">{{ s.normalized_breed }}</td>
                 <td colspan="2" class="no-data">该材料无规格数据</td>
                 <td v-for="p in allPeriods" :key="p.start" class="no-data">—</td>
                 <td class="no-data">—</td>
@@ -234,6 +244,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import PriceTrendComparePanel from './PriceTrendComparePanel.vue'
+import CategoryTrendView from './CategoryTrendView.vue'
 
 // 顶部 tab 状态：'single' | 'compare'
 const trendMode = ref('single')
@@ -275,7 +286,7 @@ const focusedSeriesName = ref(null)
 watch(selectedMaterials, () => {
   const keys = new Set()
   for (const s of data.value.series) {
-    if (selectedMaterials.value.includes(s.material)) {
+    if (selectedMaterials.value.includes(s.normalized_breed)) {
       for (const ak of (s.available_attr_keys || [])) keys.add(ak.key)
     }
   }
@@ -323,7 +334,7 @@ function colorOf(seriesName) {
 // 展平每个 series 的 specs 为独立的 chart series（用于图表多曲线）
 // 同时根据 selectedAttrKeys 过滤 specs（前端过滤，不重发 API）
 const activeSeries = computed(() => data.value.series
-  .filter(s => selectedMaterials.value.includes(s.material))
+  .filter(s => selectedMaterials.value.includes(s.normalized_breed))
   .map(s => ({
     ...s,
     specs: (s.specs || []).filter(sp => selectedAttrKeys.value.has(sp.attr_key)),
@@ -357,8 +368,8 @@ const chartSeries = computed(() => {
   for (const s of activeSeries.value) {
     for (const sp of (s.specs || [])) {
       out.push({
-        name: `${s.material} / ${sp.spec}`,
-        material: s.material,
+        name: `${s.normalized_breed} / ${sp.spec}`,
+        material: s.normalized_breed,
         spec: sp.spec,
         unit: sp.unit,
         points: sp.points,
@@ -503,7 +514,7 @@ async function loadData(opts = {}) {
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d
     allPeriods.value = d.periods || []
-    allMaterials.value = (d.series || []).map(s => s.material)
+    allMaterials.value = (d.series || []).map(s => s.normalized_breed)
     // 点选 NORM 后保持 selectedMaterials 不被自动重置（保留单品种突出显示）
     if (!opts.materials) {
       selectedMaterials.value = allMaterials.value.slice(0, 4)

@@ -1,8 +1,8 @@
 """trend 页品种推荐（B+C 方案）
 
 B 方案 `/api/stats/breed-recommend`：
-  - keyword 或 l3 → 查 category_v3_rules.db 的 breed_l3_map_v3
-  - JOIN category_v3 拿 name_l1/l2/l3 + gb_50500
+  - keyword 或 l3 → 查 breed_canonical.db 的 breed_canonical
+  - JOIN category_v3（同一 db 内）拿 name_l1/l2/l3 + gb_50500
   - 对每个品种跨城覆盖度查询（term query 多 DWS 索引并行）
   - 返回：classifications{} + breeds[] + 同 L3 计数
 
@@ -10,14 +10,16 @@ C 方案 `/api/stats/category-tree`：
   - 4 级分类树（前端抽屉懒加载，一次返回全量）
   - 每节点带 breed_count（该 L3 下品种数）
 
-数据源：
-  - gov-price-etl/data/category_v3_rules.db（已在 provenance.py 加载）
+数据源（2026-07-09 起统一到 breed_canonical.db）：
+  - skills/data/breed_canonical.db（包含 breed_canonical + category_v3 两表）
   - 各城市 dws_{city}_price 索引（term: breed 查覆盖度）
+  - 原 category_v3_rules.db 仍由 gov-price-etl 写入，但 dashboard 层不再读取
 """
 from fastapi import APIRouter, Query
 from elasticsearch import Elasticsearch
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 import os
 import sys
 import sqlite3
@@ -25,13 +27,30 @@ import sqlite3
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 复用 provenance.py 已加载的 category_v3_rules.db 路径 + ensure_schema
-from api.routes.provenance import (
-    _RULES_DB_CAT_V3,
-    _ensure_cat_v3_tables,
-    _registry_get_all,
-    ES_HOST,
-)
+from api.routes.provenance import _registry_get_all, ES_HOST
+
+# 2026-07-09 起 dashboard 层统一从 breed_canonical.db 读（category_v3 表内嵌）
+# 与 api/routes/category_trend.py 内的 _CANON_DB 同源
+_CANON_DB = Path(os.environ.get(
+    "BREED_CANONICAL_DB",
+    "/Users/pengfit/.openclaw/workspace/cjt/skills/data/breed_canonical.db",
+))
+
+
+def _canon_db_ready() -> bool:
+    """检查 breed_canonical.db 是否存在且含必备表（替代原 _ensure_cat_v3_tables）"""
+    if not _CANON_DB.exists():
+        return False
+    try:
+        con = sqlite3.connect(str(_CANON_DB))
+        names = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        con.close()
+        return {"breed_canonical", "category_v3"}.issubset(names)
+    except Exception:
+        return False
+
 
 router = APIRouter()
 es = Elasticsearch([ES_HOST])
@@ -55,32 +74,33 @@ def breed_recommend(
       - 只传 l3：直接拿该 L3 下所有品种（限 limit）
       - 都传：keyword 优先，结果按 keyword 命中过滤后再按 l3 二次过滤
     """
-    if not _ensure_cat_v3_tables():
-        return {"ok": False, "error": "category_v3_rules.db 不可用"}
+    if not _canon_db_ready():
+        return {"ok": False, "error": "breed_canonical.db 不可用"}
 
     keyword = (keyword or "").strip()
     l3 = (l3 or "").strip()
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
+    conn = sqlite3.connect(str(_CANON_DB))
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    where = ["m.confidence >= ?"]
+    where = ["m.confidence >= ?", "m.l3_code IS NOT NULL"]
     params: list = [min_confidence]
     if keyword:
         where.append("m.breed_clean LIKE ?")
         params.append(f"%{keyword}%")
     if l3:
-        where.append("m.l3 = ?")
+        where.append("m.l3_code = ?")
         params.append(l3)
     where_sql = " AND ".join(where)
 
     # 关联分类法表拿 name_l1/l2/l3 + gb_50500
+    # 注：breed_canonical.l3_code 字段对应旧 breed_l3_map_v3.l3
     c.execute(
-        f"SELECT m.breed_clean, m.l3, m.source, m.confidence, "
+        f"SELECT m.breed_clean, m.l3_code, m.source, m.confidence, "
         f"t.name_l1, t.name_l2, t.name_l3, t.gb_50500, t.unit AS default_unit "
-        f"FROM breed_l3_map_v3 m "
-        f"LEFT JOIN category_v3 t ON m.l3 = t.l3 "
+        f"FROM breed_canonical m "
+        f"LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
         f"WHERE {where_sql} "
         f"ORDER BY m.confidence DESC, m.breed_clean "
         f"LIMIT ?",
@@ -92,10 +112,11 @@ def breed_recommend(
     classifications = None
     if rows:
         first = rows[0]
+        l3_code = first["l3_code"] or ""
         classifications = {
-            "l1_code": first["l3"].split(".")[0] if first["l3"] else "",
-            "l2_code": ".".join(first["l3"].split(".")[:2]) if first["l3"] else "",
-            "l3_code": first["l3"],
+            "l1_code": l3_code.split(".")[0] if l3_code else "",
+            "l2_code": ".".join(l3_code.split(".")[:2]) if l3_code else "",
+            "l3_code": l3_code,
             "name_l1": first["name_l1"] or "",
             "name_l2": first["name_l2"] or "",
             "name_l3": first["name_l3"] or "",
@@ -105,10 +126,11 @@ def breed_recommend(
 
     # 同 L3 总品种数（用于展示"该章节下还有 N 个品种"）
     siblings_total = 0
-    if rows and rows[0]["l3"]:
+    if rows and rows[0]["l3_code"]:
         c.execute(
-            "SELECT COUNT(*) AS n FROM breed_l3_map_v3 WHERE l3 = ? AND confidence >= ?",
-            (rows[0]["l3"], min_confidence),
+            "SELECT COUNT(*) AS n FROM breed_canonical "
+            "WHERE l3_code = ? AND confidence >= ?",
+            (rows[0]["l3_code"], min_confidence),
         )
         siblings_total = c.fetchone()["n"]
 
@@ -175,7 +197,7 @@ def breed_recommend(
         cities = coverages.get(r["breed_clean"], [])
         breeds_out.append({
             "breed_clean": r["breed_clean"],
-            "l3": r["l3"],
+            "l3": r["l3_code"],  # 字段名兼容前端（前端读 "l3" 不读 "l3_code"）
             "name_l3": r["name_l3"],
             "source": r["source"],
             "confidence": r["confidence"],
@@ -208,10 +230,10 @@ def category_tree(min_confidence: float = Query(0.9, ge=0.0, le=1.0)):
 
     数据量级：191 个分类节点 + 9077 行品种映射，单次返回 JSON < 200 KB。
     """
-    if not _ensure_cat_v3_tables():
-        return {"ok": False, "error": "category_v3_rules.db 不可用"}
+    if not _canon_db_ready():
+        return {"ok": False, "error": "breed_canonical.db 不可用"}
 
-    conn = sqlite3.connect(_RULES_DB_CAT_V3)
+    conn = sqlite3.connect(str(_CANON_DB))
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
@@ -222,13 +244,14 @@ def category_tree(min_confidence: float = Query(0.9, ge=0.0, le=1.0)):
     )
     nodes = [dict(r) for r in c.fetchall()]
 
-    # 2. 每个 L3 的品种数（仅 confidence ≥ 阈值）
+    # 2. 每个 L3 的品种数（仅 confidence ≥ 阈值，仅 l3_code 非 NULL）
     c.execute(
-        "SELECT l3, COUNT(*) AS n FROM breed_l3_map_v3 "
-        "WHERE confidence >= ? GROUP BY l3",
+        "SELECT l3_code, COUNT(*) AS n FROM breed_canonical "
+        "WHERE confidence >= ? AND l3_code IS NOT NULL "
+        "GROUP BY l3_code",
         (min_confidence,),
     )
-    breed_count_by_l3 = {r["l3"]: r["n"] for r in c.fetchall()}
+    breed_count_by_l3 = {r["l3_code"]: r["n"] for r in c.fetchall()}
 
     conn.close()
 

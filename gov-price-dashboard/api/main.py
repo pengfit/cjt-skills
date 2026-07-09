@@ -9,11 +9,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
 
-# category_v3 分类库路径（ETL 项目中的 SQLite DB）
+# 分类库路径（2026-07-09 起统一到 breed_canonical.db）
+# 原 category_v3_rules.db 仍由 gov-price-etl 写入，但 dashboard 层改读 breed_canonical.db
+# 单一数据源：breed_canonical.db 内已包含 category_v3 表（分类法骨架）
 CATEGORY_DB = os.environ.get(
     "CATEGORY_DB",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                 "..", "gov-price-etl", "data", "category_v3_rules.db"),
+    os.path.expanduser("~/.openclaw/workspace/cjt/skills/data/breed_canonical.db"),
 )
 
 # 集中引用 skill registry（见 api/skill_registry.py）
@@ -117,6 +118,8 @@ from api.routes.breed_recommend import router as breed_recommend_router
 app.include_router(breed_recommend_router)
 from api.routes.norm_search import router as norm_search_router
 app.include_router(norm_search_router)
+from api.routes.category_trend import router as category_trend_router
+app.include_router(category_trend_router)
 
 es = Elasticsearch([ES_HOST])
 
@@ -1488,6 +1491,20 @@ def skill_registry():
         "count": len(_registry_get_all()),
         "skills": _registry_get_all(),
     }
+
+
+@app.get("/api/stats/available-cities")
+def available_cities():
+    """返回所有可查询的城市下拉选项（key + label）。
+
+    CategoryTrendView 等用：只关心城市 key / label，不需要 progress / indices 等元数据。
+    数据源与 /api/skill-registry 同源（扫盘 skill.yml）。
+    """
+    cities = [
+        {"key": s["key"], "label": s.get("label", s["key"])}
+        for s in _registry_get_all()
+    ]
+    return {"ok": True, "cities": cities}
 
 
 @app.post("/api/skill-registry/reload")
