@@ -4,7 +4,7 @@
     <PageHeader
       variant="flat"
       title="分类体系"
-      subtitle="3 级分类法（L1 / L2 / L3）+ 品种→L3 映射规则，来源 <code>category_v2_rules.db</code>，覆盖 8 大类 / 64 个 L3"
+      subtitle="3 级分类法（L1 / L2 / L3）+ 品种→L3 映射规则，数据源 <code>breed_canonical.db</code>（GB 50500 系列）"
       :stats="[
         { label: '一级', value: stats.taxonomy.l1 || 0 },
         { label: '三级分类', value: stats.taxonomy.l3 || 0 },

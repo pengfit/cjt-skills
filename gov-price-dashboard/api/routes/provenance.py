@@ -2902,6 +2902,22 @@ def _open_canon() -> sqlite3.Connection:
     return conn
 
 
+# GB 50500 系列国标全名映射（按 l1 派生，2026-07-09 加）
+# - 50854/50856/50857/50858 是 GB 50500-2013 清单计价规范下的 4 部专业工程计算规范
+# - L1=09 "其他材料" 以 措施项目 + 总说明 为主，归于 GB 50500-2013 本体
+_GB_STANDARD_BY_L1: dict[str, str] = {
+    "01": "GB/T 50854-2013 房屋建筑与装饰工程",
+    "02": "GB/T 50854-2013 房屋建筑与装饰工程",
+    "03": "GB/T 50856-2013 通用安装工程",
+    "04": "GB/T 50856-2013 通用安装工程",
+    "05": "GB/T 50856-2013 通用安装工程",
+    "06": "GB/T 50856-2013 通用安装工程",
+    "07": "GB/T 50857-2013 市政工程",
+    "08": "GB/T 50858-2013 园林绿化工程",
+    "09": "GB 50500-2013 建设工程工程量清单计价规范",
+}
+
+
 @router.get("/api/stats/category-v2-stats")
 def category_v2_stats():
     """category_v3_rules.db 整体统计：分类法条数 / 映射条数 / 来源分布 / L3 覆盖率
@@ -3035,6 +3051,10 @@ def category_v2_taxonomy(
         params + [page_size, offset],
     )
     rows = [dict(r) for r in c.fetchall()]
+
+    # 附 GB 50500 系列标准全名（按 l1 派生）
+    for r in rows:
+        r["standard_name"] = _GB_STANDARD_BY_L1.get(r["l1"], "")
 
     # 过滤选项（L1/L2 下拉用）
     c.execute("SELECT DISTINCT l1 FROM category_v3 ORDER BY l1")

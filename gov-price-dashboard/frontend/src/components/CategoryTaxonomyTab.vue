@@ -92,6 +92,7 @@
             <th style="width:70px" @click="setTaxSort('l2')">L2 <span class="sort-icon" v-if="taxSort.col==='l2'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:100px" @click="setTaxSort('l3')">L3 <span class="sort-icon" v-if="taxSort.col==='l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:78px" class="no-sort">GB50500</th>
+            <th class="text-left no-sort">国标</th>
             <th class="text-left" @click="setTaxSort('name_l3')">分类名称 <span class="sort-icon" v-if="taxSort.col==='name_l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
             <th style="width:80px" class="no-sort">工程部位</th>
             <th style="width:80px" class="no-sort">主辅材</th>
@@ -102,10 +103,10 @@
         </thead>
         <tbody>
           <tr v-if="taxLoading">
-            <td colspan="10" class="ctx-empty">加载中...</td>
+            <td colspan="11" class="ctx-empty">加载中...</td>
           </tr>
           <tr v-else-if="!taxRows.length">
-            <td colspan="10" class="ctx-empty">
+            <td colspan="11" class="ctx-empty">
               <div class="ctx-empty-art">🗂️</div>
               <div class="ctx-empty-title">暂无分类条目</div>
               <div class="ctx-empty-hint">试试调整搜索条件</div>
@@ -116,6 +117,9 @@
             <td><span class="ctx-code-text">{{ r.l2 }}</span></td>
             <td><span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" title="查看此 L3 关联的品种">{{ r.l3 }} <span class="ctx-l3-arrow">→</span></span></td>
             <td><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></td>
+            <td class="text-left no-ellipsis">
+              <span class="ctx-std-name" :title="r.standard_name || ''">{{ r.standard_name || '—' }}</span>
+            </td>
             <td class="text-left no-ellipsis">
               <div class="ctx-name-stack">
                 <span class="ctx-name-l1">› {{ r.name_l1 || '—' }}</span>
@@ -424,6 +428,7 @@ onMounted(() => {
 .ctx-l3-arrow { opacity: 0.4; font-size: 11px; transition: all 0.15s; }
 .ctx-l3-link:hover .ctx-l3-arrow { opacity: 1; transform: translateX(2px); }
 .ctx-gb { color: var(--status-ok); font-weight: 600; }
+.ctx-std-name { font-size: 11px; color: var(--text-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; display: inline-block; }
 .ctx-name-stack { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(37,99,235,0.18); }
 .ctx-name-l1 { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .ctx-name-l3 { font-size: 13px; font-weight: 600; color: var(--text, #0f172a); line-height: 1.3; }
