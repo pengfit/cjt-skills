@@ -52,10 +52,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import * as echarts from 'echarts'
 import axios from 'axios'
 import EmptyState from './EmptyState.vue'
 import { registerGovPriceTheme, getGovPriceTheme } from '../composables/useEchartsTheme.js'
+import { useEcharts } from '../composables/useEcharts'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const GEO_BASE = '/geo'
@@ -184,8 +184,9 @@ async function renderMap() {
     requestAnimationFrame(() => chartEl.value && renderMap())
     return
   }
+  const echartsMod = await useEcharts()
   if (!chart) {
-    chart = echarts.init(chartEl.value, getGovPriceTheme())
+    chart = echartsMod.init(chartEl.value, getGovPriceTheme())
   }
   const mapName = await ensureMapLoaded(currentMapName.value)
   if (!mapName) return
@@ -216,7 +217,7 @@ async function renderMap() {
   // 用全部 feature 名构建 data，未匹配的填 null（让 visualMap.outOfRange 生效）
   const featureNames = (mapFeatures.value && mapFeatures.value.length)
     ? mapFeatures.value
-    : Array.from(echarts.getMap(mapName)?.geoJson?.features || []).map(f => f?.properties?.name).filter(Boolean)
+    : Array.from(echartsMod.getMap(mapName)?.geoJson?.features || []).map(f => f?.properties?.name).filter(Boolean)
   const data = (featureNames.length ? featureNames : normalized.map(n => n.name))
     .map(name => {
       const hit = normalized.find(n => n.name === name)
@@ -327,7 +328,8 @@ async function ensureMapLoaded(mapKey) {
       geo.features = geo.features.filter(f => f?.properties?.adcode !== '100000_JD')
     }
     // 不缓存：每次都重新 registerMap（ECharts 覆盖式），保证 filter 生效
-    echarts.registerMap(mapKey, geo)
+    const echartsMod = await useEcharts()
+    echartsMod.registerMap(mapKey, geo)
     // 同步 feature 名称列表，供 renderMap 补齐无数据的项
     mapFeatures.value = (geo?.features || [])
       .map(f => f?.properties?.name)

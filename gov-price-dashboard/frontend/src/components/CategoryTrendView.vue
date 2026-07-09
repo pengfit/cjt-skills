@@ -163,9 +163,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import axios from 'axios'
-import * as echarts from 'echarts'
+import { useEcharts } from '../composables/useEcharts'
 import PageHeader from './PageHeader.vue'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
@@ -283,10 +283,13 @@ async function loadData() {
       return
     }
     data.value = d
-    // 加载完成后渲染图表 + 查同 L3
-    await nextTick()
-    renderHeatmap()
-    renderBand()
+    // 修复 v-if 嵌套 + nextTick 时序陷阱：nextTick 触发时 DOM 挂载但 layout 还没跑
+    // ECharts init() 会拿到 offsetHeight=0 → 图表空白
+    // setTimeout 80ms 等两帧后 layout/paint 完成再 init
+    setTimeout(() => {
+      try { renderHeatmap() } catch (e) { console.error('renderHeatmap failed:', e) }
+      try { renderBand() } catch (e) { console.error('renderBand failed:', e) }
+    }, 80)
     if (d.l3_info?.l3_code) {
       loadPeers(d.l3_info.l3_code)
     }
@@ -317,9 +320,10 @@ const bandEl = ref(null)
 let heatmapInstance = null
 let bandInstance = null
 
-function renderHeatmap() {
+async function renderHeatmap() {
   if (!heatmapEl.value || !data.value?.spec_keys?.length) return
   if (heatmapInstance) heatmapInstance.dispose()
+  const echarts = await useEcharts()
   heatmapInstance = echarts.init(heatmapEl.value)
   const periods = data.value.periods.map(p => p.label)
   const specs = data.value.spec_keys
@@ -400,9 +404,10 @@ function renderHeatmap() {
   })
 }
 
-function renderBand() {
+async function renderBand() {
   if (!bandEl.value || !data.value?.price_band?.length) return
   if (bandInstance) bandInstance.dispose()
+  const echarts = await useEcharts()
   bandInstance = echarts.init(bandEl.value)
   const periods = data.value.price_band.map(p => p.label)
   const minVals = data.value.price_band.map(p => p.min)

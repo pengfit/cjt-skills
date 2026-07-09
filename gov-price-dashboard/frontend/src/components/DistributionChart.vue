@@ -104,9 +104,9 @@ import StatCard from './StatCard.vue'
 import ErrorState from './ErrorState.vue'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
-import { getGovPriceTheme } from '../composables/useEchartsTheme'
+import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
+import { useEcharts } from '../composables/useEcharts'
 import { markRaw } from 'vue'
-import * as echarts from 'echarts'
 
 onUnmounted(() => {
   mountedRef.value = false
@@ -187,9 +187,10 @@ function getRangePct(count, total) {
 }
 
 // Export chart as PNG
-function exportChart(chartId) {
+async function exportChart(chartId) {
   const el = document.getElementById(chartId)
   if (!el) return
+  const echarts = await useEcharts()
   const chart = echarts.getInstanceByDom(el)
   if (!chart) return
   const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#f8fafc' })
@@ -264,9 +265,11 @@ async function loadData() {
   }
 }
 
-function renderRangeBar() {
+async function renderRangeBar() {
   const el = document.getElementById('rangeBarChart')
   if (!el || !rangeData.value.length) return
+  await registerGovPriceTheme()
+  const echarts = await useEcharts()
   if (rangeBarIns.value) { rangeBarIns.value.dispose(); rangeBarIns.value = null }
   const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   rangeBarIns.value = chart
@@ -311,10 +314,11 @@ function renderRangeBar() {
       }
     }],
   }, true)
-  window.addEventListener('resize', () => {
+  window.addEventListener('resize', async () => {
     rangeBarIns.value?.resize()
     provinceHeatIns.value?.resize()
     // resize all lazy-rendered province charts
+    const echarts = await useEcharts()
     renderedSet.value.forEach(province => {
       const el = document.getElementById('provinceChart_' + province)
       if (el) {
@@ -347,11 +351,13 @@ function observeCells() {
   cells.forEach(cell => observer.observe(cell))
 }
 
-function renderOneProvince(province) {
+async function renderOneProvince(province) {
   const p = provinceData.value.find(p => p.province === province)
   if (!p) return
   const el = document.getElementById('provinceChart_' + province)
   if (!el) return
+  await registerGovPriceTheme()
+  const echarts = await useEcharts()
   const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   provinceChartIns[province] = chart
   const validRanges = p.ranges.filter(r => r.count)

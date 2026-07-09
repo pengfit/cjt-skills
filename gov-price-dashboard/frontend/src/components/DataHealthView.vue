@@ -219,7 +219,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import axios from 'axios'
 import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
-import * as echarts from 'echarts'
+import { useEcharts } from '../composables/useEcharts'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import SectionHeader from './SectionHeader.vue'
@@ -430,11 +430,12 @@ async function loadData() {
 }
 
 // 近30日数据量趋势图
-function renderDailyChart() {
+async function renderDailyChart() {
   const el = document.getElementById('dailyTrendChart')
   if (!el || !data.value.daily?.length) return
   if (dailyChart.value) { dailyChart.value.dispose(); dailyChart.value = null }
-  const chart = markRaw(echarts.init(el, getGovPriceTheme()))
+  const echartsMod = await useEcharts()
+  const chart = markRaw(echartsMod.init(el, getGovPriceTheme()))
   dailyChart.value = chart
 
   const buckets = data.value.daily
@@ -504,7 +505,7 @@ function renderDailyChart() {
             if (ratio > 2) return '#dc2626'  // 突增 - 红
             if (ratio < 0.3) return '#ea580c'  // 突减 - 橙
           }
-          return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          return new echartsMod.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: '#2563eb' },
             { offset: 1, color: '#6366f1' }
           ])
@@ -541,7 +542,7 @@ function renderDailyChart() {
       } : undefined,
       barMaxWidth: 28,
       emphasis: {
-        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        itemStyle: { color: new echartsMod.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: '#2563eb' },
           { offset: 1, color: '#818cf8' }
         ]) }

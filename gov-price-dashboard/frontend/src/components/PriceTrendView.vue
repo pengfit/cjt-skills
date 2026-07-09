@@ -250,7 +250,7 @@ const CategoryTrendView = defineAsyncComponent(() => import('./CategoryTrendView
 // 顶部 tab 状态：'single'（默认）| 'category' | 'compare'
 const trendMode = ref('single')
 import axios from 'axios'
-import * as echarts from 'echarts'
+import { useEcharts } from '../composables/useEcharts'
 import PageHeader from './PageHeader.vue'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
@@ -628,12 +628,13 @@ function onChartClick(params) {
   }
 }
 
-function renderChart() {
+async function renderChart() {
   if (!chartEl.value || !allPeriods.value.length) {
     if (chartInstance) { chartInstance.dispose(); chartInstance = null }
     return
   }
   if (!chartInstance) {
+    const echarts = await useEcharts()
     chartInstance = echarts.init(chartEl.value)
     window.addEventListener('resize', chartInstance.resize)
     chartInstance.on('click', onChartClick)

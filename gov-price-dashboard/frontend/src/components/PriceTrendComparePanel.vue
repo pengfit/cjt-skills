@@ -380,7 +380,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import axios from 'axios'
-import * as echarts from 'echarts'
+import { useEcharts } from '../composables/useEcharts'
 import SectionHeader from './SectionHeader.vue'
 import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
@@ -877,7 +877,7 @@ function buildSubChartOption(g) {
   }
 }
 
-function renderAllCharts() {
+async function renderAllCharts() {
   const groups = subChartGroups.value
   // 释放多余实例
   for (const [idx, inst] of chartInstances) {
@@ -886,6 +886,7 @@ function renderAllCharts() {
       chartInstances.delete(idx)
     }
   }
+  const echarts = await useEcharts()
   groups.forEach((g, idx) => {
     const el = chartCells.value[idx]
     if (!el) return
@@ -1082,7 +1083,7 @@ function buildSpreadChartOption() {
   }
 }
 
-function renderSpreadChart() {
+async function renderSpreadChart() {
   if (!spreadChartEl.value) {
     if (spreadChartInstance) { try { spreadChartInstance.dispose() } catch {}; spreadChartInstance = null }
     return
@@ -1093,6 +1094,7 @@ function renderSpreadChart() {
     return
   }
   if (!spreadChartInstance) {
+    const echarts = await useEcharts()
     spreadChartInstance = echarts.init(spreadChartEl.value)
     window.addEventListener('resize', () => spreadChartInstance && spreadChartInstance.resize())
   }

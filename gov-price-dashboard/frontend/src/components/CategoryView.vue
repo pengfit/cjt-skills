@@ -144,9 +144,9 @@
 import ErrorState from './ErrorState.vue'
 import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import axios from 'axios'
-import { getGovPriceTheme } from '../composables/useEchartsTheme'
+import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
+import { useEcharts } from '../composables/useEcharts'
 import { markRaw } from 'vue'
-import * as echarts from 'echarts'
 import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -526,10 +526,12 @@ const productPageRange = computed(() => {
   return pages
 })
 
-function renderPriceChart(ranges, stats) {
+async function renderPriceChart(ranges, stats) {
   const el = document.getElementById('catPriceChart')
   if (!el || !ranges.length) return
   if (priceChartIns.value) { priceChartIns.value.dispose(); priceChartIns.value = null }
+  await registerGovPriceTheme()
+  const echarts = await useEcharts()
 
   const chart = markRaw(echarts.init(el, getGovPriceTheme()))
   priceChartIns.value = chart

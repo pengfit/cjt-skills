@@ -232,7 +232,7 @@ import ErrorState from './ErrorState.vue'
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import { getGovPriceTheme } from '../composables/useEchartsTheme'
-import * as echarts from 'echarts'
+import { useEcharts } from '../composables/useEcharts'
 import SpecQualityPanel from './SpecQualityPanel.vue'
 import SpecSamplePanel from './SpecSamplePanel.vue'
 import SkeletonCard from './SkeletonCard.vue'
@@ -587,11 +587,12 @@ function coverageTooltip(c) {
   return `attr 覆盖率: ${c.rate.toFixed(1)}%\n已解析: ${c.with_attr.toLocaleString()}\n待解析: ${c.needs_parse.toLocaleString()}\n总计: ${c.total.toLocaleString()}`
 }
 
-function renderChart() {
+async function renderChart() {
   const el = document.getElementById('dailyTrendChart')
   if (!el || !data.value.daily?.length) return
   if (chartIns) chartIns.dispose()
 
+  const echarts = await useEcharts()
   chartIns = echarts.init(el, getGovPriceTheme())
   const daily = data.value.daily
 
