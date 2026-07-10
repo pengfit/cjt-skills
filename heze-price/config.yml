@@ -20,6 +20,10 @@ site:
   dq: "0530"                                  # 菏泽区号
   timeout_sec: 30
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  # dashboard 回溯链接：实际抓取对应的栏目列表页（/zjlby/ 是住建局造价信息栏目入口，
+  # 不带 ?catas=… 跳回首页）。sync 走的是 POST API，但人类查看原网址走这里。
+  web_path: "/zjlby/"
+  query: "catas=1584708004996059136"
 
 sync:
   last_period: ""
