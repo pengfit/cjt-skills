@@ -627,7 +627,13 @@ watch(breedInput, (v) => {
 })
 
 function pickNormCompare(c) {
+  // 2026-07-09：选候选后自动设置所在城市 + 自动触发对比
   breedInput.value = c.normalized_breed
+  // 覆盖原有选择：该品种命中哪些城市就选哪些；最多 6 个（UI 硬上限）
+  selectedCities.value = c.cities.slice(0, 6).map(x => x.key)
+  // 折叠候选下拉 + 立即跑对比（避免用户还要再点「开始对比」）
+  normCompareCandidates.value = []
+  doCompare()
 }
 
 onBeforeUnmount(() => {

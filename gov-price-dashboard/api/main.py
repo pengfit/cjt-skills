@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from elasticsearch import Elasticsearch, NotFoundError, RequestError
+from elasticsearch import Elasticsearch, NotFoundError, RequestError, ConnectionError as ESConnectionError, ConnectionTimeout
 from typing import Optional
 import os, sys, sqlite3
 import yaml
@@ -68,7 +68,7 @@ def safe_search(es, index, body, default=None):
             ignore_unavailable=True,
             allow_no_indices=True,
         )
-    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+    except (NotFoundError, RequestError, ESConnectionError, ConnectionTimeout):
         return default if default is not None else _EMPTY_SEARCH
     except Exception as e:
         # 其他错误（聚合错误、字段不存在等）也返回空
@@ -86,7 +86,7 @@ def safe_count(es, index, body=None, default=0):
             allow_no_indices=True,
         )
         return r.get("count", default)
-    except (NotFoundError, RequestError, ConnectionError, ConnectionTimeout):
+    except (NotFoundError, RequestError, ESConnectionError, ConnectionTimeout):
         return default
     except Exception as e:
         print(f"[warn] safe_count: {type(e).__name__}: {e}")

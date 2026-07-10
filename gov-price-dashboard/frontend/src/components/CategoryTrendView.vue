@@ -2,7 +2,7 @@
   <div class="cat-trend-page">
     <!-- 筛选条 -->
     <div class="filter-bar">
-      <CustomSelect v-model="city" :options="cityOptions" placeholder="选城市" />
+      <!-- 2026-07-09 去城市化：城市控件移除，仅按 normalized_breed 跨城归一（全国聚合） -->
       <CustomSelect v-model="periodsLimit" :options="periodOptions" placeholder="期数" />
       <CustomSelect v-model="topSpecs" :options="topSpecsOptions" placeholder="热力图规格数" />
     </div>
@@ -166,18 +166,13 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
-import PageHeader from './PageHeader.vue'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
 import { exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
-// ── 城市与基础选项 ──
-const city = ref('')
-const cityOptions = ref([])
-const cityLabel = computed(() => cityOptions.value.find(c => c.key === city.value)?.label || city.value)
-
+// ── 基础选项（去城市化后仅保留期数与热力图规格数；2026-07-09） ──
 const periodsLimit = ref('12')
 const periodOptions = [
   { key: '6',  label: '最近 6 期' },
@@ -185,7 +180,8 @@ const periodOptions = [
   { key: '24', label: '最近 24 期' },
   { key: '36', label: '最近 36 期' },
 ]
-const topSpecs = ref(10)
+// 2026-07-09 修复：CustomSelect.modelValue 限定 String（options.key 一致），保持类型一致
+const topSpecs = ref('10')
 const topSpecsOptions = [
   { key: '5',  label: 'top 5 规格' },
   { key: '10', label: 'top 10 规格' },
@@ -272,7 +268,7 @@ async function loadData() {
   try {
     const { data: d } = await axios.get(`${API}/stats/category-trend`, {
       params: {
-        city: city.value,
+        // 2026-07-09 起：不传 city，默认全国跨城归一
         normalized_breed: catInput.value.trim(),
         periods: parseInt(periodsLimit.value, 10),
         top_specs: parseInt(topSpecs.value, 10),
@@ -302,8 +298,9 @@ async function loadData() {
 
 async function loadPeers(l3_code) {
   try {
+    // 2026-07-09 起：不传 city，默认全国跨城归一
     const { data: d } = await axios.get(`${API}/stats/category-l3-peers`, {
-      params: { l3_code, city: city.value, min_count: 3, limit: 30 },
+      params: { l3_code, min_count: 3, limit: 30 },
     })
     if (d.ok && d.peers) {
       // 排除当前品类
@@ -467,8 +464,8 @@ function goCompare() {
   if (compareSelection.value.length < 2) return
   compareLoading.value = true
   const breedsParam = encodeURIComponent([data.value.normalized_breed, ...compareSelection.value].join(','))
-  // 跳到 PriceTrendComparePanel 通过 emit 或路由参数
-  const target = `${window.location.origin}/trend?compare=${breedsParam}&city=${encodeURIComponent(city.value)}`
+  // 2026-07-09 去城市化：跳到 compare Panel 时不再传 city，由其走全国跨城
+  const target = `${window.location.origin}/trend?compare=${breedsParam}&mode=compare`
   window.location.href = target
   setTimeout(() => compareLoading.value = false, 1500)
 }
@@ -485,7 +482,8 @@ function exportHeatmapCsv() {
     rows.push(row)
   }
   const csv = rows.map(r => r.map(c => typeof c === 'string' && c.includes(',') ? `"${c}"` : c).join(',')).join('\n')
-  exportCsvAsFile(csv, `heatmap_${data.value.normalized_breed}_${city.value}_${withTimestamp()}.csv`)
+  // 2026-07-09 去城市化：csv 文件名去掉 city 段，用后端响应里的 label（"全国"）代替
+  exportCsvAsFile(csv, `heatmap_${data.value.normalized_breed}_${data.value.label || 'nation'}_${withTimestamp()}.csv`)
 }
 
 function exportBandCsv() {
@@ -495,27 +493,11 @@ function exportBandCsv() {
     rows.push([pb.period_start, pb.min, pb.avg, pb.max, pb.n_total, pb.spec_count])
   }
   const csv = rows.map(r => r.join(',')).join('\n')
-  exportCsvAsFile(csv, `band_${data.value.normalized_breed}_${city.value}_${withTimestamp()}.csv`)
+  exportCsvAsFile(csv, `band_${data.value.normalized_breed}_${data.value.label || 'nation'}_${withTimestamp()}.csv`)
 }
 
-// ── 生命周期 ──
-async function loadCities() {
-  try {
-    const { data: d } = await axios.get(`${API}/stats/available-cities`)
-    if (d.ok && d.cities) {
-      cityOptions.value = d.cities
-      if (!city.value && d.cities.length) {
-        city.value = d.cities.find(c => c.key === 'qingdao')?.key || d.cities[0].key
-      }
-    }
-  } catch (e) {
-    cityOptions.value = [{ key: 'qingdao', label: '青岛' }]
-    city.value = 'qingdao'
-  }
-}
-
+// ── 生命周期（2026-07-09 去城市化：loadCities 移除，无需加载城市列表） ──
 onMounted(() => {
-  loadCities()
   window.addEventListener('resize', handleResize)
 })
 onBeforeUnmount(() => {
@@ -547,6 +529,14 @@ watch([periodsLimit, topSpecs], () => {
   align-items: center;
   margin: 12px 0;
   flex-wrap: wrap;
+}
+
+/* 2026-07-09 修复：CustomSelect.cs-wrapper 默认 width:100%，flex 容器里会撑满导致
+   多个 select 上下堆叠。覆写为 auto 宽度，min-width 保证可点击区域 */
+.filter-bar :deep(.cs-wrapper) {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 200px;
 }
 
 .cat-search-row {

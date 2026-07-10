@@ -23,11 +23,11 @@ from pathlib import Path
 import os
 import sqlite3
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api.skill_registry import get as _registry_get
+from api.skill_registry import get as _registry_get, get_all as _registry_all
 
 router = APIRouter()
 ES_HOST = "http://localhost:59200"
@@ -86,6 +86,100 @@ def _resolve_norm_index(city: str) -> Tuple[str, str]:
     return dws_index or "", granularity
 
 
+# 跨城 / 全国聚合哨兵（2026-07-09 起：品类聚合标签页「去城市化」专用）
+_AGGREGATE_SENTINELS = {"", "all", "_all_", "nation", "national", "aggregate", "country"}
+
+
+def _resolve_query_indices(city: str) -> dict:
+    """统一索引解析入口（2026-07-09 品类聚合去城市化改造）
+
+    city ∈ {"", "all", "_all_", "nation", "national", "aggregate", "country"}
+        → 跨城归一：扫描 _registry_all() 把所有 NORM 索引拼成 CSV（缺失 fallback DWS）
+    否则
+        → 单城归一：调用原 _resolve_norm_index(city)
+
+    返回 dict：
+      {
+        "ok": bool,
+        "error": "",                    # ok=False 时填具体原因
+        "query_index": "a,b,c",         # ES 逗号分隔索引串
+        "granularity": "monthly",       # 跨城时统一 monthly
+        "cities_meta": [{"key","label","index"}],
+        "is_aggregate": bool,
+        "label": "全国" / "全国 (N 城)" / "青岛",
+      }
+    """
+    if city in _AGGREGATE_SENTINELS:
+        indices_csv, cities_meta = _all_norm_indices_csv()
+        if not indices_csv:
+            return {
+                "ok": False, "error": "跨城聚合无可用索引（任何城市都没配 dws_index）",
+                "query_index": "", "granularity": "monthly",
+                "cities_meta": [], "is_aggregate": True, "label": "全国",
+            }
+        n = len(cities_meta)
+        return {
+            "ok": True,
+            "error": "",
+            "query_index": indices_csv,
+            "granularity": "monthly",
+            "cities_meta": cities_meta,
+            "is_aggregate": True,
+            "label": f"全国 ({n} 城)" if n > 1 else "全国",
+        }
+
+    # 单城路径
+    cfg = _registry_get(city) or {}
+    if not cfg.get("dws_index"):
+        return {
+            "ok": False, "error": f"未知城市: {city}",
+            "query_index": "", "granularity": "monthly",
+            "cities_meta": [], "is_aggregate": False, "label": city,
+        }
+    query_index, granularity = _resolve_norm_index(city)
+    if not query_index:
+        return {
+            "ok": False, "error": f"找不到可用索引: city={city}",
+            "query_index": "", "granularity": granularity,
+            "cities_meta": [], "is_aggregate": False, "label": cfg.get("label", city),
+        }
+    meta = [{"key": city, "label": cfg.get("label", city), "index": query_index}]
+    return {
+        "ok": True, "error": "",
+        "query_index": query_index, "granularity": granularity,
+        "cities_meta": meta, "is_aggregate": False,
+        "label": cfg.get("label", city),
+    }
+
+
+def _all_norm_indices_csv(max_cities: int = 50) -> Tuple[str, List[dict]]:
+    """跨城用：返回逗号分隔的 NORM 索引 + 各城元数据列表
+
+    - 优先各城市的 norm_<city>_price；缺失时 fallback 该城市的 dws_index
+    - 受 max_cities 限制（避免单查询拖死 ES）
+    - 返回 (index_csv, cities_meta) 元数据含 {key, label, index}
+    """
+    out_idx: list[str] = []
+    out_meta: list[dict] = []
+    for s in _registry_all():
+        if len(out_idx) >= max_cities:
+            break
+        city = s.get("key")
+        if not city:
+            continue
+        norm_idx = f"norm_{city}_price"
+        dws_idx = s.get("dws_index")
+        try:
+            chosen = norm_idx if es.indices.exists(index=norm_idx) else (dws_idx or "")
+        except Exception:
+            chosen = dws_idx or ""
+        if not chosen or chosen in out_idx:
+            continue
+        out_idx.append(chosen)
+        out_meta.append({"key": city, "label": s.get("label", city), "index": chosen})
+    return ",".join(out_idx), out_meta
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # L3 metadata（2026-07-09 起统一从 breed_canonical.db 查）
 #   - l3_code_for_breed：从 breed_canonical 表反查（取众数）
@@ -141,7 +235,7 @@ def _l3_code_for_breed(normalized_breed: str) -> str:
 
 @router.get("/api/stats/category-trend")
 def category_trend(
-    city: str = Query("qingdao", description="城市 key"),
+    city: str = Query("", description="城市 key，留空 / 'all' / 'nation' = 全国跨城归一聚合"),
     normalized_breed: str = Query(..., description="品类名（normalized_breed / breed_clean）"),
     periods: int = Query(12, ge=1, le=60),
     date_from: str = Query("", description="起始期 YYYY-MM-DD"),
@@ -167,13 +261,15 @@ def category_trend(
       "meta": {"spec_count":132,"sample_count":523,"city_count":1,"periods_n":12}
     }
     """
-    cfg = _registry_get(city) or {}
-    if not cfg.get("dws_index"):
-        return {"ok": False, "error": f"未知城市: {city}"}
+    resolved = _resolve_query_indices(city)
+    if not resolved["ok"]:
+        return {"ok": False, "error": resolved["error"]}
 
-    query_index, granularity = _resolve_norm_index(city)
-    if not query_index:
-        return {"ok": False, "error": f"找不到可用索引: city={city}"}
+    query_index = resolved["query_index"]
+    granularity = resolved["granularity"]
+    cities_meta = resolved["cities_meta"]
+    is_aggregate = resolved["is_aggregate"]
+    aggregated_label = resolved["label"]
 
     # 1) 拉该城市所有业务期（period_start asc）
     all_periods_q = {
@@ -214,7 +310,9 @@ def category_trend(
         return {
             "ok": True,
             "city": city,
-            "label": cfg.get("label", city),
+            "label": aggregated_label,
+            "is_aggregate": is_aggregate,
+            "cities_meta": cities_meta,
             "normalized_breed": normalized_breed,
             "l3_info": _l3_info_from_v3(_l3_code_for_breed(normalized_breed)),
             "index_used": query_index,
@@ -349,6 +447,7 @@ def category_trend(
         active_specs = sum(1 for sk in spec_counts if cell_n.get((ps, sk), 0) > 0)
         price_band.append({
             "period_start": ps,
+            "label": _period_label(ps, granularity),  # 2026-07-09 补：前端 renderBand 取 p.label 作 x 轴
             "min": round(bs["min"], 2) if bs.get("min") is not None else 0,
             "max": round(bs["max"], 2) if bs.get("max") is not None else 0,
             "avg": round(bs["avg"], 2) if bs.get("avg") is not None else 0,
@@ -376,7 +475,9 @@ def category_trend(
     return {
         "ok": True,
         "city": city,
-        "label": cfg.get("label", city),
+        "label": aggregated_label,
+        "is_aggregate": is_aggregate,
+        "cities_meta": cities_meta,
         "normalized_breed": normalized_breed,
         "l3_info": l3_info,
         "index_used": query_index,
@@ -403,7 +504,7 @@ def category_trend(
 @router.get("/api/stats/category-compare")
 def category_compare(
     normalized_breeds: str = Query(..., description="逗号分隔的 normalized_breed，2-4 个"),
-    city: str = Query("qingdao"),
+    city: str = Query("", description="城市 key，留空 = 全国跨城归一"),
     periods: int = Query(12, ge=1, le=60),
     date_from: str = Query(""),
     date_to: str = Query(""),
@@ -433,13 +534,15 @@ def category_compare(
     if len(breeds) > 4:
         return {"ok": False, "error": "最多 4 个 normalized_breed"}
 
-    cfg = _registry_get(city) or {}
-    if not cfg.get("dws_index"):
-        return {"ok": False, "error": f"未知城市: {city}"}
+    resolved = _resolve_query_indices(city)
+    if not resolved["ok"]:
+        return {"ok": False, "error": resolved["error"]}
 
-    query_index, granularity = _resolve_norm_index(city)
-    if not query_index:
-        return {"ok": False, "error": f"找不到可用索引: city={city}"}
+    query_index = resolved["query_index"]
+    granularity = resolved["granularity"]
+    cities_meta = resolved["cities_meta"]
+    is_aggregate = resolved["is_aggregate"]
+    aggregated_label = resolved["label"]
 
     # 1) 拉所有业务期
     all_periods_q = {
@@ -478,7 +581,9 @@ def category_compare(
         return {
             "ok": True,
             "city": city,
-            "label": cfg.get("label", city),
+            "label": aggregated_label,
+            "is_aggregate": is_aggregate,
+            "cities_meta": cities_meta,
             "category_series": [],
             "periods": [],
         }
@@ -571,7 +676,9 @@ def category_compare(
     return {
         "ok": True,
         "city": city,
-        "label": cfg.get("label", city),
+        "label": aggregated_label,
+        "is_aggregate": is_aggregate,
+        "cities_meta": cities_meta,
         "category_series": category_series,
         "periods": selected_periods,
     }
@@ -584,7 +691,7 @@ def category_compare(
 @router.get("/api/stats/category-l3-peers")
 def category_l3_peers(
     l3_code: str = Query(..., description="L3 节点 code，如 01.06.01"),
-    city: str = Query("qingdao"),
+    city: str = Query("", description="城市 key，留空 = 全国跨城归一"),
     min_count: int = Query(5, ge=1, le=1000, description="最少样本数（过滤偶发散样本）"),
     limit: int = Query(30, ge=1, le=100),
 ):
@@ -601,9 +708,15 @@ def category_l3_peers(
       ]
     }
     """
-    query_index, _ = _resolve_norm_index(city)
-    if not query_index:
-        return {"ok": False, "error": f"找不到可用索引: city={city}"}
+    resolved = _resolve_query_indices(city)
+    if not resolved["ok"]:
+        return {"ok": False, "error": resolved["error"]}
+
+    query_index = resolved["query_index"]
+    granularity = resolved["granularity"]
+    cities_meta = resolved["cities_meta"]
+    is_aggregate = resolved["is_aggregate"]
+    aggregated_label = resolved["label"]  # noqa: F841 (备用，前端按需)
 
     # 主聚合：按 breed_clean 在该 l3_code 下聚合
     main_q = {
@@ -644,6 +757,9 @@ def category_l3_peers(
         "l3_code": l3_code,
         "l3_info": _l3_info_from_v3(l3_code),
         "city": city,
+        "label": aggregated_label,
+        "is_aggregate": is_aggregate,
+        "cities_meta": cities_meta,
         "peers": peers,
         "peer_total": len(peers),
     }
