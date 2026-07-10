@@ -8,7 +8,7 @@
       :subtitle="trendMode === 'single'
         ? `基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`
         : trendMode === 'category'
-        ? `基于 normalized_breed 的品类级视角 · ${cityLabel} · 规格热力图 + 价格带 + 同 L3 横向推荐`
+        ? `基于 normalized_breed 的品类级视角 · 跨城 NORM 归一全国聚合 · 规格热力图 + 价格带 + 同 L3 横向推荐`
         : '跨城同品种时序对比 · 按 attr-based spec_key 拼接 · 同单位约束，周期以日历对齐'"
       :stats="topStats"
     >
@@ -219,9 +219,14 @@
                   <template v-else><span class="no-data">—</span></template>
                 </td>
                 <td class="cell-trend">
-                  <span v-if="trendPct(sp) != null" :class="['trend-pct', trendClass(trendPct(sp))]">
-                    {{ trendPct(sp) >= 0 ? '↑' : '↓' }} {{ Math.abs(trendPct(sp)).toFixed(1) }}%
-                  </span>
+                  <template v-if="trendPct(sp) != null">
+                    <div :class="['trend-pct', trendClass(trendPct(sp), trendAbs(sp))]">
+                      {{ trendPct(sp) >= 0 ? '↑' : '↓' }} {{ Math.abs(trendPct(sp)).toFixed(1) }}%
+                    </div>
+                    <div class="trend-abs">
+                      {{ trendAbs(sp) >= 0 ? '+' : '' }}{{ trendAbs(sp).toFixed(1) }} 元/{{ sp.unit || '—' }}
+                    </div>
+                  </template>
                   <span v-else class="no-data">—</span>
                 </td>
               </tr>
@@ -554,9 +559,34 @@ function trendPct(spec) {
   return ((last - first) / first) * 100
 }
 
-function trendClass(pct) {
+// 环比绝对额：首末两期差（元）
+function trendAbs(spec) {
+  const pts = spec.points || []
+  if (pts.length < 2) return null
+  const first = pts[0].avg
+  const last  = pts.at(-1).avg
+  if (first == null || last == null) return null
+  return last - first
+}
+
+// 阈值规则：强信号/弱信号/持平 三档（2026-07-10 新增）
+const TREND_THRESHOLD = {
+  strong_pct: 5.0,   // |Δ%| ≥ 5% 视为强信号
+  strong_abs: 30,    // |Δ元| ≥ 30 视为强信号
+  mild_pct: 2.0,     // |Δ%| ≥ 2% 视为弱信号
+  mild_abs: 10,      // |Δ元| ≥ 10 视为弱信号
+}
+
+function trendClass(pct, abs) {
   if (pct == null) return ''
-  return pct >= 0 ? 'trend-up' : 'trend-down'
+  const dir = pct >= 0 ? 'up' : 'down'
+  const strong = Math.abs(pct) >= TREND_THRESHOLD.strong_pct
+                 || Math.abs(abs || 0) >= TREND_THRESHOLD.strong_abs
+  const mild   = Math.abs(pct) >= TREND_THRESHOLD.mild_pct
+                 || Math.abs(abs || 0) >= TREND_THRESHOLD.mild_abs
+  if (strong) return `trend-strong trend-${dir}`
+  if (mild)   return `trend-mild trend-${dir}`
+  return 'trend-flat'
 }
 
 // ── 导出（P1-#6） ──
@@ -759,6 +789,14 @@ watch(periodsLimit, () => loadData())
   gap: 12px;
   margin: 12px 0;
   flex-wrap: wrap;
+}
+
+/* 2026-07-09 修复：CustomSelect.cs-wrapper 默认 width:100%，flex 容器里会撑满
+   导致 select 上下堆叠。覆写为 auto，min-width 保证可点击区域 */
+.trend-filter-bar :deep(.cs-wrapper) {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 200px;
 }
 .filter-meta {
   display: flex;
@@ -1060,9 +1098,13 @@ watch(periodsLimit, () => loadData())
 .cell-price .price-val { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
 .cell-price .price-meta { font-size: 10px; color: #94a3b8; }
 .cell-trend { text-align: right; }
-.trend-pct { font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 3px; }
-.trend-pct.trend-up { color: #dc2626; background: #fef2f2; }
-.trend-pct.trend-down { color: #16a34a; background: #f0fdf4; }
+.trend-pct { font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 3px; display: inline-block; }
+.trend-pct.trend-strong.trend-up   { color: #dc2626; background: #fee2e2; font-weight: 700; }
+.trend-pct.trend-strong.trend-down { color: #16a34a; background: #dcfce7; font-weight: 700; }
+.trend-pct.trend-mild.trend-up     { color: #f87171; background: #fef2f2; }
+.trend-pct.trend-mild.trend-down   { color: #86efac; background: #f0fdf4; }
+.trend-pct.trend-flat              { color: #94a3b8; background: #f8fafc; font-weight: 400; }
+.trend-abs  { font-size: 11px; color: #64748b; margin-top: 3px; font-weight: normal; font-variant-numeric: tabular-nums; }
 .no-data { color: #cbd5e1; }
 .row-empty { background: #fafafa; }
 </style>
