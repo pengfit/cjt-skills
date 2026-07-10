@@ -253,24 +253,20 @@ body {
   background: var(--text-3);
 }
 
-/* 模块 A:数据采集与 ETL —— 冷色(蓝) */
-.sidebar-group[data-module="etl"] .sidebar-group-label::before {
-  background: var(--primary);
-}
+/* 4 模块色条(2026-07-10):4 个 data-module 各自一种色 */
+.sidebar-group[data-module="view"]    .sidebar-group-label::before { background: var(--primary); }   /* 数据浏览 — 蓝 */
+.sidebar-group[data-module="collect"] .sidebar-group-label::before { background: var(--warning); }   /* 数据采集 — 橙 */
+.sidebar-group[data-module="govern"]  .sidebar-group-label::before { background: #7c3aed; }          /* 数据治理 — 紫 */
+.sidebar-group[data-module="viz"]     .sidebar-group-label::before { background: var(--success); }   /* 价格可视化 — 绿 */
 
-/* 模块 B:价格趋势 —— 业务色(绿) */
-.sidebar-group[data-module="trend"] .sidebar-group-label::before {
-  background: var(--success);
-}
-
-/* 第二个模块及以后:加顶部分割线,与上一个模块区隔 */
+/* 第二个及后续模块:顶部分割线,与上一个区隔 */
 .sidebar-group + .sidebar-group {
   border-top: 1px solid var(--border);
   margin-top: 6px;
   padding-top: 4px;
 }
 
-.sidebar-group[data-module="etl"] .sidebar-group-label {
+.sidebar-group[data-module="view"] .sidebar-group-label {
   padding-top: 10px;
 }
 

@@ -532,10 +532,11 @@ function sidebarItems(keys) {
     .map(r => ({ key: r.key, label: r.label, path: r.path, icon: TAB_ICONS[r.key] || '·' }))
 }
 const sidebarGroups = computed(() => ([
-  // 模块 A:数据采集与 ETL 流程(运维视角)
-  { key: 'etl',   label: '数据采集与 ETL', items: sidebarItems(['cockpit', 'sync', 'health', 'rules', 'taxonomy']) },
-  // 模块 B:价格分析(产品视角)
-  { key: 'trend', label: '价格分析',       items: sidebarItems(['list', 'category', 'dist', 'trend']) },
+  // 4 模块拆开(2026-07-10):数据浏览 + 数据采集 + 数据治理 + 价格可视化
+  { key: 'view',    label: '数据浏览',    items: sidebarItems(['cockpit', 'list', 'category']) },
+  { key: 'collect', label: '数据采集',    items: sidebarItems(['sync', 'health']) },
+  { key: 'govern',  label: '数据治理',    items: sidebarItems(['rules', 'taxonomy']) },
+  { key: 'viz',     label: '价格可视化',  items: sidebarItems(['dist', 'trend']) },
 ]))
 
 const mobileSidebarOpen = ref(false)
