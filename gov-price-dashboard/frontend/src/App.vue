@@ -534,8 +534,8 @@ function sidebarItems(keys) {
 const sidebarGroups = computed(() => ([
   // 模块 A:数据采集与 ETL 流程(运维视角)
   { key: 'etl',   label: '数据采集与 ETL', items: sidebarItems(['cockpit', 'sync', 'health', 'rules', 'taxonomy']) },
-  // 模块 B:价格趋势(产品视角)
-  { key: 'trend', label: '价格趋势',       items: sidebarItems(['list', 'category', 'dist', 'trend']) },
+  // 模块 B:价格分析(产品视角)
+  { key: 'trend', label: '价格分析',       items: sidebarItems(['list', 'category', 'dist', 'trend']) },
 ]))
 
 const mobileSidebarOpen = ref(false)

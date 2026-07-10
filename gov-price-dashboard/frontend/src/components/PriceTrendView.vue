@@ -546,7 +546,7 @@ async function loadData(opts = {}) {
     // 点选 NORM 后保持 selectedMaterials 不被自动重置（保留单品种突出显示）
     if (!opts.materials) {
       // 默认选中从随机样本里取,保证 chip 栏可见
-      selectedMaterials.value = materialSamples.value.slice(0, Math.min(4, materialSamples.value.length))
+      selectedMaterials.value = materialSamples.value.slice(0, Math.min(2, materialSamples.value.length))
     }
   } catch (e) {
     error.value = e.message || '加载失败'
