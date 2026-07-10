@@ -175,6 +175,48 @@ def _agg_runs_with_fallback(es, idx, body):
         _swap(body2)
         return es.search(index=idx, body=body2)
 
+
+# ── progress 索引时间字段探测（不同 skill 写 progress 的时间字段不统一）────────────
+# 吉林 / chongqing / 四川：last_updated
+# 西安 / 山东类：created_at
+# 新疆：仅 release_date / period（业务字段）
+#
+# sort 字段在 mapping 中不存在时会报 search_phase_execution_exception，
+# 所以 sort 和 _source 都要动态按 mapping 拼接。
+
+_TIME_FIELD_CANDIDATES = ("last_updated", "created_at", "release_date", "period")
+_time_field_cache: dict[str, list[str]] = {}
+
+
+def _detect_time_fields(es, idx: str) -> list[str]:
+    """探测 progress_index mapping，返回实际存在的时间字段（保持优先级顺序）。
+
+    带进程级缓存：同 idx 只探测一次。索引重建后需清缓存（热重启 dashboard 即可）。
+    """
+    if idx in _time_field_cache:
+        return _time_field_cache[idx]
+    present: list[str] = []
+    try:
+        mapping = es.indices.get_mapping(index=idx, ignore_unavailable=True)
+        props = {}
+        for k, v in mapping.body.items():
+            props = v.get("mappings", {}).get("properties", {}) or {}
+            break
+        for f in _TIME_FIELD_CANDIDATES:
+            if f in props:
+                present.append(f)
+    except Exception:
+        pass
+    if not present:
+        present = list(_TIME_FIELD_CANDIDATES)  # 探测失败则都试，让 ES 报错走上层兜底
+    _time_field_cache[idx] = present
+    return present
+
+
+def _clear_time_field_cache() -> None:
+    """手动清缓存（如新建索引后调用）"""
+    _time_field_cache.clear()
+
 # ── ETL classify/jaccard 批量写入接口 ──────────────
 
 # 5 个动态字典：全部从 skill_registry 生成。
@@ -426,9 +468,13 @@ def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
     """period 模式：heze / henan / qingdao / weihai 等按 PDF 期刊跟踪的 skill
 
     按 period 字段 terms agg，按 year 过滤；返回该年各期状态。
+
+    注：不同 skill 写 progress 文档的时间字段不统一（有的写 created_at，有的写 last_updated），
+    sort 与 lu 提取都以 mapping 探测到的字段顺序兑底，避开不存在字段报错。
     """
     period_size = cfg.get("period_size", 20)
     period_field = cfg.get("period_field", "period")
+    time_fields = _detect_time_fields(es, idx)
     body = {
         "size": 0,
         "query": {"prefix": {period_field: f"{year}."}},
@@ -439,9 +485,10 @@ def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
                     "docs_sum": {"sum": {"field": "docs_written"}},
                     "latest_doc": {
                         "top_hits": {
-                            "size": 1, "sort": [{"created_at": "desc"}],
+                            "size": 1,
+                            "sort": [{f: "desc"} for f in time_fields],
                             "_source": ["period", "publish_date", "status", "docs_written",
-                                        "duration_sec", "created_at", "pdf_url", "minio_key"],
+                                        "duration_sec"] + time_fields + ["pdf_url", "minio_key"],
                         }
                     }
                 }
@@ -456,7 +503,7 @@ def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
     comp = run = err = 0
     run_id = None
     lu = ""
-    lu_str = ""
+    lu_str_str = ""
     for b in buckets:
         doc = b.get("latest_doc", {}).get("hits", {}).get("hits", [{}])[0].get("_source", {})
         raw_status = doc.get("status", "ok")
@@ -474,11 +521,12 @@ def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
             "docs_written": doc.get("docs_written", 0),
             "current_page": 0, "total_pages": 0,
         })
-        created = doc.get("created_at", "")
-        period_created[b["key"]] = created
-        if created and created > lu_str:
-            lu_str = created
-            lu = created[:19]
+        # lu 兑底：按 time_fields 优先级取第一个非空值
+        lu_doc = next((doc.get(f) for f in time_fields if doc.get(f)), "")
+        period_created[b["key"]] = lu_doc
+        if lu_doc and lu_doc > lu_str_str:
+            lu_str_str = lu_doc
+            lu = lu_doc[:19]
             run_id = doc.get("period")
     counties.sort(key=lambda c: period_created.get(c["county"], ""), reverse=True)
     return {
@@ -491,15 +539,23 @@ def _scrape_period_progress(idx: str, year: int, cfg: dict) -> dict:
 
 
 def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
-    """county 模式：xian / chongqing 等按区县抓取的 skill
+    """county 模式：xian / chongqing / xinjiang 等按区县抓取的 skill
 
     按 run_id group 取最新一个 completed run，再列其下 county_field 详情。
     xian 用 county_field=current_county；chongqing 用 county_field=area，
     还可有 summary_marker（如 area="全部完成"）。
     注意：某些 skill（chongqing）的 last_updated 是 keyword 不能 max agg，改用 top_hits sort。
+
+    不同 skill 写 progress 的时间字段不统一：
+      - chongqing / 多数: last_updated
+      - xian: created_at
+      - xinjiang: 无时间字段，只用 release_date / period
+    sort 与 lu 提取都兑底：last_updated > created_at > release_date > period。
     """
     county_field = cfg.get("county_field", "current_county")
     summary_marker = cfg.get("summary_marker")
+    # 探测 mapping 动态决定 sort 字段（避免 ES 报字段不存在）
+    time_fields = _detect_time_fields(es, idx)
     # ES top_hits 子聚合默认 size 上限为 100（max_inner_result_window）。
     # chongqing 同一 run 同一 period 有 ~44 条 unique county × N period 会超限。
     # 为保险走三个 filter bucket（completed/running/error）+ 都不限（按 status terms）
@@ -516,18 +572,21 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
                         "aggs": {
                             "latest_doc": {
                                 "top_hits": {
-                                    "size": 1, "sort": [{"last_updated": "desc"}],
-                                    "_source": ["last_updated"],
+                                    "size": 1,
+                                    "sort": [{f: "desc"} for f in time_fields],
+                                    "_source": time_fields,
                                 }
                             },
                             "counties": {
                                 "top_hits": {
-                                    "size": 100, "sort": [{"last_updated": "desc"}],
+                                    "size": 100,
+                                    "sort": [{f: "desc"} for f in time_fields],
                                     "_source": [
                                         "county", "run_id", "status", "current_county",
                                         "current_page", "total_pages", "total_records",
                                         "docs_written", "percent", "duration_sec",
-                                        "period", "update_date", "last_updated",
+                                        "period", "update_date",
+                                    ] + time_fields + [
                                         "error", "spot_check_ok",
                                         "area", "area_name", "catalogue_name", "tab_name",
                                     ]
@@ -543,8 +602,12 @@ def _scrape_county_progress(idx: str, year: int, cfg: dict) -> dict:
     by_status_buckets = r["aggregations"]["by_status"]["buckets"]
 
     def _bucket_lu(b):
+        """lu 兑底：按 mapping 探测到的 time_fields 顺序取第一个非空值"""
         lh = b.get("latest_doc", {}).get("hits", {}).get("hits", [])
-        return lh[0]["_source"].get("last_updated", "") if lh else ""
+        if not lh:
+            return ""
+        src = lh[0].get("_source", {})
+        return next((src.get(f) for f in time_fields if src.get(f)), "") or ""
 
     # 收集所有 status 桶下每个 run_id 的 counties hits，扁平去重
     all_county_hits = []
