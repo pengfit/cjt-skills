@@ -8,6 +8,9 @@ site:
   api_base: /cj/api/build
   base_url: http://jnxxj.jngczjxh.com:5020
   data_type: '2'
+  # web 入口路径（SPA）。base_url 本身是 nginx 欢迎页，实际 SPA 在 /cj/ 下。
+  # dashboard 拼接 site_url 用此字段。
+  web_path: /cj/
 sync:
   last_period: 2026年05月材料价格信息
   last_period_id: '811589252355269'

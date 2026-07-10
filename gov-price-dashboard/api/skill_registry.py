@@ -95,7 +95,8 @@ def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optiona
                                        — 海南、湖南、宁夏、青海多页型
       3) base_url + list_path         — 河南、呼和浩特、江西、青岛、威海、陕西
       4) site.price_page              — 日照 SPA 入口特殊情况
-      5) site.base_url                — 吉林、西安、菏泽、济南、新疆（入口本身完整）
+      5) base_url + site.web_path     — 济南（SPA 在 base_url 子路径下）
+      6) site.base_url                — 吉林、西安、菏泽、新疆（入口本身完整）
     返回 None 表示无原网址可回溯。
     """
     if not config_path:
@@ -138,7 +139,11 @@ def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optiona
         price_page = site.get("price_page")
         if isinstance(price_page, str) and price_page.strip():
             return price_page.strip()
-        # 5) base_url 本身已是完整入口（jilin/xian/heze/jinan/xinjiang）
+        # 5) base_url 子路径型 SPA（济南的 web 入口在 /cj/）
+        web_path = site.get("web_path")
+        if isinstance(web_path, str) and web_path.strip():
+            return base + "/" + web_path.lstrip("/")
+        # 6) base_url 本身已是完整入口（jilin/xian/heze/xinjiang）
         return base
     return None
 
