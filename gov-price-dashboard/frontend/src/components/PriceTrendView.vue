@@ -80,7 +80,7 @@
         />
         <button v-if="materialSearch" class="material-search-clear" @click="clearMaterialSearch()" title="清除">×</button>
         <!-- NORM 跨城候选下拉 -->
-        <div v-if="normDropdownOpen && materialSearch.trim() && (normCandidates.length || normLoading || filteredMaterials.length)" class="norm-dropdown">
+        <div v-if="normDropdownOpen && materialSearch.trim() && (normCandidates.length || normLoading || searchableMaterials.length)" class="norm-dropdown">
           <div v-if="normLoading" class="norm-dropdown-loading">⏳ 查询 NORM 索引…</div>
           <template v-else>
             <div v-if="normCandidates.length" class="norm-dropdown-section-title">
@@ -97,11 +97,11 @@
               <span class="norm-dropdown-breed">{{ c.normalized_breed }}</span>
               <span class="norm-dropdown-meta">{{ c.cities.length }} 城 · {{ c.total_docs }} 条</span>
             </div>
-            <div v-if="filteredMaterials.length" class="norm-dropdown-section-title">
+            <div v-if="searchableMaterials.length" class="norm-dropdown-section-title">
               📦 本地材料（已加载 · 前 8）
             </div>
             <div
-              v-for="m in filteredMaterials.slice(0, 8)"
+              v-for="m in searchableMaterials.slice(0, 8)"
               :key="m + '_l'"
               class="norm-dropdown-item"
               :class="{ dimmed: selectedMaterials.includes(m) }"
@@ -110,14 +110,14 @@
               <span class="norm-dropdown-breed">{{ m }}</span>
               <span class="norm-dropdown-meta">{{ selectedMaterials.includes(m) ? '已选' : '本地' }}</span>
             </div>
-            <div v-if="!normCandidates.length && !filteredMaterials.length" class="norm-dropdown-empty">
+            <div v-if="!normCandidates.length && !searchableMaterials.length" class="norm-dropdown-empty">
               无匹配
             </div>
           </template>
         </div>
       </div>
       <span class="material-search-hint">
-        {{ filteredMaterials.length }} 本地 · {{ normCandidates.length }} NORM 跨城
+        {{ searchableMaterials.length }} 本地 · {{ normCandidates.length }} NORM 跨城
       </span>
     </div>
 
@@ -268,13 +268,33 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const city = ref('')
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
+const materialSamples = ref([])      // chip 栏随机抽样的样本（默认 10 个,2026-07-10 调整）
 const selectedMaterials = ref([])    // 当前显示的材料
 const materialSearch = ref('')        // 材料名搜索关键字（双用：本地过滤 + NORM 跨城调）
+// chip 栏可见集合:未搜索时仅展示随机 10 个样本;搜索时从样本里过滤
+// 搜索框下拉另用 searchableMaterials,不受抽样限制(避免抽样遗漏)
 const filteredMaterials = computed(() => {
+  const source = materialSamples.value.length ? materialSamples.value : allMaterials.value
+  if (!materialSearch.value.trim()) return source
+  const k = materialSearch.value.trim().toLowerCase()
+  return source.filter(m => m.toLowerCase().includes(k))
+})
+// 搜索下拉用:查全量 allMaterials
+const searchableMaterials = computed(() => {
   if (!materialSearch.value.trim()) return allMaterials.value
   const k = materialSearch.value.trim().toLowerCase()
   return allMaterials.value.filter(m => m.toLowerCase().includes(k))
 })
+
+// Fisher-Yates 洗牌随机抽样(2026-07-10):从全量材料里随机抽 n 个
+function pickRandomSamples(arr, n) {
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy.slice(0, n)
+}
 const allPeriods = ref([])           // 业务期数组 [{start, end, label}]
 const data = ref({ series: [], total_docs: 0, periods: [] })
 const loading = ref(false)
@@ -521,9 +541,12 @@ async function loadData(opts = {}) {
     data.value = d
     allPeriods.value = d.periods || []
     allMaterials.value = (d.series || []).map(s => s.normalized_breed)
+    // 随机抽 10 个样本供 chip 栏展示(2026-07-10 调整);样本不足则取全量
+    materialSamples.value = pickRandomSamples(allMaterials.value, 10)
     // 点选 NORM 后保持 selectedMaterials 不被自动重置（保留单品种突出显示）
     if (!opts.materials) {
-      selectedMaterials.value = allMaterials.value.slice(0, 4)
+      // 默认选中从随机样本里取,保证 chip 栏可见
+      selectedMaterials.value = materialSamples.value.slice(0, Math.min(4, materialSamples.value.length))
     }
   } catch (e) {
     error.value = e.message || '加载失败'

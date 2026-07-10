@@ -37,16 +37,26 @@ gov-price-dashboard 前端 (Vue3 :5300)
 
 ## 侧栏导航
 
+侧栏按"运维 / 业务"两大模块分组（2026-07-10 调整）：
+
+### 数据采集与 ETL（运维视角）
+
 | 标签 | 路由 | 说明 |
 |------|------|------|
 | 驾驶舱 | `cockpit` | 全局仪表盘，数据概览卡片 + 省份/城市/分类分布图 |
-| 全部数据 | `list` | 产品搜索/筛选/列表，支持分类树侧栏 |
-| 全部类别 | `category` | 类别下钻分析，品种列表 + 规格价格明细 |
-| 价格分布 | `dist` | 价格区间分布图表 |
 | 数据同步 | `sync` | 各城市抓取进度监控，ODS→DWD→DWS 同步状态 |
 | 数据健康 | `health` | 每日入库量、省份新鲜度、增量异常检测 |
 | 规格解析 | `rules` | 规格规则库查询/添加/测试，DWD 抽样质量报告 |
 | 分类体系 | `taxonomy` | 分类树浏览、品种→分类映射管理 |
+
+### 价格趋势（产品视角）
+
+| 标签 | 路由 | 说明 |
+|------|------|------|
+| 全部数据 | `list` | 产品搜索/筛选/列表，支持分类树侧栏 |
+| 全部类别 | `category` | 类别下钻分析，品种列表 + 规格价格明细 |
+| 价格分布 | `dist` | 价格区间分布图表 |
+| 趋势 | `trend` | 品类聚合趋势（全国跨城归一） |
 
 ## 项目结构
 
@@ -137,6 +147,18 @@ gov-price-dashboard/
 | `GET` | `/api/stats/category-breeds` | 指定类别的去重品种列表（分页） |
 | `GET` | `/api/stats/breed-detail` | 指定品种的规格价格分析（按单位→规格分层） |
 | `GET` | `/api/stats/breed-category-rules` | 全量 breed 归属分类（分类规则库下拉） |
+
+### 品类聚合趋势（2026-07-09 起「去城市化」，全国跨城归一）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/stats/category-trend` | 单品类规格热力图 + 价格带 + 规格分布。`city` 留空 / `all` / `nation` = 全国聚合（跨 NORM 索引）；保留单城 key 以向后兼容 |
+| `GET` | `/api/stats/category-compare` | 多品类并列对比（2-4 个 normalized_breed）。同样支持 city 留空走全国 |
+| `GET` | `/api/stats/category-l3-peers` | 同 L3 的所有 normalized_breed。同样支持 city 留空走全国 |
+
+全国聚合响应额外字段：`label="全国 (N 城)"`、`is_aggregate=true`、`cities_meta=[...]`。
+后端统一入口：`api/routes/category_trend.py:_resolve_query_indices(city)`。
+前端：`/trend` 标签页「品类聚合」（`CategoryTrendView.vue`）已移除城市控件，不再传 city。
 
 ### 价格统计
 

@@ -28,7 +28,7 @@
     <!-- ========== SIDEBAR ========== -->
     <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
     <aside class="sidebar">
-      <div class="sidebar-group" v-for="group in sidebarGroups" :key="group.label">
+      <div class="sidebar-group" :data-module="group.key" v-for="group in sidebarGroups" :key="group.key">
         <div class="sidebar-group-label">{{ group.label }}</div>
         <a
           v-for="item in group.items"
@@ -532,10 +532,10 @@ function sidebarItems(keys) {
     .map(r => ({ key: r.key, label: r.label, path: r.path, icon: TAB_ICONS[r.key] || '·' }))
 }
 const sidebarGroups = computed(() => ([
-  { label: '总览',     items: sidebarItems(['cockpit']) },
-  { label: '业务查价', items: sidebarItems(['list', 'category', 'dist', 'trend']) },
-  { label: '系统监控', items: sidebarItems(['sync', 'health']) },
-  { label: '规则管理', items: sidebarItems(['rules', 'taxonomy']) },
+  // 模块 A:数据采集与 ETL 流程(运维视角)
+  { key: 'etl',   label: '数据采集与 ETL', items: sidebarItems(['cockpit', 'sync', 'health', 'rules', 'taxonomy']) },
+  // 模块 B:价格趋势(产品视角)
+  { key: 'trend', label: '价格趋势',       items: sidebarItems(['list', 'category', 'dist', 'trend']) },
 ]))
 
 const mobileSidebarOpen = ref(false)

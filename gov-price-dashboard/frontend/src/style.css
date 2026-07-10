@@ -224,15 +224,54 @@ body {
 
 .sidebar-group {
   margin-bottom: 14px;
+  position: relative;
 }
 
+/* 大模块标签:两个分组,ETL(运维) 与 趋势(业务) 视觉区分 */
 .sidebar-group-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  padding: 8px 16px 5px;
+  color: var(--text-2);
+  letter-spacing: 0.3px;
+  padding: 14px 16px 8px 22px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 左侧色条标识 */
+.sidebar-group-label::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+
+/* 模块 A:数据采集与 ETL —— 冷色(蓝) */
+.sidebar-group[data-module="etl"] .sidebar-group-label::before {
+  background: var(--primary);
+}
+
+/* 模块 B:价格趋势 —— 业务色(绿) */
+.sidebar-group[data-module="trend"] .sidebar-group-label::before {
+  background: var(--success);
+}
+
+/* 第二个模块及以后:加顶部分割线,与上一个模块区隔 */
+.sidebar-group + .sidebar-group {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.sidebar-group[data-module="etl"] .sidebar-group-label {
+  padding-top: 10px;
 }
 
 .sidebar-item {
