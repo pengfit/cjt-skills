@@ -9,6 +9,8 @@ site:
   # 不要用 UTF-8 编码的查询参数（"2026年1月份" → 2026%E5%B9%B41...），会查不到数据。
   city_id: 140
   city_name: 吉林市
+  # dashboard 回溯链接拼接参数（base_url 不带 ?city=140 会弹"城市信息有误"）
+  query: "city=140"
   # 源站支持的 diqu 取值（来自 select 选项）
   counties:
     - 吉林市      # 默认（diqu 空值 = 吉林市整体）

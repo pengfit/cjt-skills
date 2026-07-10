@@ -91,12 +91,15 @@ def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optiona
 
     拼接优先级（与 sync.py 实际抓取 URL 对齐）：
       1) site.url                     — 重庆、四川等直接给完整 URL 的
-      2) base_url + list_page_pattern.format(n=1)
-                                       — 海南、湖南、宁夏、青海多页型
-      3) base_url + list_path         — 河南、呼和浩特、江西、青岛、威海、陕西
+      2) base_url + site.list_path    — 海南/湖南/宁夏/青海/河南/呼和浩特/江西/青岛/威海/陕西
+                                         第 1 页走的都是 list_path（sync.py 约定），
+                                         list_page_pattern 只用于 2..N 页
+      3) base_url + site.list_page_pattern.format(n=1)
+                                         — 仅 list_page_pattern 没有 list_path 的情况
       4) site.price_page              — 日照 SPA 入口特殊情况
       5) base_url + site.web_path     — 济南（SPA 在 base_url 子路径下）
-      6) site.base_url                — 吉林、西安、菏泽、新疆（入口本身完整）
+      6) base_url + "?site.query"     — 吉林类 PHP 页面需带查询参数才能进
+      7) site.base_url                — 菏泽/西安/新疆（入口本身完整）
     返回 None 表示无原网址可回溯。
     """
     if not config_path:
@@ -121,31 +124,46 @@ def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optiona
         if not isinstance(base, str) or not base.strip():
             continue
         base = base.rstrip("/")
-        # 2) 多页型拼第 1 页
-        pattern = site.get("list_page_pattern")
-        if isinstance(pattern, str) and pattern.strip():
-            path = pattern
-            for token, val in (("{n}", "1"), ("{page}", "1"), ("{p}", "1")):
-                path = path.replace(token, val)
-            return base + path
-        # 3) 静态 list_path（部分含页位符）
+        # 2) 静态 list_path（第 1 页入口，sync.py 约定）
         list_path = site.get("list_path")
         if isinstance(list_path, str) and list_path.strip():
             path = list_path
             for token, val in (("{n}", "1"), ("{page}", "1"), ("{p}", "1")):
                 path = path.replace(token, val)
-            return base + path
+            result = base + path
+            return _append_query(result, site.get("query"))
+        # 3) 只有 list_page_pattern（少数情况）
+        pattern = site.get("list_page_pattern")
+        if isinstance(pattern, str) and pattern.strip():
+            path = pattern
+            for token, val in (("{n}", "1"), ("{page}", "1"), ("{p}", "1")):
+                path = path.replace(token, val)
+            result = base + path
+            return _append_query(result, site.get("query"))
         # 4) SPA 型（rizhao 的 price_page）
         price_page = site.get("price_page")
         if isinstance(price_page, str) and price_page.strip():
             return price_page.strip()
-        # 5) base_url 子路径型 SPA（济南的 web 入口在 /cj/）
+        # 5) base_url 子路径型 SPA（济南）
         web_path = site.get("web_path")
         if isinstance(web_path, str) and web_path.strip():
-            return base + "/" + web_path.lstrip("/")
-        # 6) base_url 本身已是完整入口（jilin/xian/heze/xinjiang）
+            result = base + "/" + web_path.lstrip("/")
+            return _append_query(result, site.get("query"))
+        # 6) base_url + query string（吉林型 PHP 页面）
+        if site.get("query"):
+            return _append_query(base, site["query"])
+        # 7) base_url 本身已是完整入口（菏泽/西安/新疆）
         return base
     return None
+
+
+def _append_query(url: str, query: Optional[str]) -> str:
+    """拼接查询字符串到 URL（已有 ? 用 &，否则用 ?）。query 为空则原样返回。"""
+    if not isinstance(query, str) or not query.strip():
+        return url
+    q = query.strip()
+    sep = "&" if "?" in url else "?"
+    return f"{url}{sep}{q}"
 
 
 def _discover() -> list[dict]:
