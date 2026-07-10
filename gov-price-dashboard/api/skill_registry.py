@@ -87,9 +87,15 @@ def _read_cities_from_config(skill_dir_name: str, config_path: str) -> Optional[
 
 
 def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optional[str]:
-    """从 skill 的 config.yml 里读 site.url 或 site.base_url（数据源入口）。
+    """从 skill 的 config.yml 里读抓取入口 URL（供 dashboard 卡片回溯）。
 
-    优先级：site.url > site.base_url（历史 skill 不统一，registry 兜底兼容）。
+    拼接优先级（与 sync.py 实际抓取 URL 对齐）：
+      1) site.url                     — 重庆、四川等直接给完整 URL 的
+      2) base_url + list_page_pattern.format(n=1)
+                                       — 海南、湖南、宁夏、青海多页型
+      3) base_url + list_path         — 河南、呼和浩特、江西、青岛、威海、陕西
+      4) site.price_page              — 日照 SPA 入口特殊情况
+      5) site.base_url                — 吉林、西安、菏泽、济南、新疆（入口本身完整）
     返回 None 表示无原网址可回溯。
     """
     if not config_path:
@@ -106,9 +112,34 @@ def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optiona
         if not cfg:
             continue
         site = cfg.get("site", {}) or {}
-        url = site.get("url") or site.get("base_url")
+        # 1) 直接给的完整 URL
+        url = site.get("url")
         if isinstance(url, str) and url.strip():
             return url.strip()
+        base = site.get("base_url")
+        if not isinstance(base, str) or not base.strip():
+            continue
+        base = base.rstrip("/")
+        # 2) 多页型拼第 1 页
+        pattern = site.get("list_page_pattern")
+        if isinstance(pattern, str) and pattern.strip():
+            path = pattern
+            for token, val in (("{n}", "1"), ("{page}", "1"), ("{p}", "1")):
+                path = path.replace(token, val)
+            return base + path
+        # 3) 静态 list_path（部分含页位符）
+        list_path = site.get("list_path")
+        if isinstance(list_path, str) and list_path.strip():
+            path = list_path
+            for token, val in (("{n}", "1"), ("{page}", "1"), ("{p}", "1")):
+                path = path.replace(token, val)
+            return base + path
+        # 4) SPA 型（rizhao 的 price_page）
+        price_page = site.get("price_page")
+        if isinstance(price_page, str) and price_page.strip():
+            return price_page.strip()
+        # 5) base_url 本身已是完整入口（jilin/xian/heze/jinan/xinjiang）
+        return base
     return None
 
 
