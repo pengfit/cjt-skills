@@ -30,7 +30,17 @@
       >
         <div class="scrape-card-header">
           <div class="scrape-card-title">
-            <span class="scrape-card-city">{{ pipe.city_label }}</span>
+            <span class="scrape-card-city">
+              {{ pipe.city_label }}
+              <a
+                v-if="pipe.site_url"
+                class="scrape-card-link"
+                :href="pipe.site_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="'原网址: ' + pipe.site_url"
+              >🔗</a>
+            </span>
             <span class="scrape-card-status" :class="(pipe.scrape_fresh ?? pipe.sync_ok) ? 'ok' : 'warn'">
               {{ (pipe.scrape_fresh ?? pipe.sync_ok) ? '✓ 已同步' : '⚠ 待同步' }}
             </span>
@@ -314,6 +324,24 @@ onMounted(() => {
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.scrape-card-link {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  line-height: 1;
+  font-weight: 400;
+}
+.scrape-card-link:hover {
+  color: #7c3aed;
+  background: rgba(124,58,237,0.08);
+  transform: translateY(-1px);
 }
 .scrape-card-status {
   font-size: 10px;

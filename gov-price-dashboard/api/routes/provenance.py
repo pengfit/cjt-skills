@@ -1443,6 +1443,10 @@ def stats_provenance(city: str = Query("all", description="城市 key，all 表�
                     "scrape_fresh": scrape_fresh_c,
                     "status": "ok" if sync_ok_c else "out_of_sync",
                     "sparkline_7d": sparkline_all.get(k, []),
+                    # 原网址回溯：从 skill_registry 拿（与 dws_index 是否存在无关）
+                    "site_url": next(
+                        (s.get("site_url") for s in _registry_get_all() if s.get("key") == k), None
+                    ),
                     "scrape": {
                         "latest_run_id": scrape_k.get("latest_run_id"),
                         "last_updated": scrape_k.get("last_updated", ""),

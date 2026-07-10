@@ -86,6 +86,32 @@ def _read_cities_from_config(skill_dir_name: str, config_path: str) -> Optional[
     return None
 
 
+def _read_site_url_from_config(skill_dir_name: str, config_path: str) -> Optional[str]:
+    """从 skill 的 config.yml 里读 site.url 或 site.base_url（数据源入口）。
+
+    优先级：site.url > site.base_url（历史 skill 不统一，registry 兜底兼容）。
+    返回 None 表示无原网址可回溯。
+    """
+    if not config_path:
+        config_path = "config.yml"
+    candidates = [
+        Path(SKILLS_ROOT) / skill_dir_name / config_path,
+        Path(SKILLS_ROOT) / skill_dir_name / "config.yml",
+        Path(config_path),
+    ]
+    for p in candidates:
+        if not p.exists():
+            continue
+        cfg = _read_yaml(p)
+        if not cfg:
+            continue
+        site = cfg.get("site", {}) or {}
+        url = site.get("url") or site.get("base_url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+    return None
+
+
 def _discover() -> list[dict]:
     """扫描所有 skill 目录，返回注册清单"""
     if not os.path.isdir(SKILLS_ROOT):
@@ -142,6 +168,14 @@ def _discover() -> list[dict]:
             )
             if cfg_cities:
                 data["cities"] = cfg_cities
+        # 从 config.yml 读原网址（dashboard 卡片回溯入口）
+        # yml 显式写了 site_url 就以 yml 为准，否则从 config.yml 推
+        if not data.get("site_url"):
+            cfg_url = _read_site_url_from_config(
+                skill_dir, data.get("config_path", "")
+            )
+            if cfg_url:
+                data["site_url"] = cfg_url
         # 把 config_path 标准化为绝对路径（基于 SKILLS_ROOT + skill_dir，避免后端进程在不同 cwd 下打不开）
         cfg_path = data.get("config_path")
         if cfg_path:
@@ -243,6 +277,7 @@ def all_dws_indices_for_dashboard() -> list[dict]:
             "catalogue_field": s.get("catalogue_field"),
             "skill_dir": s.get("skill_dir"),
             "cities": s.get("cities", []),
+            "site_url": s.get("site_url"),  # 数据源入口 URL，dashboard 卡片回溯用
         })
     return out
 
