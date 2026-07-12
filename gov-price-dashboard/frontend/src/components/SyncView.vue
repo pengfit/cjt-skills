@@ -9,12 +9,12 @@
         { label: '同步城市', value: stats.cities },
         {
           label: `入库文档${stats.odsDelta > 0 ? ` <span class='delta'>+${stats.odsDelta} / 7d</span>` : ''}`,
-          value: stats.odsDocs.toLocaleString(),
+          value: fmt.int(stats.odsDocs),
           title: 'ODS 索引实际文档数 = sum(ods.*.count)',
         },
         {
           label: '清洗记录',
-          value: stats.dwsRecords.toLocaleString(),
+          value: fmt.int(stats.dwsRecords),
           title: 'DWS 索引实际记录数 = sum(dws.*.count)',
         },
         {
@@ -57,9 +57,12 @@ import ScrapeView from './ScrapeView.vue'
 import DataProvenanceView from './DataProvenanceView.vue'
 import CleanDimView from './CleanDimView.vue'
 import PageHeader from './PageHeader.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const subTab = ref('clean')
+// D.2026-07-12 统一数字格式化
+const fmt = useFormatNumber()
 
 // ── 顶部 stats（与 CategoryTaxonomyView 的 .ctx-header-stats 同构）──
 // 数据源：/api/stats/provenance（ODS / DWD / DWS 三层索引的 count）

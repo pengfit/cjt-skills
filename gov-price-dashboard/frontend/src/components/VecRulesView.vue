@@ -5,7 +5,7 @@
       variant="flat"
       title="规格规则库"
       subtitle="存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索"
-      :stats="[{ label: '规则总数', value: vecRules.total.toLocaleString() }]"
+      :stats="[{ label: '规则总数', value: fmtInt(vecRules.total) }]"
     />
 
     <!-- Toolbar -->
@@ -180,6 +180,7 @@ import axios from 'axios'
 import CustomSelect from './CustomSelect.vue'
 import PageHeader from './PageHeader.vue'
 import EmptyState from './EmptyState.vue'
+import { fmtInt } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 

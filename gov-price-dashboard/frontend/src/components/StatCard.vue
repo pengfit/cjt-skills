@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const props = defineProps({
   label: { type: String, default: '' },
@@ -57,9 +58,10 @@ defineEmits(['click'])
 
 const accentStyle = computed(() => (props.accent ? { '--stat-accent': props.accent } : null))
 
+const fmt = useFormatNumber()
 const formattedValue = computed(() => {
   if (typeof props.value === 'number' && props.format === 'auto') {
-    return props.value.toLocaleString()
+    return fmt.int(props.value)
   }
   return props.value
 })

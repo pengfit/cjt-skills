@@ -34,7 +34,7 @@
           <div class="gauge-label">入库总量</div>
           <div class="gauge-sub">ODS 原始数据量</div>
           <div class="hero-stat">
-            <span class="hero-num mono">{{ kpi.ods.toLocaleString() }}</span>
+            <span class="hero-num mono">{{ fmt.int(kpi.ods) }}</span>
             <span class="hero-unit">条</span>
           </div>
           <div class="hero-meta">
@@ -140,11 +140,11 @@
                   <span class="city-name">{{ pipe.city_label }}</span>
                 </div>
                 <div class="city-td city-td-data">
-                  <span class="stage-num mono" :title="(pipe.ods?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.ods?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.ods?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.ods?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="(pipe.dwd?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.dwd?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.dwd?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.dwd?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="(pipe.dws?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.dws?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.dws?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.dws?.count) }}</span>
                 </div>
                 <div class="city-td city-td-attr">
                   <div class="attr-track">
@@ -263,6 +263,7 @@ import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import GeoMapView from './GeoMapView.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -355,7 +356,7 @@ function sparklineTrend(arr) {
   if (prev === 0) return '↑ 新增'
   const diff = last - (prev / (arr.length - 1))
   if (Math.abs(diff) < (prev / (arr.length - 1)) * 0.05) return '→ 平稳'
-  return diff > 0 ? `↑ ${Math.round(diff).toLocaleString()}` : `↓ ${Math.round(-diff).toLocaleString()}`
+  return diff > 0 ? `↑ ${fmt.int(Math.round(diff))}` : `↓ ${fmt.int(Math.round(-diff))}`
 }
 function sparklineTrendCls(arr) {
   if (!arr || arr.length < 2) return ''
@@ -368,13 +369,11 @@ function sparklineTrendCls(arr) {
   return diff > 0 ? 'trend-up' : 'trend-down'
 }
 
-// 紧凑格式化：1.2k / 1.5M / 3.2万
+// D.2026-07-12 统一使用 useFormatNumber
+const fmt = useFormatNumber()
+// 保留本地别名,避免改动现有 template 引用点(向后兼容)
 function formatShort(n) {
-  n = Number(n) || 0
-  if (n >= 100000000) return (n / 100000000).toFixed(1) + '亿'
-  if (n >= 10000) return (n / 10000).toFixed(1) + '万'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return n.toString()
+  return fmt.compact(n)
 }
 
 // 紧凑 sparkline：60×16 视图

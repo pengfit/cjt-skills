@@ -186,6 +186,16 @@
           @keyup.enter="doSearch()"
           @input="onKeywordInput"
         />
+        <!-- 日期预设平铺(A.2026-07-12 P0)：默认 7 天 + 随时切换 -->
+        <div class="date-presets-inline">
+          <span
+            v-for="preset in datePresets"
+            :key="preset.key"
+            class="preset-chip-inline"
+            :class="{ active: dateRangeKey === preset.key }"
+            @click="applyDatePreset(preset); doSearch()"
+          >{{ preset.label }}</span>
+        </div>
         <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
         <!-- 导出(P3-batch3):利用已有 useExport,支持 CSV / JSON -->
         <button
@@ -269,7 +279,7 @@
           <!-- Data Table(桌面端) -->
         <div class="content-card table-desktop" v-else>
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table compact-table">
               <thead>
                 <tr>
                   <th
@@ -533,6 +543,8 @@ import axios from 'axios'
 import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
 import { exportCsvAsFile, withTimestamp } from './composables/useExport.js'
+// D.2026-07-12 统一数字格式化
+import { useFormatNumber } from './composables/useFormatNumber.js'
 // 路由级 view 全部 async(首屏不加载,切 tab 时才按需下载;2026-07-09 优化)
 const DistributionChart = defineAsyncComponent(() => import('./components/DistributionChart.vue'))
 const PriceTrendView = defineAsyncComponent(() => import('./components/PriceTrendView.vue'))
@@ -551,6 +563,8 @@ import { TAB_ROUTES, legacyTabPath } from './router'
 
 const route = useRoute()
 const router = useRouter()
+// D.2026-07-12 统一数字格式化
+const fmt = useFormatNumber()
 // 当前 tab key:来自路由 name,模板中自动解包
 const currentTab = computed(() => route.name || 'cockpit')
 
@@ -630,7 +644,7 @@ const cmdItems = computed(() => {
         group: '数据查询',
         label: '查看 ' + p.province + ' 价格',
         icon: '🔎',
-        hint: `${p.province} · ${p.count?.toLocaleString() || 0} 条记录`,
+        hint: `${p.province} · ${fmt.count(p.count, '条记录')}`,
         action: () => router.push({ path: legacyTabPath('list'), query: { province: p.province } }),
       }))
     : []
@@ -865,12 +879,12 @@ function onPageSizeChange() {
 
 const pageStart = computed(() => {
   const s = (Number(searchPage.value) - 1) * pageSize.value + 1
-  return s > 0 ? s.toLocaleString() : '0'
+  return s > 0 ? fmt.int(s) : '0'
 })
 
 const pageEnd = computed(() => {
   const e = Math.min(Number(searchPage.value) * pageSize.value, searchResult.value.total || 0)
-  return e.toLocaleString()
+  return fmt.int(e)
 })
 
 const pageRange = computed(() => {
@@ -1045,7 +1059,7 @@ function fmtCell(v) {
   if (v === null || v === undefined || v === '') return '--'
   const n = Number(v)
   if (isNaN(n)) return v
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmt.price(n).replace('¥', '')  // 表格里不需要货币符,只显示数字部分
 }
 
 // Price highlight
@@ -1295,10 +1309,16 @@ function restoreFromQuery() {
     searchCategoryCode.value = String(q.category_code)
     searchCategoryLevel.value = String(q.category_level || 'l3')
   }
+  // 日期范围：URL 有则用 URL,无则默认 7 天(A.2026-07-12 P0:首屏不再空白)
+  if (q.date_from || q.date_to) {
+    if (q.date_from) dateFrom.value = String(q.date_from)
+    if (q.date_to) dateTo.value = String(q.date_to)
+    dateRangeKey.value = 'custom'
+  } else if (dateRangeKey.value === 'all' && !dateFrom.value && !dateTo.value) {
+    applyDatePreset({ key: '7d', label: '近 7 天' })
+  }
   if (q.price_min) priceMin.value = String(q.price_min)
   if (q.price_max) priceMax.value = String(q.price_max)
-  if (q.date_from) dateFrom.value = String(q.date_from)
-  if (q.date_to) dateTo.value = String(q.date_to)
 }
 
 // 将当前筛选状态同步到 URL query(不刷页)

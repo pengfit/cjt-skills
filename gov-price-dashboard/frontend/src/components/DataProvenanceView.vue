@@ -23,11 +23,21 @@
         >
           <div class="pipeline-card-header">
             <span class="pipeline-card-city">{{ pipe.city_label }}</span>
+            <button
+              class="pipeline-sync-btn"
+              :disabled="!!dwsRunning[key]"
+              :title="`立即重跑 DWD→DWS 同步（${pipe.city_label}）`"
+              @click.stop="runFlushDws(key)"
+            >
+              <span v-if="dwsRunning[key]" class="spinner"></span>
+              <span v-else>⟳</span>
+              {{ dwsRunning[key] ? '同步中' : '同步' }}
+            </button>
           </div>
           <div class="pipeline-card-stages">
             <div class="pipe-stage stage-ods">
               <div class="pipe-stage-label stage-ods-label">ODS</div>
-              <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
+              <div class="pipe-stage-count">{{ fmt.int(pipe.ods?.count) }}<span class="pipe-stage-unit">条</span></div>
             </div>
             <div class="pipe-stage-arrow stage-arrow-dwd">
               <span class="arrow-label">→</span>
@@ -38,7 +48,7 @@
             <div class="pipe-stage scrape-stage stage-dwd" :style="{ '--pct': dwdPct(pipe) }" :class="{ disabled: !pipe.dwd?.count }">
               <div class="scrape-inner" @click.stop="openDwdDrilldown(key, pipe)">
                 <div class="pipe-stage-label stage-dwd-label">DWD</div>
-                <div class="pipe-stage-count">{{ pipe.dwd?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
+                <div class="pipe-stage-count">{{ fmt.int(pipe.dwd?.count) }}<span class="pipe-stage-unit">条</span></div>
               </div>
               <div class="stage-dwd-right">
                 <div class="coverage-ring" :class="dwdSyncClass(dwdSyncRate(pipe))" :title="`ODS 分类成功比例: ${dwdSyncRate(pipe)}%（DWD/ODS）`" @click.stop="openDwdDrilldown(key, pipe)">
@@ -63,7 +73,7 @@
             <div class="pipe-stage scrape-stage stage-dws" :style="{'--pct': dwsPct(pipe)}" :class="{ disabled: !pipe.dws?.count }">
               <div class="scrape-inner">
                 <div class="pipe-stage-label stage-dws-label">DWS</div>
-                <div class="pipe-stage-count">{{ pipe.dws?.count?.toLocaleString() || "0" }}<span class="pipe-stage-unit">条</span></div>
+                <div class="pipe-stage-count">{{ fmt.int(pipe.dws?.count) }}<span class="pipe-stage-unit">条</span></div>
               </div>
               <div class="stage-dws-right">
                 <div class="coverage-ring" :class="dwsSyncClass(dwsSyncRate(pipe))" :title="`DWS 同步率: ${dwsSyncRate(pipe)}%（DWS/DWD）`">
@@ -235,6 +245,14 @@
       </div>
     </div>
 
+    <!-- 同步 toast(C.2026-07-12 P0) -->
+    <Transition name="fade">
+      <div v-if="syncToast.show" class="sync-toast" :class="'sync-toast--' + syncToast.type">
+        <span class="sync-toast-icon">{{ syncToast.type === 'ok' ? '✓' : syncToast.type === 'error' ? '✕' : '⏳' }}</span>
+        <span class="sync-toast-msg">{{ syncToast.msg }}</span>
+      </div>
+    </Transition>
+
 </template>
 
 <script setup>
@@ -243,6 +261,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { useEcharts } from '../composables/useEcharts'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 import SpecQualityPanel from './SpecQualityPanel.vue'
 import SpecSamplePanel from './SpecSamplePanel.vue'
 import SkeletonCard from './SkeletonCard.vue'
@@ -271,6 +290,8 @@ const data = ref({
 const selectedCityData = ref({})
 const specQuality = ref({})
 const dwdDrilldownCity = ref(null)
+// D.2026-07-12 统一数字格式化
+const fmt = useFormatNumber()
 const coverageByCity = ref({})  // { city: { rate, with_attr, needs_parse, total } }
 let chartIns = null
 
@@ -324,7 +345,7 @@ function formatDelta(src, dst) {
   if (!s) return ''
   const diff = s - d
   if (diff === 0) return '±0'
-  return (diff > 0 ? '−' : '+') + Math.abs(diff).toLocaleString()
+  return (diff > 0 ? '−' : '+') + fmt.int(Math.abs(diff))
 }
 
 function dwdDeltaClass(pipe) {
@@ -346,16 +367,31 @@ function dwsDeltaClass(pipe) {
   return Math.abs(diff) / dwd > 0.05 ? 'delta-warn' : 'delta-ok'
 }
 
+// 轻量 toast(C.2026-07-12 P0:同步反馈)
+const syncToast = ref({ show: false, msg: '', type: 'info' })
+let _syncToastTimer = null
+function showSyncToast(msg, type = 'info') {
+  syncToast.value = { show: true, msg, type }
+  if (_syncToastTimer) clearTimeout(_syncToastTimer)
+  _syncToastTimer = setTimeout(() => { syncToast.value.show = false }, 3500)
+}
+
 async function runFlushDws(city) {
   dwsRunning.value = { ...dwsRunning.value, [city]: true }
   try {
-    await axios.post(`${API}/stats/provenance/flush-city`, { city })
+    const { data } = await axios.post(`${API}/stats/provenance/flush-city`, { city })
+    if (data?.ok) {
+      showSyncToast(`${city} 同步完成 · DWS ${data.dws_synced ?? 0} 条`, 'ok')
+    } else {
+      showSyncToast(`${city} 同步失败: ${data?.message || '未知错误'}`, 'error')
+    }
   } catch (e) {
     console.error('flush-city failed', e)
+    showSyncToast(`${city} 同步失败: ${e.message || '网络错误'}`, 'error')
   } finally {
     dwsRunning.value = { ...dwsRunning.value, [city]: false }
+    loadData()
   }
-  loadData()
 }
 
 function toggleScrapeCounties(city, pipe) {
@@ -623,7 +659,7 @@ function coverageClass(c) {
 function coverageTooltip(c) {
   if (!c) return '加载中...'
   if (c.total === 0) return '该城市 DWD 暂无数据'
-  return `attr 覆盖率: ${c.rate.toFixed(1)}%\n已解析: ${c.with_attr.toLocaleString()}\n待解析: ${c.needs_parse.toLocaleString()}\n总计: ${c.total.toLocaleString()}`
+  return `attr 覆盖率: ${fmt.pct(c.rate, 1)}\n已解析: ${fmt.int(c.with_attr)}\n待解析: ${fmt.int(c.needs_parse)}\n总计: ${fmt.int(c.total)}`
 }
 
 async function renderChart() {
@@ -646,7 +682,7 @@ async function renderChart() {
       backgroundColor: 'rgba(255,255,255,0.98)',
       borderColor: 'rgba(241,245,249,0.6)',
       textStyle: { color: '#1e293b', fontSize: 12 },
-      formatter: (params) => `${params[0].name}<br/>入库 <b>${params[0].value?.toLocaleString()}</b> 条`,
+      formatter: (params) => `${params[0].name}<br/>入库 <b>${fmt.int(params[0].value)}</b> 条`,
     },
     xAxis: {
       type: 'category',
@@ -1035,6 +1071,69 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 .pipeline-card-city { font-size: 13px; font-weight: 700; color: #1e293b; }
+
+/* 立即同步按钮(C.2026-07-12 P0)：调 /api/stats/provenance/flush-city */
+.pipeline-sync-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  font-size: 11px; font-weight: 600;
+  color: var(--primary-light, var(--primary));
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.pipeline-sync-btn:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+}
+.pipeline-sync-btn:active:not(:disabled) { transform: translateY(0); }
+.pipeline-sync-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  background: rgba(37,99,235,0.04);
+}
+.pipeline-sync-btn .spinner {
+  width: 10px; height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: sync-spin 0.8s linear infinite;
+}
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+
+/* 同步 toast(C.2026-07-12 P0) */
+.sync-toast {
+  position: fixed;
+  right: 28px; bottom: 28px;
+  z-index: 9999;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 18px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(15,23,42,0.18), 0 2px 4px rgba(15,23,42,0.08);
+  font-size: 13px; font-weight: 500;
+  min-width: 220px; max-width: 420px;
+}
+.sync-toast--ok    { border-left: 3px solid var(--status-ok); }
+.sync-toast--error { border-left: 3px solid var(--status-alert); }
+.sync-toast--info  { border-left: 3px solid var(--primary); }
+.sync-toast-icon   { font-size: 16px; flex-shrink: 0; }
+.sync-toast--ok .sync-toast-icon    { color: var(--status-ok); }
+.sync-toast--error .sync-toast-icon { color: var(--status-alert); }
+.sync-toast--info .sync-toast-icon  { color: var(--primary); }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.22s, transform 0.22s; }
+.fade-enter-from { opacity: 0; transform: translateY(8px); }
+.fade-leave-to   { opacity: 0; transform: translateY(8px); }
 .pipeline-card-stages {
   display: flex;
   align-items: stretch;

@@ -49,16 +49,21 @@
           <div
             v-for="p in provinceData"
             :key="p.province"
-            class="province-chart-cell"
+            class="province-chart-cell province-chart-cell-clickable"
             :data-province="p.province"
             :style="{ '--province-color': getProvinceColor(p.province) }"
+            :title="`点击查看 ${p.province} 全部数据 →`"
+            @click="goProvince(p.province)"
+            role="button"
+            tabindex="0"
+            @keyup.enter="goProvince(p.province)"
           >
             <div class="province-chart-header">
               <span class="province-dot"></span>
               <div class="province-chart-title">{{ p.province }}</div>
             </div>
             <div class="province-chart-stats">
-              <span class="province-count">{{ p.count.toLocaleString() }}</span>
+              <span class="province-count">{{ fmt.int(p.count) }}</span>
             </div>
             <div :id="'provinceChart_' + p.province" class="province-chart-box"></div>
           </div>
@@ -80,7 +85,7 @@
         <tbody>
           <tr v-for="item in rangeData" :key="item.range">
             <td><span class="range-badge">{{ item.range }}</span></td>
-            <td class="text-right">{{ item.count.toLocaleString() }}</td>
+            <td class="text-right">{{ fmt.int(item.count) }}</td>
             <td class="text-left">
               <div class="pct-bar-wrap">
                 <div class="pct-bar" :style="{ width: getPct(item.count) + '%', background: getRangeColor(item.range) }"></div>
@@ -104,9 +109,11 @@ import StatCard from './StatCard.vue'
 import ErrorState from './ErrorState.vue'
 import SkeletonChart from './SkeletonChart.vue'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
 import { useEcharts } from '../composables/useEcharts'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 import { markRaw } from 'vue'
 
 onUnmounted(() => {
@@ -122,6 +129,15 @@ const props = defineProps({
 })
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const router = useRouter()
+// D.2026-07-12 统一数字格式化
+const fmt = useFormatNumber()
+
+// 底部省小图点击下钻到全部数据页(B.2026-07-12 P0)
+function goProvince(prov) {
+  if (!prov) return
+  router.push({ path: '/list', query: { province: prov } })
+}
 const loading = ref(false)
 const error = ref('')
 const rangeData = ref([])
@@ -288,7 +304,7 @@ async function renderRangeBar() {
       textStyle: { color: '#0f172a', fontSize: 12 },
       formatter: params => {
         const p = params[0]
-        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${p.value.toLocaleString()}</b> 条<br/>占比: <b>${getPct(p.value)}%</b>`
+        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${fmt.int(p.value)}</b> 条<br/>占比: <b>${fmt.pct(getPct(p.value))}</b>`
       }
     },
     grid: { left: '8%', right: '4%', bottom: '12%', top: '12%', containLabel: true },
@@ -382,9 +398,9 @@ async function renderOneProvince(province) {
         const p = params[0]
         const total = values.reduce((s, v) => s + v, 0)
         const pct = total ? ((p.value / total) * 100).toFixed(1) : '0'
-        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${p.value.toLocaleString()}</b> 条<br/>占比: <b>${pct}%</b><br/>${province} 总量: <b>${p.count?.toLocaleString() || total.toLocaleString()}</b>`
+        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${fmt.int(p.value)}</b> 条<br/>占比: <b>${fmt.pct(pct)}</b><br/>${province} 总量: <b>${fmt.int(p.count || total)}</b>`
       },
-      formatter: p => `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${Number(p.value).toLocaleString()}</b>`
+      formatter: p => `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${fmt.int(p.value)}</b>`
     },
     xAxis: {
       type: 'category',
@@ -514,6 +530,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
   box-shadow: var(--shadow-sm);
   overflow: visible;
   height: 260px;
+  position: relative;
 }
 
 .province-chart-cell:hover {
@@ -521,6 +538,33 @@ onMounted(() => { mountedRef.value = true; loadData() })
   border-color: var(--province-color, var(--primary));
   box-shadow: var(--shadow-lg);
 }
+
+/* 底部省小图 → 可点击下钻(B.2026-07-12 P0) */
+.province-chart-cell-clickable {
+  cursor: pointer;
+}
+.province-chart-cell-clickable:hover {
+  background: rgba(var(--primary-rgb), 0.04);
+  border-color: var(--province-color, var(--primary));
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--province-color, var(--primary));
+}
+.province-chart-cell-clickable:active {
+  transform: translateY(0);
+}
+.province-chart-cell-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.province-chart-cell-clickable::after {
+  content: '→';
+  position: absolute;
+  right: 8px; bottom: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.province-chart-cell-clickable:hover::after { opacity: 0.7; }
 
 .province-chart-header {
   display: flex;

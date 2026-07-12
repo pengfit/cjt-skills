@@ -130,7 +130,7 @@
         </span>
         <span class="sum-pill">
           <span class="sum-emoji">📦</span>
-          共 <strong>{{ summaryTotal.docs.toLocaleString() }}</strong> 样本 / {{ summaryTotal.spec_groups }} spec
+          共 <strong>{{ fmtInt(summaryTotal.docs) }}</strong> 样本 / {{ summaryTotal.spec_groups }} spec
         </span>
         <span class="sum-sep" aria-hidden="true">|</span>
         <template v-for="s in data.series" :key="s.city">
@@ -376,6 +376,7 @@ import SectionHeader from './SectionHeader.vue'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
+import { fmtInt } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
