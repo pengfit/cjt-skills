@@ -88,7 +88,35 @@
                 <span>📦 {{ expandedBreed }}</span>
                 <span class="breed-detail-sub">规格价格分析｜共 {{ breedDetail.total_records?.toLocaleString() }} 条记录</span>
               </div>
-              <button class="btn-back" @click.stop="expandedBreed = null">✕ 关闭</button>
+              <div class="breed-detail-actions">
+                <button class="btn-trend" @click.stop="goTrend(expandedBreed)" title="跳到价格走势页查看该品种趋势">
+                  📈 查看趋势
+                </button>
+                <button class="btn-back" @click.stop="expandedBreed = null">✕ 关闭</button>
+              </div>
+            </div>
+            <!-- KPI 概览条 (P2-6) -->
+            <div class="breed-kpi-bar" v-if="pagedSpecs.length">
+              <span class="kpi-chip">
+                <span class="kpi-label">规格</span>
+                <span class="kpi-value">{{ currentSpecTotal.toLocaleString() }}</span>
+              </span>
+              <span class="kpi-chip">
+                <span class="kpi-label">省份</span>
+                <span class="kpi-value">{{ breedKpi.cityCount }}</span>
+              </span>
+              <span class="kpi-chip">
+                <span class="kpi-label">最低</span>
+                <span class="kpi-value price-low">{{ fmtPrice(breedKpi.minPrice) }}</span>
+              </span>
+              <span class="kpi-chip">
+                <span class="kpi-label">最高</span>
+                <span class="kpi-value price-high">{{ fmtPrice(breedKpi.maxPrice) }}</span>
+              </span>
+              <span class="kpi-chip kpi-avg" v-if="breedKpi.avgPrice">
+                <span class="kpi-label">总均价</span>
+                <span class="kpi-value">{{ fmtPrice(breedKpi.avgPrice) }}</span>
+              </span>
             </div>
             <!-- Unit tabs -->
             <div class="unit-tabs" v-if="breedDetail.units?.length > 1">
@@ -151,6 +179,7 @@
 import ErrorState from './ErrorState.vue'
 import SkeletonCard from './SkeletonCard.vue'
 import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
 import { useEcharts } from '../composables/useEcharts'
@@ -200,6 +229,31 @@ const currentUnitData = computed(() => {
   if (!breedDetail.value.units?.length) return null
   return breedDetail.value.units.find(u => u.key === selectedUnit.value) || breedDetail.value.units[0]
 })
+
+// 品种详情 KPI (P2-6):价格区间 / 省份数 / 总均价
+const breedKpi = computed(() => {
+  const specs = pagedSpecs.value || []
+  if (!specs.length) return { cityCount: 0, minPrice: 0, maxPrice: 0, avgPrice: 0 }
+  const provinces = new Set(specs.map(s => s.province).filter(Boolean))
+  let minP = Infinity, maxP = -Infinity, sumC = 0, sumAvg = 0
+  specs.forEach(s => {
+    if (s.min_price != null && s.min_price < minP) minP = s.min_price
+    if (s.max_price != null && s.max_price > maxP) maxP = s.max_price
+    if (s.count) { sumC += s.count; sumAvg += s.avg_price * s.count }
+  })
+  return {
+    cityCount: provinces.size,
+    minPrice: minP === Infinity ? 0 : minP,
+    maxPrice: maxP === -Infinity ? 0 : maxP,
+    avgPrice: sumC ? sumAvg / sumC : 0,
+  }
+})
+
+// 跳转到趋势页看该品种
+const router = useRouter()
+function goTrend(breed) {
+  router.push({ path: '/trend', query: { tab: 'compare', breed } })
+}
 
 // 品种展开时重置页码和单位
 watch(expandedBreed, async (val) => {
@@ -1111,6 +1165,59 @@ onMounted(() => loadCategories())
   background: rgba(37,99,235,0.06);
   border-bottom: 1px solid #e2e8f0;
 }
+
+.breed-detail-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.btn-trend {
+  padding: 4px 10px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-trend:hover {
+  background: var(--primary-soft);
+}
+
+/* KPI 概览条 (P2-6) */
+.breed-kpi-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.kpi-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  font-size: 12px;
+}
+.kpi-chip .kpi-label {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.kpi-chip .kpi-value {
+  font-weight: 700;
+  font-family: var(--font-mono-num);
+  color: var(--text);
+}
+.kpi-chip .kpi-value.price-low { color: var(--success); }
+.kpi-chip .kpi-value.price-high { color: var(--danger); }
+.kpi-avg { border-color: var(--primary); background: var(--primary-light); }
+.kpi-avg .kpi-value { color: var(--primary); }
 
 .breed-detail-title {
   display: flex;
