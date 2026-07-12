@@ -1,6 +1,9 @@
 <template>
   <div class="dashboard with-sidebar" :class="{ 'mobile-sidebar-open': mobileSidebarOpen }">
 
+    <!-- ========== SKIP LINK (a11y 2026-07-12 P2-3) ========== -->
+    <a href="#main-content" class="skip-link">跳到主内容</a>
+
     <!-- ========== TOP BAR（统一 TopBar.vue） ========== -->
     <TopBar
       :overview="overview"
@@ -25,7 +28,7 @@
     />
 
     <!-- ========== MAIN CONTENT ========== -->
-    <main class="main-content">
+    <main id="main-content" class="main-content" tabindex="-1">
 
     <!-- Filter Bar (full-width, above main content) -->
     <template v-if="currentTab === 'list'">

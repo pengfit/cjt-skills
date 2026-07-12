@@ -21,6 +21,7 @@
         :to="item.path"
         class="sidebar-item"
         :class="{ active: currentTab === item.key }"
+        :aria-keyshortcuts="item.shortcut ? item.shortcut : undefined"
         @click="$emit('navigate')"
       >
         <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>

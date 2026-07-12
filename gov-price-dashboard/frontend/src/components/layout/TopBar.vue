@@ -315,6 +315,36 @@ defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health'])
 }
 
 /* ============================================================
+   A11Y (P2-3): 跳过链接 - 让 Tab 用户第一下跳过整条侧栏
+   ============================================================ */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 14px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.25);
+  transition: top 0.15s ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 8px;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+/* main 区域 tabindex=-1 焦点环 (避免粗黑环) */
+.main-content:focus,
+.main-content:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
    移动端:meta 整体隐藏(释放空间);断点跟 style.css @media 同步
    ============================================================ */
 @media (max-width: 768px) {
