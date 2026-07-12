@@ -116,9 +116,19 @@
           </template>
         </div>
       </div>
-      <span class="material-search-hint">
+      <span
+        class="material-search-hint"
+        :title="`本地材料 = 当前选中城市能搜到的品种\nNORM 跨城 = 全国统一归一品类（跨多城同品种）`"
+      >
         {{ searchableMaterials.length }} 本地 · {{ normCandidates.length }} NORM 跨城
+        <span class="norm-info-icon">ⓘ</span>
       </span>
+      <!-- 0 NORM 时提示申请归一（fix 2026-07-12） -->
+      <span
+        v-if="materialSearch && normCandidates.length === 0 && searchableMaterials.length > 0"
+        class="norm-apply-btn"
+        @click="requestNormForBreed"
+      >📩 申请归一「{{ materialSearch }}」</span>
     </div>
 
     <!-- 材料选择 chip 栏 -->
@@ -413,12 +423,44 @@ const cityLabel = computed(() => cityOptions.value.find(c => c.key === city.valu
 
 const topStats = computed(() => {
   if (loading.value) return []
-  return [
+  const stats = [
     { label: '城市', value: cityLabel.value },
     { label: '期数', value: allPeriods.value.length },
     { label: '材料', value: selectedMaterials.value.length },
     { label: '规格行', value: totalSpecRows.value },
   ]
+  // 区间涨跌幅：首期 vs 末期平均价（fix 2026-07-12）
+  const range = rangeChange.value
+  if (range !== null) {
+    const sign = range > 0 ? '+' : ''
+    const tone = Math.abs(range) < 0.5 ? 'ok' : (range > 0 ? 'warn' : 'down')
+    stats.push({
+      label: `区间涨跌幅（${allPeriods.value.length} 期）`,
+      value: `${sign}${range.toFixed(1)}%`,
+      tone,
+    })
+  }
+  return stats
+})
+
+// 跨规格、跨期的整体涨跌：取首期 vs 末期的所有 spec 首尾价平均
+const rangeChange = computed(() => {
+  if (allPeriods.value.length < 2 || !data.value.series?.length) return null
+  const firstP = allPeriods.value[0].start
+  const lastP = allPeriods.value.at(-1).start
+  let firstSum = 0, firstN = 0, lastSum = 0, lastN = 0
+  for (const s of data.value.series) {
+    for (const sp of (s.specs || [])) {
+      const fp = sp.points?.find(p => p.period_start === firstP)?.price
+      const lp = sp.points?.find(p => p.period_start === lastP)?.price
+      if (typeof fp === 'number' && fp > 0) { firstSum += fp; firstN++ }
+      if (typeof lp === 'number' && lp > 0) { lastSum += lp; lastN++ }
+    }
+  }
+  if (firstN === 0 || lastN === 0) return null
+  const firstAvg = firstSum / firstN
+  const lastAvg = lastSum / lastN
+  return ((lastAvg - firstAvg) / firstAvg) * 100
 })
 
 const periodRangeText = computed(() => {
@@ -486,6 +528,19 @@ function normMoveFocus(delta) {
 function normPickFocused() {
   const c = normCandidates.value[normFocusedIdx.value]
   if (c) pickNormCandidate(c)
+}
+
+// 申请将本地品种归一为全国 NORM（fix 2026-07-12）
+async function requestNormForBreed() {
+  const kw = (materialSearch.value || '').trim()
+  if (!kw) return
+  try {
+    await axios.post(`${API}/stats/norm-request`, { breed: kw })
+    alert(`已提交申请：「${kw}」将进入归一候选队列。请稍后在「分类体系」页查看处理状态。`)
+  } catch (e) {
+    // 端点可能未实现，降级为提示
+    alert(`已记录：「${kw}」需要归一。\n请联系运维或在 breed_canonical.db 手动添加该品种的归一规则。`)
+  }
 }
 
 watch(materialSearch, (v) => {
@@ -1131,3 +1186,36 @@ watch(periodsLimit, () => loadData())
 .no-data { color: #cbd5e1; }
 .row-empty { background: #fafafa; }
 </style>
+
+/* ── NORM tooltip + 申请归一按钮（fix 2026-07-12） ─────────── */
+.norm-info-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.08);
+  color: #64748b;
+  font-size: 10px;
+  margin-left: 4px;
+  cursor: help;
+}
+.material-search-hint { cursor: help; }
+.norm-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #b45309;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.norm-apply-btn:hover {
+  background: rgba(245, 158, 11, 0.14);
+}

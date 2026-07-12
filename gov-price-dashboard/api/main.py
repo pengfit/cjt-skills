@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch, NotFoundError, RequestError, ConnectionError as ESConnectionError, ConnectionTimeout
 from typing import Optional
@@ -90,6 +90,22 @@ def safe_count(es, index, body=None, default=0):
         return default
     except Exception as e:
         print(f"[warn] safe_count: {type(e).__name__}: {e}")
+        return default
+
+
+def safe_total_count(es, index, body=None, default=0):
+    """安全 ES search(track_total_hits) 返回的精确总数。
+    比 safe_count 性能差一点但跨分片精确，不会被 10000 上限卡。
+    用于仪表盘 total_docs 等需要精确值的场景。
+    """
+    try:
+        payload = {"size": 0, "track_total_hits": True}
+        if body:
+            payload.update(body)
+        r = safe_search(es, index, payload, default={"hits": {"total": {"value": default}}})
+        return r.get("hits", {}).get("total", {}).get("value", default)
+    except Exception as e:
+        print(f"[warn] safe_total_count: {type(e).__name__}: {e}")
         return default
 
 # 新增 ALL_DWD_INDICES（规格质量 / 分类校对 / 字段追溯场景用）
@@ -391,9 +407,11 @@ def overview(
         "aggs": {
             "provinces": {"cardinality": {"field": "province"}},
             "cities": {"cardinality": {"field": "city"}},
+            # 价贝用 percentiles 而非 raw max/min，过滤掉异常值（fix 2026-07-12）
+            # p99.9 约 40万，能涵盖 99.9% 数据，避开 8亿 outlier
             "avg_price": {"avg": {"field": "price"}},
-            "max_price": {"max": {"field": "price"}},
-            "min_price": {"min": {"field": "price"}},
+            "max_price": {"percentiles": {"field": "price", "percents": [99.9]}},
+            "min_price": {"percentiles": {"field": "price", "percents": [1.0]}},
             "by_province": {
                 "terms": {"field": "province", "size": 30},
                 "aggs": {
@@ -427,9 +445,9 @@ def overview(
             "message": "ES 中无业务数据，请先运行采集/ETL 重建数据",
         }
     try:
-        # 用 _count API 获取真实总数
-        total_result = safe_search(es, ALL_INDICES, {"query": query})
-        total_docs = total_result.get("count", 0)
+        # search 返回的是 hits.total.value，不是 count 字段（fix 2026-07-12）
+        # track_total_hits=true 让 ES 返回精确总数（否则默认 10000 上限）
+        total_docs = safe_total_count(es, ALL_INDICES, {"query": query})
 
         result = safe_search(es, ALL_INDICES, body)
         aggs = result.get("aggregations", {})
@@ -439,8 +457,9 @@ def overview(
             "total_provinces": aggs.get("provinces", {}).get("value", 0),
             "total_cities": aggs.get("cities", {}).get("value", 0),
             "avg_price": round(aggs.get("avg_price", {}).get("value") or 0, 2),
-            "max_price": aggs.get("max_price", {}).get("value") or 0,
-            "min_price": aggs.get("min_price", {}).get("value") or 0,
+            # percentiles 返回 {"99.9": 12345.6}，取值与 0 兜底
+            "max_price": round((aggs.get("max_price", {}).get("values", {}) or {}).get("99.9", 0) or 0, 2),
+            "min_price": round((aggs.get("min_price", {}).get("values", {}) or {}).get("1.0", 0) or 0, 2),
             "by_province": [
                 {
                     "province": b["key"],
@@ -1405,11 +1424,41 @@ def skill_updates():
             city_key, payload = f.result()
             results[city_key] = payload
 
+    # 兜底：从 ES DWS 索引取最新 period_end 作为 last_updated（fix 2026-07-12）
+    # 新疆/西安等 sync-progress 端点未填 last_updated 时使用这个
+    def fetch_es_fallback(city_key):
+        """从 ES 该城市的 DWS 索引聚合最新 period_end"""
+        try:
+            # 从 skill registry 查 dws_index
+            for s in _registry_get_all():
+                if s.get("key") == city_key:
+                    dws = s.get("dws_index")
+                    if not dws:
+                        return None
+                    r = es.search(
+                        index=dws,
+                        body={"size": 0, "aggs": {"max_date": {"max": {"field": "period_end"}}}},
+                        ignore_unavailable=True,
+                        allow_no_indices=True,
+                    )
+                    val = r.get("aggregations", {}).get("max_date", {}).get("value")
+                    if val:
+                        # ES 返回的是毫秒时间戳，转 ISO
+                        return datetime.fromtimestamp(val / 1000).isoformat(timespec="seconds")
+                    return None
+        except Exception:
+            return None
+
     now = datetime.now()
     updates = []
     for city_key, city_label, _ in cities:
         data = results.get(city_key) or {}
         last_updated = data.get("last_updated", "")
+        # 兜底：如果 sync-progress 没填，且 data 里有 ds_total > 0，去 ES 查 DWS 最新 period_end
+        if not last_updated and (data.get("total_docs") or 0) > 0:
+            es_fallback = fetch_es_fallback(city_key)
+            if es_fallback:
+                last_updated = es_fallback
         hours_since = None
         status = "no_data"
         if last_updated:
@@ -1972,3 +2021,38 @@ if __name__ == "__main__":
 
 
 # ============================================================
+
+
+# ── 归一申请（fix 2026-07-12：趋势页一键申请归一）────────────
+@app.post("/api/stats/norm-request")
+def norm_request(req: dict = Body(...)):
+    """记录用户提交的归一申请。
+    落地路径：写入 workspace/scripts/norm_requests.log，便于离线批处理。
+    重复提交去重（同品种 24h 内不重复记录）。
+    """
+    breed = (req.get("breed") or "").strip()
+    if not breed:
+        raise HTTPException(status_code=400, detail="breed 必填")
+
+    import os
+    from pathlib import Path
+    log_path = Path.home() / ".openclaw" / "workspace" / "scripts" / "norm_requests.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 24h 内去重
+    now = datetime.now()
+    if log_path.exists():
+        with open(log_path) as f:
+            for line in f.readlines()[-50:]:  # 只看最近 50 行
+                parts = line.strip().split("\t")
+                if len(parts) >= 2 and parts[1] == breed:
+                    try:
+                        last_ts = datetime.fromisoformat(parts[0])
+                        if (now - last_ts).total_seconds() < 86400:
+                            return {"ok": True, "duplicate": True, "breed": breed}
+                    except Exception:
+                        pass
+
+    with open(log_path, "a") as f:
+        f.write(f"{now.isoformat()}\t{breed}\tuser_requested\n")
+    return {"ok": True, "breed": breed, "logged": str(log_path)}

@@ -236,7 +236,7 @@
           <span class="footer-label">属性 OK</span>
           <span class="footer-value mono">{{ syncOkCount }}</span>
         </div>
-        <div class="footer-cell">
+        <div class="footer-cell" :title="`超过 ${STALE_THRESHOLD_DAYS} 天未更新`">
           <span class="footer-label">过期</span>
           <span class="footer-value mono" :class="{ 'status-warn': staleCount > 0 }">{{ staleCount }}</span>
         </div>
@@ -244,9 +244,11 @@
           <span class="footer-label">告警</span>
           <span class="footer-value mono" :class="{ 'status-warn': alertCount > 0 }">{{ alertCount }}</span>
         </div>
-        <div class="footer-cell">
+        <div class="footer-cell" :title="staleCount > 0 ? `⚠ ${staleCount} 个城市超过 ${STALE_THRESHOLD_DAYS} 天未更新` : ''">
           <span class="footer-label">数据质量</span>
-          <span class="footer-value status-ok">● {{ kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR' }}</span>
+          <span class="footer-value" :class="staleCount > 5 ? 'status-warn' : 'status-ok'">
+            ● {{ staleCount > 5 ? '需关注' : (kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR') }}
+          </span>
         </div>
       </div>
 
@@ -305,14 +307,17 @@ const alertCount = computed(() => {
   return Object.values(data.all_cities || {}).filter(c => attrRate(c) < 80).length
 })
 
+// 与右下 Skill 更新记录卡片统一 7 天阈值（fix 2026-07-12）
+const STALE_THRESHOLD_DAYS = 7
+
 const staleCount = computed(() => {
-  // 简易 stale 判定：scrape 超过 30 天未更新
+  // 与 skill-updates 接口 hours_since 阈值一致
   const now = new Date()
   return Object.values(data.all_cities || {}).filter(c => {
     const lu = c.scrape?.last_updated
     if (!lu) return false
     const days = (now - new Date(lu)) / 86400000
-    return days > 30
+    return days > STALE_THRESHOLD_DAYS
   }).length
 })
 
@@ -414,25 +419,23 @@ async function loadData() {
   try {
     const r = await axios.get(`${API}/stats/provenance`)
     Object.assign(data, r.data || {})
-    // 补每个城市的 attr 覆盖率
+    // 补每个城市的 attr 覆盖率（fix 2026-07-12：聚合端点一次拉全）
     const cities = Object.keys(data.all_cities || {})
-    const results = await Promise.allSettled(
-      cities.map(city =>
-        axios.get(`${API}/stats/spec-quality`, { params: { city, _sample: false } })
-          .then(r => ({ city, data: r.data }))
-      )
-    )
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        const { city, data: sq } = r.value
-        const cov = sq.coverage || []
-        const total = cov.reduce((s, c) => s + (c.total || 0), 0)
-        const withAttr = cov.reduce((s, c) => s + (c.with_attr || 0), 0)
-        const rate = total > 0 ? (withAttr / total) * 100 : 0
+    try {
+      const allRes = await axios.get(`${API}/stats/spec-quality-all`, { params: { cities: cities.join(',') } })
+      const citiesData = allRes.data?.cities || {}
+      for (const city of cities) {
+        const sq = citiesData[city] || {}
         if (data.all_cities[city]) {
-          data.all_cities[city].coverage = { rate, with_attr: withAttr, total }
+          data.all_cities[city].coverage = {
+            rate: sq.rate || 0,
+            with_attr: sq.with_attr || 0,
+            total: sq.total || 0,
+          }
         }
       }
+    } catch (e) {
+      console.warn('spec-quality-all 失败:', e?.message)
     }
     // 并行拉 skill-updates（不阻塞主流程）
     axios.get(`${API}/skill-updates`).then(su => {

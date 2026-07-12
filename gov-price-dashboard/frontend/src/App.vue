@@ -19,6 +19,16 @@
           <span class="meta-label">城市</span>
           <span class="meta-value">{{ overview.total_cities }}</span>
         </span>
+        <!-- ⌘K 命令面板入口提示（fix 2026-07-12） -->
+        <button
+          class="cmd-palette-trigger"
+          @click="showCmdPalette = true"
+          title="搜索页面、命令…（⌘K / Ctrl+K）"
+        >
+          <span class="cmd-icon">🔍</span>
+          <span class="cmd-hint">搜索</span>
+          <kbd class="cmd-kbd">⌘K</kbd>
+        </button>
       </div>
     </header>
 
@@ -30,17 +40,17 @@
     <aside class="sidebar">
       <div class="sidebar-group" :data-module="group.key" v-for="group in sidebarGroups" :key="group.key">
         <div class="sidebar-group-label">{{ group.label }}</div>
-        <a
+        <!-- fix 2026-07-12：原生 <a href> 改 RouterLink，避免浏览器以为外链（target=_blank 风险） -->
+        <RouterLink
           v-for="item in group.items"
           :key="item.key"
-          :href="item.path"
+          :to="item.path"
           class="sidebar-item"
           :class="{ active: currentTab === item.key }"
-          @click.prevent="router.push(item.path)"
         >
           <span class="sidebar-icon" aria-hidden="true">{{ item.icon }}</span>
           <span class="sidebar-label">{{ item.label }}</span>
-        </a>
+        </RouterLink>
       </div>
     </aside>
 
@@ -89,6 +99,44 @@
             />
           </div>
           <!-- Price range presets exposed in drawer -->
+          <!-- 日期范围：时序看板刚需（fix 2026-07-12） -->
+          <div class="filter-group">
+            <label class="filter-label">日期范围</label>
+            <div class="date-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+              <span
+                v-for="preset in datePresets"
+                :key="preset.label"
+                class="preset-chip"
+                :class="{ active: dateRangeKey === preset.key }"
+                @click="applyDatePreset(preset)"
+              >{{ preset.label }}</span>
+              <span
+                v-if="dateRangeKey === 'custom'"
+                class="preset-chip active"
+                @click="dateRangeKey = 'all'"
+                title="清除自定义"
+              >自定义 ✓</span>
+            </div>
+            <div class="date-range-row" style="display:flex;align-items:center;gap:6px">
+              <input
+                class="price-input filter-input"
+                type="date"
+                v-model="dateFrom"
+                :max="dateTo || undefined"
+                style="width:130px"
+                @change="dateRangeKey = 'custom'"
+              />
+              <span class="price-dash">-</span>
+              <input
+                class="price-input filter-input"
+                type="date"
+                v-model="dateTo"
+                :min="dateFrom || undefined"
+                style="width:130px"
+                @change="dateRangeKey = 'custom'"
+              />
+            </div>
+          </div>
           <div class="filter-group">
             <label class="filter-label">价格区间</label>
             <div class="price-presets">
@@ -167,7 +215,7 @@
         <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
 
         <!-- Active Filter Tags (inside filter-bar) -->
-        <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategoryCode">
+        <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategoryCode || dateFrom || dateTo">
           <span class="filter-tag" v-if="searchKeyword">
             <strong>产品名称</strong>
             <em>{{ searchKeyword }}</em>
@@ -192,6 +240,11 @@
             <strong>区县</strong>
             <em>{{ searchCounty }}</em>
             <span class="tag-remove" @click="searchCounty = ''; doSearch()" role="button" aria-label="清除区县筛选" tabindex="0">✕</span>
+          </span>
+          <span class="filter-tag" v-if="dateFrom || dateTo">
+            <strong>日期</strong>
+            <em>{{ dateFrom || '*' }} → {{ dateTo || '*' }}</em>
+            <span class="tag-remove" @click="dateFrom = ''; dateTo = ''; dateRangeKey = 'all'; doSearch()" role="button" aria-label="清除日期筛选" tabindex="0">✕</span>
           </span>
           <span class="filter-tag-clear" @click="resetSearch">清空全部</span>
         </div>
@@ -634,6 +687,37 @@ const pricePresets = [
   { label: '>1万',    min: '10000', max: '' },
 ]
 
+// Date presets（fix 2026-07-12：时序看板刚需）
+const dateFrom = ref('')
+const dateTo = ref('')
+const dateRangeKey = ref('all')
+const datePresets = [
+  { key: 'all',    label: '全部' },
+  { key: '7d',     label: '近 7 天' },
+  { key: '30d',    label: '近 30 天' },
+  { key: '90d',    label: '近 90 天' },
+  { key: 'ytd',    label: '今年' },
+]
+
+function applyDatePreset(preset) {
+  dateRangeKey.value = preset.key
+  const today = new Date()
+  const fmt = d => d.toISOString().slice(0, 10)
+  dateTo.value = fmt(today)
+  if (preset.key === 'all') {
+    dateFrom.value = ''
+    dateTo.value = ''
+  } else if (preset.key === '7d') {
+    dateFrom.value = fmt(new Date(today.getTime() - 7 * 86400000))
+  } else if (preset.key === '30d') {
+    dateFrom.value = fmt(new Date(today.getTime() - 30 * 86400000))
+  } else if (preset.key === '90d') {
+    dateFrom.value = fmt(new Date(today.getTime() - 90 * 86400000))
+  } else if (preset.key === 'ytd') {
+    dateFrom.value = `${today.getFullYear()}-01-01`
+  }
+}
+
 // Toast
 const toast = ref({ show: false, msg: '', type: 'info' })
 const searchError = ref(false)
@@ -816,12 +900,18 @@ async function doSearch(pageOverride) {
     }
     if (priceMin.value) params.price_min = priceMin.value
     if (priceMax.value) params.price_max = priceMax.value
+    // 日期范围（fix 2026-07-12）
+    if (dateFrom.value) params.date_from = dateFrom.value
+    if (dateTo.value) params.date_to = dateTo.value
     params.page = Number(pageOverride || searchPage.value)
     params.page_size = Number(pageSize.value)
     if (isNaN(params.page) || params.page < 1) params.page = 1
 
     const { data: res } = await axios.get(`${API}/search`, { params })
     searchResult.value = res || {}
+
+    // 同步筛选状态到 URL（fix 2026-07-12）
+    syncToQuery()
 
     // Save search history
     if (searchKeyword.value.trim()) {
@@ -849,6 +939,9 @@ function resetSearch() {
   categoryBreadcrumb.value = []
   priceMin.value = ''
   priceMax.value = ''
+  dateFrom.value = ''
+  dateTo.value = ''
+  dateRangeKey.value = 'all'
   searchPage.value = '1'
   jumpPage.value = 1
   sortKey.value = ''
@@ -1045,26 +1138,31 @@ const CACHE_TTL = 30 * 1000  // 30s
 async function loadOverview() {
   if (_overviewCache && Date.now() - _overviewCacheAt < CACHE_TTL) {
     overview.value = _overviewCache
-    // 同步更新 categoryOptions（从 overview 复用）
-    if (_overviewCache.by_category) {
-      categoryOptions.value = _overviewCache.by_category
-        .map(c => ({ key: c.category, count: c.count, label: c.category }))
-        .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
-    }
     return _overviewCache
   }
-  // 不传搜索过滤条件，获取总览全量数据
+  // HUD 只需要 4 个数字 + 省份选项（fix 2026-07-12：categoryOptions 已独立）
   const d = await loadAPI(`${API}/stats/overview`)
   _overviewCache = d || { total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, by_province: [] }
   _overviewCacheAt = Date.now()
   overview.value = _overviewCache
-  // 复用 overview 数据填充 categoryOptions（避免重复请求）
-  if (_overviewCache.by_category) {
-    categoryOptions.value = _overviewCache.by_category
-      .map(c => ({ key: c.category, count: c.count, label: c.category }))
-      .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
-  }
   return _overviewCache
+}
+
+// 分类选项独立加载（fix 2026-07-12：避免被 overview 30s 缓存影响刷新频次）
+let _categoryCache = null
+let _categoryCacheAt = 0
+async function loadCategoryOptions() {
+  const CATEGORY_TTL = 60 * 1000  // 60s
+  if (_categoryCache && Date.now() - _categoryCacheAt < CATEGORY_TTL) {
+    categoryOptions.value = _categoryCache
+    return
+  }
+  const d = await loadAPI(`${API}/stats/categories?size=500`)
+  const list = (d?.data || []).map(c => ({ key: c.key, count: c.count, label: c.key }))
+    .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
+  _categoryCache = list
+  _categoryCacheAt = Date.now()
+  categoryOptions.value = list
 }
 
 async function loadCityOptions() {
@@ -1086,11 +1184,59 @@ async function loadCityOptions() {
 }
 
 async function onMount() {
-  // 只需调 2 个端点：overview（兼做 category）和 filter-options
-  await Promise.all([loadOverview(), loadCityOptions(), doSearch()])
+  // 需 4 个端点：overview、filter-options、categories、search
+  // 先从 URL 恢复筛选状态（fix 2026-07-12：顺序重要）
+  restoreFromQuery()
+  await Promise.all([loadOverview(), loadCityOptions(), loadCategoryOptions(), doSearch()])
+}
+
+// 从 URL query 恢复筛选状态（fix 2026-07-12）
+// 注意：onMounted 触发时 vue-router 还没把 location.search 同步到 route.query
+// 直接从 window.location.search 读，避免被“空 query”覆盖
+function readQueryFromLocation() {
+  const sp = new URLSearchParams(window.location.search)
+  const out = {}
+  for (const [k, v] of sp.entries()) out[k] = v
+  return out
+}
+
+function restoreFromQuery() {
+  const q = readQueryFromLocation()
+  if (q.keyword) searchKeyword.value = String(q.keyword)
+  if (q.province) searchProvince.value = String(q.province)
+  if (q.city) searchCity.value = String(q.city)
+  if (q.county) searchCounty.value = String(q.county)
+  if (q.category_code) {
+    searchCategoryCode.value = String(q.category_code)
+    searchCategoryLevel.value = String(q.category_level || 'l3')
+  }
+  if (q.price_min) priceMin.value = String(q.price_min)
+  if (q.price_max) priceMax.value = String(q.price_max)
+  if (q.date_from) dateFrom.value = String(q.date_from)
+  if (q.date_to) dateTo.value = String(q.date_to)
+}
+
+// 将当前筛选状态同步到 URL query（不刷页）
+function syncToQuery() {
+  if (currentTab.value !== 'list') return
+  const q = {}
+  if (searchKeyword.value.trim()) q.keyword = searchKeyword.value.trim()
+  if (searchProvince.value) q.province = searchProvince.value
+  if (searchCity.value) q.city = searchCity.value
+  if (searchCounty.value) q.county = searchCounty.value
+  if (searchCategoryCode.value) {
+    q.category_code = searchCategoryCode.value
+    q.category_level = searchCategoryLevel.value
+  }
+  if (priceMin.value) q.price_min = priceMin.value
+  if (priceMax.value) q.price_max = priceMax.value
+  if (dateFrom.value) q.date_from = dateFrom.value
+  if (dateTo.value) q.date_to = dateTo.value
+  router.replace({ query: q }).catch(() => {})
 }
 
 onMounted(() => {
+  restoreFromQuery()
   document.addEventListener('click', handleDocClick)
 })
 
@@ -1127,3 +1273,34 @@ onMounted(() => {
 
 // ============================================================
 </script>
+
+
+/* ⌘K 命令面板入口（fix 2026-07-12） */
+.cmd-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(15,23,42,0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #64748b;
+  transition: all 0.15s;
+}
+.cmd-palette-trigger:hover {
+  background: white;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+.cmd-icon { font-size: 12px; }
+.cmd-hint { font-size: 12px; }
+.cmd-kbd {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  background: rgba(15,23,42,0.06);
+  border: 1px solid rgba(15,23,42,0.1);
+  border-radius: 3px;
+  color: #475569;
+}

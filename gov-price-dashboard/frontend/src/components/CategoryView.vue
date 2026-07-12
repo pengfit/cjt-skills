@@ -47,6 +47,16 @@
       <div class="detail-section">
         <div class="section-title">
           品种列表 ({{ filteredBreeds.length }} / {{ distinctBreedCount }})
+          <button
+            v-if="!showAllBreeds && distinctBreedCount > 20"
+            class="btn-toggle-all-breeds"
+            @click="toggleShowBreeds"
+          >查看全部 {{ distinctBreedCount }} 个品种 ▸</button>
+          <button
+            v-else-if="showAllBreeds"
+            class="btn-toggle-all-breeds"
+            @click="toggleShowBreeds"
+          >▲ 收起</button>
         </div>
         <div class="breed-search-wrap">
           <input
@@ -1428,3 +1438,21 @@ onMounted(() => loadCategories())
   color: var(--primary);
 }
 </style>
+
+
+/* 品种列表「查看全部」按钮（fix 2026-07-12） */
+.btn-toggle-all-breeds {
+  margin-left: 12px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  color: #2563eb;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 400;
+}
+.btn-toggle-all-breeds:hover {
+  background: rgba(37, 99, 235, 0.06);
+}
+.section-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

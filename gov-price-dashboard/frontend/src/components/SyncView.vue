@@ -119,6 +119,7 @@ onMounted(loadStats)
 
 .sync-subtabs {
   display: flex;
+  flex-wrap: wrap;  /* fix 2026-07-12：防 hint 文字被裁 */
   gap: 4px;
   padding: 14px 20px 2px;
   border-bottom: 1px solid var(--border);

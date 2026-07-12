@@ -36,6 +36,16 @@
         <span class="meta-value">{{ overview.total_cities }}</span>
       </span>
       <span class="meta-sep" aria-hidden="true">|</span>
+      <!-- ⌘K 命令面板入口提示（fix 2026-07-12） -->
+      <button
+        class="cmd-palette-trigger"
+        @click="$emit('open-cmd-palette')"
+        title="搜索页面、命令…（⌘K / Ctrl+K）"
+      >
+        <span class="cmd-icon">🔍</span>
+        <span class="cmd-hint">搜索</span>
+        <kbd class="cmd-kbd">⌘K</kbd>
+      </button>
     </div>
   </header>
 </template>
@@ -141,3 +151,34 @@ defineEmits(['toggle-sidebar'])
   .meta-sep:not(:first-of-type) { display: none; }
 }
 </style>
+
+
+/* ⌘K 命令面板入口（fix 2026-07-12） */
+.cmd-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid rgba(15,23,42,0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #64748b;
+  transition: all 0.15s;
+}
+.cmd-palette-trigger:hover {
+  background: white;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+.cmd-icon { font-size: 12px; }
+.cmd-hint { font-size: 12px; }
+.cmd-kbd {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  background: rgba(15,23,42,0.06);
+  border: 1px solid rgba(15,23,42,0.1);
+  border-radius: 3px;
+  color: #475569;
+}

@@ -33,6 +33,7 @@
         <button class="vec-order-btn" @click="toggleOrder" title="切换升序/降序">
           {{ vecOrder === 'desc' ? '🔽 最新优先' : '🔼 最早优先' }}
         </button>
+        <button class="vec-add-btn" @click="openAddDialog" title="新增规格规则">➕ 新增</button>
         <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
           {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
         </button>
@@ -121,7 +122,15 @@
         </thead>
         <tbody>
           <tr v-for="(r, idx) in vecRules.items" :key="r.id">
-            <td class="vec-id">{{ (vecRules.page - 1) * 50 + idx + 1 }}</td>
+            <td class="vec-id">
+              <div class="vec-row-id-wrap">
+                <span>{{ (vecRules.page - 1) * 50 + idx + 1 }}</span>
+                <span class="vec-row-actions">
+                  <button class="vec-action-btn" @click="openEditDialog(r)" title="编辑">✏️</button>
+                  <button class="vec-action-btn danger" @click="confirmDelete(r)" title="删除">🗑</button>
+                </span>
+              </div>
+            </td>
             <td class="vec-breed" :title="r.breed">{{ r.breed || '—' }}</td>
             <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
             <td>{{ r.category || '—' }}</td>
@@ -164,6 +173,51 @@
         <span>条</span>
       </div>
     </div>
+
+    <!-- 新增/编辑对话框（fix 2026-07-12） -->
+    <Transition name="drawer">
+      <div class="vec-modal-mask" v-if="showDialog" @click.self="showDialog = false">
+        <div class="vec-modal">
+          <div class="vec-modal-header">
+            <span class="vec-modal-title">{{ dialogMode === 'add' ? '➕ 新增规格规则' : '✏️ 编辑规格规则' }}</span>
+            <span class="vec-modal-close" @click="showDialog = false">✕</span>
+          </div>
+          <div class="vec-modal-body">
+            <div class="vec-form-row">
+              <label class="vec-form-label">pattern *<span class="vec-form-hint">正则表达式</span></label>
+              <input v-model="dialogForm.pattern" class="vec-form-input" placeholder="例：(\d+)mm" />
+            </div>
+            <div class="vec-form-row">
+              <label class="vec-form-label">attr *<span class="vec-form-hint">提取属性</span></label>
+              <input v-model="dialogForm.attr" class="vec-form-input" placeholder="例：thickness / diameter" />
+            </div>
+            <div class="vec-form-row">
+              <label class="vec-form-label">note<span class="vec-form-hint">说明</span></label>
+              <input v-model="dialogForm.note" class="vec-form-input" placeholder="提取什么含义" />
+            </div>
+            <div class="vec-form-row">
+              <label class="vec-form-label">breed<span class="vec-form-hint">适用品种（空=全部）</span></label>
+              <input v-model="dialogForm.breed" class="vec-form-input" placeholder="例：压力变送器" />
+            </div>
+            <div class="vec-form-row">
+              <label class="vec-form-label">category<span class="vec-form-hint">适用分类</span></label>
+              <input v-model="dialogForm.category" class="vec-form-input" placeholder="例：安装工程-电气" />
+            </div>
+            <div class="vec-form-row">
+              <label class="vec-form-label">code<span class="vec-form-hint">Python 代码</span></label>
+              <textarea v-model="dialogForm.code" class="vec-form-textarea" rows="5" placeholder="m = re.search(r'...', s)&#10;if m:&#10;    result['xxx'] = m.group(1)"></textarea>
+            </div>
+            <div v-if="dialogError" class="vec-form-error">⚠ {{ dialogError }}</div>
+          </div>
+          <div class="vec-modal-footer">
+            <button class="btn-ghost" @click="showDialog = false">取消</button>
+            <button class="btn-primary" :disabled="dialogSaving" @click="submitDialog">
+              {{ dialogSaving ? '保存中...' : '✓ 保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -210,6 +264,76 @@ const vecAttrOptions = ref([])
 const vecCatOptions = ref([])
 const vecLoading = ref(false)
 const showHelp = ref(false)
+
+// ── 新增/编辑对话框状态（fix 2026-07-12） ─────────────────
+const showDialog = ref(false)
+const dialogMode = ref('add')  // 'add' | 'edit'
+const dialogSaving = ref(false)
+const dialogError = ref('')
+const dialogEditingId = ref(null)
+const dialogForm = ref({
+  pattern: '',
+  attr: '',
+  note: '',
+  breed: '',
+  category: '',
+  code: '',
+})
+
+function openAddDialog() {
+  dialogMode.value = 'add'
+  dialogEditingId.value = null
+  dialogForm.value = { pattern: '', attr: '', note: '', breed: '', category: '', code: '' }
+  dialogError.value = ''
+  showDialog.value = true
+}
+
+function openEditDialog(rule) {
+  dialogMode.value = 'edit'
+  dialogEditingId.value = rule.id
+  dialogForm.value = {
+    pattern: rule.pattern || '',
+    attr: rule.attr || '',
+    note: rule.note || '',
+    breed: rule.breed || '',
+    category: rule.category || '',
+    code: rule.code || '',
+  }
+  dialogError.value = ''
+  showDialog.value = true
+}
+
+async function submitDialog() {
+  dialogError.value = ''
+  if (!dialogForm.value.pattern.trim() || !dialogForm.value.attr.trim()) {
+    dialogError.value = 'pattern 和 attr 必填'
+    return
+  }
+  dialogSaving.value = true
+  try {
+    if (dialogMode.value === 'add') {
+      await axios.post(`${API}/stats/rules-vector`, dialogForm.value)
+    } else {
+      await axios.put(`${API}/stats/rules-vector/${dialogEditingId.value}`, dialogForm.value)
+    }
+    showDialog.value = false
+    await loadVecRules(vecRules.value.page)
+  } catch (e) {
+    dialogError.value = e?.response?.data?.detail || e.message
+  } finally {
+    dialogSaving.value = false
+  }
+}
+
+async function confirmDelete(rule) {
+  if (!window.confirm(`确认删除规则 #${rule.id}？\npattern: ${rule.pattern}\nattr: ${rule.attr}`)) return
+  try {
+    await axios.delete(`${API}/stats/rules-vector/${rule.id}`)
+    await loadVecRules(vecRules.value.page)
+  } catch (e) {
+    alert('删除失败：' + (e?.response?.data?.detail || e.message))
+  }
+}
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -460,3 +584,101 @@ onMounted(() => {
   z-index: 5;
 }
 </style>
+
+/* ── 新增/编辑对话框样式（fix 2026-07-12） ───────────────── */
+.vec-add-btn {
+  padding: 6px 12px;
+  background: var(--primary, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.vec-add-btn:hover { background: #1d4ed8; }
+
+.vec-row-id-wrap { display: flex; align-items: center; gap: 6px; }
+.vec-row-actions { display: none; gap: 2px; }
+.vec-row-id-wrap:hover .vec-row-actions { display: inline-flex; }
+.vec-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.vec-action-btn:hover { background: rgba(15, 23, 42, 0.06); }
+.vec-action-btn.danger:hover { background: rgba(239, 68, 68, 0.08); }
+
+.vec-modal-mask {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.vec-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+.vec-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(15,23,42,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.vec-modal-title { font-size: 16px; font-weight: 600; }
+.vec-modal-close {
+  cursor: pointer; font-size: 18px; color: #94a3b8;
+  padding: 4px 8px; border-radius: 4px;
+}
+.vec-modal-close:hover { background: rgba(15,23,42,0.06); }
+.vec-modal-body { padding: 20px; overflow-y: auto; }
+.vec-form-row { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
+.vec-form-label {
+  font-size: 13px; font-weight: 500; color: #475569;
+  display: flex; align-items: center; gap: 8px;
+}
+.vec-form-hint { font-size: 11px; color: #94a3b8; font-weight: 400; }
+.vec-form-input, .vec-form-textarea {
+  padding: 8px 12px;
+  border: 1px solid rgba(15,23,42,0.12);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.vec-form-input:focus, .vec-form-textarea:focus {
+  border-color: var(--primary, #2563eb);
+}
+.vec-form-textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+.vec-form-error {
+  color: #dc2626; font-size: 13px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 6px;
+  margin-top: 8px;
+}
+.vec-modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(15,23,42,0.08);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.btn-ghost {
+  padding: 8px 16px; border: 1px solid rgba(15,23,42,0.12);
+  background: white; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.btn-ghost:hover { background: rgba(15,23,42,0.04); }
+.btn-primary {
+  padding: 8px 16px; background: var(--primary, #2563eb);
+  color: white; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 13px;
+}
+.btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

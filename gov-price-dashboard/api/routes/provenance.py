@@ -3761,3 +3761,135 @@ def sync_progress(cfg: dict) -> dict:
     if not fn:
         raise HTTPException(status_code=400, detail=f"未知 progress_mode: {mode}")
     return fn(cfg)
+
+
+# ── 规则 CRUD（fix 2026-07-12：规格规则库新增/编辑/删除）────────────
+@router.post("/api/stats/rules-vector")
+def rules_vector_create(body: dict = Body(...)):
+    """新增一条规格规则。必填：pattern, attr。可选：note, code, breed, category, tokens。"""
+    db_path = _RULES_DB_SPEC
+    if not db_path or not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="breed_spec_rules.db 不存在")
+
+    pattern = (body.get("pattern") or "").strip()
+    attr = (body.get("attr") or "").strip()
+    if not pattern or not attr:
+        raise HTTPException(status_code=400, detail="pattern 和 attr 必填")
+
+    import sqlite3, json as _json
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    try:
+        c.execute(
+            "INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                pattern,
+                attr,
+                body.get("note", ""),
+                body.get("code", ""),
+                body.get("breed", ""),
+                body.get("category", ""),
+                _json.dumps(body.get("tokens", []), ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+        new_id = c.lastrowid
+    except sqlite3.IntegrityError as e:
+        conn.close()
+        raise HTTPException(status_code=409, detail=f"重复或冲突: {e}")
+    finally:
+        conn.close()
+    return {"ok": True, "id": new_id}
+
+
+@router.put("/api/stats/rules-vector/{rule_id}")
+def rules_vector_update(rule_id: int, body: dict = Body(...)):
+    """更新一条规则的字段。"""
+    db_path = _RULES_DB_SPEC
+    if not db_path or not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="breed_spec_rules.db 不存在")
+
+    import sqlite3, json as _json
+    fields = []
+    params = []
+    for k in ("pattern", "attr", "note", "code", "breed", "category"):
+        if k in body:
+            fields.append(f"{k} = ?")
+            params.append(body[k] or "")
+    if "tokens" in body:
+        fields.append("tokens = ?")
+        params.append(_json.dumps(body["tokens"], ensure_ascii=False))
+    if not fields:
+        raise HTTPException(status_code=400, detail="无字段可更新")
+    params.append(rule_id)
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    try:
+        c.execute(f"UPDATE breed_spec_rules SET {', '.join(fields)} WHERE id = ?", params)
+        conn.commit()
+        if c.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"id={rule_id} 不存在")
+    finally:
+        conn.close()
+    return {"ok": True, "id": rule_id}
+
+
+@router.delete("/api/stats/rules-vector/{rule_id}")
+def rules_vector_delete(rule_id: int):
+    """删除一条规则。"""
+    db_path = _RULES_DB_SPEC
+    if not db_path or not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="breed_spec_rules.db 不存在")
+
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    try:
+        c.execute("DELETE FROM breed_spec_rules WHERE id = ?", (rule_id,))
+        conn.commit()
+        if c.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"id={rule_id} 不存在")
+    finally:
+        conn.close()
+    return {"ok": True, "id": rule_id}
+
+
+# ── 规格质量聚合端点（fix 2026-07-12：驾驶舱一次拉全 18 城）────
+@router.get("/api/stats/spec-quality-all")
+def stats_spec_quality_all(
+    cities: str = Query("", description="逗号分隔城市 key，留空=从 skill registry 取全部"),
+    sample_size: int = Query(0, description="抽样数量，0=不抽样"),
+):
+    """聚合多城规格质量，覆盖率数据用一次 ES 多索引查询返回。
+    用于驾驶舱 30 分钟轮询时减少 18 次串行请求 → 1 次请求。
+    """
+    # 解析城市列表
+    if cities:
+        city_list = [c.strip() for c in cities.split(",") if c.strip()]
+    else:
+        try:
+            city_list = [s["key"] for s in _registry_get_all()]
+        except Exception:
+            city_list = ["xian", "sichuan", "chongqing", "jinan", "rizhao",
+                         "heze", "henan", "qingdao", "hainan", "huhehaote",
+                         "hunan", "jiangxi", "jilin", "ningxia", "qinghai",
+                         "shaanxi", "weihai", "xinjiang"]
+
+    # 并行查每城覆盖率
+    import concurrent.futures
+    def fetch_city(city):
+        try:
+            cov = _category_coverage(city)
+            total = sum(c.get("total", 0) for c in cov)
+            with_attr = sum(c.get("with_attr", 0) for c in cov)
+            rate = (with_attr / total * 100) if total > 0 else 0
+            return city, {"coverage": cov, "rate": round(rate, 1), "with_attr": with_attr, "total": total}
+        except Exception as e:
+            return city, {"coverage": [], "rate": 0, "with_attr": 0, "total": 0, "error": str(e)}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = dict(pool.map(fetch_city, city_list))
+
+    return {"cities": results, "count": len(results)}

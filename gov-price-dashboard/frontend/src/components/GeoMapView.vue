@@ -263,13 +263,21 @@ async function renderMap() {
       show: false,
     },
     visualMap: {
-      show: false,
+      show: true,  // fix 2026-07-12：加色阶图例
       type: 'piecewise',
       pieces,
+      text: ['高', '低'],  // 颜色对照文本
+      textStyle: { color: '#64748b', fontSize: 11 },
+      inRange: { color: ['#dcfce7', '#86efac', '#22c55e', '#15803d'] },  // 浅→深绿
       // 无数据的 feature 显式置灰（比 inRange 最浅色还浅，避免和数据区混淆）
       outOfRange: { color: '#e5e7eb', colorAlpha: 0.6 },
       calculable: false,
       seriesIndex: 0,
+      left: 12,
+      bottom: 12,
+      itemWidth: 12,
+      itemHeight: 10,
+      orient: 'vertical',
     },
     series: [{
       type: 'map',

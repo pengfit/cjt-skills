@@ -278,8 +278,18 @@ const dailyStats = computed(() => {
 })
 
 // 计算每行数据（合并 skill 配置 + 同步进度 + 规格质量）
+// 异常严重度（数字越小越严重），用于 #19：异常排序
+function healthSeverity(row) {
+  if (row.status === 'error') return 0
+  if (row.status === 'interrupted' || row.status === 'down') return 1
+  if (row.daysAgo === null) return 2
+  if (row.daysAgo > 7) return 3
+  if (row.daysAgo > 3) return 4
+  return 5
+}
+
 const skillHealthRows = computed(() => {
-  return skills.value.map(s => {
+  const rows = skills.value.map(s => {
     const sync = syncDataMap.value[s.key] || {}
     const quality = qualityMap.value[s.key] || {}
     const lastUpdated = sync.last_updated || ''
@@ -296,6 +306,13 @@ const skillHealthRows = computed(() => {
       spec_rate: quality.avg_rate ?? null,
       spec_total: quality.total_categories ?? 0,
     }
+  })
+  // 按严重度升序，同严重度内按拼音升序
+  return rows.sort((a, b) => {
+    const sa = healthSeverity(a)
+    const sb = healthSeverity(b)
+    if (sa !== sb) return sa - sb
+    return a.key.localeCompare(b.key)
   })
 })
 
