@@ -64,9 +64,17 @@ defineEmits(['close', 'navigate'])
 .mobile-sidebar-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   z-index: 50;
   display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  animation: backdrop-fade-in 0.2s ease forwards;
+}
+@keyframes backdrop-fade-in {
+  to { opacity: 1; }
 }
 
 .sidebar {
@@ -220,11 +228,16 @@ defineEmits(['close', 'navigate'])
     height: calc(100vh - var(--topbar-h, 56px));
     z-index: 60;
     transform: translateX(-100%);
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 2px 0 12px rgba(15, 23, 42, 0.12);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.2);
+    will-change: transform;
   }
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+  /* 抽屉打开时锁住 body 滚动,避免双滚动条 */
+  .dashboard.mobile-sidebar-open {
+    overflow: hidden;
   }
 }
 
