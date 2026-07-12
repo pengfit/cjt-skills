@@ -22,11 +22,7 @@
         <span>加载分类树...</span>
       </div>
 
-      <div v-else-if="treeError" class="ctn-error">
-        <div class="ctn-error-icon">⚠️</div>
-        <div>{{ treeError }}</div>
-        <button class="btn-ghost" style="margin-top:8px" @click="loadTree">重试</button>
-      </div>
+      <ErrorState v-else-if="treeError" :title="'分类树加载失败'" :message="treeError" compact :on-retry="loadTree" />
 
       <div v-else class="ctn-tree-scroll">
         <TreeNode
@@ -94,17 +90,8 @@
         </div>
 
         <!-- 错误 -->
-        <div v-else-if="productError" class="ctn-error">
-          <div class="ctn-error-icon">⚠️</div>
-          <div>{{ productError }}</div>
-        </div>
-
-        <!-- 空数据 -->
-        <div v-else-if="!productResult.data || !productResult.data.length" class="ctn-empty">
-          <div class="ctn-empty-icon">🗺️</div>
-          <div class="ctn-empty-title">该分类暂无数据</div>
-          <div class="ctn-empty-hint">可能该城市尚未覆盖此分类的产品价格</div>
-        </div>
+        <ErrorState v-else-if="productError" :title="'产品数据加载失败'" :message="productError" compact />
+        <EmptyState v-else-if="!productResult.data || !productResult.data.length" icon="🗺️" title="该分类暂无数据" message="可能该城市尚未覆盖此分类的产品价格" />
 
         <!-- 产品表格 -->
         <div v-else class="ctn-table-wrap">
@@ -171,6 +158,8 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import TreeNode from './TreeNode.vue'
+import ErrorState from './ErrorState.vue'
+import EmptyState from './EmptyState.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -531,7 +520,6 @@ onMounted(loadTree)
 
 /* ── 状态 ── */
 .ctn-loading,
-.ctn-error,
 .ctn-empty {
   flex: 1;
   display: flex;
@@ -543,17 +531,7 @@ onMounted(loadTree)
   font-size: 14px;
 }
 
-.ctn-error-icon,
-.ctn-empty-icon {
-  font-size: 36px;
-  opacity: 0.6;
-}
 
-.ctn-empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-2);
-}
 
 .loading-spinner {
   width: 24px;

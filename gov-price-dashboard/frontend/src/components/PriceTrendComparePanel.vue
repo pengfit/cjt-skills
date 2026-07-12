@@ -89,16 +89,10 @@
     </div>
 
     <!-- 错误 -->
-    <div v-if="error" class="compare-error">
-      <span class="error-icon">⚠️</span>
-      <span>{{ error }}</span>
-      <button class="btn-retry" @click="doCompare">重试</button>
-    </div>
+    <ErrorState v-if="error" :title="'对比失败'" :message="error" compact :on-retry="doCompare" />
 
     <!-- 空状态 -->
-    <div v-if="!breedInput.trim() && !data" class="empty-hint">
-      <div class="empty-icon">🔍</div>
-      <div class="empty-text">输入品种名 + 选若干城市 → 看跨城价格走势对比</div>
+    <EmptyState v-if="!breedInput.trim() && !data" icon="🔍" title="开始对比" message="输入品种名 + 选若干城市 → 看跨城价格走势对比">
       <div v-if="topBreedsByCity.length" class="quick-breeds">
         <div class="quick-breeds-label">热门品种（按出现城市数倒序）：</div>
         <div class="quick-breeds-row">
@@ -111,7 +105,7 @@
           >{{ b.breed }} <small>({{ b.city_count }}城)</small></span>
         </div>
       </div>
-    </div>
+    </EmptyState>
 
     <!-- 主视图 -->
     <div v-if="data && data.ok" class="compare-content">
@@ -171,7 +165,7 @@
 
       <!-- 主图：每个 spec_key 一个独立 ECharts 实例 -->
       <div class="compare-card">
-        <div v-if="!subChartGroups.length" class="compare-empty">无 spec_key 可绘</div>
+        <EmptyState v-if="!subChartGroups.length" compact title="无 spec_key 可绘" />
         <div v-else class="compare-charts-grid" :style="layoutStyle">
           <div
             v-for="(g, idx) in subChartGroups"
@@ -210,10 +204,7 @@
         </template>
       </SectionHeader>
       <div v-if="canShowSpreadSection" class="spread-card">
-        <div v-if="!spreadHasData" class="compare-empty">
-          <div class="empty-title">{{ spreadEmptyTitle }}</div>
-          <div class="empty-detail">{{ spreadEmptyDetail }}</div>
-        </div>
+        <EmptyState v-if="!spreadHasData" compact :title="spreadEmptyTitle" :message="spreadEmptyDetail" />
         <div v-else ref="spreadChartEl" class="spread-chart"></div>
         <div v-if="spreadHasData && spreadLatest" class="spread-quick">
           <span class="spread-quick-pill">
@@ -382,6 +373,8 @@ import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
 import SectionHeader from './SectionHeader.vue'
+import ErrorState from './ErrorState.vue'
+import EmptyState from './EmptyState.vue'
 import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -1287,16 +1280,6 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   border-radius: 6px;
   margin: 12px 0;
-}
-.error-icon { font-size: 18px; }
-.btn-retry {
-  margin-left: auto;
-  padding: 4px 12px;
-  background: #dc2626;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 /* summary-bar：单行流式布局（pill + dot city） */

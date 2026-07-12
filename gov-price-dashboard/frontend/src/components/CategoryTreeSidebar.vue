@@ -133,7 +133,6 @@ onMounted(load)
 }
 
 .cts-loading,
-.cts-error,
 .cts-empty {
   flex: 1;
   display: flex;
@@ -149,16 +148,6 @@ onMounted(load)
   padding: 20px 10px;
   font-size: 13px;
   color: var(--text-3);
-}
-
-.cts-retry {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  color: var(--primary);
 }
 
 .loading-spinner {

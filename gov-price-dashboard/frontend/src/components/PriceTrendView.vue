@@ -177,16 +177,8 @@
       <div v-if="loading" class="trend-loading">
         <SkeletonCard :lines="6" :hide-footer="true" />
       </div>
-      <div v-else-if="error" class="trend-error">
-        <div class="error-icon">⚠️</div>
-        <div class="error-title">{{ error }}</div>
-        <button class="btn-primary" @click="loadData">🔄 重试</button>
-      </div>
-      <div v-else-if="!allPeriods.length" class="trend-empty">
-        <div class="empty-icon">📭</div>
-        <div class="empty-title">该城市暂无可用时序数据</div>
-        <div class="empty-hint">DWS 索引里没有按 period_start 可聚合的多期数据</div>
-      </div>
+      <ErrorState v-else-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
+      <EmptyState v-else-if="!allPeriods.length" icon="📭" title="该城市暂无可用时序数据" message="DWS 索引里没有按 period_start 可聚合的多期数据" />
       <div v-else ref="chartEl" class="trend-chart"></div>
     </div>
 
@@ -270,6 +262,8 @@ import PageHeader from './PageHeader.vue'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
 import SkeletonCard from './SkeletonCard.vue'
+import ErrorState from './ErrorState.vue'
+import EmptyState from './EmptyState.vue'
 import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -1122,27 +1116,7 @@ watch(periodsLimit, () => loadData())
 }
 .focus-clear:hover { background: #d97706; }
 .trend-chart { width: 100%; height: 540px; }
-.trend-loading, .trend-error, .trend-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 420px;
-  gap: 8px;
-}
-.error-icon, .empty-icon { font-size: 36px; }
-.error-title, .empty-title { font-size: 14px; font-weight: 600; }
-.empty-hint { font-size: 12px; color: #94a3b8; }
-.btn-primary {
-  margin-top: 8px;
-  padding: 6px 14px;
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
+
 
 .trend-table-card {
   background: #fff;

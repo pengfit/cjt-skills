@@ -140,9 +140,10 @@
             <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
           </tr>
           <tr v-if="!vecRules.items?.length">
-            <td colspan="8" class="vec-empty">
-              <span v-if="vecSearch || vecAttrFilter">没有匹配「{{ vecSearch || vecAttrFilter }}」的规则</span>
-              <span v-else>暂无数据，点击右上角【使用说明】了解如何添加规则</span>
+            <td colspan="8">
+              <EmptyState compact
+                :title="vecSearch || vecAttrFilter ? `没有匹配「${vecSearch || vecAttrFilter}」的规则` : '暂无规则'"
+                message="点击右上角【使用说明】了解如何添加规则" />
             </td>
           </tr>
         </tbody>
@@ -227,6 +228,7 @@ import axios from 'axios'
 
 import CustomSelect from './CustomSelect.vue'
 import PageHeader from './PageHeader.vue'
+import EmptyState from './EmptyState.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -564,7 +566,7 @@ onMounted(() => {
 .vec-pattern-cell { width: 160px; }
 .vec-breed { color: var(--text-3); font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-date { color: var(--text-3, #94a3b8); white-space: nowrap; font-size: 11px; }
-.vec-empty { text-align: center; color: var(--text-3, #94a3b8); padding: 32px; font-size: 12px; }
+
 
 /* Pagination — 沿用全局 `.pagination` / `.page-btn` 样式 */
 .vec-pagination {

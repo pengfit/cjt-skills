@@ -76,7 +76,7 @@
     </div>
 
     <!-- Empty -->
-    <div v-else class="sq-empty">暂无数据</div>
+    <EmptyState v-else compact title="暂无数据" message="该分类下没有规格覆盖率数据,请先运行 ETL 清洗任务" />
 
     <!-- Toast -->
     <Transition name="fade">
@@ -104,6 +104,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import EmptyState from './EmptyState.vue'
 
 const props = defineProps({
   coverage: { type: Array, default: () => [] },
