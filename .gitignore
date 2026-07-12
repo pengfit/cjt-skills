@@ -22,3 +22,7 @@ venv/
 # 备份文件
 *.bak.*
 *.bak
+data/*.db
+data/*.db-*
+data/breed_spec_rules.db
+data/category_v3_rules.db

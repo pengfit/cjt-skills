@@ -19,3 +19,7 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# 中央 data dir（v0.7 起生效）:不要 commit .db,体积大且演进快
+/data/*.db
+/data/*.db-*
