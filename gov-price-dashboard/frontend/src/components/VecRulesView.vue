@@ -46,53 +46,49 @@
         <div class="vec-help-title">📖 规格规则库说明</div>
         <div class="vec-help-grid">
           <div class="vec-help-item">
-            <span class="vec-help-key">数据源</span>
+            <span class="vec-help-key">是什么</span>
             <span class="vec-help-val">
-              <strong>唯一来源</strong>：<code>rules_vec.db</code>（SQLite）<br/>
-              <code>rules/*.py</code> 仅作备份/人工审查用，不再作为解析时的数据源
+              规格解析用的 <strong>规则向量库</strong>，存于 <code>skills/data/breed_spec_rules.db</code>（SQLite）<br/>
+              ETL 阶段 2（DWD→DWS）依赖它把 <code>spec</code> 拆成 <code>length/width/height</code> 等 attr<br/>
+              详见仓库根目录 <code>gov-price-etl/SPEC_RULES.md</code>
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">Tokens</span>
+            <span class="vec-help-key">本页能做什么</span>
             <span class="vec-help-val">
-              <strong>结构语义标签</strong>，由 pattern 结构自动生成<br/>
-              <code>三段/LWW/长宽高/尺寸/数字</code> 等<br/>
-              用于 Jaccard 召回（score ≥ 0.001）
+              <strong>只读查询</strong>：搜索 · attr 筛选 · 分类筛选 · 升降序 · 分页<br/>
+              新增 / 编辑 / 删除 <strong>不在本页</strong>，统一走后端 API 或 SQL（见「补充规则」）
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">解析流程</span>
+            <span class="vec-help-key">怎么召回</span>
             <span class="vec-help-val">
-              <strong>① spec 结构 → tokens</strong><br/>
-              <strong>② Jaccard 召回候选规则</strong><br/>
-              <strong>③ 槽位独立竞争填值</strong><br/>
-              <strong>④ 无命中 → fix-case API</strong>
+              <code>spec</code> 与规则都生成 <strong>结构语义标签</strong>（三段/LWW/长宽高/数字 等）<br/>
+              按 <strong>Jaccard</strong> = <code>|A∩B| / |A∪B|</code> 打分，score ≥ <code>0.001</code> 入选<br/>
+              按 attr 槽位独立竞争，同 attr+pattern 去重保留最高分
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">字段说明</span>
+            <span class="vec-help-key">一行记录</span>
             <span class="vec-help-val">
-              <code>attr</code> — 属性名（length/width/height 等）<br/>
-              <code>pattern</code> — 正则（不含 r 前缀）<br/>
-              <code>code</code> — Python 执行代码<br/>
-              <code>breed/category</code> — 适用范围
+              <code>pattern</code> 正则（不含 r 前缀）→ 命中 spec 某段<br/>
+              <code>attr</code> 该段落到哪个属性 · <code>code</code> 提取代码（可空）<br/>
+              <code>breed / category</code> 适用范围（空=通用）· <code>tokens</code> 结构标签（自动生成）
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">添加规则</span>
+            <span class="vec-help-key">补充规则</span>
             <span class="vec-help-val">
-              <code>POST /api/stats/spec-quality/fix-case</code><br/>
-              confirm=true 写入 rules_vec.db<br/>
-              详见 <code>SPEC_RULES.md</code>
+              <strong>① API</strong>：<code>POST/PUT/DELETE /api/stats/rules-vector</code><br/>
+              <strong>② CLI</strong>：<code>python3 commands/parse_spec/rules/vector_store.py</code>（ETL 内部）<br/>
+              <strong>③ SQL</strong>：<code>sqlite3 skills/data/breed_spec_rules.db</code>
             </span>
           </div>
           <div class="vec-help-item">
-            <span class="vec-help-key">召回机制</span>
+            <span class="vec-help-key">解析兜底</span>
             <span class="vec-help-val">
-              Jaccard = |spec_tokens ∩ rule_tokens| / union<br/>
-              score &lt; 0.001 → 丢弃（不降级）<br/>
-              同 attr+pattern 去重保留最高分<br/>
-              <strong>品种分类</strong>阈值 0.35，规格解析阈值 0.001
+              所有 attr 槽位都没命中 → 返回空 <strong>不降级</strong><br/>
+              走 <code>POST /api/stats/spec-quality/fix-case</code>，AI 给 <code>expected</code> 后回写规则库
             </span>
           </div>
         </div>
