@@ -1,58 +1,28 @@
 <template>
   <div class="dashboard with-sidebar" :class="{ 'mobile-sidebar-open': mobileSidebarOpen }">
 
-    <!-- ========== TOP BAR ========== -->
-    <header class="top-bar">
-      <div class="top-bar-left">
-        <button class="hamburger" @click="mobileSidebarOpen = !mobileSidebarOpen" aria-label="菜单">
-          <span></span><span></span><span></span>
-        </button>
-        <span class="brand-logo">价</span>
-        <span class="top-bar-title">材价通</span>
-      </div>
-      <div class="top-bar-meta">
-        <span class="meta-item">
-          <span class="meta-label">省份</span>
-          <span class="meta-value">{{ overview.total_provinces }}</span>
-        </span>
-        <span class="meta-item">
-          <span class="meta-label">城市</span>
-          <span class="meta-value">{{ overview.total_cities }}</span>
-        </span>
-        <!-- ⌘K 命令面板入口提示（fix 2026-07-12） -->
-        <button
-          class="cmd-palette-trigger"
-          @click="showCmdPalette = true"
-          title="搜索页面、命令…（⌘K / Ctrl+K）"
-        >
-          <span class="cmd-icon">🔍</span>
-          <span class="cmd-hint">搜索</span>
-          <kbd class="cmd-kbd">⌘K</kbd>
-        </button>
-      </div>
-    </header>
+    <!-- ========== TOP BAR（统一 TopBar.vue） ========== -->
+    <TopBar
+      :overview="overview"
+      :alerts="alerts"
+      :last-refresh="lastRefresh"
+      :last-refresh-ago="lastRefreshAgo"
+      @toggle-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
+      @open-cmd-palette="showCmdPalette = true"
+      @go-health="goHealth"
+    />
 
     <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
     <div class="dashboard-body">
 
-    <!-- ========== SIDEBAR ========== -->
-    <div class="mobile-sidebar-backdrop" v-if="mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
-    <aside class="sidebar">
-      <div class="sidebar-group" :data-module="group.key" v-for="group in sidebarGroups" :key="group.key">
-        <div class="sidebar-group-label">{{ group.label }}</div>
-        <!-- fix 2026-07-12：原生 <a href> 改 RouterLink，避免浏览器以为外链（target=_blank 风险） -->
-        <RouterLink
-          v-for="item in group.items"
-          :key="item.key"
-          :to="item.path"
-          class="sidebar-item"
-          :class="{ active: currentTab === item.key }"
-        >
-          <span class="sidebar-icon" aria-hidden="true">{{ item.icon }}</span>
-          <span class="sidebar-label">{{ item.label }}</span>
-        </RouterLink>
-      </div>
-    </aside>
+    <!-- ========== SIDEBAR（统一 Sidebar.vue） ========== -->
+    <Sidebar
+      :groups="sidebarGroups"
+      :current-tab="currentTab"
+      :open="mobileSidebarOpen"
+      @close="mobileSidebarOpen = false"
+      @navigate="mobileSidebarOpen = false"
+    />
 
     <!-- ========== MAIN CONTENT ========== -->
     <main class="main-content">
@@ -562,6 +532,8 @@ const CategoryTaxonomyView = defineAsyncComponent(() => import('./components/Cat
 const CategoryTreeSidebar = defineAsyncComponent(() => import('./components/CategoryTreeSidebar.vue'))
 // 全局小工具（CmdPalette 始终挂载，保留 sync import；AttrTags/CustomSelect 多 tab 复用 → sync）
 import CmdPalette from './components/CmdPalette.vue'
+import Sidebar from './components/layout/Sidebar.vue'
+import TopBar from './components/layout/TopBar.vue'
 import { TAB_ROUTES, legacyTabPath } from './router'
 
 const route = useRoute()
@@ -581,8 +553,16 @@ const TAB_ICONS = {
   trend: '📈', sync: '🔄', health: '❤️', rules: '⚙️', taxonomy: '🏷️',
 }
 function sidebarItems(keys) {
-  return TAB_ROUTES.filter(r => keys.includes(r.key))
-    .map(r => ({ key: r.key, label: r.label, path: r.path, icon: TAB_ICONS[r.key] || '·' }))
+  return TAB_ROUTES
+    .map((r, idx) => ({ r, idx }))
+    .filter(({ r }) => keys.includes(r.key))
+    .map(({ r, idx }) => ({
+      key: r.key,
+      label: r.label,
+      path: r.path,
+      icon: TAB_ICONS[r.key] || '·',
+      shortcut: String(idx + 1),  // 数字键 1-9 badge,跟全局键盘监听对齐
+    }))
 }
 const sidebarGroups = computed(() => ([
   // 4 模块拆开(2026-07-10):数据浏览 + 数据采集 + 数据治理 + 价格可视化
@@ -631,6 +611,55 @@ function onCmdSelect(item) {
   // 由组件内部调用 action，这里只处理额外逻辑
 }
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
+
+// 数据新鲜度告警(2026-07-12 P1-4):来自 /api/skill-updates,15 分钟轮询
+const alerts = ref({ count: 0, veryStaleCount: 0, updates: [] })
+const lastRefresh = ref('')   // 接口响应的 ISO 时间,用于 tooltip
+const lastRefreshAgo = ref('') // "3 分钟前" 等动态文案
+let alertsTimer = null
+let clockTimer = null
+const ALERTS_POLL_MS = 15 * 60 * 1000  // 与驾驶舱轮询节拍对齐
+
+async function loadAlerts() {
+  try {
+    const d = await loadAPI(`${API}/skill-updates`)
+    if (!d || !Array.isArray(d.updates)) return
+    const updates = d.updates
+    const nonFresh = updates.filter(u => u.status !== 'fresh')
+    alerts.value = {
+      count: nonFresh.length,
+      veryStaleCount: nonFresh.filter(u => u.status === 'very_stale').length,
+      updates,
+    }
+    if (d.now) lastRefresh.value = d.now
+    refreshAgoText()  // 拿到 d.now 后立即刷一次,避免等 60s 定时器(2026-07-12 P1-4 fix)
+  } catch (e) {
+    // 静默失败:告警非关键路径,不要因网络抖动让顶栏报错
+  }
+}
+
+function formatTimeAgo(iso) {
+  if (!iso) return ''
+  const dt = new Date(iso)
+  if (isNaN(dt.getTime())) return ''
+  const diffSec = Math.floor((Date.now() - dt.getTime()) / 1000)
+  if (diffSec < 0) return '刚刚'
+  if (diffSec < 60) return `${diffSec} 秒前`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin} 分钟前`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour} 小时前`
+  const diffDay = Math.floor(diffHour / 24)
+  return `${diffDay} 天前`
+}
+
+function refreshAgoText() {
+  lastRefreshAgo.value = lastRefresh.value ? `更新于 ${formatTimeAgo(lastRefresh.value)}` : ''
+}
+
+function goHealth() {
+  router.push(legacyTabPath('health'))
+}
 const searchKeyword = ref('')
 const searchProvince = ref('')
 const searchCity = ref('')
@@ -1242,6 +1271,17 @@ onMounted(() => {
 
 onMounted(onMount)
 
+// 数据新鲜度轮询 + 时钟(2026-07-12 P1-4)
+onMounted(() => {
+  loadAlerts()
+  alertsTimer = setInterval(loadAlerts, ALERTS_POLL_MS)
+  clockTimer = setInterval(refreshAgoText, 60 * 1000)
+})
+onBeforeUnmount(() => {
+  if (alertsTimer) clearInterval(alertsTimer)
+  if (clockTimer) clearInterval(clockTimer)
+})
+
 // Keyboard shortcuts
 onMounted(() => {
   document.addEventListener('keydown', e => {
@@ -1273,34 +1313,3 @@ onMounted(() => {
 
 // ============================================================
 </script>
-
-
-/* ⌘K 命令面板入口（fix 2026-07-12） */
-.cmd-palette-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 10px;
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(15,23,42,0.1);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  color: #64748b;
-  transition: all 0.15s;
-}
-.cmd-palette-trigger:hover {
-  background: white;
-  border-color: rgba(37, 99, 235, 0.3);
-}
-.cmd-icon { font-size: 12px; }
-.cmd-hint { font-size: 12px; }
-.cmd-kbd {
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  padding: 1px 5px;
-  background: rgba(15,23,42,0.06);
-  border: 1px solid rgba(15,23,42,0.1);
-  border-radius: 3px;
-  color: #475569;
-}
