@@ -1719,7 +1719,28 @@ body {
 .btn-more.btn-active {
   background: rgba(37,99,235,0.12);
   border-color: #2563eb;
-  color: #2563eb;
+}
+/* 导出按钮（fix 2026-07-12 P3-batch3） */
+.btn-export {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+.btn-export:hover:not(:disabled) {
+  background: rgba(34,197,94,0.08);
+  border-color: #16a34a;
+  color: #16a34a;
+}
+.btn-export:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* 列表页：左侧分类树 + 右侧产品表格 */

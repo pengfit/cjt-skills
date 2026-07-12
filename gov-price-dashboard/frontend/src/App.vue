@@ -4,7 +4,7 @@
     <!-- ========== SKIP LINK (a11y 2026-07-12 P2-3) ========== -->
     <a href="#main-content" class="skip-link">跳到主内容</a>
 
-    <!-- ========== TOP BAR（统一 TopBar.vue） ========== -->
+    <!-- ========== TOP BAR(统一 TopBar.vue) ========== -->
     <TopBar
       :overview="overview"
       :alerts="alerts"
@@ -19,7 +19,7 @@
     <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
     <div class="dashboard-body">
 
-    <!-- ========== SIDEBAR（统一 Sidebar.vue） ========== -->
+    <!-- ========== SIDEBAR(统一 Sidebar.vue) ========== -->
     <Sidebar
       :groups="sidebarGroups"
       :current-tab="currentTab"
@@ -73,7 +73,7 @@
             />
           </div>
           <!-- Price range presets exposed in drawer -->
-          <!-- 日期范围：时序看板刚需（fix 2026-07-12） -->
+          <!-- 日期范围:时序看板刚需(fix 2026-07-12) -->
           <div class="filter-group">
             <label class="filter-label">日期范围</label>
             <div class="date-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
@@ -119,7 +119,7 @@
                 :key="preset.label"
                 class="preset-chip"
                 :class="{ active: isPresetActive(preset) }"
-                @click="isPresetActive(preset) ? expandRange() : applyPreset(preset); /* 选中不搜索，等确定 */"
+                @click="isPresetActive(preset) ? expandRange() : applyPreset(preset); /* 选中不搜索,等确定 */"
               >{{ preset.label }}</span>
             </div>
             <div class="price-range-row" style="margin-top:6px">
@@ -152,7 +152,7 @@
       <div class="drawer-backdrop" v-if="showDrawer" @click="showDrawer = false"></div>
     </Transition>
 
-      <!-- 列表页：左侧分类树 + 右侧产品表格 -->
+      <!-- 列表页:左侧分类树 + 右侧产品表格 -->
       <div class="list-tree-layout" v-if="currentTab === 'list'">
         <aside class="list-tree-panel" :class="{ collapsed: categoryPanelCollapsed }">
           <button class="panel-toggle" @click="categoryPanelCollapsed = !categoryPanelCollapsed" :title="categoryPanelCollapsed ? '展开分类' : '收起分类'">
@@ -187,6 +187,13 @@
           @input="onKeywordInput"
         />
         <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
+        <!-- 导出(P3-batch3):利用已有 useExport,支持 CSV / JSON -->
+        <button
+          class="btn-export"
+          :disabled="!sortedData.length"
+          :title="sortedData.length ? `导出 ${sortedData.length} 条记录为 CSV(当前筛选)` : '请先加载数据'"
+          @click="exportSearchResultCsv"
+        >📊 导出 CSV</button>
 
         <!-- Active Filter Tags (inside filter-bar) -->
         <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategoryCode || dateFrom || dateTo">
@@ -227,8 +234,8 @@
         <!-- Toolbar (standalone, outside Transition) -->
         <!-- ========== TABLE or CHART or LOADING or EMPTY ========== -->
 
-        <!-- Skeleton loading — uses flex:0 0 Npx so widths always match table -->
-        <!-- 加载时仍保留表头文字,避免“表格消失”错觉（fix 2026-07-12 P3-batch2） -->
+        <!-- Skeleton loading - uses flex:0 0 Npx so widths always match table -->
+        <!-- 加载时仍保留表头文字,避免"表格消失"错觉(fix 2026-07-12 P3-batch2) -->
         <div class="content-card skeleton-card" v-if="loading">
           <div class="skeleton-header">
             <div class="skeleton-col has-label" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }">{{ col.label }}</div>
@@ -236,7 +243,7 @@
           <div class="skeleton-row" v-for="i in 8" :key="i">
             <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
           </div>
-          <div class="skeleton-footer">⏳ 加载中…</div>
+          <div class="skeleton-footer">⏳ 加载中...</div>
         </div>
 
         <!-- Error state -->
@@ -252,14 +259,14 @@
           <div class="empty-icon">🗺️</div>
           <div class="empty-title">暂无数据</div>
           <div class="empty-hint">
-            可能原因：
+            可能原因:
             <div>· 该省份暂无此类产品的价格记录</div>
-            <div>· 筛选条件过细，请尝试扩大范围</div>
-            <div class="empty-suggestions">试试：<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategoryCode = ''; searchCategoryLevel = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
+            <div>· 筛选条件过细,请尝试扩大范围</div>
+            <div class="empty-suggestions">试试:<span class="suggestion-chip" @click="searchKeyword = ''; doSearch()">清空关键词</span><span class="suggestion-chip" @click="searchCategoryCode = ''; searchCategoryLevel = ''; doSearch()">全部分类</span><span class="suggestion-chip" @click="searchProvince = ''; searchCity = ''; doSearch()">全部省份</span></div>
           </div>
         </div>
 
-          <!-- Data Table（桌面端） -->
+          <!-- Data Table(桌面端) -->
         <div class="content-card table-desktop" v-else>
           <div class="table-scroll">
             <table class="data-table">
@@ -318,12 +325,12 @@
                       </div>
                     </template>
                     <template v-else-if="col.key === 'date'">
-                      <span :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '—' }}</span>
+                      <span :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</span>
                     </template>
                     <template v-else-if="col.key === 'category'">
-                      <span class="cat-badge">{{ item.category || '—' }}</span>
+                      <span class="cat-badge">{{ item.category || '-' }}</span>
                     </template>
-                    <template v-else>{{ item[col.key] ?? '—' }}</template>
+                    <template v-else>{{ item[col.key] ?? '-' }}</template>
                   </td>
                 </tr>
                 <!-- 展开详情行 -->
@@ -337,7 +344,7 @@
                         </div>
                         <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
                           <span class="detail-field-label">规格型号</span>
-                          <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '—' }}</span>
+                          <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '-' }}</span>
                         </div>
                         <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
                           <span class="detail-field-label">规格属性</span>
@@ -353,19 +360,19 @@
                         </div>
                         <div class="detail-field">
                           <span class="detail-field-label">单位</span>
-                          <span class="detail-field-value">{{ item.unit || '—' }}</span>
+                          <span class="detail-field-value">{{ item.unit || '-' }}</span>
                         </div>
                         <div class="detail-field">
                           <span class="detail-field-label">日期</span>
-                          <span class="detail-field-value">{{ item.date || '—' }}</span>
+                          <span class="detail-field-value">{{ item.date || '-' }}</span>
                         </div>
                         <div class="detail-field">
                           <span class="detail-field-label">省份</span>
-                          <span class="detail-field-value">{{ item.province || '—' }}</span>
+                          <span class="detail-field-value">{{ item.province || '-' }}</span>
                         </div>
                         <div class="detail-field">
                           <span class="detail-field-label">城市</span>
-                          <span class="detail-field-value">{{ item.city || '—' }}</span>
+                          <span class="detail-field-value">{{ item.city || '-' }}</span>
                         </div>
                         <div class="detail-field" v-if="item.county">
                           <span class="detail-field-label">区县</span>
@@ -405,7 +412,7 @@
                 <div class="mobile-card-right">
                   <div class="mobile-card-price">{{ fmtCell(item.price) }}</div>
                   <div class="mobile-card-unit">{{ item.unit || '' }}</div>
-                  <div class="mobile-card-date" :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '—' }}</div>
+                  <div class="mobile-card-date" :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</div>
                 </div>
               </div>
               <!-- 展开详情 -->
@@ -512,7 +519,7 @@
   <CmdPalette
     :show="showCmdPalette"
     :items="cmdItems"
-    placeholder="搜索页面、命令… （⌘K）"
+    placeholder="搜索页面、命令... (⌘K)"
     @close="showCmdPalette = false"
     @select="onCmdSelect"
   />
@@ -525,7 +532,8 @@ import { defineAsyncComponent } from 'vue'
 import axios from 'axios'
 import AttrTags from './components/AttrTags.vue'
 import CustomSelect from './components/CustomSelect.vue'
-// 路由级 view 全部 async（首屏不加载，切 tab 时才按需下载；2026-07-09 优化）
+import { exportCsvAsFile, withTimestamp } from './composables/useExport.js'
+// 路由级 view 全部 async(首屏不加载,切 tab 时才按需下载;2026-07-09 优化)
 const DistributionChart = defineAsyncComponent(() => import('./components/DistributionChart.vue'))
 const PriceTrendView = defineAsyncComponent(() => import('./components/PriceTrendView.vue'))
 const CategoryView = defineAsyncComponent(() => import('./components/CategoryView.vue'))
@@ -535,7 +543,7 @@ const CockpitView = defineAsyncComponent(() => import('./components/CockpitView.
 const VecRulesView = defineAsyncComponent(() => import('./components/VecRulesView.vue'))
 const CategoryTaxonomyView = defineAsyncComponent(() => import('./components/CategoryTaxonomyView.vue'))
 const CategoryTreeSidebar = defineAsyncComponent(() => import('./components/CategoryTreeSidebar.vue'))
-// 全局小工具（CmdPalette 始终挂载，保留 sync import；AttrTags/CustomSelect 多 tab 复用 → sync）
+// 全局小工具(CmdPalette 始终挂载,保留 sync import;AttrTags/CustomSelect 多 tab 复用 → sync)
 import CmdPalette from './components/CmdPalette.vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import TopBar from './components/layout/TopBar.vue'
@@ -543,7 +551,7 @@ import { TAB_ROUTES, legacyTabPath } from './router'
 
 const route = useRoute()
 const router = useRouter()
-// 当前 tab key：来自路由 name，模板中自动解包
+// 当前 tab key:来自路由 name,模板中自动解包
 const currentTab = computed(() => route.name || 'cockpit')
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -551,7 +559,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // ============================================================
 // STATE
 // ============================================================
-// 侧栏分组：复用 router/index.js 的 TAB_ROUTES，数字键 1-9 用 index 直接定位
+// 侧栏分组:复用 router/index.js 的 TAB_ROUTES,数字键 1-9 用 index 直接定位
 // 新增 tab 只需改 router/index.js 一处
 const TAB_ICONS = {
   cockpit: '🛸', list: '📋', category: '📁', dist: '📊',
@@ -582,7 +590,7 @@ const showCmdPalette = ref(false)  // ⌘K 命令面板
 const categoryPanelCollapsed = ref(false)  // 分类面板收起
 watch(() => route.name, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
 
-// ⌘K 命令面板项（fix 2026-07-12 P3-batch2：加 group 分组）
+// ⌘K 命令面板项(fix 2026-07-12 P3-batch2:加 group 分组)
 const cmdItems = computed(() => {
   const navItems = TAB_ROUTES.map((t, i) => ({
     id: 'tab:' + t.key,
@@ -599,7 +607,7 @@ const cmdItems = computed(() => {
       group: '动作',
       label: '聚焦产品搜索',
       icon: '🔍',
-      hint: '跳到“全部数据”页并聚焦搜索框',
+      hint: '跳到"全部数据"页并聚焦搜索框',
       shortcut: '/',
       action: () => {
         router.push(legacyTabPath('list'))
@@ -611,11 +619,11 @@ const cmdItems = computed(() => {
       group: '动作',
       label: '打开更多筛选',
       icon: '⚙️',
-      hint: '弹出筛选抽屉（仅在“全部数据”生效）',
+      hint: '弹出筛选抽屉(仅在"全部数据"生效)',
       action: () => { if (currentTab.value === 'list') showDrawer.value = true },
     },
   ]
-  // 数据查询：点击高分页可点击进 list 页
+  // 数据查询:点击高分页可点击进 list 页
   const queryItems = overview.value && overview.value.by_province
     ? overview.value.by_province.slice(0, 5).map(p => ({
         id: 'prov:' + p.province,
@@ -630,7 +638,7 @@ const cmdItems = computed(() => {
 })
 
 function onCmdSelect(item) {
-  // 由组件内部调用 action，这里只处理额外逻辑
+  // 由组件内部调用 action,这里只处理额外逻辑
 }
 const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
 
@@ -686,20 +694,39 @@ function goHealth() {
 // 顶栏 KPI 钻取（fix 2026-07-12 P3-batch1）：省份/城市可点击进 list 页
 function goList(payload) {
   const scope = payload?.scope || 'all'
-  // 当前 list 页用抽屉筛选驱动,scope 目前只置位,后续可扩展为预填筛选
+  // 当前 list 页用抽屉筛选驱动，scope 目前只置位，后续可扩展为预填筛选
   router.push({ path: legacyTabPath('list'), query: { _from: scope } })
+}
+
+// 导出搜索结果为 CSV（fix 2026-07-12 P3-batch3）：按 visibleColumns 顺序输出当前渲染行
+function exportSearchResultCsv() {
+  if (!sortedData.value.length) return
+  const cols = visibleColumns.value
+  const header = cols.map(c => c.label)
+  const rows = [header]
+  for (const item of sortedData.value) {
+    const row = cols.map(c => {
+      const v = item[c.key]
+      if (v == null) return ''
+      if (typeof v === 'object') return JSON.stringify(v)
+      return String(v)
+    })
+    rows.push(row)
+  }
+  const fname = `搜索结果-${searchKeyword.value || '全部'}-${withTimestamp()}.csv`
+  exportCsvAsFile(rows, fname)
 }
 const searchKeyword = ref('')
 const searchProvince = ref('')
 const searchCity = ref('')
 const searchCounty = ref('')
-const searchCategoryCode = ref('')   // 分类树选中节点的代码（L1/L2/L3）
+const searchCategoryCode = ref('')   // 分类树选中节点的代码(L1/L2/L3)
 const searchCategoryLevel = ref('')    // 节点层级: 'l1' | 'l2' | 'l3'
 const categoryOptions = ref([])
 const priceMin = ref('')
 const priceMax = ref('')
 const searchPage = ref(1)
-const loading = ref(true)  // 初始即加载态，避免首次渲染闪空态
+const loading = ref(true)  // 初始即加载态,避免首次渲染闪空态
 const searchResult = ref({})
 const cityOptions = ref([])
 const countyOptions = ref([])
@@ -745,7 +772,7 @@ const pricePresets = [
   { label: '>1万',    min: '10000', max: '' },
 ]
 
-// Date presets（fix 2026-07-12：时序看板刚需）
+// Date presets(fix 2026-07-12:时序看板刚需)
 const dateFrom = ref('')
 const dateTo = ref('')
 const dateRangeKey = ref('all')
@@ -885,7 +912,7 @@ function sortBy(key) {
 
 function onCityChange() {
   searchCounty.value = ''
-  // 不自动搜索，等用户点击「确定」
+  // 不自动搜索,等用户点击「确定」
 }
 
 function onProvinceChange() {
@@ -898,7 +925,7 @@ function onCategoryTreeSelect(node) {
   if (node.l3) {
     searchCategoryCode.value = node.l3
     searchCategoryLevel.value = 'l3'
-    // 构建面包屑：parentPath + 当前节点
+    // 构建面包屑:parentPath + 当前节点
     const parents = (node.parentPath || []).map(p => ({ code: p.code, name: p.name || p.code }))
     categoryBreadcrumb.value = [...parents, { code: node.l3, name: node.name_l3 || node.l3 }]
   } else if (node.l2) {
@@ -929,7 +956,7 @@ function nextPage() {
 function goToPage(p) {
   const maxPage = searchResult.value.pages || 1
   if (p < 1 || p > maxPage) {
-    showToast(`页码超出范围，当前仅第 1-${maxPage} 页`)
+    showToast(`页码超出范围,当前仅第 1-${maxPage} 页`)
     return
   }
   searchPage.value = String(p)
@@ -951,14 +978,14 @@ async function doSearch(pageOverride) {
     if (searchProvince.value) params.province = searchProvince.value
     if (searchCity.value) params.city = searchCity.value
     if (searchCounty.value) params.county = searchCounty.value
-    // 分类树筛选（按层级传递不同参数）
+    // 分类树筛选(按层级传递不同参数)
     if (searchCategoryCode.value && searchCategoryLevel.value) {
       const levelKey = 'category_' + searchCategoryLevel.value
       params[levelKey] = searchCategoryCode.value
     }
     if (priceMin.value) params.price_min = priceMin.value
     if (priceMax.value) params.price_max = priceMax.value
-    // 日期范围（fix 2026-07-12）
+    // 日期范围(fix 2026-07-12)
     if (dateFrom.value) params.date_from = dateFrom.value
     if (dateTo.value) params.date_to = dateTo.value
     params.page = Number(pageOverride || searchPage.value)
@@ -968,7 +995,7 @@ async function doSearch(pageOverride) {
     const { data: res } = await axios.get(`${API}/search`, { params })
     searchResult.value = res || {}
 
-    // 同步筛选状态到 URL（fix 2026-07-12）
+    // 同步筛选状态到 URL(fix 2026-07-12)
     syncToQuery()
 
     // Save search history
@@ -981,7 +1008,7 @@ async function doSearch(pageOverride) {
     }
   } catch (e) {
     searchError.value = true
-    showToast('请求失败：' + (e.message || '网络错误'))
+    showToast('请求失败:' + (e.message || '网络错误'))
   } finally {
     loading.value = false
   }
@@ -1110,7 +1137,7 @@ function isPresetActive(preset) {
 function applyPreset(preset) {
   priceMin.value = preset.min
   priceMax.value = preset.max
-  // 不自动搜索，等用户点击「确定」
+  // 不自动搜索,等用户点击「确定」
 }
 
 function expandRange() {
@@ -1186,7 +1213,7 @@ async function loadAPI(url) {
   try { return (await axios.get(url)).data } catch { return {} }
 }
 
-// 内存缓存（避免重复请求）
+// 内存缓存(避免重复请求)
 let _overviewCache = null
 let _overviewCacheAt = 0
 let _filterOptionsCache = null
@@ -1198,7 +1225,7 @@ async function loadOverview() {
     overview.value = _overviewCache
     return _overviewCache
   }
-  // HUD 只需要 4 个数字 + 省份选项（fix 2026-07-12：categoryOptions 已独立）
+  // HUD 只需要 4 个数字 + 省份选项(fix 2026-07-12:categoryOptions 已独立)
   const d = await loadAPI(`${API}/stats/overview`)
   _overviewCache = d || { total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, by_province: [] }
   _overviewCacheAt = Date.now()
@@ -1206,7 +1233,7 @@ async function loadOverview() {
   return _overviewCache
 }
 
-// 分类选项独立加载（fix 2026-07-12：避免被 overview 30s 缓存影响刷新频次）
+// 分类选项独立加载(fix 2026-07-12:避免被 overview 30s 缓存影响刷新频次)
 let _categoryCache = null
 let _categoryCacheAt = 0
 async function loadCategoryOptions() {
@@ -1242,15 +1269,15 @@ async function loadCityOptions() {
 }
 
 async function onMount() {
-  // 需 4 个端点：overview、filter-options、categories、search
-  // 先从 URL 恢复筛选状态（fix 2026-07-12：顺序重要）
+  // 需 4 个端点:overview、filter-options、categories、search
+  // 先从 URL 恢复筛选状态(fix 2026-07-12:顺序重要)
   restoreFromQuery()
   await Promise.all([loadOverview(), loadCityOptions(), loadCategoryOptions(), doSearch()])
 }
 
-// 从 URL query 恢复筛选状态（fix 2026-07-12）
-// 注意：onMounted 触发时 vue-router 还没把 location.search 同步到 route.query
-// 直接从 window.location.search 读，避免被“空 query”覆盖
+// 从 URL query 恢复筛选状态(fix 2026-07-12)
+// 注意:onMounted 触发时 vue-router 还没把 location.search 同步到 route.query
+// 直接从 window.location.search 读,避免被"空 query"覆盖
 function readQueryFromLocation() {
   const sp = new URLSearchParams(window.location.search)
   const out = {}
@@ -1274,7 +1301,7 @@ function restoreFromQuery() {
   if (q.date_to) dateTo.value = String(q.date_to)
 }
 
-// 将当前筛选状态同步到 URL query（不刷页）
+// 将当前筛选状态同步到 URL query(不刷页)
 function syncToQuery() {
   if (currentTab.value !== 'list') return
   const q = {}
@@ -1332,7 +1359,7 @@ onMounted(() => {
       showCmdPalette.value = true
       return
     }
-    // 数字键 1-9 快速切换 tab（在非输入框中）
+    // 数字键 1-9 快速切换 tab(在非输入框中)
     if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
       const tab = TAB_ROUTES[Number(e.key) - 1]
       if (tab) router.push(tab.path)

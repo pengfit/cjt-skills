@@ -140,11 +140,11 @@
                   <span class="city-name">{{ pipe.city_label }}</span>
                 </div>
                 <div class="city-td city-td-data">
-                  <span class="stage-num mono">{{ formatShort(pipe.ods?.count) }}</span>
+                  <span class="stage-num mono" :title="(pipe.ods?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.ods?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono">{{ formatShort(pipe.dwd?.count) }}</span>
+                  <span class="stage-num mono" :title="(pipe.dwd?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.dwd?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono">{{ formatShort(pipe.dws?.count) }}</span>
+                  <span class="stage-num mono" :title="(pipe.dws?.count || 0).toLocaleString() + ' 条 (精确值)'">{{ formatShort(pipe.dws?.count) }}</span>
                 </div>
                 <div class="city-td city-td-attr">
                   <div class="attr-track">

@@ -696,16 +696,16 @@ onMounted(() => loadCategories())
 
 .cat-grid {
   display: grid;
-  /* 9 类目紧凑排布：1080+ → 5列(5+4),1400+ → 6列(6+3)（fix 2026-07-12 P3-batch1） */
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
+  /* 9 类目紧凑排布：容器 ≥900 → 5列(5+4)，≥1200 → 6列(6+3)（fix 2026-07-12 P3-batch1） */
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
 }
 
 .cat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 14px;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: var(--shadow);
