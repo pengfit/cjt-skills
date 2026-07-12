@@ -33,7 +33,7 @@
         <button class="vec-order-btn" @click="toggleOrder" title="切换升序/降序">
           {{ vecOrder === 'desc' ? '🔽 最新优先' : '🔼 最早优先' }}
         </button>
-        <button class="vec-add-btn" @click="openAddDialog" title="新增规格规则">➕ 新增</button>
+        <!-- v0.7.1 起：仅查询/查看，隐藏新增入口。后端 POST 端点保留备查。 -->
         <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
           {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
         </button>
@@ -173,50 +173,7 @@
       </div>
     </div>
 
-    <!-- 新增/编辑对话框（fix 2026-07-12） -->
-    <Transition name="drawer">
-      <div class="vec-modal-mask" v-if="showDialog" @click.self="showDialog = false">
-        <div class="vec-modal">
-          <div class="vec-modal-header">
-            <span class="vec-modal-title">{{ dialogMode === 'add' ? '➕ 新增规格规则' : '✏️ 编辑规格规则' }}</span>
-            <span class="vec-modal-close" @click="showDialog = false">✕</span>
-          </div>
-          <div class="vec-modal-body">
-            <div class="vec-form-row">
-              <label class="vec-form-label">pattern *<span class="vec-form-hint">正则表达式</span></label>
-              <input v-model="dialogForm.pattern" class="vec-form-input" placeholder="例：(\d+)mm" />
-            </div>
-            <div class="vec-form-row">
-              <label class="vec-form-label">attr *<span class="vec-form-hint">提取属性</span></label>
-              <input v-model="dialogForm.attr" class="vec-form-input" placeholder="例：thickness / diameter" />
-            </div>
-            <div class="vec-form-row">
-              <label class="vec-form-label">note<span class="vec-form-hint">说明</span></label>
-              <input v-model="dialogForm.note" class="vec-form-input" placeholder="提取什么含义" />
-            </div>
-            <div class="vec-form-row">
-              <label class="vec-form-label">breed<span class="vec-form-hint">适用品种（空=全部）</span></label>
-              <input v-model="dialogForm.breed" class="vec-form-input" placeholder="例：压力变送器" />
-            </div>
-            <div class="vec-form-row">
-              <label class="vec-form-label">category<span class="vec-form-hint">适用分类</span></label>
-              <input v-model="dialogForm.category" class="vec-form-input" placeholder="例：安装工程-电气" />
-            </div>
-            <div class="vec-form-row">
-              <label class="vec-form-label">code<span class="vec-form-hint">Python 代码</span></label>
-              <textarea v-model="dialogForm.code" class="vec-form-textarea" rows="5" placeholder="m = re.search(r'...', s)&#10;if m:&#10;    result['xxx'] = m.group(1)"></textarea>
-            </div>
-            <div v-if="dialogError" class="vec-form-error">⚠ {{ dialogError }}</div>
-          </div>
-          <div class="vec-modal-footer">
-            <button class="btn-ghost" @click="showDialog = false">取消</button>
-            <button class="btn-primary" :disabled="dialogSaving" @click="submitDialog">
-              {{ dialogSaving ? '保存中...' : '✓ 保存' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <!-- v0.7.1 起：新增/编辑对话框入口隐藏(只读视图)。相关 state + 函数保留为注释备查。 -->
   </div>
 </template>
 
@@ -265,28 +222,28 @@ const vecCatOptions = ref([])
 const vecLoading = ref(false)
 const showHelp = ref(false)
 
-// ── 新增/编辑对话框状态（fix 2026-07-12） ─────────────────
-const showDialog = ref(false)
-const dialogMode = ref('add')  // 'add' | 'edit'
-const dialogSaving = ref(false)
-const dialogError = ref('')
-const dialogEditingId = ref(null)
-const dialogForm = ref({
-  pattern: '',
-  attr: '',
-  note: '',
-  breed: '',
-  category: '',
-  code: '',
-})
+// ── 新增/编辑对话框状态（v0.7.1 起隐藏；保留备查） ─────────────────
+// const showDialog = ref(false)
+// const dialogMode = ref('add')  // 'add' | 'edit'
+// const dialogSaving = ref(false)
+// const dialogError = ref('')
+// const dialogEditingId = ref(null)
+// const dialogForm = ref({
+//   pattern: '',
+//   attr: '',
+//   note: '',
+//   breed: '',
+//   category: '',
+//   code: '',
+// })
 
-function openAddDialog() {
-  dialogMode.value = 'add'
-  dialogEditingId.value = null
-  dialogForm.value = { pattern: '', attr: '', note: '', breed: '', category: '', code: '' }
-  dialogError.value = ''
-  showDialog.value = true
-}
+// function openAddDialog() {
+//   dialogMode.value = 'add'
+//   dialogEditingId.value = null
+//   dialogForm.value = { pattern: '', attr: '', note: '', breed: '', category: '', code: '' }
+//   dialogError.value = ''
+//   showDialog.value = true
+// }
 
 // v0.7 起：编辑按钮隐藏，该函数不再被调用。保留备查。
 // function openEditDialog(rule) {
@@ -304,27 +261,28 @@ function openAddDialog() {
 //   showDialog.value = true
 // }
 
-async function submitDialog() {
-  dialogError.value = ''
-  if (!dialogForm.value.pattern.trim() || !dialogForm.value.attr.trim()) {
-    dialogError.value = 'pattern 和 attr 必填'
-    return
-  }
-  dialogSaving.value = true
-  try {
-    if (dialogMode.value === 'add') {
-      await axios.post(`${API}/stats/rules-vector`, dialogForm.value)
-    } else {
-      await axios.put(`${API}/stats/rules-vector/${dialogEditingId.value}`, dialogForm.value)
-    }
-    showDialog.value = false
-    await loadVecRules(vecRules.value.page)
-  } catch (e) {
-    dialogError.value = e?.response?.data?.detail || e.message
-  } finally {
-    dialogSaving.value = false
-  }
-}
+// v0.7.1 起：对话框提交函数隐藏。保留备查（后端 POST/PUT 端点仍可用）。
+// async function submitDialog() {
+//   dialogError.value = ''
+//   if (!dialogForm.value.pattern.trim() || !dialogForm.value.attr.trim()) {
+//     dialogError.value = 'pattern 和 attr 必填'
+//     return
+//   }
+//   dialogSaving.value = true
+//   try {
+//     if (dialogMode.value === 'add') {
+//       await axios.post(`${API}/stats/rules-vector`, dialogForm.value)
+//     } else {
+//       await axios.put(`${API}/stats/rules-vector/${dialogEditingId.value}`, dialogForm.value)
+//     }
+//     showDialog.value = false
+//     await loadVecRules(vecRules.value.page)
+//   } catch (e) {
+//     dialogError.value = e?.response?.data?.detail || e.message
+//   } finally {
+//     dialogSaving.value = false
+//   }
+// }
 
 // v0.7 起：删除按钮隐藏，该函数不再被调用。保留备查。
 // async function confirmDelete(rule) {
