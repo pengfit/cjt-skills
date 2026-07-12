@@ -24,7 +24,7 @@
     <div class="map-chart-wrap">
       <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length"></div>
       <div v-if="loading" class="map-loading">
-        <div class="loading-spinner"></div>
+        <SkeletonChart :height="'100%'" variant="auto" :grid-lines="3" :y-labels="3" />
       </div>
       <EmptyState
         v-if="!loading && dataItems.length === 0 && !provinceWide"
@@ -54,6 +54,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import axios from 'axios'
 import EmptyState from './EmptyState.vue'
+import SkeletonChart from './SkeletonChart.vue'
 import { registerGovPriceTheme, getGovPriceTheme } from '../composables/useEchartsTheme.js'
 import { useEcharts } from '../composables/useEcharts'
 
@@ -565,17 +566,6 @@ const PROVINCE_ADCODE = {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-3);
-}
-.loading-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--surface-2);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  background: var(--surface);
 }
 </style>

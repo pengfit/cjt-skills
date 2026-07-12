@@ -51,8 +51,8 @@
     </div>
 
     <!-- 加载/错误 -->
-    <div v-if="loading" class="loading"><div class="loading-spinner"></div> 加载品类数据…</div>
-    <div v-else-if="error" class="error">❌ {{ error }}</div>
+    <SkeletonChart v-if="loading" :height="320" variant="line" :grid-lines="4" :y-labels="4" />
+    <ErrorState v-else-if="error" :title="'加载失败'" :message="error" compact />
 
     <!-- 主内容（已加载） -->
     <template v-else-if="data && data.normalized_breed">
@@ -85,7 +85,7 @@
           💡 色深 = 该规格当期的均价（仅显示 top {{ topSpecs }} 规格，其余折叠为「其他规格」）
         </div>
       </div>
-      <div v-else class="empty-block">该品类在选定时间窗内无价格数据</div>
+      <EmptyState v-else title="无价格数据" message="该品类在选定时间窗内无价格数据" compact />
 
       <!-- 价格带折线图 -->
       <div v-if="data.price_band.length" class="chart-card">
@@ -156,9 +156,7 @@
     </template>
 
     <!-- 空状态 -->
-    <div v-else-if="!loading && !error" class="empty-block">
-      👆 输入品类名（如「热轧带肋钢筋」「PE给水管」）开始查看品类级趋势
-    </div>
+    <EmptyState v-else-if="!loading && !error" title="还没选品类" message="输入品类名（如「热轧带肋钢筋」「PE给水管」）开始查看品类级趋势" compact />
   </div>
 </template>
 
@@ -168,6 +166,9 @@ import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
+import SkeletonChart from './SkeletonChart.vue'
+import ErrorState from './ErrorState.vue'
+import EmptyState from './EmptyState.vue'
 import { exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -632,28 +633,7 @@ watch([periodsLimit, topSpecs], () => {
 .load-btn:hover:not(:disabled) { background: #1e40af; }
 .load-btn:disabled { background: #94a3b8; cursor: not-allowed; }
 
-.loading, .error, .empty-block {
-  padding: 40px 20px;
-  text-align: center;
-  color: #64748b;
-  background: #fff;
-  border: 1px dashed #e2e8f0;
-  border-radius: 6px;
-  margin: 20px 0;
-}
-.error { color: #dc2626; }
-.loading-spinner {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  vertical-align: middle;
-  margin-right: 6px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+
 
 .cat-meta-card {
   background: linear-gradient(135deg, #eff6ff, #dbeafe);

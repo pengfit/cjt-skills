@@ -93,7 +93,7 @@
       </table>
     </div>
 
-    <div v-if="loading" class="dist-loading">加载中...</div>
+    <SkeletonChart v-if="loading" :height="300" variant="bar" :bars="12" :grid-lines="4" :y-labels="4" />
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
@@ -102,6 +102,7 @@
 import PageHeader from './PageHeader.vue'
 import StatCard from './StatCard.vue'
 import ErrorState from './ErrorState.vue'
+import SkeletonChart from './SkeletonChart.vue'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
@@ -548,16 +549,5 @@ onMounted(() => { mountedRef.value = true; loadData() })
   width: 100%;
   height: 200px;
   min-height: 200px;
-}
-
-.dist-loading, .dist-error {
-  text-align: center;
-  padding: 24px;
-  color: var(--text-3);
-  font-size: 13px;
-}
-
-.dist-error {
-  color: var(--status-alert);
 }
 </style>

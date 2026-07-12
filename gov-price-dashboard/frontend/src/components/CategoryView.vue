@@ -130,7 +130,7 @@
                   <span class="spec-td price-low">{{ fmtPrice(sp.min_price) }}</span>
                   <span class="spec-td price-high">{{ fmtPrice(sp.max_price) }}</span>
                 </div>
-                <div v-if="breedDetail.loading" class="spec-loading">加载中...</div>
+                <div v-if="breedDetail.loading" class="spec-loading-wrap"><SkeletonCard :lines="4" :hide-footer="true" :hide-header="true" /></div>
               </div>
             </div>
           </div>
@@ -142,16 +142,14 @@
       </div>
     </div>
 
-    <div v-if="loading" class="cat-loading">
-      <div class="spinner"></div>
-      <span>加载中...</span>
-    </div>
+    <div v-if="loading" class="cat-loading-wrap"><SkeletonCard :lines="8" :hide-footer="true" /></div>
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
 </template>
 
 <script setup>
 import ErrorState from './ErrorState.vue'
+import SkeletonCard from './SkeletonCard.vue'
 import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import axios from 'axios'
 import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
@@ -1065,36 +1063,17 @@ onMounted(() => loadCategories())
   white-space: nowrap;
 }
 
-.cat-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 40px;
-  color: var(--text-3);
-  font-size: 14px;
+.cat-loading-wrap {
+  padding: 20px;
 }
 
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(241,245,249,0.6);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.cat-loading-wrap .skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.cat-error {
-  padding: 16px;
-  background: rgba(248,113,113,0.1);
-  border: 1px solid rgba(248,113,113,0.3);
-  border-radius: 8px;
-  color: var(--status-alert);
-  font-size: 13px;
+.spec-loading-wrap {
+  padding: 12px;
 }
 
 .btn-show-breeds {
@@ -1267,12 +1246,7 @@ onMounted(() => loadCategories())
   color: var(--text-3);
 }
 
-.spec-loading {
-  padding: 8px;
-  text-align: center;
-  color: var(--text-3);
-  font-size: 12px;
-}
+
 
 .spec-empty {
   padding: 12px;
