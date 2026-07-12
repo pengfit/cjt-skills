@@ -124,11 +124,9 @@
           <tr v-for="(r, idx) in vecRules.items" :key="r.id">
             <td class="vec-id">
               <div class="vec-row-id-wrap">
+                <!-- v0.7 起仅显示序号，编辑/删除入口隐藏（按需可恢复后端端点）。
+                     表內变更统一走 “修改 · 查 · 网" 表 (rules_vec.db / ParseSpec 端) —— -->
                 <span>{{ (vecRules.page - 1) * 50 + idx + 1 }}</span>
-                <span class="vec-row-actions">
-                  <button class="vec-action-btn" @click="openEditDialog(r)" title="编辑">✏️</button>
-                  <button class="vec-action-btn danger" @click="confirmDelete(r)" title="删除">🗑</button>
-                </span>
               </div>
             </td>
             <td class="vec-breed" :title="r.breed">{{ r.breed || '—' }}</td>
@@ -290,20 +288,21 @@ function openAddDialog() {
   showDialog.value = true
 }
 
-function openEditDialog(rule) {
-  dialogMode.value = 'edit'
-  dialogEditingId.value = rule.id
-  dialogForm.value = {
-    pattern: rule.pattern || '',
-    attr: rule.attr || '',
-    note: rule.note || '',
-    breed: rule.breed || '',
-    category: rule.category || '',
-    code: rule.code || '',
-  }
-  dialogError.value = ''
-  showDialog.value = true
-}
+// v0.7 起：编辑按钮隐藏，该函数不再被调用。保留备查。
+// function openEditDialog(rule) {
+//   dialogMode.value = 'edit'
+//   dialogEditingId.value = rule.id
+//   dialogForm.value = {
+//     pattern: rule.pattern || '',
+//     attr: rule.attr || '',
+//     note: rule.note || '',
+//     breed: rule.breed || '',
+//     category: rule.category || '',
+//     code: rule.code || '',
+//   }
+//   dialogError.value = ''
+//   showDialog.value = true
+// }
 
 async function submitDialog() {
   dialogError.value = ''
@@ -327,15 +326,16 @@ async function submitDialog() {
   }
 }
 
-async function confirmDelete(rule) {
-  if (!window.confirm(`确认删除规则 #${rule.id}？\npattern: ${rule.pattern}\nattr: ${rule.attr}`)) return
-  try {
-    await axios.delete(`${API}/stats/rules-vector/${rule.id}`)
-    await loadVecRules(vecRules.value.page)
-  } catch (e) {
-    alert('删除失败：' + (e?.response?.data?.detail || e.message))
-  }
-}
+// v0.7 起：删除按钮隐藏，该函数不再被调用。保留备查。
+// async function confirmDelete(rule) {
+//   if (!window.confirm(`确认删除规则 #${rule.id}？\npattern: ${rule.pattern}\nattr: ${rule.attr}`)) return
+//   try {
+//     await axios.delete(`${API}/stats/rules-vector/${rule.id}`)
+//     await loadVecRules(vecRules.value.page)
+//   } catch (e) {
+//     alert('删除失败：' + (e?.response?.data?.detail || e.message))
+//   }
+// }
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
