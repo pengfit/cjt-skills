@@ -24,12 +24,3 @@ ai_cache.db
 # 备份文件
 *.bak.*
 *.bak
-
-# canonical map DB (shared, large; AI pipeline writes here)
-# breed_canonical.db 由 AI pipeline 持续写入，绝对不能入仓（运行时累积型）
-data/breed_canonical.db
-data/breed_canonical.db-wal
-data/breed_canonical.db-shm
-data/breed_canonical.rej_bak.*
-# category_v3_rules.db 应在 gov-price-etl/data/，data/ 下若再生成视为游离产物
-data/category_v3_rules.db
