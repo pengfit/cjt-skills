@@ -17,24 +17,28 @@
 
           <div class="cmd-results">
             <div v-if="filtered.length === 0" class="cmd-empty">
-              <span class="cmd-empty-icon">🪨</span>
+              <span class="cmd-empty-icon">🪺</span>
               <span>无匹配项</span>
             </div>
-            <button
-              v-for="(item, i) in filtered"
-              :key="item.id || item.label"
-              class="cmd-item"
-              :class="{ 'is-active': i === activeIndex }"
-              @mouseenter="activeIndex = i"
-              @click="select(item)"
-            >
-              <span class="cmd-item-icon">{{ item.icon || '·' }}</span>
-              <div class="cmd-item-main">
-                <div class="cmd-item-label">{{ item.label }}</div>
-                <div v-if="item.hint" class="cmd-item-hint">{{ item.hint }}</div>
-              </div>
-              <span v-if="item.shortcut" class="cmd-item-shortcut">{{ item.shortcut }}</span>
-            </button>
+            <!-- 按 group 分组（P3-batch2）：页面跳转 / 动作 / 数据查询 -->
+            <template v-for="group in grouped" :key="group.key">
+              <div class="cmd-group-title">{{ group.label }}</div>
+              <button
+                v-for="(item, gi) in group.items"
+                :key="item.id || item.label"
+                class="cmd-item"
+                :class="{ 'is-active': activeIndex === globalIndex(group.key, gi) }"
+                @mouseenter="activeIndex = globalIndex(group.key, gi)"
+                @click="select(item)"
+              >
+                <span class="cmd-item-icon">{{ item.icon || '·' }}</span>
+                <div class="cmd-item-main">
+                  <div class="cmd-item-label">{{ item.label }}</div>
+                  <div v-if="item.hint" class="cmd-item-hint">{{ item.hint }}</div>
+                </div>
+                <span v-if="item.shortcut" class="cmd-item-shortcut">{{ item.shortcut }}</span>
+              </button>
+            </template>
           </div>
 
           <div class="cmd-footer">
@@ -69,9 +73,42 @@ const filtered = computed(() => {
   if (!q) return props.items.slice(0, 50)
   return props.items.filter(it =>
     (it.label || '').toLowerCase().includes(q) ||
-    (it.hint || '').toLowerCase().includes(q)
+    (it.hint || '').toLowerCase().includes(q) ||
+    (it.group || '').toLowerCase().includes(q)
   ).slice(0, 50)
 })
+
+// 按 group 分组（P3-batch2）：保留 group 顺序，未设 group 的放到底部「其他」
+const grouped = computed(() => {
+  const order = ['页面跳转', '动作', '数据查询']
+  const buckets = new Map()
+  filtered.value.forEach(it => {
+    const g = it.group || '其他'
+    if (!buckets.has(g)) buckets.set(g, [])
+    buckets.get(g).push(it)
+  })
+  const result = []
+  for (const g of order) {
+    if (buckets.has(g)) result.push({ key: g, label: g, items: buckets.get(g) })
+  }
+  for (const [k, v] of buckets) {
+    if (!order.includes(k)) result.push({ key: k, label: k, items: v })
+  }
+  return result
+})
+
+// 计算当前 active 项在扁平 filtered 列表中的索引（用于键盘上下导航）
+function globalIndex(groupKey, itemIndexInGroup) {
+  let idx = 0
+  for (const g of grouped.value) {
+    if (g.key === groupKey) return idx + itemIndexInGroup
+    idx += g.items.length
+  }
+  return idx
+}
+
+// 键盘上下时按整体顺序跳（fix 2026-07-12 P3-batch2）
+const totalCount = computed(() => filtered.value.length)
 
 watch(() => props.show, async (v) => {
   if (v) {
@@ -100,6 +137,12 @@ function onKeyDown(e) {
     emit('close')
   }
 }
+
+// 重命名 active 计算为 getter，确保 group 变换时上下导航仍指向同一项目（按扁平 filtered）
+// 重新计算 flat → 在 grouped 已变的情况下，保证 activeIndex 不会越界
+watch(grouped, () => {
+  if (activeIndex.value >= filtered.value.length) activeIndex.value = 0
+})
 
 function select(item) {
   emit('select', item)
@@ -166,6 +209,16 @@ function select(item) {
   flex: 1;
   overflow-y: auto;
   padding: 6px;
+}
+
+/* 分组标题（P3-batch2） */
+.cmd-group-title {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 .cmd-empty {

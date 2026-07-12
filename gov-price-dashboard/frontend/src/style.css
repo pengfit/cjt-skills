@@ -1301,9 +1301,29 @@ body {
   flex-basis: auto;
 }
 
+/* 骨架表头带文本（fix 2026-07-12 P3-batch2）：列名仍可见，不动画 */
+.skeleton-col.has-label {
+  background: transparent;
+  animation: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  height: auto;
+  display: flex;
+  align-items: center;
+}
+
 .skeleton-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 48px;
   border-top: 1px solid #e2e8f0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 @keyframes shimmer {

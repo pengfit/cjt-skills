@@ -2,7 +2,7 @@
   <div class="cts-wrap">
     <!-- 树搜索 -->
     <div class="cts-search">
-      <input v-model="filterText" placeholder="🔍 分类搜索..." class="cts-search-input" />
+      <input v-model="filterText" placeholder="🔍 搜索品类（建筑工程 / 装饰工程 / C20 / 商品砼…）" class="cts-search-input" title="按 L1/L2/L3 分类或品种名匹配,跨层级过滤" />
     </div>
 
     <div v-if="loading" class="cts-loading">

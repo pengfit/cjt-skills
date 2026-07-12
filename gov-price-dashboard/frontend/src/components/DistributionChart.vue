@@ -375,8 +375,15 @@ async function renderOneProvince(province) {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '3%', bottom: '16%', top: '4%', containLabel: true },
     tooltip: {
+      trigger: 'axis',
       backgroundColor: 'rgba(255,255,255,0.98)', borderColor: '#cbd5e1',
       textStyle: { color: '#0f172a', fontSize: 10 },
+      formatter: params => {
+        const p = params[0]
+        const total = values.reduce((s, v) => s + v, 0)
+        const pct = total ? ((p.value / total) * 100).toFixed(1) : '0'
+        return `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${p.value.toLocaleString()}</b> 条<br/>占比: <b>${pct}%</b><br/>${province} 总量: <b>${p.count?.toLocaleString() || total.toLocaleString()}</b>`
+      },
       formatter: p => `<b>${p.name}</b><br/>数量: <b style="color:#2563eb">${Number(p.value).toLocaleString()}</b>`
     },
     xAxis: {

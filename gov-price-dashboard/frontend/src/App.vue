@@ -228,14 +228,15 @@
         <!-- ========== TABLE or CHART or LOADING or EMPTY ========== -->
 
         <!-- Skeleton loading — uses flex:0 0 Npx so widths always match table -->
+        <!-- 加载时仍保留表头文字,避免“表格消失”错觉（fix 2026-07-12 P3-batch2） -->
         <div class="content-card skeleton-card" v-if="loading">
           <div class="skeleton-header">
-            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
+            <div class="skeleton-col has-label" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }">{{ col.label }}</div>
           </div>
           <div class="skeleton-row" v-for="i in 8" :key="i">
             <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
           </div>
-          <div class="skeleton-footer"></div>
+          <div class="skeleton-footer">⏳ 加载中…</div>
         </div>
 
         <!-- Error state -->
@@ -581,35 +582,52 @@ const showCmdPalette = ref(false)  // ⌘K 命令面板
 const categoryPanelCollapsed = ref(false)  // 分类面板收起
 watch(() => route.name, () => { mobileSidebarOpen.value = false })  // 切 tab 后自动关闭移动侧边栏
 
-// ⌘K 命令面板项
-const cmdItems = computed(() => [
-  ...TAB_ROUTES.map((t, i) => ({
+// ⌘K 命令面板项（fix 2026-07-12 P3-batch2：加 group 分组）
+const cmdItems = computed(() => {
+  const navItems = TAB_ROUTES.map((t, i) => ({
     id: 'tab:' + t.key,
+    group: '页面跳转',
     label: t.label,
     icon: ['🛩️', '📋', '📊', '📈', '🗺️', '🔄', '💚', '🧩', '🗂️'][i] || '·',
-    hint: '跳转到' + t.label,
+    hint: '跳转到 ' + t.label,
     shortcut: String(i + 1),
     action: () => router.push(t.path),
-  })),
-  {
-    id: 'search:open',
-    label: '聚焦产品搜索',
-    icon: '🔍',
-    hint: '跳到“全部数据”页并聚焦搜索框',
-    shortcut: '/',
-    action: () => {
-      router.push(legacyTabPath('list'))
-      nextTick(() => document.querySelector('.filter-bar-input')?.focus())
+  }))
+  const actionItems = [
+    {
+      id: 'search:open',
+      group: '动作',
+      label: '聚焦产品搜索',
+      icon: '🔍',
+      hint: '跳到“全部数据”页并聚焦搜索框',
+      shortcut: '/',
+      action: () => {
+        router.push(legacyTabPath('list'))
+        nextTick(() => document.querySelector('.filter-bar-input')?.focus())
+      },
     },
-  },
-  {
-    id: 'drawer:open',
-    label: '打开更多筛选',
-    icon: '⚙️',
-    hint: '弹出筛选抽屉（仅在“全部数据”生效）',
-    action: () => { if (currentTab.value === 'list') showDrawer.value = true },
-  },
-])
+    {
+      id: 'drawer:open',
+      group: '动作',
+      label: '打开更多筛选',
+      icon: '⚙️',
+      hint: '弹出筛选抽屉（仅在“全部数据”生效）',
+      action: () => { if (currentTab.value === 'list') showDrawer.value = true },
+    },
+  ]
+  // 数据查询：点击高分页可点击进 list 页
+  const queryItems = overview.value && overview.value.by_province
+    ? overview.value.by_province.slice(0, 5).map(p => ({
+        id: 'prov:' + p.province,
+        group: '数据查询',
+        label: '查看 ' + p.province + ' 价格',
+        icon: '🔎',
+        hint: `${p.province} · ${p.count?.toLocaleString() || 0} 条记录`,
+        action: () => router.push({ path: legacyTabPath('list'), query: { province: p.province } }),
+      }))
+    : []
+  return [...navItems, ...actionItems, ...queryItems]
+})
 
 function onCmdSelect(item) {
   // 由组件内部调用 action，这里只处理额外逻辑
