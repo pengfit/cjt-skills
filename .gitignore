@@ -19,8 +19,6 @@ venv/
 *.log
 *.db-shm
 *.db-wal
-# AI 调用结果缓存（运行时累积，重跑可重新生成）
-ai_cache.db
 # 备份文件
 *.bak.*
 *.bak
