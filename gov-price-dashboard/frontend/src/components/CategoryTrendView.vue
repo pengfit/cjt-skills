@@ -114,10 +114,10 @@
                 <td class="num">{{ idx + 1 }}</td>
                 <td class="spec-name">{{ s.spec }}</td>
                 <td class="num">{{ s.count }}</td>
-                <td class="num">{{ s.min_price?.toLocaleString() }}</td>
-                <td class="num highlight">{{ s.avg_price?.toLocaleString() }}</td>
-                <td class="num">{{ s.max_price?.toLocaleString() }}</td>
-                <td class="num">{{ ((s.max_price || 0) - (s.min_price || 0)).toLocaleString() }}</td>
+                <td class="num">{{ fmt.price(s.min_price) }}</td>
+                <td class="num highlight">{{ fmt.price(s.avg_price) }}</td>
+                <td class="num">{{ fmt.price(s.max_price) }}</td>
+                <td class="num">{{ fmt.price((s.max_price || 0) - (s.min_price || 0)) }}</td>
               </tr>
             </tbody>
           </table>
@@ -164,6 +164,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 import SectionHeader from './SectionHeader.vue'
 import CustomSelect from './CustomSelect.vue'
 import SkeletonChart from './SkeletonChart.vue'
@@ -172,6 +173,7 @@ import EmptyState from './EmptyState.vue'
 import { exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
 // ── 基础选项（去城市化后仅保留期数与热力图规格数；2026-07-09） ──
 const periodsLimit = ref('12')
@@ -358,7 +360,7 @@ async function renderHeatmap() {
       position: 'top',
       formatter: (p) => {
         const [j, i, v, n] = p.value
-        return `<b>${specs[i]}</b><br/>${periods[j]}<br/>均价: <b>${v?.toLocaleString()}</b><br/>样本: ${n}`
+        return `<b>${specs[i]}</b><br/>${periods[j]}<br/>均价: <b>${fmt.price(v)}</b><br/>样本: ${n}`
       },
     },
     grid: { top: 10, left: 160, right: 30, bottom: 60 },
@@ -419,7 +421,7 @@ async function renderBand() {
       formatter: (params) => {
         const idx = params[0].dataIndex
         const pb = data.value.price_band[idx]
-        return `<b>${pb.period_start}</b><br/>最高: ${pb.max?.toLocaleString()}<br/>均价: ${pb.avg?.toLocaleString()}<br/>最低: ${pb.min?.toLocaleString()}<br/>样本: ${pb.n_total} · 规格: ${pb.spec_count}`
+        return `<b>${pb.period_start}</b><br/>最高: ${fmt.price(pb.max)}<br/>均价: ${fmt.price(pb.avg)}<br/>最低: ${fmt.price(pb.min)}<br/>样本: ${pb.n_total} · 规格: ${pb.spec_count}`
       },
     },
     legend: { top: 5 },

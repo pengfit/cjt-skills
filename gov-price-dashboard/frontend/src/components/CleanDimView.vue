@@ -7,7 +7,7 @@
       title="分类清洗"
       :subtitle="subtitle"
       :stats="cleanCategory.items.length ? [
-        { label: '清洗文档数', value: cleanCategory.total.toLocaleString() },
+        { label: '清洗文档数', value: fmt.int(cleanCategory.total) },
         { label: '覆盖分类数', value: cleanCategory.items.length },
       ] : []"
     ><template #icon>🧪</template></PageHeader>
@@ -17,7 +17,7 @@
       <SectionHeader
         title="分类清洗"
         dot-color="blue"
-        :subtitle="`一级分类 × 城市覆盖 · ${cleanCategory.total.toLocaleString()} 条 / ${cleanCategory.items.length} 分类`"
+        :subtitle="`一级分类 × 城市覆盖 · ${fmt.int(cleanCategory.total)} 条 / ${cleanCategory.items.length} 分类`"
         style="margin-bottom:12px"
       />
       <div class="clean-table">
@@ -33,7 +33,7 @@
           class="clean-table-row"
         >
           <span class="clean-col-key" :title="c.key">{{ c.key }}</span>
-          <span class="clean-col-count">{{ c.doc_count.toLocaleString() }}</span>
+          <span class="clean-col-count">{{ fmt.int(c.doc_count) }}</span>
           <span class="clean-col-cities">
             <span
               v-for="city in allCityKeys"
@@ -48,7 +48,7 @@
             <span class="clean-parse-bar">
               <span class="clean-parse-fill" :style="{ width: (c.parse_rate * 100) + '%' }"></span>
             </span>
-            <span class="clean-parse-num">{{ (c.parse_rate * 100).toFixed(1) }}%</span>
+            <span class="clean-parse-num">{{ fmt.pct(c.parse_rate * 100) }}</span>
           </span>
         </div>
       </div>
@@ -74,8 +74,10 @@ import EmptyState from './EmptyState.vue'
 import ErrorState from './ErrorState.vue'
 import SectionHeader from './SectionHeader.vue'
 import PageHeader from './PageHeader.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
 const loading = ref(false)
 const error = ref('')

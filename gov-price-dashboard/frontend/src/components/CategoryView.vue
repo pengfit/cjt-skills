@@ -3,7 +3,7 @@
     <!-- Page header -->
     <PageHeader
       title="产品类别分析"
-      :subtitle="`共 <strong>${totalDocs.toLocaleString()}</strong> 条数据，<strong>${catCount}</strong> 个产品类别｜<strong>${topCategory?.key || '—'}</strong> 占比最高（<strong>${topCategoryPct}</strong>%）｜覆盖 <strong>${overview.total_provinces}</strong> 省/<strong>${overview.total_cities}</strong> 城`"
+      :subtitle="`共 <strong>${fmt.int(totalDocs)}</strong> 条数据，<strong>${catCount}</strong> 个产品类别｜<strong>${topCategory?.key || '—'}</strong> 占比最高（<strong>${topCategoryPct}</strong>%）｜覆盖 <strong>${fmt.int(overview.total_provinces)}</strong> 省/<strong>${fmt.int(overview.total_cities)}</strong> 城`"
     />
 
     <!-- Category grid -->
@@ -18,7 +18,7 @@
         <div class="cat-card-inner">
           <div class="cat-name">{{ cat.key }}</div>
           <div class="cat-emoji">{{ getCategoryEmoji(cat.key) }}</div>
-          <div class="cat-count">{{ cat.count.toLocaleString() }}</div>
+          <div class="cat-count">{{ fmt.int(cat.count) }}</div>
           <div class="cat-pct">{{ getPercent(cat.count) }}%</div>
           <div class="cat-bar-wrap">
             <div class="cat-bar" :style="{ width: getPercent(cat.count) + '%' }"></div>
@@ -39,7 +39,7 @@
         <button class="btn-back" @click="goBack">← 返回</button>
         <div class="cat-detail-title">
           {{ selectedCategory.key }}
-          <span class="detail-count">({{ selectedCategory.count?.toLocaleString() }} 条)</span>
+          <span class="detail-count">({{ fmt.int(selectedCategory.count) }} 条)</span>
         </div>
       </div>
 
@@ -78,7 +78,7 @@
               @click="toggleBreed(b)"
             >
               <span class="breed-grid-name">{{ b.key }}</span>
-              <span class="breed-grid-count">{{ b.count.toLocaleString() }}</span>
+              <span class="breed-grid-count">{{ fmt.int(b.count) }}</span>
             </div>
           </div>
           <!-- Breed detail expand panel -->
@@ -86,7 +86,7 @@
             <div class="breed-detail-header">
               <div class="breed-detail-title">
                 <span>📦 {{ expandedBreed }}</span>
-                <span class="breed-detail-sub">规格价格分析｜共 {{ breedDetail.total_records?.toLocaleString() }} 条记录</span>
+                <span class="breed-detail-sub">规格价格分析｜共 {{ fmt.int(breedDetail.total_records) }} 条记录</span>
               </div>
               <div class="breed-detail-actions">
                 <button class="btn-trend" @click.stop="goTrend(expandedBreed)" title="跳到价格走势页查看该品种趋势">
@@ -99,7 +99,7 @@
             <div class="breed-kpi-bar" v-if="pagedSpecs.length">
               <span class="kpi-chip">
                 <span class="kpi-label">规格</span>
-                <span class="kpi-value">{{ currentSpecTotal.toLocaleString() }}</span>
+                <span class="kpi-value">{{ fmt.int(currentSpecTotal) }}</span>
               </span>
               <span class="kpi-chip">
                 <span class="kpi-label">省份</span>
@@ -107,15 +107,15 @@
               </span>
               <span class="kpi-chip">
                 <span class="kpi-label">最低</span>
-                <span class="kpi-value price-low">{{ fmtPrice(breedKpi.minPrice) }}</span>
+                <span class="kpi-value price-low">{{ fmt.price(breedKpi.minPrice) }}</span>
               </span>
               <span class="kpi-chip">
                 <span class="kpi-label">最高</span>
-                <span class="kpi-value price-high">{{ fmtPrice(breedKpi.maxPrice) }}</span>
+                <span class="kpi-value price-high">{{ fmt.price(breedKpi.maxPrice) }}</span>
               </span>
               <span class="kpi-chip kpi-avg" v-if="breedKpi.avgPrice">
                 <span class="kpi-label">总均价</span>
-                <span class="kpi-value">{{ fmtPrice(breedKpi.avgPrice) }}</span>
+                <span class="kpi-value">{{ fmt.price(breedKpi.avgPrice) }}</span>
               </span>
             </div>
             <!-- Unit tabs -->
@@ -126,7 +126,7 @@
                 class="unit-tab"
                 :class="{ active: selectedUnit === u.key }"
                 @click="selectedUnit = u.key"
-              >{{ u.key }} <span class="unit-tab-count">({{ u.count.toLocaleString() }})</span></button>
+              >{{ u.key }} <span class="unit-tab-count">({{ fmt.int(u.count) }})</span></button>
             </div>
             <!-- Spec table: pagination sticky at top inside scrollable container -->
             <div v-if="currentUnitData" class="spec-body">
@@ -153,10 +153,10 @@
                 >
                   <span class="spec-td spec-key" :title="sp.key">{{ sp.key === '/' ? '—' : sp.key }}</span>
                   <span class="spec-td">{{ sp.province || '—' }}</span>
-                  <span class="spec-td">{{ sp.count.toLocaleString() }}</span>
-                  <span class="spec-td price">{{ fmtPrice(sp.avg_price) }}</span>
-                  <span class="spec-td price-low">{{ fmtPrice(sp.min_price) }}</span>
-                  <span class="spec-td price-high">{{ fmtPrice(sp.max_price) }}</span>
+                  <span class="spec-td">{{ fmt.int(sp.count) }}</span>
+                  <span class="spec-td price">{{ fmt.price(sp.avg_price) }}</span>
+                  <span class="spec-td price-low">{{ fmt.price(sp.min_price) }}</span>
+                  <span class="spec-td price-high">{{ fmt.price(sp.max_price) }}</span>
                 </div>
                 <div v-if="breedDetail.loading" class="spec-loading-wrap"><SkeletonCard :lines="4" :hide-footer="true" :hide-header="true" /></div>
               </div>
@@ -183,10 +183,12 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { getGovPriceTheme, registerGovPriceTheme } from '../composables/useEchartsTheme'
 import { useEcharts } from '../composables/useEcharts'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 import { markRaw } from 'vue'
 import PageHeader from './PageHeader.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 const loading = ref(false)
 const error = ref('')
 const categories = ref([])
@@ -459,11 +461,6 @@ function goProductPage(p) {
   loadCategoryProducts()
 }
 
-function fmtPrice(v) {
-  if (v == null || v === '') return '—'
-  return '¥' + Number(v).toFixed(2)
-}
-
 function goBack() {
   showAllBreeds.value = false
   allBreedsList.value = []
@@ -608,7 +605,7 @@ async function renderPriceChart(ranges, stats) {
       textStyle: { color: '#0f172a', fontSize: 12 },
       formatter: params => {
         const p = params[0]
-        return `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${p.value.toLocaleString()}</b>`
+        return `<b>${p.name}</b><br/>数量: <b style="color:#3b9eff">${fmt.int(p.value)}</b>`
       }
     },
     grid: { left: '3%', right: '4%', bottom: '12%', top: '8%', containLabel: true },

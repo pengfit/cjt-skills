@@ -39,7 +39,7 @@
             <span v-else-if="data.status === 'error'" class="badge badge-red">✗ 出错</span>
             <span v-else class="badge badge-gray">— 无记录</span>
           </div>
-          <div class="sync-doc-count">{{ (data.total_docs || 0).toLocaleString() }} 条文档</div>
+          <div class="sync-doc-count">{{ fmt.int(data.total_docs || 0) }} 条文档</div>
         </div>
 
         <!-- 右侧：详情列表（收起时不渲染） -->
@@ -76,7 +76,7 @@
                       <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
                       <span v-else class="list-status-dash">—</span>
                     </span>
-                    <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
+                    <span class="list-num">{{ fmt.int(item.docs_written || item.doc_count || 0) }}</span>
                   </div>
                 </div>
               </div>
@@ -103,7 +103,7 @@
                     <span v-else-if="item.status === 'error'" class="badge badge-red">✗ 出错</span>
                     <span v-else class="list-status-dash">—</span>
                   </span>
-                  <span class="list-num">{{ (item.docs_written || item.doc_count || 0).toLocaleString() }}</span>
+                  <span class="list-num">{{ fmt.int(item.docs_written || item.doc_count || 0) }}</span>
                 </div>
               </div>
             <div class="list-pagination" v-if="totalDetailPages > 1">
@@ -119,7 +119,7 @@
                 <span>{{ currentItemLabel }}</span>
                 <span>{{ data.current_page }}/{{ data.total_pages }}页</span>
                 <span class="pct-active">{{ getCurrentPercent().toFixed(1) }}%</span>
-                <span>{{ (currentItemDocs || 0).toLocaleString() }}条</span>
+                <span>{{ fmt.int(currentItemDocs || 0) }}条</span>
               </div>
             </div>
           </template>
@@ -141,7 +141,7 @@
                   <span v-else-if="p.status === 'completed' || p.status === 'ok'" class="badge badge-green">✓ 已完成</span>
                   <span v-else class="list-status-dash">—</span>
                 </span>
-                <span class="list-num">{{ (p.docs_written || 0).toLocaleString() }}</span>
+                <span class="list-num">{{ fmt.int(p.docs_written || 0) }}</span>
               </div>
             </div>
             <div v-if="!data.period_details || !data.period_details.length" class="empty-hint">尚无期记录</div>
@@ -159,6 +159,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const props = defineProps({
   skill: { type: Object, required: true },   // 来自 /api/skill-registry 的 skill 配置
@@ -168,6 +169,7 @@ const props = defineProps({
 
 const PAGE_SIZE = 10
 const page = ref(1)
+const fmt = useFormatNumber()
 
 // 颜色类（与原 DataHealthView 同步）
 const barClass = computed(() => {

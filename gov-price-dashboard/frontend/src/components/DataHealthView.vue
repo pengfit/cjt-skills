@@ -41,7 +41,7 @@
       <div class="daily-summary">
         <div class="summary-cell">
           <div class="summary-label">近 30 日新增</div>
-          <div class="summary-value">{{ dailyStats.totalCount.toLocaleString() }}<span class="summary-unit"> 条</span></div>
+          <div class="summary-value">{{ fmt.int(dailyStats.totalCount) }}<span class="summary-unit"> 条</span></div>
         </div>
         <div class="summary-cell">
           <div class="summary-label">活跃天数</div>
@@ -52,12 +52,12 @@
         </div>
         <div class="summary-cell">
           <div class="summary-label">日均（仅活跃日）</div>
-          <div class="summary-value">{{ dailyStats.avgPerActiveDay.toLocaleString() }}<span class="summary-unit"> 条</span></div>
+          <div class="summary-value">{{ fmt.int(dailyStats.avgPerActiveDay) }}<span class="summary-unit"> 条</span></div>
         </div>
         <div class="summary-cell">
           <div class="summary-label">最大单日</div>
           <div class="summary-value">
-            {{ dailyStats.maxCount.toLocaleString() }}<span class="summary-unit"> 条</span>
+            {{ fmt.int(dailyStats.maxCount) }}<span class="summary-unit"> 条</span>
           </div>
           <div class="summary-sub" v-if="dailyStats.maxDate">{{ dailyStats.maxDate }}</div>
         </div>
@@ -178,7 +178,7 @@
               </td>
               <td class="cell-pinyin">{{ s.key }}</td>
               <td class="cell-scope text-left">{{ s.scope }}</td>
-              <td class="cell-num text-right">{{ (s.total_docs || 0).toLocaleString() }}</td>
+              <td class="cell-num text-right">{{ fmt.int(s.total_docs || 0) }}</td>
               <td class="cell-time">{{ s.last_updated || '—' }}</td>
               <td class="cell-num text-right">{{ s.daysAgo === null ? '—' : s.daysAgo + ' 天' }}</td>
               <td>
@@ -220,12 +220,14 @@ import axios from 'axios'
 import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
 import { useEcharts } from '../composables/useEcharts'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import SectionHeader from './SectionHeader.vue'
 import StatCard from './StatCard.vue'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 const loading = ref(false)
 const error = ref('')
 const data = ref({
@@ -481,11 +483,11 @@ async function renderDailyChart() {
         const i = p[0].dataIndex
         const v = values[i]
         if (v === 0) return `<b style="color:#94a3b8">${p[0].name}</b><br/><span style="color:#94a3b8">无采集</span>`
-        const avgLine = avg > 0 ? `<br/>30日均: ${Math.round(avg).toLocaleString()}` : ''
+        const avgLine = avg > 0 ? `<br/>30日均: ${fmt.int(Math.round(avg))}` : ''
         const ratio = avg > 0 ? (v / avg).toFixed(2) : '-'
         const flag = avg > 0 && (v / avg > 2 || v / avg < 0.3)
           ? `<br/><b style="color:${v/avg > 2 ? '#dc2626' : '#ea580c'}">${v/avg > 2 ? '↑ 突增' : '↓ 突减'} (×${ratio})</b>` : ''
-        return `<b style="color:#3b82f6">${p[0].name}</b><br/>数量: <b style="color:#10b981">${v.toLocaleString()}</b>${avgLine}${flag}`
+        return `<b style="color:#3b82f6">${p[0].name}</b><br/>数量: <b style="color:#10b981">${fmt.int(v)}</b>${avgLine}${flag}`
       }
     },
     grid: { left: '3%', right: '3%', bottom: '10%', top: '18%', containLabel: true },
@@ -532,7 +534,7 @@ async function renderDailyChart() {
       label: {
         show: true,
         position: 'top',
-        formatter: p => (p.value > 0 ? p.value.toLocaleString() : ''),
+        formatter: p => (p.value > 0 ? fmt.int(p.value) : ''),
         color: '#475569',
         fontSize: 10,
         fontWeight: 600
@@ -541,7 +543,7 @@ async function renderDailyChart() {
         silent: true,
         symbol: 'none',
         lineStyle: { color: '#94a3b8', type: 'dashed', width: 1 },
-        label: { show: true, position: 'insideEndTop', formatter: `30日均 ${Math.round(avg).toLocaleString()}`, color: '#64748b', fontSize: 10, backgroundColor: 'rgba(255,255,255,0.9)', padding: [2, 4] },
+        label: { show: true, position: 'insideEndTop', formatter: `30日均 ${fmt.int(Math.round(avg))}`, color: '#64748b', fontSize: 10, backgroundColor: 'rgba(255,255,255,0.9)', padding: [2, 4] },
         data: [{ yAxis: avg }]
       } : undefined,
       markPoint: markPoints.length ? {

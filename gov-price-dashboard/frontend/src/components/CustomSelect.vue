@@ -25,7 +25,7 @@
                 @mouseenter="focusedIdx = flatIdx(gIdx, idx)"
               >
                 <span class="cs-opt-label">{{ opt.label || opt.key }}</span>
-                <span v-if="opt.count != null" class="cs-opt-count">{{ Number(opt.count).toLocaleString() }}</span>
+                <span v-if="opt.count != null" class="cs-opt-count">{{ fmt.int(opt.count) }}</span>
               </div>
             </template>
             <div v-if="!flatLength" class="cs-empty">无结果</div>
@@ -40,7 +40,7 @@
               @mouseenter="focusedIdx = idx"
             >
               <span class="cs-opt-label">{{ opt.label || opt.key }}</span>
-              <span v-if="opt.count != null" class="cs-opt-count">{{ Number(opt.count).toLocaleString() }}</span>
+              <span v-if="opt.count != null" class="cs-opt-count">{{ fmt.int(opt.count) }}</span>
             </div>
             <div v-if="!filteredOptions.length" class="cs-empty">无结果</div>
           </template>
@@ -52,6 +52,9 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
+
+const fmt = useFormatNumber()
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

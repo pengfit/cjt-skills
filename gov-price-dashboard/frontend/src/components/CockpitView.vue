@@ -44,11 +44,11 @@
             </div>
             <div class="hero-meta-row">
               <span class="hero-meta-label">DWD 清洗</span>
-              <span class="hero-meta-value">{{ formatShort(kpi.dwd) }} 条</span>
+              <span class="hero-meta-value">{{ fmt.compact(kpi.dwd) }} 条</span>
             </div>
             <div class="hero-meta-row">
               <span class="hero-meta-label">DWS 服务</span>
-              <span class="hero-meta-value">{{ formatShort(kpi.dws) }} 条</span>
+              <span class="hero-meta-value">{{ fmt.compact(kpi.dws) }} 条</span>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@
           </svg>
           <div class="gauge-foot">
             <span class="gauge-tag tag-blue">{{ dwdPctAll >= 90 ? '✓ 优秀' : dwdPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
-            <span class="gauge-trend">{{ formatShort(kpi.dwd) }} / {{ formatShort(kpi.ods) }}</span>
+            <span class="gauge-trend">{{ fmt.compact(kpi.dwd) }} / {{ fmt.compact(kpi.ods) }}</span>
           </div>
         </div>
 
@@ -85,7 +85,7 @@
           </svg>
           <div class="gauge-foot">
             <span class="gauge-tag tag-blue">{{ dwsPctAll >= 90 ? '✓ 优秀' : dwsPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
-            <span class="gauge-trend">{{ formatShort(kpi.dws) }} / {{ formatShort(kpi.dwd) }}</span>
+            <span class="gauge-trend">{{ fmt.compact(kpi.dws) }} / {{ fmt.compact(kpi.dwd) }}</span>
           </div>
         </div>
 
@@ -140,17 +140,17 @@
                   <span class="city-name">{{ pipe.city_label }}</span>
                 </div>
                 <div class="city-td city-td-data">
-                  <span class="stage-num mono" :title="fmt.int(pipe.ods?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.ods?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.ods?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.ods?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="fmt.int(pipe.dwd?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.dwd?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.dwd?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.dwd?.count) }}</span>
                   <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="fmt.int(pipe.dws?.count || 0) + ' 条 (精确值)'">{{ formatShort(pipe.dws?.count) }}</span>
+                  <span class="stage-num mono" :title="fmt.int(pipe.dws?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.dws?.count) }}</span>
                 </div>
                 <div class="city-td city-td-attr">
                   <div class="attr-track">
                     <div class="attr-fill" :style="{ width: attrRate(pipe) + '%' }"></div>
                   </div>
-                  <span class="attr-pct mono">{{ attrRate(pipe).toFixed(1) }}%</span>
+                  <span class="attr-pct mono">{{ fmt.pct(attrRate(pipe)) }}</span>
                 </div>
                 <div class="city-td city-td-spark">
                   <svg v-if="pipe.sparkline_7d && pipe.sparkline_7d.length"
@@ -371,10 +371,6 @@ function sparklineTrendCls(arr) {
 
 // D.2026-07-12 统一使用 useFormatNumber
 const fmt = useFormatNumber()
-// 保留本地别名,避免改动现有 template 引用点(向后兼容)
-function formatShort(n) {
-  return fmt.compact(n)
-}
 
 // 紧凑 sparkline：60×16 视图
 function sparklinePointsCompact(arr) {
@@ -400,7 +396,7 @@ function sparklineTrendShort(arr) {
   const avg = prev / (arr.length - 1)
   const diff = last - avg
   if (Math.abs(diff) < avg * 0.05) return '→'
-  return diff > 0 ? `↑${formatShort(Math.round(diff))}` : `↓${formatShort(Math.round(-diff))}`
+  return diff > 0 ? `↑${fmt.compact(Math.round(diff))}` : `↓${fmt.compact(Math.round(-diff))}`
 }
 
 function dwdPct(pipe) {

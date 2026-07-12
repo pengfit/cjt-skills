@@ -146,7 +146,7 @@
               </select>
               <span>条</span>
             </div>
-            <span class="page-total">共 {{ (productResult.total || 0).toLocaleString() }} 条</span>
+            <span class="page-total">共 {{ fmt.int(productResult.total || 0) }} 条</span>
           </div>
         </div>
       </template>
@@ -160,8 +160,10 @@ import axios from 'axios'
 import TreeNode from './TreeNode.vue'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
 // ── 树状态 ──
 const treeData = ref([])
@@ -301,7 +303,9 @@ function onProductKeywordInput() {
   productKeywordTimer = setTimeout(() => doProductSearch(1), 300)
 }
 
-// ── 价格格式化 ──
+// ── 价格格式化(不带 ¥ 前缀,与表格列样式一致) ──
+// 注:此函数保留本地实现,与 useFormatNumber().price() 行为不同(后者默认加 ¥)。
+// 本表头未使用 ¥ 前缀,继续用本地版本以保持视觉一致。
 function fmtPrice(v) {
   if (v === null || v === undefined || v === '') return '—'
   const n = Number(v)

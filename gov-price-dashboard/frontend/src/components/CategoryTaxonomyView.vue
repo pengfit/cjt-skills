@@ -8,7 +8,7 @@
       :stats="[
         { label: '一级', value: stats.taxonomy.l1 || 0 },
         { label: '三级分类', value: stats.taxonomy.l3 || 0 },
-        { label: '品种映射', value: stats.map.total.toLocaleString() },
+        { label: '品种映射', value: fmt.int(stats.map.total) },
         {
           label: 'L3 命中率',
           value: hitRate + '%',
@@ -48,8 +48,10 @@ import axios from 'axios'
 import CategoryTaxonomyTab from './CategoryTaxonomyTab.vue'
 import BreedMapTab from './BreedMapTab.vue'
 import PageHeader from './PageHeader.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
 // ── 顶部统计（共享） ──
 const stats = ref({
@@ -62,7 +64,7 @@ const hitRate = computed(() => {
   const out = stats.value.map.l3_not_in_taxonomy
   const tot = inT + out
   if (!tot) return '0.0'
-  return ((inT / tot) * 100).toFixed(1)
+  return fmt.pct((inT / tot) * 100)
 })
 
 // ── Tab 状态 ──

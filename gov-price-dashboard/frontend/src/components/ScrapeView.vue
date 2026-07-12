@@ -82,7 +82,7 @@
               >
                 <span class="chip-dot" :class="c.status || 'not-started'"></span>
                 <span class="chip-name">{{ c.catalogue_name || c.area_name || c.tab_name || c.county }}</span>
-                <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
+                <span class="chip-pct">{{ fmt.pct(c.percent || 0, 0) }}</span>
               </div>
             </template>
           </template>
@@ -96,7 +96,7 @@
             >
               <span class="chip-dot" :class="c.status || 'not-started'"></span>
               <span class="chip-name">{{ c.catalogue_name || c.area_name || c.tab_name || c.county }}</span>
-              <span class="chip-pct">{{ (c.percent || 0).toFixed(0) }}%</span>
+              <span class="chip-pct">{{ fmt.pct(c.percent || 0, 0) }}</span>
             </div>
           </template>
         </div>
@@ -129,8 +129,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
 const loading = ref(false)
 const error = ref('')
@@ -146,7 +148,7 @@ function scrapePct(scrape) {
   const completed = Number(scrape.completed || 0)
   const denom = Math.max(Number(scrape.total_counties || 0), completed)
   if (!denom) return '0'
-  return Math.min((completed / denom) * 100, 100).toFixed(0)
+  return fmt.pct(Math.min((completed / denom) * 100, 100), 0)
 }
 
 // 按 source 分组（chongqing 这类 区县 / 预拌砂浆 / 城市级 多源）
