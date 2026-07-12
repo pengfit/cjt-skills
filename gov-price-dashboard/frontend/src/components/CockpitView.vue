@@ -226,7 +226,7 @@
         </div>
         <div class="footer-cell">
           <span class="footer-label">轮询</span>
-          <span class="footer-value mono">30m</span>
+          <span class="footer-value mono">{{ pollMinutes }}</span>
         </div>
         <div class="footer-cell">
           <span class="footer-label">城市</span>
@@ -276,6 +276,9 @@ let pollTimer = null
 let clockTimer = null
 
 const 轮询_INTERVAL_MS = 15 * 60 * 1000  // 15 分钟（与城市检测 cron 节拍对齐）
+
+// 底栏"轮询 Xm"动态读取,避免硬编码失同步（fix 2026-07-12 P3-batch1）
+const pollMinutes = computed(() => Math.round(轮询_INTERVAL_MS / 60000) + 'm')
 
 const kpi = computed(() => {
   const cities = Object.values(data.all_cities || {})

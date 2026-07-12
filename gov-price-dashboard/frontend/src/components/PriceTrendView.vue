@@ -170,6 +170,9 @@
           <button class="focus-clear" @click="clearFocus" title="清除聚焦">×</button>
         </div>
         <div v-if="!loading && allPeriods.length && chartSeries.length" class="export-bar">
+          <button class="export-btn log-toggle" :class="{ active: useLogScale }" @click="toggleLogScale" :title="useLogScale ? '当前为对数刻度，点击切换为线性' : '当前为线性刻度，点击切换为对数（价格量级差异大时建议）'">
+            {{ useLogScale ? '📐 对数' : '📏 线性' }}
+          </button>
           <button class="export-btn" @click="onExportPng" title="导出当前主图为 PNG">📸 PNG</button>
           <button class="export-btn" @click="onExportCsv" title="导出当前规格时序为 CSV">📊 CSV</button>
         </div>
@@ -313,6 +316,15 @@ const selectedAttrKeys = ref(new Set())
 // 主次曲线分层（P0-#1）：hover 自动高亮（ECharts 内置），
 // click 系列则“锁定聚焦”，其余曲线变淡 + 减细
 const focusedSeriesName = ref(null)
+// Y 轴对数 / 线性切换（fix 2026-07-12 P3-batch1）：多规格量级差异大时建议对数
+const useLogScale = ref(false)
+function toggleLogScale() {
+  useLogScale.value = !useLogScale.value
+}
+watch(useLogScale, () => {
+  // 选项变化立刻重渲
+  if (chartInstance) renderChart()
+})
 watch(selectedMaterials, () => {
   const keys = new Set()
   for (const s of data.value.series) {
@@ -799,8 +811,20 @@ async function renderChart() {
     legend: { top: 0, type: 'scroll', textStyle: { color: '#475569' } },
     grid: { left: 80, right: 30, top: 50, bottom: 60 },
     xAxis: { type: 'category', data: xData, axisLine: { lineStyle: { color: '#cbd5e1' } } },
-    yAxis: { type: 'value', name: '价格', nameTextStyle: { color: '#64748b' },
-             axisLabel: { color: '#475569' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    yAxis: {
+      type: useLogScale.value ? 'log' : 'value',
+      name: '价格' + (useLogScale.value ? '（对数）' : ''),
+      nameTextStyle: { color: '#64748b' },
+      axisLabel: {
+        color: '#475569',
+        formatter: useLogScale.value
+          ? (v) => { const n = Number(v); return n >= 1000 ? `${(n/1000).toFixed(1)}k` : (Number.isInteger(n) ? n : '') }
+          : undefined,
+      },
+      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      // log 模式必须 ≥1 才显示，给 0 价位留展示位置
+      min: useLogScale.value ? 1 : undefined,
+    },
     series: seriesArr,
   }
   chartInstance.setOption(option, true)
@@ -1081,6 +1105,14 @@ watch(periodsLimit, () => loadData())
 }
 .export-btn:hover {
   border-color: #2563eb;
+}
+/* 对数/线性切换（fix 2026-07-12 P3-batch1） */
+.export-btn.log-toggle.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.mode-tab.active {
   color: #1d4ed8;
   background: #eff6ff;
 }

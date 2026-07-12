@@ -13,6 +13,7 @@
       @toggle-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
       @open-cmd-palette="showCmdPalette = true"
       @go-health="goHealth"
+      @go-list="goList"
     />
 
     <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
@@ -662,6 +663,13 @@ function refreshAgoText() {
 
 function goHealth() {
   router.push(legacyTabPath('health'))
+}
+
+// 顶栏 KPI 钻取（fix 2026-07-12 P3-batch1）：省份/城市可点击进 list 页
+function goList(payload) {
+  const scope = payload?.scope || 'all'
+  // 当前 list 页用抽屉筛选驱动,scope 目前只置位,后续可扩展为预填筛选
+  router.push({ path: legacyTabPath('list'), query: { _from: scope } })
 }
 const searchKeyword = ref('')
 const searchProvince = ref('')

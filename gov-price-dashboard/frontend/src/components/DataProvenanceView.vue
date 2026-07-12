@@ -29,7 +29,12 @@
               <div class="pipe-stage-label stage-ods-label">ODS</div>
               <div class="pipe-stage-count">{{ pipe.ods?.count?.toLocaleString() }}<span class="pipe-stage-unit">条</span></div>
             </div>
-            <div class="pipe-stage-arrow stage-arrow-dwd">→</div>
+            <div class="pipe-stage-arrow stage-arrow-dwd">
+              <span class="arrow-label">→</span>
+              <span v-if="pipe.ods?.count != null" class="arrow-delta" :class="dwdDeltaClass(pipe)" :title="`ODS 到 DWD 损耗 = ODS - DWD`">
+                {{ formatDelta(pipe.ods?.count, pipe.dwd?.count) }}
+              </span>
+            </div>
             <div class="pipe-stage scrape-stage stage-dwd" :style="{ '--pct': dwdPct(pipe) }" :class="{ disabled: !pipe.dwd?.count }">
               <div class="scrape-inner" @click.stop="openDwdDrilldown(key, pipe)">
                 <div class="pipe-stage-label stage-dwd-label">DWD</div>
@@ -49,7 +54,12 @@
                 </div>
               </div>
             </div>
-            <div class="pipe-stage-arrow stage-arrow-dws">→</div>
+            <div class="pipe-stage-arrow stage-arrow-dws">
+              <span class="arrow-label">→</span>
+              <span v-if="pipe.dwd?.count != null" class="arrow-delta" :class="dwsDeltaClass(pipe)" :title="`DWD 到 DWS 损耗 = DWD - DWS`">
+                {{ formatDelta(pipe.dwd?.count, pipe.dws?.count) }}
+              </span>
+            </div>
             <div class="pipe-stage scrape-stage stage-dws" :style="{'--pct': dwsPct(pipe)}" :class="{ disabled: !pipe.dws?.count }">
               <div class="scrape-inner">
                 <div class="pipe-stage-label stage-dws-label">DWS</div>
@@ -305,6 +315,35 @@ function dwsSyncClass(rate) {
   if (rate >= 80) return 'cov-good'
   if (rate >= 30) return 'cov-warn'
   return 'cov-bad'
+}
+
+// ── ODS/DWD 阶段差异量（P3-batch1）：显示 -80/0/+12 让损耗可看 ──
+function formatDelta(src, dst) {
+  const s = Number(src || 0)
+  const d = Number(dst || 0)
+  if (!s) return ''
+  const diff = s - d
+  if (diff === 0) return '±0'
+  return (diff > 0 ? '−' : '+') + Math.abs(diff).toLocaleString()
+}
+
+function dwdDeltaClass(pipe) {
+  const ods = Number(pipe.ods?.count || 0)
+  const dwd = Number(pipe.dwd?.count || 0)
+  if (!ods) return ''
+  const diff = ods - dwd
+  if (diff === 0) return ''
+  // 损耗超 5% 则橘色警示
+  return Math.abs(diff) / ods > 0.05 ? 'delta-warn' : 'delta-ok'
+}
+
+function dwsDeltaClass(pipe) {
+  const dwd = Number(pipe.dwd?.count || 0)
+  const dws = Number(pipe.dws?.count || 0)
+  if (!dwd) return ''
+  const diff = dwd - dws
+  if (diff === 0) return ''
+  return Math.abs(diff) / dwd > 0.05 ? 'delta-warn' : 'delta-ok'
 }
 
 async function runFlushDws(city) {
@@ -1031,7 +1070,35 @@ onMounted(() => {
 .pipe-stage-label { font-size: 10px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px; margin-bottom: 2px; }
 .pipe-stage-count { font-size: 15px; font-weight: 800; color: #0f172a; font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace; line-height: 1; }
 .pipe-stage-unit { font-size: 10px; color: var(--text-3); margin-left: 1px; }
-.pipe-stage-arrow { font-size: 14px; color: var(--primary); flex-shrink: 0; padding: 0 2px; }
+.pipe-stage-arrow {
+  font-size: 14px;
+  color: var(--primary);
+  flex-shrink: 0;
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 28px;
+}
+.pipe-stage-arrow .arrow-label { line-height: 1; }
+/* 差异量（P3-batch1）：损耗量化 */
+.pipe-stage-arrow .arrow-delta {
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--font-mono-num);
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.pipe-stage-arrow .arrow-delta.delta-ok {
+  background: rgba(34,197,94,0.12);
+  color: #16a34a;
+}
+.pipe-stage-arrow .arrow-delta.delta-warn {
+  background: rgba(220,38,38,0.12);
+  color: #dc2626;
+}
 .pipeline-card-etl { font-size: 10px; color: var(--text-3); margin-top: 6px; }
 .pipeline-card-counties {
   display: flex;

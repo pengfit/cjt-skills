@@ -696,7 +696,8 @@ onMounted(() => loadCategories())
 
 .cat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* 9 类目紧凑排布：1080+ → 5列(5+4),1400+ → 6列(6+3)（fix 2026-07-12 P3-batch1） */
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
 

@@ -8,14 +8,22 @@
       <span class="top-bar-title">材价通</span>
     </div>
     <div class="top-bar-meta">
-      <span class="meta-item">
+      <button
+        class="meta-item meta-item-btn"
+        :title="`跳到「全部数据」按 ${overview.total_provinces} 个省份筛选`"
+        @click="$emit('go-list', { scope: 'province' })"
+      >
         <span class="meta-label">省份</span>
         <span class="meta-value">{{ overview.total_provinces }}</span>
-      </span>
-      <span class="meta-item">
+      </button>
+      <button
+        class="meta-item meta-item-btn"
+        :title="`跳到「全部数据」按 ${overview.total_cities} 个城市筛选`"
+        @click="$emit('go-list', { scope: 'city' })"
+      >
         <span class="meta-label">城市</span>
         <span class="meta-value">{{ overview.total_cities }}</span>
-      </span>
+      </button>
       <!-- 数据新鲜度告警（fix 2026-07-12 P1-4）：stale/very_stale 城市数,点击跳数据健康 -->
       <button
         v-if="alerts.count > 0"
@@ -74,6 +82,7 @@ import { useTheme } from '../../composables/useTheme'
  *     @toggle-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
  *     @open-cmd-palette="showCmdPalette = true"
  *     @go-health="goHealth"
+ *     @go-list="goList"
  *   />
  */
 defineProps({
@@ -83,7 +92,7 @@ defineProps({
   lastRefreshAgo:   { type: String, default: '' },       // "更新于 3 分钟前" 等动态文案
 })
 
-defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health'])
+defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health', 'go-list'])
 
 const { isDark, toggle } = useTheme()
 function toggleTheme() {
@@ -201,6 +210,17 @@ function toggleTheme() {
 }
 .meta-item:hover {
   background: rgba(var(--primary-rgb), 0.08);
+}
+
+/* 顶栏 KPI 可点击变体（fix 2026-07-12 P3-batch1） */
+.meta-item-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+.meta-item-btn:hover {
+  border-color: var(--primary);
 }
 
 .meta-label {
