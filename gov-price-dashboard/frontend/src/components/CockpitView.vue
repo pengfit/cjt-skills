@@ -3,7 +3,7 @@
     <!-- 顶部 HUD 标题栏 -->
     <div class="hud-header">
       <div class="hud-title">
-        <span class="hud-prefix">驾驶舱 · 实时监控</span>
+        <span class="hud-prefix">数据驾驶舱 · 自动每 15 分钟更新</span>
       </div>
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
@@ -275,7 +275,7 @@ const updatesNow = ref('')     // skill-updates 扫描时间
 let pollTimer = null
 let clockTimer = null
 
-const 轮询_INTERVAL_MS = 30 * 60 * 1000  // 30 分钟
+const 轮询_INTERVAL_MS = 15 * 60 * 1000  // 15 分钟（与城市检测 cron 节拍对齐）
 
 const kpi = computed(() => {
   const cities = Object.values(data.all_cities || {})
@@ -1160,8 +1160,24 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* ── 响应式 ── */
-@media (max-width: 1200px) {
+/* ── 响应式 ──
+   1100px 是平板断点（侧栏已折叠为图标列 64px），4 列仪表降至 2x2 */
+@media (max-width: 1100px) {
   .gauge-row { grid-template-columns: repeat(2, 1fr); }
+  /* 地图 + 管道在平板竖排，避免 8/4 横排太挤 */
+  .grid-row-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+  .grid-geo {
+    grid-column: span 1;
+    aspect-ratio: auto;
+    min-height: 420px;
+  }
+  .grid-pipe {
+    grid-column: span 1;
+    height: auto;
+    max-height: 480px;
+  }
 }
 </style>

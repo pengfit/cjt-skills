@@ -1,67 +1,62 @@
 <template>
-  <div class="mobile-sidebar-backdrop" v-if="open" @click="$emit('close')"></div>
-  <aside class="sidebar" :class="{ 'mobile-open': open }" role="navigation" aria-label="主导航">
-    <div v-for="(group, gi) in groupedTabs" :key="group.label" class="sidebar-group">
+  <!-- 移动端 backdrop（桌面端不渲染） -->
+  <div v-if="open" class="mobile-sidebar-backdrop" @click="$emit('close')"></div>
+
+  <aside
+    class="sidebar"
+    :class="{ 'mobile-open': open }"
+    role="navigation"
+    aria-label="主导航"
+  >
+    <div
+      v-for="group in groups"
+      :key="group.key"
+      class="sidebar-group"
+      :data-module="group.key"
+    >
       <div class="sidebar-group-label">{{ group.label }}</div>
-      <button
-        v-for="tab in group.tabs"
-        :key="tab.key"
+      <RouterLink
+        v-for="item in group.items"
+        :key="item.key"
+        :to="item.path"
         class="sidebar-item"
-        :class="{ active: curTab === tab.key }"
-        @click="$emit('select', tab.key)"
+        :class="{ active: currentTab === item.key }"
+        @click="$emit('navigate')"
       >
-        <span class="sidebar-item-icon" aria-hidden="true">{{ tab.icon }}</span>
-        <span class="sidebar-item-label">{{ tab.label }}</span>
-        <span class="sidebar-item-key" aria-hidden="true">{{ tab.num }}</span>
-      </button>
+        <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
+        <span class="sidebar-item-label">{{ item.label }}</span>
+        <span v-if="item.shortcut" class="sidebar-item-key" aria-hidden="true">{{ item.shortcut }}</span>
+      </RouterLink>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
-  curTab: { type: String, required: true },
-  open: { type: Boolean, default: false },
+/**
+ * 侧栏导航（统一组件）
+ * 由父级传入 `groups`(完整路由+元信息),内部用 RouterLink 渲染。
+ * `open` 控制移动端 drawer 状态,父级监听 `close` / `navigate`。
+ *
+ * @example
+ *   const groups = computed(() => [
+ *     { key: 'view',    label: '数据浏览',   items: [...] },
+ *     { key: 'collect', label: '数据采集',   items: [...] },
+ *   ])
+ *   <Sidebar
+ *     :groups="groups"
+ *     :current-tab="route.name"
+ *     :open="mobileSidebarOpen"
+ *     @close="mobileSidebarOpen = false"
+ *     @navigate="mobileSidebarOpen = false"
+ *   />
+ */
+defineProps({
+  groups:      { type: Array,  required: true },  // [{ key, label, items: [{key, label, path, icon, shortcut?}] }]
+  currentTab:  { type: String, required: true },  // 当前路由 name
+  open:        { type: Boolean, default: false }, // 移动端 drawer 开关
 })
 
-defineEmits(['select', 'close'])
-
-const TAB_GROUPS = [
-  { label: '总览',     items: [
-    { key: 'cockpit',  label: '驾驶舱',   icon: '🛩️' },
-  ]},
-  { label: '业务查价', items: [
-    { key: 'list',     label: '全部数据', icon: '📋' },
-    { key: 'category', label: '全部类别', icon: '🏷️' },
-    { key: 'dist',     label: '价格分布', icon: '📈' },
-  ]},
-  { label: '系统监控', items: [
-    { key: 'sync',     label: '数据同步', icon: '🔄' },
-    { key: 'health',   label: '数据健康', icon: '💚' },
-  ]},
-  { label: '规则管理', items: [
-    { key: 'rules',    label: '规格解析', icon: '🧩' },
-  ]},
-]
-
-const TAB_KEY_ORDER = ['cockpit', 'list', 'category', 'dist', 'sync', 'health', 'rules']
-
-const groupedTabs = computed(() => {
-  let num = 0
-  return TAB_GROUPS.map(g => ({
-    label: g.label,
-    tabs: g.items.map(t => {
-      num++
-      return { ...t, num: String(num) }
-    }),
-  }))
-})
-
-// 暴露：每个 tab 在 TAB_KEY_ORDER 里的下标（即快捷键 1-8）
-const SHORTCUT_KEYS = TAB_KEY_ORDER
-defineExpose({ SHORTCUT_KEYS })
+defineEmits(['close', 'navigate'])
 </script>
 
 <style scoped>
@@ -74,69 +69,98 @@ defineExpose({ SHORTCUT_KEYS })
 }
 
 .sidebar {
-  width: 200px;
-  flex-shrink: 0;
+  width: 210px;
+  flex: 0 0 210px;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  height: calc(100vh - var(--topbar-h));
+  padding: 12px 0;
   position: sticky;
-  top: var(--topbar-h);
+  top: var(--topbar-h, 0);
+  align-self: flex-start;
+  height: calc(100vh - var(--topbar-h, 56px));
   overflow-y: auto;
 }
 
+/* ── 模块分组 ── */
 .sidebar-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+/* 第二个及之后分组:顶部细线分隔 */
+.sidebar-group + .sidebar-group {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 4px;
 }
 
 .sidebar-group-label {
-  font-size: 11px;
-  color: var(--text-3);
-  letter-spacing: 2px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 4px 10px 6px;
-  text-transform: uppercase;
+  color: var(--text-2);
+  letter-spacing: 0.3px;
+  padding: 14px 16px 8px 22px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+/* 左侧色条标识 */
+.sidebar-group-label::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+
+/* 4 模块色条 */
+.sidebar-group[data-module="view"]    .sidebar-group-label::before { background: var(--primary); }
+.sidebar-group[data-module="collect"] .sidebar-group-label::before { background: var(--warning); }
+.sidebar-group[data-module="govern"]  .sidebar-group-label::before { background: #7c3aed; }
+.sidebar-group[data-module="viz"]     .sidebar-group-label::before { background: var(--success); }
+
+/* 第一个分组(数据浏览)label 顶部紧凑些 */
+.sidebar-group[data-module="view"] .sidebar-group-label {
+  padding-top: 10px;
+}
+
+/* ── 单项 ── */
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  border: none;
   background: transparent;
   color: var(--text-2);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-  font-family: var(--font-sans);
-}
-
-.sidebar-item:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.sidebar-item.active {
-  background: var(--primary-dim);
-  color: var(--primary);
-  font-weight: 700;
-  border-color: rgba(var(--primary-rgb), 0.18);
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  border-radius: 0;
+  text-decoration: none;
 }
 
 .sidebar-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   font-size: 14px;
-  width: 18px;
-  text-align: center;
   flex-shrink: 0;
+  background: transparent;
+  transition: all var(--transition-fast);
 }
 
 .sidebar-item-label {
@@ -156,6 +180,27 @@ defineExpose({ SHORTCUT_KEYS })
   opacity: 0.6;
 }
 
+.sidebar-item:hover {
+  color: var(--text);
+  background: var(--primary-light);
+}
+
+.sidebar-item:hover .sidebar-item-icon {
+  background: var(--primary-dim);
+}
+
+.sidebar-item.active {
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.08);
+  font-weight: 600;
+  border-left: 3px solid var(--primary);
+  padding-left: 13px;
+}
+
+.sidebar-item.active .sidebar-item-icon {
+  background: rgba(var(--primary-rgb), 0.12);
+}
+
 .sidebar-item.active .sidebar-item-key {
   color: var(--primary);
   border-color: rgba(var(--primary-rgb), 0.3);
@@ -163,12 +208,15 @@ defineExpose({ SHORTCUT_KEYS })
   opacity: 1;
 }
 
+/* ── 移动端 drawer ── */
 @media (max-width: 768px) {
+  .mobile-sidebar-backdrop { display: block; }
+
   .sidebar {
     position: fixed;
-    top: var(--topbar-h);
+    top: var(--topbar-h, 56px);
     left: 0;
-    bottom: 0;
+    height: calc(100vh - var(--topbar-h, 56px));
     z-index: 60;
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -177,8 +225,44 @@ defineExpose({ SHORTCUT_KEYS })
   .sidebar.mobile-open {
     transform: translateX(0);
   }
-  .mobile-sidebar-backdrop {
+}
+
+/* ── 平板:收起为图标列 ── */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .sidebar {
+    width: 64px;
+    flex: 0 0 64px;
+    padding: 12px 0;
+  }
+  .sidebar-group-label {
+    display: none;
+  }
+  .sidebar-item {
+    padding: 10px 20px;
+    justify-content: center;
+  }
+  .sidebar-item-label,
+  .sidebar-item-key {
+    display: none;
+  }
+  .sidebar-item.active {
+    border-left: none;
+    border-bottom: 3px solid var(--primary);
+    padding-left: 16px;
+  }
+  .sidebar-item.active .sidebar-item-icon {
+    background: var(--primary);
+    color: #fff;
+  }
+  /* 模块色条在折叠态变为整行左侧 */
+  .sidebar-group-label::before {
     display: block;
+    width: 60%;
+    height: 2px;
+    left: 20%;
+    top: 0;
+    transform: none;
+    margin: 0 auto;
   }
 }
 </style>
