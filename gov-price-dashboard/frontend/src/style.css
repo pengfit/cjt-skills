@@ -122,6 +122,86 @@
   --sky-dark:              #0369a1;   /* sky-700 */
 }
 
+/* ============================================================
+   DARK THEME (2026-07-12 P2-5)
+   暗色覆盖:仅重新赋值受主题影响的变量,其他变量继承自 :root
+   ============================================================ */
+:root[data-theme="dark"] {
+  /* 背景层 — 深灰蓝调,slate-900 为主 */
+  --bg:        #0f172a;              /* slate-900 */
+  --bg-grad:   linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --surface:   #1e293b;              /* slate-800 */
+  --surface-2: #334155;              /* slate-700 */
+  --surface-3: #475569;              /* slate-600 */
+  --border:        #334155;
+  --border-light:  #1e293b;
+  --border-strong: #475569;
+
+  /* 品牌主色 — 暗色下用更亮的蓝-400 提亮 */
+  --primary:       #60a5fa;          /* blue-400 */
+  --primary-soft:  #3b82f6;          /* blue-500 */
+  --primary-dark:  #2563eb;          /* blue-600 */
+  --primary-dim:   rgba(96,165,250,0.10);
+  --primary-light: rgba(96,165,250,0.06);
+  --accent:        #60a5fa;
+
+  /* 文字 — 暗底反白 */
+  --text:   #f1f5f9;                 /* slate-100 */
+  --text-2: #cbd5e1;                 /* slate-300 */
+  --text-3: #64748b;                 /* slate-500 (深底上需要更深一档) */
+  --text-inverse: #0f172a;           /* 深底上反色文字 = 深色 */
+
+  /* 阴影 — 暗底更深 */
+  --shadow:        0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-sm:     0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md:     0 2px 6px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg:     0 4px 12px rgba(0,0,0,0.5), 0 12px 28px rgba(0,0,0,0.3);
+  --shadow-primary: 0 4px 14px rgba(96,165,250,0.2), 0 2px 6px rgba(96,165,250,0.1);
+  --shadow-focus:   0 0 0 3px rgba(96,165,250,0.25);
+  --shadow-card:   0 1px 4px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+
+  /* RGB 三元组 — 暗色下给 rgba() 用的三元组 */
+  --primary-rgb:       96, 165, 250;
+  --primary-dark-rgb:  37, 99, 235;
+  --text-rgb:          241, 245, 249;
+  --text-2-rgb:        203, 213, 225;
+  --text-3-rgb:        148, 163, 184;
+  --border-rgb:        51, 65, 85;
+  --surface-rgb:       30, 41, 59;
+  --surface-2-rgb:     51, 65, 85;
+
+  /* 状态色 — 暗底稍微降饱和避免刺眼 */
+  --status-ok:        #34d399;        /* emerald-400 */
+  --status-warn:      #fbbf24;        /* amber-400 */
+  --status-alert:     #fb7185;        /* rose-400 */
+  --status-muted:     #94a3b8;
+  --status-ok-bg:     rgba(52,211,153,0.12);
+  --status-warn-bg:   rgba(251,191,36,0.12);
+  --status-alert-bg:  rgba(251,113,133,0.12);
+  --status-info:      #60a5fa;
+  --status-info-bg:   rgba(96,165,250,0.12);
+  --status-muted-bg:  rgba(148,163,184,0.10);
+
+  /* text-muted 跟随 text-2 */
+  --text-muted: #cbd5e1;
+
+  /* 极浅语义底色 — 暗底用低不透明度的彩色 */
+  --primary-light:    rgba(96,165,250,0.10);
+
+  /* 橙系 — 暗底用 amber-400 更柔和 */
+  --warning-orange:        #fbbf24;
+  --warning-orange-tint:   rgba(251,191,36,0.10);
+  --warning-orange-soft:   rgba(251,191,36,0.15);
+  --warning-orange-edge:   #fcd34d;
+}
+
+/* 暗色下 body 应用暗色滚动条 */
+:root[data-theme="dark"] body {
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--text);
+}
+
 /* === Reset === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

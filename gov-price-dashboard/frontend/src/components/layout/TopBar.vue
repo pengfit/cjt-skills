@@ -35,6 +35,15 @@
       <span v-if="lastRefreshAgo" class="last-refresh" :title="`接口扫描: ${lastRefresh}`">
         {{ lastRefreshAgo }}
       </span>
+      <!-- 主题切换（2026-07-12 P2-5）：深浅主题,持久化到 localStorage -->
+      <button
+        class="theme-toggle"
+        @click="toggleTheme"
+        :title="isDark ? '切换到浅色主题' : '切换到深色主题'"
+        :aria-label="isDark ? '切换到浅色主题' : '切换到深色主题'"
+      >
+        <span class="theme-icon">{{ isDark ? '☀️' : '🌙' }}</span>
+      </button>
       <!-- ⌘K 命令面板入口提示（fix 2026-07-12） -->
       <button
         class="cmd-palette-trigger"
@@ -50,6 +59,7 @@
 </template>
 
 <script setup>
+import { useTheme } from '../../composables/useTheme'
 /**
  * 顶栏(统一组件)
  * 由父级传入数据(overview / alerts / lastRefresh / lastRefreshAgo),
@@ -74,6 +84,11 @@ defineProps({
 })
 
 defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health'])
+
+const { isDark, toggle } = useTheme()
+function toggleTheme() {
+  toggle()
+}
 </script>
 
 <style>
@@ -281,6 +296,36 @@ defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health'])
   font-family: var(--font-mono-num);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* 主题切换按钮 (P2-5) */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  padding: 0;
+}
+.theme-toggle:hover {
+  background: var(--surface-3);
+  border-color: var(--primary);
+  transform: rotate(15deg);
+}
+.theme-icon {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+.theme-toggle:hover .theme-icon {
+  transform: scale(1.15);
 }
 
 /* ⌘K 命令面板入口 */
