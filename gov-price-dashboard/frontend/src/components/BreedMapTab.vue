@@ -10,7 +10,66 @@
         @input="debounceLoadMap(1)"
       />
     </div>
+    <div class="ctx-toolbar-right">
+      <button class="ctx-btn ctx-btn-cyan" @click="showHelp = !showHelp">
+        {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
+      </button>
+    </div>
   </div>
+
+  <!-- 使用说明 -->
+  <Transition name="ctx-slide">
+    <div class="ctx-help" v-if="showHelp">
+      <div class="ctx-help-title">📖 品种映射说明</div>
+      <div class="ctx-help-grid">
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">是什么</span>
+          <span class="ctx-help-val">
+            品种名（<code>breed</code>）→ <code>L3</code> 分类的映射表<br/>
+            DWS 阶段依赖它给每个品种贴分类标签，进而归一、跨城比价<br/>
+            表本身由 <code>v3 ETL</code> + <code>Dify AI</code> 充写
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">数据源</span>
+          <span class="ctx-help-val">
+            <code>skills/data/breed_canonical.db</code> · 表 <code>breed_canonical</code><br/>
+            当前 <strong>14188 条</strong>映射，路径由 <code>gov_price_etl.paths</code> 提供
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">本页能做什么</span>
+          <span class="ctx-help-val">
+            <strong>只读查询</strong>：品种名搜索 · 分页 · 升降序<br/>
+            点 <code>L3</code> 单元格跳到「分类法」页查看该分项详情
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">一行记录</span>
+          <span class="ctx-help-val">
+            <code>breed</code> 品种名 · <code>l3</code> 分项编码 · <code>name_l3</code> 分项名称<br/>
+            <code>source</code> 映射来源 · <code>confidence</code> 置信度（0–1）· <code>updated_at</code> 时间
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">来源标签</span>
+          <span class="ctx-help-val">
+            <code>etl_v3_sqlite</code> 翻译 — v3 ETL 自动归一（量最大）<br/>
+            <code>ai_dify</code> AI — Dify workflow 兜底分配（高置信度）<br/>
+            <code>manual</code> 手动 — 人工校准（最可靠）
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">置信度色阶</span>
+          <span class="ctx-help-val">
+            <strong>≥ 0.85</strong> <span style="color:var(--status-ok)">深绿</span>：高可信，默认采纳<br/>
+            <strong>0.7–0.85</strong> <span style="color:var(--status-warn)">橙</span>：中需复核<br/>
+            <strong>&lt; 0.7</strong> <span style="color:var(--status-alert)">红</span>：低，需人工重映射
+          </span>
+        </div>
+      </div>
+    </div>
+  </Transition>
 
   <!-- Table -->
   <div class="ctx-card">
@@ -88,6 +147,7 @@ const props = defineProps({
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ── 状态 ──
+const showHelp = ref(false)
 const mapKeyword = ref('')
 const mapPageSize = ref(50)
 const mapPageSizeOptions = [50, 100, 200]
@@ -233,4 +293,39 @@ onMounted(() => {
 .ctx-conf-mid  { color: var(--status-warn); }
 .ctx-conf-low  { color: var(--status-alert); }
 .ctx-date { color: var(--text-3); font-size: 12px; white-space: nowrap; font-family: 'Courier New', monospace; }
+
+/* 使用说明卡片 */
+.ctx-btn {
+  height: 36px; padding: 0 16px; border-radius: 8px; font-size: 13px;
+  font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+  font-family: inherit;
+}
+.ctx-btn-cyan { background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); }
+.ctx-btn-cyan:hover { background: rgba(37,99,235,0.2); }
+
+.ctx-help {
+  background: linear-gradient(135deg, rgba(37,99,235,0.04), rgba(37,99,235,0.01));
+  border: 1px solid rgba(37,99,235,0.18);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.ctx-help-title { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 14px; }
+.ctx-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px 24px;
+}
+.ctx-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
+.ctx-help-key { color: var(--primary); font-weight: 600; white-space: nowrap; min-width: 80px; }
+.ctx-help-val { color: var(--text-3); }
+.ctx-help-val code {
+  font-family: 'Courier New', monospace; font-size: 11px;
+  color: var(--primary); background: rgba(37,99,235,0.08);
+  border-radius: 3px; padding: 1px 4px; font-weight: 500;
+}
+.ctx-help-val strong { color: var(--text, #0f172a); font-weight: 600; }
+
+.ctx-slide-enter-active, .ctx-slide-leave-active { transition: all 0.2s ease; overflow: hidden; }
+.ctx-slide-enter-from, .ctx-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>

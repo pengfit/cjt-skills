@@ -31,51 +31,50 @@
       <div class="ctx-help-title">📖 分类体系说明</div>
       <div class="ctx-help-grid">
         <div class="ctx-help-item">
+          <span class="ctx-help-key">是什么</span>
+          <span class="ctx-help-val">
+            3 级分类法（<code>L1</code> 大类 / <code>L2</code> 分部 / <code>L3</code> 分项）<br/>
+            附 <strong>GB50500</strong> 国标编码 · <strong>IFC</strong> BIM 分类 · <strong>Uniclass</strong> 代码<br/>
+            DWS 阶段用 L3 给品种打分类标签，是「品种映射」页的依据
+          </span>
+        </div>
+        <div class="ctx-help-item">
           <span class="ctx-help-key">数据源</span>
           <span class="ctx-help-val">
-            <strong>唯一来源</strong>：<code>category_v2_rules.db</code><br/>
-            <strong>表 1</strong> <code>category_v2</code>：3 级分类法（64 行）<br/>
-            <strong>表 2</strong> <code>breed_l3_map</code>：品种→L3 映射（4073 行）
+            <code>skills/data/breed_canonical.db</code> · 表 <code>category_v3</code><br/>
+            <strong>9 L1</strong> 大类 · <strong>57 L2</strong> 分部 · <strong>191 L3</strong> 分项 · 191 行<br/>
+            路径经 <code>gov_price_etl.paths</code> 提供，环境变量可覆盖
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">本页能做什么</span>
+          <span class="ctx-help-val">
+            <strong>只读查询</strong>：名称/编码/IFC 搜索 · 升降序 · 分页<br/>
+            点 <code>L3</code> 单元格可跳到「品种映射」页并定位该 L3 关联的品种
           </span>
         </div>
         <div class="ctx-help-item">
           <span class="ctx-help-key">L1-L3 含义</span>
           <span class="ctx-help-val">
-            <strong>L1</strong>：8 大类（建筑工程 / 安装工程 / ...）<br/>
-            <strong>L2</strong>：分部工程（34 个）<br/>
-            <strong>L3</strong>：分项工程（64 个，含 GB50500 编码）
+            <strong>L1</strong> = 9 大类（建筑工程 / 安装工程 / ...）<br/>
+            <strong>L2</strong> = 57 分部（如「混凝土工程」「砌筑工程」）<br/>
+            <strong>L3</strong> = 191 分项（带 GB50500 工程量清单编码）
+          </span>
+        </div>
+        <div class="ctx-help-item">
+          <span class="ctx-help-key">一行记录</span>
+          <span class="ctx-help-val">
+            <code>l1-l3</code> 编码 + 名称 + <code>gb_50500</code> + <code>ifc_class</code> + <code>uniclass_ss</code><br/>
+            附加：<code>eng_part</code> 工程部位 · <code>main_or_aux</code> 主/辅材<br/>
+            计价：<code>unit</code> 自然计量 · <code>billing_unit</code> 计价单位 · <code>cost_method</code> 计价方式
           </span>
         </div>
         <div class="ctx-help-item">
           <span class="ctx-help-key">标准映射</span>
           <span class="ctx-help-val">
-            <code>gb_50500</code> — GB 50500 工程量清单规范编码<br/>
-            <code>ifc_class</code> — IFC 国际 BIM 分类<br/>
-            <code>uniclass_ss</code> — Uniclass 分类代码
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">映射来源</span>
-          <span class="ctx-help-val">
-            <code>v1_translated</code> (4068) — 从 v1 分类规则自动翻译<br/>
-            <code>ai_v2</code> (5) — AI 直接生成 L3 分类<br/>
-            <strong>置信度</strong>：默认 0.7，AI 高置信度为 0.8-0.93
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">主辅材</span>
-          <span class="ctx-help-val">
-            <code>main_or_aux</code> 区分 <strong>主材 / 辅材</strong><br/>
-            <code>eng_part</code> 标记 <strong>基础 / 主体 / 装饰</strong> 等工程部位<br/>
-            <code>eng_stage</code> 区分 <strong>设计 / 施工 / 运维</strong> 阶段
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">计量计价</span>
-          <span class="ctx-help-val">
-            <code>unit</code> — 自然计量单位（如 <code>m³</code> / <code>t</code>）<br/>
-            <code>billing_unit</code> — 计价单位（可能不同，如 <code>100m</code>）<br/>
-            <code>cost_method</code> — 计价方式（清单 / 定额 / 清单+定额）
+            <code>gb_50500</code> — GB 50500《建设工程工程量清单计价规范》编码<br/>
+            <code>ifc_class</code> — IFC 国际 BIM 分类（行业软件通用）<br/>
+            <code>uniclass_ss</code> — Uniclass 2015 分类代码（英国标准）
           </span>
         </div>
       </div>
