@@ -233,9 +233,8 @@ def stage2_match(breed_clean: str, index: dict) -> Optional[dict]:
 # ── 自测 ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    from pathlib import Path
-    SCRIPT_DIR = Path(__file__).parent
-    DB_PATH = str(SCRIPT_DIR.parent.parent / "data" / "category_v3_rules.db")
+    from gov_price_etl.paths import CATEGORY_V3_RULES_DB
+    DB_PATH = str(CATEGORY_V3_RULES_DB)
 
     print(f"[jaccard] building index from {DB_PATH} ...")
     import time

@@ -14,15 +14,13 @@ category_v3.py - 4 层分类主入口（5 段式，v3 DB）
 
 import sqlite3
 import threading
-from pathlib import Path
 from typing import Optional
 
+from gov_price_etl.paths import CATEGORY_V3_RULES_DB
 
-# ── 路径（与现有 ETL 一致） ─────────────────────────────────────────────
-SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent.parent
-DATA_DIR = PROJECT_ROOT / "data"
-DEFAULT_DB_PATH = DATA_DIR / "category_v3_rules.db"
+
+# ── 路径（v0.7 起走 monorepo skills/data，由 paths.py 统一） ───────────
+DEFAULT_DB_PATH = CATEGORY_V3_RULES_DB
 
 
 # ── 模块级 SQLite 连接单例（性能优化） ──────────────────────────────
