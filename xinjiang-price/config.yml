@@ -13,6 +13,7 @@ minio:
   secure: false
 
 site:
+  url: "https://www.xjzj.com/Home/Policies/C2A45B5E-FB3E-43C6-A77C-000000000456?tid=c8df326e-cf0e-494d-b643-bd45cdb32773&areaid=1"  # dashboard 卡片回溯入口 URL
   base_url: https://www.xjzj.com
   list_api: /Home/GetPoliciesListBy
   detail_path: /Home/PoliciesDetail/      # 详情页路径前缀

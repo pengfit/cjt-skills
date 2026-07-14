@@ -217,7 +217,9 @@ def _ai_invoke(task: str, *, dify_inputs: dict, user: str,
 
 # ── v2 4 层分类（阶段 4 AI 攒批调用）────────────────────────────────
 V2_AI_BATCH_SIZE = 10  # P1-5: 20→10。prompt 64 L3 + 10 breed 约 40K tokens，低于 64K 限；减半避免超限
-V2_AI_BATCH_SLEEP_S = 0.5
+# 2026-07-14 调节奏：0.5→5.0。minimax-m2.7 在连续请求下输出不稳，频繁触发 unexpected top-level type: dict。
+# 一次新疆 ETL 多 5 分钟，换成功率。
+V2_AI_BATCH_SLEEP_S = 10.0
 
 
 _V2_NAMES_CACHE: dict = {}  # {(l1, l2, l3): (name_l1, name_l2, name_l3)}
@@ -634,7 +636,7 @@ def classify_v3_batch(
                 _stats["classify_v3_business_retry"] = _stats.get("classify_v3_business_retry", 0) + 1
                 print(f"    [AI] batch {_batch_idx}/{_total_batches} 业务失败重试 {_business_retry}/2: {content[:120]}")
                 sys.stdout.flush()
-                time.sleep(2)
+                time.sleep(15)  # 2026-07-14 调：2→15，给 Dify + minimax 缓冲，避免 2s 后重试仍踩同一坑
                 ok, content = _ai_invoke(
                     "classify",
                     dify_inputs={

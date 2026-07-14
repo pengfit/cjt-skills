@@ -124,7 +124,7 @@ class DifyConfig:
     api_key: str
     base_url: str = DEFAULT_BASE_URL
     timeout_s: int = DEFAULT_TIMEOUT_S
-    max_retries: int = 1  # 失败重试次数（不含首次）
+    max_retries: int = 2  # 2026-07-14 调：1→2，给 Dify 端压力多一点缓冲
 
     def headers(self) -> Dict[str, str]:
         return {
@@ -282,7 +282,8 @@ class DifyClient:
 
             # 重试前 sleep
             if attempt < self.cfg.max_retries:
-                sleep_s = 2 ** attempt
+                # 2026-07-14 调：2**attempt(1,2s) → 5*(attempt+1)(5,10s)，给 Dify + minimax 喘气
+                sleep_s = 5 * (attempt + 1)
                 time.sleep(sleep_s)
 
         # 全部重试失败
