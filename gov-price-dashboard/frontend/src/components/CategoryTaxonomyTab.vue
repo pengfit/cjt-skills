@@ -17,7 +17,6 @@
     </div>
   </div>
 
-  <!-- Active Filter Chips -->
   <div class="ctx-filter-chips" v-if="taxKeyword">
     <span class="ctx-chip">
       搜索: "{{ taxKeyword }}"
@@ -34,114 +33,109 @@
           <span class="ctx-help-key">是什么</span>
           <span class="ctx-help-val">
             3 级分类法（<code>L1</code> 大类 / <code>L2</code> 分部 / <code>L3</code> 分项）<br/>
-            附 <strong>GB50500</strong> 国标编码 · <strong>IFC</strong> BIM 分类 · <strong>Uniclass</strong> 代码<br/>
-            DWS 阶段用 L3 给品种打分类标签，是「品种映射」页的依据
+            附 <strong>GB50500</strong> 国标编码 · <strong>IFC</strong> BIM 分类 · <strong>Uniclass</strong> 代码
           </span>
         </div>
         <div class="ctx-help-item">
           <span class="ctx-help-key">数据源</span>
           <span class="ctx-help-val">
             <code>skills/data/breed_canonical.db</code> · 表 <code>category_v3</code><br/>
-            <strong>9 L1</strong> 大类 · <strong>57 L2</strong> 分部 · <strong>191 L3</strong> 分项 · 191 行<br/>
-            路径经 <code>gov_price_etl.paths</code> 提供，环境变量可覆盖
+            <strong>9 L1</strong> 大类 · <strong>57 L2</strong> 分部 · <strong>191 L3</strong> 分项
           </span>
         </div>
         <div class="ctx-help-item">
           <span class="ctx-help-key">本页能做什么</span>
           <span class="ctx-help-val">
             <strong>只读查询</strong>：名称/编码/IFC 搜索 · 升降序 · 分页<br/>
-            点 <code>L3</code> 单元格可跳到「品种映射」页并定位该 L3 关联的品种
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">L1-L3 含义</span>
-          <span class="ctx-help-val">
-            <strong>L1</strong> = 9 大类（建筑工程 / 安装工程 / ...）<br/>
-            <strong>L2</strong> = 57 分部（如「混凝土工程」「砌筑工程」）<br/>
-            <strong>L3</strong> = 191 分项（带 GB50500 工程量清单编码）
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">一行记录</span>
-          <span class="ctx-help-val">
-            <code>l1-l3</code> 编码 + 名称 + <code>gb_50500</code> + <code>ifc_class</code> + <code>uniclass_ss</code><br/>
-            附加：<code>eng_part</code> 工程部位 · <code>main_or_aux</code> 主/辅材<br/>
-            计价：<code>unit</code> 自然计量 · <code>billing_unit</code> 计价单位 · <code>cost_method</code> 计价方式
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">标准映射</span>
-          <span class="ctx-help-val">
-            <code>gb_50500</code> — GB 50500《建设工程工程量清单计价规范》编码<br/>
-            <code>ifc_class</code> — IFC 国际 BIM 分类（行业软件通用）<br/>
-            <code>uniclass_ss</code> — Uniclass 2015 分类代码（英国标准）
+            点 <code>L3</code> 单元格跳到「品种映射」页并定位关联品种
           </span>
         </div>
       </div>
     </div>
   </Transition>
 
-  <!-- Table -->
+  <!-- Grid Table (CSS Grid 列对齐像素级精准) -->
   <div class="ctx-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width:50px" @click="setTaxSort('l1')">L1 <span class="sort-icon" v-if="taxSort.col==='l1'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:70px" @click="setTaxSort('l2')">L2 <span class="sort-icon" v-if="taxSort.col==='l2'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:100px" @click="setTaxSort('l3')">L3 <span class="sort-icon" v-if="taxSort.col==='l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:78px" class="no-sort">GB50500</th>
-            <th class="text-left no-sort">国标</th>
-            <th class="text-left" @click="setTaxSort('name_l3')">分类名称 <span class="sort-icon" v-if="taxSort.col==='name_l3'">{{ taxSort.dir==='asc'?'↑':'↓' }}</span></th>
-            <th style="width:80px" class="no-sort">工程部位</th>
-            <th style="width:80px" class="no-sort">主辅材</th>
-            <th style="width:56px" class="no-sort">单位</th>
-            <th style="width:140px" class="text-left no-sort">IFC</th>
-            <th style="width:140px" class="text-left no-sort">Uniclass</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="taxLoading">
-            <td colspan="11" class="ctx-empty">加载中...</td>
-          </tr>
-          <tr v-else-if="!taxRows.length">
-            <td colspan="11" class="ctx-empty">
-              <div class="ctx-empty-art">🗂️</div>
-              <div class="ctx-empty-title">暂无分类条目</div>
-              <div class="ctx-empty-hint">试试调整搜索条件</div>
-            </td>
-          </tr>
-          <tr v-for="r in taxRows" :key="`${r.l1}-${r.l2}-${r.l3}`" class="ctx-row" @click="drawerRow = r" style="cursor:pointer" v-show="!taxLoading && taxRows.length">
-            <td><span class="ctx-l1-tag" :class="`ctx-l1-${r.l1}`">{{ r.l1 }}</span></td>
-            <td><span class="ctx-code-text">{{ r.l2 }}</span></td>
-            <td><span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" title="查看此 L3 关联的品种">{{ r.l3 }} <span class="ctx-l3-arrow">→</span></span></td>
-            <td><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></td>
-            <td class="text-left no-ellipsis">
+    <div class="grid-scroll">
+      <div class="grid-table">
+        <!-- Sticky header -->
+        <div class="grid-header">
+          <div class="grid-head-cell col-l1 sortable" :class="{ active: sort.col==='l1' }" @click="setTaxSort('l1')">
+            L1 <span class="sort-icon">{{ sortIcon('l1') }}</span>
+          </div>
+          <div class="grid-head-cell col-l2 sortable" :class="{ active: sort.col==='l2' }" @click="setTaxSort('l2')">
+            L2 <span class="sort-icon">{{ sortIcon('l2') }}</span>
+          </div>
+          <div class="grid-head-cell col-l3 sortable" :class="{ active: sort.col==='l3' }" @click="setTaxSort('l3')">
+            L3 <span class="sort-icon">{{ sortIcon('l3') }}</span>
+          </div>
+          <div class="grid-head-cell col-gb">GB50500</div>
+          <div class="grid-head-cell col-stdn text-left">国标</div>
+          <div class="grid-head-cell col-name text-left sortable" :class="{ active: sort.col==='name_l3' }" @click="setTaxSort('name_l3')">
+            分类名称 <span class="sort-icon">{{ sortIcon('name_l3') }}</span>
+          </div>
+          <div class="grid-head-cell col-part">工程部位</div>
+          <div class="grid-head-cell col-aux">主辅材</div>
+          <div class="grid-head-cell col-unit">单位</div>
+          <div class="grid-head-cell col-ifc text-left">IFC</div>
+          <div class="grid-head-cell col-uni text-left">Uniclass</div>
+        </div>
+
+        <!-- Body -->
+        <div class="grid-body">
+          <div v-if="taxLoading" class="grid-row grid-row-empty">
+            <div class="grid-cell" style="grid-column: 1 / -1;">加载中...</div>
+          </div>
+          <div v-else-if="!taxRows.length" class="grid-row grid-row-empty">
+            <div class="grid-cell" style="grid-column: 1 / -1;">
+              <div class="ctx-empty">
+                <div class="ctx-empty-art">🗂️</div>
+                <div class="ctx-empty-title">暂无分类条目</div>
+                <div class="ctx-empty-hint">试试调整搜索条件</div>
+              </div>
+            </div>
+          </div>
+          <div
+            v-for="r in taxRows"
+            v-else
+            :key="`${r.l1}-${r.l2}-${r.l3}`"
+            class="grid-row"
+            @click="drawerRow = r"
+            style="cursor: pointer"
+          >
+            <div class="grid-cell col-l1">
+              <span class="ctx-l1-tag" :class="`ctx-l1-${r.l1}`">{{ r.l1 }}</span>
+            </div>
+            <div class="grid-cell col-l2"><span class="ctx-code-text">{{ r.l2 }}</span></div>
+            <div class="grid-cell col-l3">
+              <span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" :title="`查看 ${r.l3} 关联品种`">
+                {{ r.l3 }} <span class="ctx-l3-arrow">→</span>
+              </span>
+            </div>
+            <div class="grid-cell col-gb"><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></div>
+            <div class="grid-cell col-stdn text-left">
               <span class="ctx-std-name" :title="r.standard_name || ''">{{ r.standard_name || '—' }}</span>
-            </td>
-            <td class="text-left no-ellipsis">
+            </div>
+            <div class="grid-cell col-name text-left">
               <div class="ctx-name-stack">
                 <span class="ctx-name-l1">› {{ r.name_l1 || '—' }}</span>
                 <span class="ctx-name-l3">{{ r.name_l3 || r.name_l2 || r.l3 }}</span>
               </div>
-            </td>
-            <td>
-              <div class="ctx-tags">
-                <span class="ctx-tag" :class="`ctx-tag-part-${r.eng_part}`">{{ r.eng_part || '—' }}</span>
-              </div>
-            </td>
-            <td>
+            </div>
+            <div class="grid-cell col-part">
+              <span class="ctx-tag" :class="`ctx-tag-part-${r.eng_part}`">{{ r.eng_part || '—' }}</span>
+            </div>
+            <div class="grid-cell col-aux">
               <span class="ctx-main-aux" :class="`ctx-ma-${r.main_or_aux}`">{{ r.main_or_aux || '—' }}</span>
-            </td>
-            <td><span class="ctx-unit">{{ r.unit || '—' }}</span></td>
-            <td class="text-left" :title="r.ifc_class">{{ r.ifc_class || '—' }}</td>
-            <td class="text-left" :title="r.uniclass_ss">{{ r.uniclass_ss || '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+            <div class="grid-cell col-unit"><span class="ctx-unit">{{ r.unit || '—' }}</span></div>
+            <div class="grid-cell col-ifc text-left" :title="r.ifc_class">{{ r.ifc_class || '—' }}</div>
+            <div class="grid-cell col-uni text-left" :title="r.uniclass_ss">{{ r.uniclass_ss || '—' }}</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Pagination -->
     <AppPagination
       :current="taxPage"
       :total="taxTotal"
@@ -211,37 +205,35 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-// import CustomSelect from './CustomSelect.vue' — unused filters removed
 import AppPagination from './AppPagination.vue'
 
 const emit = defineEmits(['jump-to-breed-map'])
-
 const API = import.meta.env.VITE_API_URL || '/api'
 
-// ── 状态 ──
 const showHelp = ref(false)
 const drawerRow = ref(null)
 const taxKeyword = ref('')
 const taxPageSize = ref(50)
 const taxPageSizeOptions = [50, 100, 200]
-// taxL1Options / taxL2OptionsRaw removed — unused
 const taxRows = ref([])
 const taxTotal = ref(0)
 const taxPage = ref(1)
 const taxLoading = ref(false)
-const taxSort = ref({ col: 'l3', dir: 'asc' })
+const sort = ref({ col: 'l3', dir: 'asc' })
 
 function setTaxSort(col) {
-  if (taxSort.value.col === col) {
-    taxSort.value.dir = taxSort.value.dir === 'asc' ? 'desc' : 'asc'
+  if (sort.value.col === col) {
+    sort.value.dir = sort.value.dir === 'asc' ? 'desc' : 'asc'
   } else {
-    taxSort.value.col = col
-    taxSort.value.dir = 'asc'
+    sort.value.col = col
+    sort.value.dir = 'asc'
   }
   loadTaxonomy(1)
 }
-
-// taxActiveChips / taxL2FilteredOptions removed — unused filters
+function sortIcon(col) {
+  if (sort.value.col !== col) return '↕'
+  return sort.value.dir === 'asc' ? '↑' : '↓'
+}
 
 function debounceLoadTaxonomy(p) {
   clearTimeout(window._ctx_tax_debounce)
@@ -253,8 +245,8 @@ async function loadTaxonomy(p = 1) {
   try {
     const params = { page: p, page_size: taxPageSize.value }
     if (taxKeyword.value.trim()) params.keyword = taxKeyword.value.trim()
-    params.sort_by = taxSort.value.col
-    params.sort_dir = taxSort.value.dir
+    params.sort_by = sort.value.col
+    params.sort_dir = sort.value.dir
     const { data } = await axios.get(`${API}/stats/category-v2-taxonomy`, { params })
     taxRows.value = data.rows || []
     taxTotal.value = data.total || 0
@@ -268,17 +260,13 @@ function clearTaxonomyFilters() {
   loadTaxonomy(1)
 }
 
-// 跨 tab 跳转（emit 给父）
 function emitJump(l3) {
   emit('jump-to-breed-map', l3)
 }
 
-// 暴露方法给父组件调用（用于外部触发刷新）
 defineExpose({ loadTaxonomy, refresh: () => loadTaxonomy(taxPage.value) })
 
-onMounted(() => {
-  loadTaxonomy(1)
-})
+onMounted(() => { loadTaxonomy(1) })
 </script>
 
 <style scoped>
@@ -287,10 +275,6 @@ onMounted(() => {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 14px; gap: 12px;
 }
-.ctx-toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.ctx-toolbar-right { display: flex; gap: 8px; align-items: center; }
-
-/* Search bar */
 .ctx-search-wrap { position: relative; }
 .ctx-search-icon {
   position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
@@ -315,12 +299,8 @@ onMounted(() => {
   background: rgba(37,99,235,0.03);
   box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
 }
-.ctx-search-wrap .ctx-input { padding-left: 32px; width: 220px; }
+.ctx-search-wrap .ctx-input { padding-left: 32px; width: 240px; }
 
-/* Density toggle */
-/* .ctx-density-toggle removed — unused */
-
-/* Buttons */
 .ctx-btn {
   height: 36px; padding: 0 16px; border-radius: 8px; font-size: 13px;
   font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
@@ -328,13 +308,10 @@ onMounted(() => {
 }
 .ctx-btn-cyan { background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); }
 .ctx-btn-cyan:hover { background: rgba(37,99,235,0.2); }
-/* .ctx-btn-red removed — unused */
 
-/* Filter chips */
 .ctx-filter-chips {
   display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; flex-wrap: wrap;
-  min-height: 28px;
+  margin-bottom: 12px;
 }
 .ctx-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -349,18 +326,9 @@ onMounted(() => {
   width: 18px; height: 18px; border-radius: 50%;
   background: rgba(37,99,235,0.15); color: var(--primary);
   border: none; cursor: pointer; font-size: 12px; line-height: 1;
-  display: inline-flex; align-items: center; justify-content: center;
-  transition: all 0.15s;
 }
 .ctx-chip-x:hover { background: var(--primary, #2563eb); color: white; }
-.ctx-chip-clear {
-  background: transparent; border: none; color: var(--text-3, #94a3b8);
-  font-size: 11px; cursor: pointer; padding: 4px 8px;
-  text-decoration: underline; text-underline-offset: 2px;
-}
-.ctx-chip-clear:hover { color: var(--text, #0f172a); }
 
-/* Help */
 .ctx-help {
   background: rgba(241,245,249,0.8); border: 1px solid rgba(37,99,235,0.12);
   border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
@@ -380,26 +348,109 @@ onMounted(() => {
 }
 .ctx-help-val strong { color: var(--text, #0f172a); font-weight: 600; }
 
-/* Card / Table */
+.ctx-slide-enter-active, .ctx-slide-leave-active { transition: all 0.2s ease; overflow: hidden; }
+.ctx-slide-enter-from, .ctx-slide-leave-to { opacity: 0; transform: translateY(-6px); }
+
 .ctx-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; overflow: visible; box-shadow: var(--shadow);
   padding-bottom: 16px;
 }
-/* Sticky pagination inside scroll-panel */
 .ctx-card :deep(.pagination) {
   position: sticky;
   bottom: 0;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(8px);
   border-radius: 0 0 12px 12px;
-  margin-bottom: 0;
   z-index: 5;
 }
-.table-scroll { overflow-x: auto; }
-.ctx-row { cursor: pointer; }
-/* .ctx-density-compact/loose removed — unused */
-.ctx-empty { text-align: center; color: var(--text-2, #475569); padding: 48px 36px !important; }
+
+/* ─────────────────────────────────────────
+   CSS Grid 表格 — 11 列对齐像素级精准（2026-07-15 重构)
+   ───────────────────────────────────────── */
+.grid-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-height: calc(100vh - 280px);
+}
+
+.grid-table {
+  width: 100%;
+  min-width: 1100px;
+}
+
+.grid-table .grid-header,
+.grid-table .grid-row {
+  display: grid;
+  grid-template-columns:
+    50px                  /* col-l1   */
+    70px                  /* col-l2   */
+    100px                 /* col-l3   */
+    80px                  /* col-gb   */
+    140px                 /* col-stdn */
+    minmax(220px, 1fr)    /* col-name */
+    80px                  /* col-part */
+    80px                  /* col-aux  */
+    60px                  /* col-unit */
+    150px                 /* col-ifc  */
+    150px;                /* col-uni  */
+  align-items: stretch;
+}
+
+.grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--surface-2, #f8fafc);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.grid-head-cell,
+.grid-cell {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text, #0f172a);
+  box-sizing: border-box;
+  justify-content: center;
+}
+.grid-head-cell:last-child,
+.grid-cell:last-child { border-right: none; }
+
+.grid-head-cell {
+  font-weight: 700;
+  color: var(--text-2);
+}
+.grid-head-cell.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
+.grid-head-cell.sortable:hover { background: var(--surface-3, #f1f5f9); }
+.grid-head-cell.active { color: var(--primary); background: rgba(37,99,235,0.06); }
+.grid-head-cell .sort-icon { margin-left: 3px; font-size: 10px; opacity: 0.6; }
+.grid-head-cell.active .sort-icon { opacity: 1; }
+
+.text-left { justify-content: flex-start !important; text-align: left; }
+.col-name, .col-stdn { white-space: normal; }  /* 名称两行可换行 */
+
+.grid-row {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  background: var(--surface);
+}
+.grid-row:last-child { border-bottom: none; }
+.grid-row:hover { background: rgba(37,99,235,0.04); }
+/* zebra */
+.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
+.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
+
+.grid-row-empty { cursor: default; background: var(--surface) !important; }
+.grid-row-empty:hover { background: var(--surface) !important; }
+.ctx-empty { text-align: center; color: var(--text-2, #475569); padding: 48px 36px; width: 100%; }
 .ctx-empty-art { font-size: 48px; opacity: 0.6; margin-bottom: 12px; }
 .ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text, #0f172a); margin-bottom: 6px; }
 .ctx-empty-hint { font-size: 12px; color: var(--text-3, #94a3b8); }
@@ -417,6 +468,7 @@ onMounted(() => {
 }
 .ctx-l1-07 { background: rgba(234,88,12,0.12); color: #c2410c; }
 .ctx-l1-08 { background: rgba(22,163,74,0.12); color: #15803d; }
+
 .ctx-code-text {
   font-family: 'Courier New', monospace; font-size: 12px;
   color: var(--text-2);
@@ -427,11 +479,10 @@ onMounted(() => {
 .ctx-l3-arrow { opacity: 0.4; font-size: 11px; transition: all 0.15s; }
 .ctx-l3-link:hover .ctx-l3-arrow { opacity: 1; transform: translateX(2px); }
 .ctx-gb { color: var(--status-ok); font-weight: 600; }
-.ctx-std-name { font-size: 11px; color: var(--text-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; display: inline-block; }
-.ctx-name-stack { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(37,99,235,0.18); }
+.ctx-std-name { font-size: 11px; color: var(--text-2); font-weight: 500; display: inline-block; max-width: 100%; }
+.ctx-name-stack { display: flex; flex-direction: column; gap: 2px; padding-left: 8px; border-left: 2px solid rgba(37,99,235,0.18); }
 .ctx-name-l1 { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .ctx-name-l3 { font-size: 13px; font-weight: 600; color: var(--text, #0f172a); line-height: 1.3; }
-.ctx-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .ctx-tag {
   display: inline-block; padding: 1px 7px; border-radius: 3px;
   font-size: 11px; font-weight: 600;
@@ -451,15 +502,6 @@ onMounted(() => {
   font-family: 'Courier New', monospace; font-size: 12px;
   font-weight: 600; color: var(--text-2);
 }
-.ctx-std-text {
-  font-family: 'Courier New', monospace; font-size: 11px;
-  color: var(--text-3); white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; max-width: 150px;
-}
-
-/* Slide transition for help */
-.ctx-slide-enter-active, .ctx-slide-leave-active { transition: all 0.2s ease; overflow: hidden; }
-.ctx-slide-enter-from, .ctx-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 
 /* Drawer */
 .ctx-drawer-mask {

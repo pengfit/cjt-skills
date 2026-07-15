@@ -3146,10 +3146,14 @@ def category_v2_breed_map(
     l3: str = "",
     source: str = "",
     min_confidence: float = Query(0.0, ge=0.0, le=1.0),
+    date_from: str = Query("", description="YYYY-MM-DD，按 updated_at >= date_from"),
+    date_to: str = Query("", description="YYYY-MM-DD，按 updated_at <= date_to"),
+    sort_by: str = Query("confidence", description="排序字段：breed_clean/l3/source/confidence/updated_at/name_l1/name_l3"),
+    sort_dir: str = Query("desc", description="asc | desc"),
     page: int = 1,
     page_size: int = 50,
 ):
-    """查询 breed_canonical（品种→L3 映射），支持品种关键字 / L3 过滤 / 来源过滤 / 置信度阈值
+    """查询 breed_canonical（品种→L3 映射），支持品种关键字 / L3 过滤 / 来源过滤 / 置信度阈值 / 更新时间范围
 
     端点路径保留 category-v2-breed-map（向前兼容前端 BreedMapTab.vue）。
     数据源：breed_canonical.db 内的 breed_canonical 表（替代旧 breed_l3_map_v3）。
@@ -3174,8 +3178,27 @@ def category_v2_breed_map(
     if min_confidence and min_confidence > 0:
         where.append("m.confidence >= ?")
         params.append(min_confidence)
+    if date_from:
+        where.append("m.updated_at >= ?")
+        params.append(f"{date_from} 00:00:00")
+    if date_to:
+        where.append("m.updated_at <= ?")
+        params.append(f"{date_to} 23:59:59")
 
     where_sql = " AND ".join(where)
+
+    # sort_by 白名单（前端 BreedMapTab.vue 列）
+    sort_cols = {
+        "breed_clean": "m.breed_clean",
+        "l3": "m.l3_code",
+        "source": "m.source",
+        "confidence": "m.confidence",
+        "updated_at": "m.updated_at",
+        "name_l1": "t.name_l1",
+        "name_l3": "t.name_l3",
+    }
+    sort_col = sort_cols.get(sort_by, "m.confidence")
+    sort_d = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
 
     # 关联分类法表拿 name_l3（l3_code JOIN l3）
     # 注：响应字段名沿用旧 'l3'（前端 BreedMapTab.vue:43 硬编码 r.l3），
@@ -3187,7 +3210,7 @@ def category_v2_breed_map(
         f"FROM breed_canonical m "
         f"LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
         f"WHERE {where_sql} "
-        f"ORDER BY m.confidence DESC, m.breed_clean LIMIT ? OFFSET ?",
+        f"ORDER BY {sort_col} {sort_d}, m.breed_clean ASC LIMIT ? OFFSET ?",
         params + [page_size, (page - 1) * page_size],
     )
     rows = [dict(r) for r in c.fetchall()]
@@ -3211,6 +3234,76 @@ def category_v2_breed_map(
         "page_size": page_size,
         "source_options": source_options,
         "l3_options": l3_options,
+    }
+
+
+@router.get("/api/stats/category-v2-confidence-dist")
+def category_v2_confidence_dist(
+    date_from: str = Query("", description="YYYY-MM-DD"),
+    date_to: str = Query("", description="YYYY-MM-DD"),
+):
+    """品种映射置信度分布：按阈值分桶 + 按 source 分组 + 时间范围过滤
+    返回: { ok, total, buckets: { high, mid, low }, by_source: [...], by_l1: [...] }
+    """
+    if not _canon_db_ready():
+        return {"ok": False, "total": 0, "buckets": {}, "by_source": [], "by_l1": []}
+
+    conn = _open_canon()
+    c = conn.cursor()
+
+    where = ["m.l3_code IS NOT NULL"]
+    params = []
+    if date_from:
+        where.append("m.updated_at >= ?")
+        params.append(f"{date_from} 00:00:00")
+    if date_to:
+        where.append("m.updated_at <= ?")
+        params.append(f"{date_to} 23:59:59")
+    where_sql = " AND ".join(where)
+
+    # 总数 + 分桶（high ≥ 0.85 / mid 0.7-0.85 / low < 0.7）
+    c.execute(
+        f"SELECT "
+        f"COUNT(*) AS total, "
+        f"SUM(CASE WHEN m.confidence >= 0.85 THEN 1 ELSE 0 END) AS high_cnt, "
+        f"SUM(CASE WHEN m.confidence >= 0.7 AND m.confidence < 0.85 THEN 1 ELSE 0 END) AS mid_cnt, "
+        f"SUM(CASE WHEN m.confidence < 0.7 THEN 1 ELSE 0 END) AS low_cnt "
+        f"FROM breed_canonical m WHERE {where_sql}",
+        params,
+    )
+    row = c.fetchone()
+    total = row["total"] or 0
+
+    # 按 source 分组
+    c.execute(
+        f"SELECT m.source AS source, COUNT(*) AS cnt "
+        f"FROM breed_canonical m WHERE {where_sql} "
+        f"GROUP BY m.source ORDER BY cnt DESC",
+        params,
+    )
+    by_source = [{"source": r["source"], "count": r["cnt"]} for r in c.fetchall()]
+
+    # 按 L1 大类统计命中数（关联 category_v3）
+    c.execute(
+        f"SELECT t.l1 AS l1, COUNT(*) AS cnt "
+        f"FROM breed_canonical m LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
+        f"WHERE {where_sql} GROUP BY t.l1 ORDER BY t.l1",
+        params,
+    )
+    by_l1 = [{"l1": r["l1"], "count": r["cnt"]} for r in c.fetchall()]
+
+    conn.close()
+
+    return {
+        "ok": True,
+        "total": total,
+        "buckets": {
+            "high": row["high_cnt"] or 0,
+            "mid": row["mid_cnt"] or 0,
+            "low": row["low_cnt"] or 0,
+        },
+        "by_source": by_source,
+        "by_l1": by_l1,
     }
 
 

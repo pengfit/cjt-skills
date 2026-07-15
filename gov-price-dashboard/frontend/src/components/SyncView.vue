@@ -152,20 +152,36 @@ onMounted(loadStats)
   border-color: var(--border);
 }
 
+/* P1-7:激活态加左侧 3px primary 竖条,跟 Sidebar 风格统一 */
 .sync-subtab.active {
   color: var(--primary);
   background: var(--surface);
   border-color: var(--border);
   border-bottom-color: var(--surface);
   margin-bottom: -1px;
+  position: relative;
+}
+.sync-subtab.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
 }
 
+/* P1-7:默认态 dot 用浅 primary 占位,激活态变深 */
 .sync-subtab-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--text-3);
+  background: rgba(30,64,175,0.20);
   transition: all 0.2s;
+}
+.sync-subtab:hover .sync-subtab-dot {
+  background: rgba(30,64,175,0.45);
 }
 .sync-subtab.active .sync-subtab-dot {
   background: var(--primary);

@@ -10,10 +10,14 @@
       :alerts="alerts"
       :last-refresh="lastRefresh"
       :last-refresh-ago="lastRefreshAgo"
+      :polling-paused="pollingPaused"
+      :poll-interval-min="POLL_INTERVAL_MS / 60000"
       @toggle-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
       @open-cmd-palette="showCmdPalette = true"
       @go-health="goHealth"
       @go-list="goList"
+      @toggle-polling="togglePollingPaused"
+      @refresh-now="onRefreshNow"
     />
 
     <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
@@ -109,6 +113,8 @@ import { defineAsyncComponent } from 'vue'
 import axios from 'axios'
 // D.2026-07-12 统一数字格式化
 import { useFormatNumber } from './composables/useFormatNumber.js'
+// P0-2 统一轮询：单一 tick 驱动 TopBar alerts + CockpitView data
+import { useGlobalPolling } from './composables/useGlobalPolling.js'
 // 2026-07-13 list 视图抽取(2026-07-13):ListView + useListSearch
 import ListView from './components/ListView.vue'
 import { useListSearch } from './composables/useListSearch.js'
@@ -226,9 +232,17 @@ const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_p
 const alerts = ref({ count: 0, veryStaleCount: 0, updates: [] })
 const lastRefresh = ref('')   // 接口响应的 ISO 时间,用于 tooltip
 const lastRefreshAgo = ref('') // "3 分钟前" 等动态文案
-let alertsTimer = null
 let clockTimer = null
-const ALERTS_POLL_MS = 15 * 60 * 1000  // 与驾驶舱轮询节拍对齐
+
+function togglePollingPaused() {
+  pollingPaused.value = !pollingPaused.value
+}
+
+function onRefreshNow() {
+  // 立即触发全局刷新:TopBar alerts 重新拉,CockpitView watch tick 同步刷新
+  loadAlerts()
+  bumpTick()
+}
 
 async function loadAlerts() {
   try {
@@ -343,14 +357,19 @@ onMounted(async () => {
 })
 
 
-// 数据新鲜度轮询 + 时钟(2026-07-12 P1-4)
+// P0-2 全局轮询: 单一 tick, TopBar alerts 与 CockpitView 共用
+const { pollingTick, pollingPaused, startPolling, stopPolling, bumpTick, POLL_INTERVAL_MS } = useGlobalPolling()
+watch(pollingTick, () => {
+  // 暂停时不主动加载(保留节拍但不发请求, bpm 仍在走)
+  if (!pollingPaused.value) loadAlerts()
+})
 onMounted(() => {
-  loadAlerts()
-  alertsTimer = setInterval(loadAlerts, ALERTS_POLL_MS)
+  loadAlerts()             // 首屏立刻拉一次
+  startPolling()           // 启动全局 tick
   clockTimer = setInterval(refreshAgoText, 60 * 1000)
 })
 onBeforeUnmount(() => {
-  if (alertsTimer) clearInterval(alertsTimer)
+  stopPolling()
   if (clockTimer) clearInterval(clockTimer)
 })
 

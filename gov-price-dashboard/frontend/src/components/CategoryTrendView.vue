@@ -29,7 +29,8 @@
         <div v-if="dropdownOpen && catInput.trim() && (candidates.length || loading)" class="dropdown">
           <div v-if="loading" class="dropdown-loading">⏳ 查询 NORM…</div>
           <template v-else-if="candidates.length">
-            <div class="dropdown-section-title">🌐 跨城归一品类（{{ candidates.length }}）</div>
+            <!-- P1-9:用色点 + 纯文字替代 emoji,跟 CockpitView section-dot 风格一致 -->
+            <div class="dropdown-section-title"><span class="dropdown-section-dot"></span>跨城归一品类 ({{ candidates.length }})</div>
             <div
               v-for="(c, idx) in candidates.slice(0, 12)"
               :key="c.normalized_breed + '_cb'"
@@ -605,6 +606,17 @@ watch([periodsLimit, topSpecs], () => {
   color: #64748b;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+  display: flex;        /* P1-9:与色点并排 */
+  align-items: center;
+}
+.dropdown-section-dot {  /* P1-9 色点占位,替代原 emoji */
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary, #1e40af);
+  margin-right: 6px;
+  flex-shrink: 0;
 }
 .dropdown-item {
   padding: 8px 12px;

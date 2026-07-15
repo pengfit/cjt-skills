@@ -1,19 +1,16 @@
 <template>
   <div class="cockpit">
-    <!-- 顶部 HUD 标题栏 -->
+    <!-- 顶部 HUD 标题栏(P0-2 简化:轮询控制已下沉 TopBar,这里只剩状态展示) -->
     <div class="hud-header">
       <div class="hud-title">
-        <span class="hud-prefix">数据驾驶舱 · 自动每 15 分钟更新</span>
+        <span class="hud-prefix">数据驾驶舱</span>
+        <span class="hud-prefix-sub">· 全局每 {{ pollIntervalMin }} 分钟自动刷新 · 在顶栏可暂停</span>
       </div>
       <div class="hud-status">
         <span class="hud-clock mono">{{ clock }}</span>
-        <span class="hud-live" :class="{ active: pollingActive }">● 运行中</span>
-        <button class="hud-btn" @click="manualRefresh" :disabled="loading" title="立即拉取最新数据">
-          {{ loading ? '⟳ 加载中' : '↻ 立即刷新' }}
-        </button>
-        <button class="hud-btn" @click="togglePolling">
-          {{ pollingActive ? '⏸ 暂停' : '▶ 继续' }}
-        </button>
+        <span class="hud-live" :class="{ active: !pollingPaused, paused: pollingPaused }">
+          {{ pollingPaused ? '⏸ 已暂停' : '● 运行中' }}
+        </span>
       </div>
     </div>
 
@@ -218,37 +215,52 @@
         </div>
       </section>
 
-      <!-- ============ Row 4: 底部状态条 ============ -->
+      <!-- ============ Row 4: 底部状态条(P0-1 拆 3 组：运行 / 数据质量 / 规模) ============ -->
       <div class="hud-footer grid-row grid-row-footer">
-        <div class="footer-cell">
-          <span class="footer-label">系统</span>
-          <span class="footer-value status-ok">✓ 正常</span>
+        <div class="footer-group" data-group="ops">
+          <span class="footer-group-label">运行</span>
+          <div class="footer-group-cells">
+            <div class="footer-cell">
+              <span class="footer-label">系统</span>
+              <span class="footer-value status-ok">✓ 正常</span>
+            </div>
+            <div class="footer-cell">
+              <span class="footer-label">轮询</span>
+              <span class="footer-value mono">{{ pollMinutes }}</span>
+            </div>
+            <div class="footer-cell">
+              <span class="footer-label">告警</span>
+              <span class="footer-value mono" :class="{ 'status-warn': alertCount > 0 }">{{ alertCount }}</span>
+            </div>
+          </div>
         </div>
-        <div class="footer-cell">
-          <span class="footer-label">轮询</span>
-          <span class="footer-value mono">{{ pollMinutes }}</span>
+        <div class="footer-group" data-group="quality">
+          <span class="footer-group-label">数据质量</span>
+          <div class="footer-group-cells">
+            <div class="footer-cell">
+              <span class="footer-label">属性 OK</span>
+              <span class="footer-value mono">{{ syncOkCount }}</span>
+            </div>
+            <div class="footer-cell" :title="`超过 ${STALE_THRESHOLD_DAYS} 天未更新`">
+              <span class="footer-label">过期</span>
+              <span class="footer-value mono" :class="{ 'status-warn': staleCount > 0 }">{{ staleCount }}</span>
+            </div>
+            <div class="footer-cell" :title="staleCount > 0 ? `⚠ ${staleCount} 个城市超过 ${STALE_THRESHOLD_DAYS} 天未更新` : ''">
+              <span class="footer-label">质量</span>
+              <span class="footer-value" :class="staleCount > 5 ? 'status-warn' : 'status-ok'">
+                {{ staleCount > 5 ? '需关注' : (kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? '良好' : '一般') }}
+              </span>
+            </div>
+          </div>
         </div>
-        <div class="footer-cell">
-          <span class="footer-label">城市</span>
-          <span class="footer-value mono">{{ Object.keys(data.all_cities).length }}</span>
-        </div>
-        <div class="footer-cell">
-          <span class="footer-label">属性 OK</span>
-          <span class="footer-value mono">{{ syncOkCount }}</span>
-        </div>
-        <div class="footer-cell" :title="`超过 ${STALE_THRESHOLD_DAYS} 天未更新`">
-          <span class="footer-label">过期</span>
-          <span class="footer-value mono" :class="{ 'status-warn': staleCount > 0 }">{{ staleCount }}</span>
-        </div>
-        <div class="footer-cell">
-          <span class="footer-label">告警</span>
-          <span class="footer-value mono" :class="{ 'status-warn': alertCount > 0 }">{{ alertCount }}</span>
-        </div>
-        <div class="footer-cell" :title="staleCount > 0 ? `⚠ ${staleCount} 个城市超过 ${STALE_THRESHOLD_DAYS} 天未更新` : ''">
-          <span class="footer-label">数据质量</span>
-          <span class="footer-value" :class="staleCount > 5 ? 'status-warn' : 'status-ok'">
-            ● {{ staleCount > 5 ? '需关注' : (kpi.attrRate >= 90 ? '优秀' : kpi.attrRate >= 70 ? 'GOOD' : 'FAIR') }}
-          </span>
+        <div class="footer-group footer-group-shrink" data-group="scale">
+          <span class="footer-group-label">规模</span>
+          <div class="footer-group-cells">
+            <div class="footer-cell">
+              <span class="footer-label">城市</span>
+              <span class="footer-value mono">{{ Object.keys(data.all_cities).length }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -258,28 +270,30 @@
 
 <script setup>
 import ErrorState from './ErrorState.vue'
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import GeoMapView from './GeoMapView.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
+// P0-2 订阅全局 tick,跟随 TopBar 节奏刷新
+import { useGlobalPolling } from '../composables/useGlobalPolling.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
 const error = ref('')
 const data = reactive({})
-const pollingActive = ref(true)
+// P0-2 改用全局轮询:CockpitView 不再自己起 setInterval
+const { pollingTick, pollingPaused, POLL_INTERVAL_MS } = useGlobalPolling()
+const pollIntervalMin = computed(() => Math.round(POLL_INTERVAL_MS / 60000))
+
 const clock = ref('')
 const skillUpdates = ref([])   // /api/skill-updates 返回
 const updatesNow = ref('')     // skill-updates 扫描时间
-let pollTimer = null
 let clockTimer = null
 
-const 轮询_INTERVAL_MS = 15 * 60 * 1000  // 15 分钟（与城市检测 cron 节拍对齐）
-
-// 底栏"轮询 Xm"动态读取,避免硬编码失同步（fix 2026-07-12 P3-batch1）
-const pollMinutes = computed(() => Math.round(轮询_INTERVAL_MS / 60000) + 'm')
+// 底栏"轮询 Xm"动态读取
+const pollMinutes = computed(() => Math.round(POLL_INTERVAL_MS / 60000) + 'm')
 
 const kpi = computed(() => {
   const cities = Object.values(data.all_cities || {})
@@ -470,41 +484,19 @@ function updateClock() {
   clock.value = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-function togglePolling() {
-  pollingActive.value = !pollingActive.value
-  if (pollingActive.value) {
-    startPolling()
-  } else {
-    stopPolling()
-  }
-}
-
-function manualRefresh() {
-  if (loading.value) return
-  loadData()
-}
-
-function startPolling() {
-  stopPolling()
-  pollTimer = setInterval(loadData, 轮询_INTERVAL_MS)
-}
-
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
+// P0-2 跟随全局 tick 刷新;bumpTick() 时也会触发
+watch(pollingTick, () => {
+  if (!loading.value) loadData()
+})
 
 onMounted(() => {
   loadData()
   updateClock()
   clockTimer = setInterval(updateClock, 1000)
-  startPolling()
+  // P0-2: 不再本地 startPolling,跟随全局 tick
 })
 
 onUnmounted(() => {
-  stopPolling()
   if (clockTimer) clearInterval(clockTimer)
 })
 </script>
@@ -534,6 +526,12 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 700;
 }
+.hud-prefix-sub {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 6px;
+}
 .hud-status { display: flex; align-items: center; gap: 12px; }
 .hud-clock {
   color: var(--primary);
@@ -549,7 +547,8 @@ onUnmounted(() => {
 }
 .hud-live.active { color: var(--success); }
 .hud-live.active::before { content: '● '; }
-.hud-live:not(.active) { color: var(--text-3); animation: none; }
+.hud-live.paused { color: var(--warning-orange, #ea580c); animation: none; }
+.hud-live:not(.active):not(.paused) { color: var(--text-3); animation: none; }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -903,14 +902,59 @@ onUnmounted(() => {
   align-self: center;
 }
 
-/* ── 底部状态条 ── */
+/* ── 底部状态条(P0-1 拆组:运行 / 数据质量 / 规模) ── */
 .hud-footer {
   display: flex;
-  gap: 1px;
+  gap: 0;
   background: var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
+.footer-group {
+  flex: 1;
+  background: var(--surface);
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+.footer-group + .footer-group {
+  border-left: 1px solid var(--border);
+}
+.footer-group-label {
+  display: flex;
+  align-items: center;
+  padding: 8px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  border-right: 1px solid var(--border-light);
+  background: var(--surface-2);
+  flex-shrink: 0;
+  user-select: none;
+}
+/* 窄屏改横排 label,避免挤压 */
+@media (max-width: 900px) {
+  .footer-group-label {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    border-right: none;
+    border-bottom: 1px solid var(--border-light);
+    padding: 6px 10px;
+    flex: 0 0 auto;
+  }
+  .footer-group-cells { flex: 1; }
+}
+.footer-group-cells {
+  flex: 1;
+  display: flex;
+  gap: 1px;
+  background: var(--border-light);
+}
+.footer-group-shrink { flex: 0 0 auto; }
 .footer-cell {
   flex: 1;
   background: var(--surface);
@@ -918,6 +962,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 56px;
 }
 .footer-label {
   color: var(--text-3);

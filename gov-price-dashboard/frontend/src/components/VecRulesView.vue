@@ -95,7 +95,7 @@
       </div>
     </Transition>
 
-    <!-- Table -->
+    <!-- Table (CSS Grid 2026-07-15 重构) -->
     <div class="vec-table-wrap">
       <!-- Loading -->
       <div class="vec-loading" v-if="vecLoading">
@@ -103,45 +103,52 @@
         <span>加载中...</span>
       </div>
 
-      <table class="data-table no-row-hover" v-else>
-        <thead>
-          <tr>
-            <th style="width:40px" class="no-sort">#</th>
-            <th style="width:120px" class="no-sort">breed</th>
-            <th style="width:90px" class="no-sort">attr</th>
-            <th style="width:80px" class="no-sort">分类</th>
-            <th style="width:160px" class="no-sort">pattern</th>
-            <th style="width:350px" class="text-left no-sort">code</th>
-            <th style="width:140px" class="no-sort">note</th>
-            <th style="width:130px" class="no-sort">创建时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(r, idx) in vecRules.items" :key="r.id">
-            <td class="vec-id">
-              <div class="vec-row-id-wrap">
-                <!-- v0.7 起仅显示序号，编辑/删除入口隐藏（按需可恢复后端端点）。
-                     表內变更统一走 “修改 · 查 · 网" 表 (rules_vec.db / ParseSpec 端) —— -->
-                <span>{{ (vecRules.page - 1) * 50 + idx + 1 }}</span>
-              </div>
-            </td>
-            <td class="vec-breed" :title="r.breed">{{ r.breed || '—' }}</td>
-            <td><span class="vec-attr-tag">{{ r.attr }}</span></td>
-            <td>{{ r.category || '—' }}</td>
-            <td class="vec-pattern-cell"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></td>
-            <td class="vec-code-cell text-left no-ellipsis"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></td>
-            <td class="vec-note-cell">{{ r.note || '—' }}</td>
-            <td class="vec-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</td>
-          </tr>
-          <tr v-if="!vecRules.items?.length">
-            <td colspan="8">
-              <EmptyState compact
-                :title="vecSearch || vecAttrFilter ? `没有匹配「${vecSearch || vecAttrFilter}」的规则` : '暂无规则'"
-                message="点击右上角【使用说明】了解如何添加规则" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="grid-table" v-else>
+        <!-- Sticky header — 第 1 行,subgrid 继承父列 -->
+        <div class="grid-header">
+          <div class="grid-head-cell col-id">#</div>
+          <div class="grid-head-cell col-breed">breed</div>
+          <div class="grid-head-cell col-attr">attr</div>
+          <div class="grid-head-cell col-cat">分类</div>
+          <div class="grid-head-cell col-pattern">pattern</div>
+          <div class="grid-head-cell col-code text-left">code</div>
+          <div class="grid-head-cell col-note">note</div>
+          <div class="grid-head-cell col-date">创建时间</div>
+        </div>
+
+        <!-- Body rows — 直接子节点参与 subgrid -->
+        <div
+          v-for="(r, idx) in vecRules.items"
+          :key="r.id"
+          class="grid-row"
+        >
+          <div class="grid-cell col-id">
+            <span>{{ (vecRules.page - 1) * 50 + idx + 1 }}</span>
+          </div>
+          <div class="grid-cell col-breed" :title="r.breed">{{ r.breed || '—' }}</div>
+          <div class="grid-cell col-attr">
+            <span class="vec-attr-tag">{{ r.attr }}</span>
+          </div>
+          <div class="grid-cell col-cat">{{ r.category || '—' }}</div>
+          <div class="grid-cell col-pattern">
+            <code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code>
+          </div>
+          <div class="grid-cell col-code text-left">
+            <pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre>
+          </div>
+          <div class="grid-cell col-note">{{ r.note || '—' }}</div>
+          <div class="grid-cell col-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="!vecRules.items?.length" class="grid-row grid-row-empty">
+          <div class="grid-cell" style="grid-column: 1 / -1;">
+            <EmptyState compact
+              :title="vecSearch || vecAttrFilter ? `没有匹配「${vecSearch || vecAttrFilter}」的规则` : '暂无规则'"
+              message="点击右上角【使用说明】了解如何添加规则" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Pagination -->
@@ -183,6 +190,11 @@ import EmptyState from './EmptyState.vue'
 import { fmtInt } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+
+// CSS Grid 列模板 — 内容感知版 (2026-07-15 v2)
+// 与 /list 同样 subgrid 架构：.grid-table 作根定义列模板，max-content 在整列跨所有行求最大值。
+// 8 列：# 固定 / breed flex 吃剩余 / 其余按内容自适应
+const GRID_COLS = '40px minmax(90px, 1fr) minmax(60px, max-content) minmax(60px, max-content) minmax(120px, max-content) minmax(220px, max-content) minmax(80px, max-content) minmax(110px, max-content)'
 
 const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [] })
 const vecPageSize = ref(50)
@@ -348,6 +360,14 @@ onMounted(() => {
   padding-bottom: 64px;
 }
 
+/* PageHeader 位置与 /taxonomy 对齐(2026-07-15):
+   /taxonomy 用 .ctx-page { padding: 0 28px 64px },PHY=56;
+   VecRulesView 原本有 padding-top:16,补偿 -16 让 PageHeader 顶贴齐 /taxonomy */
+.page-header {
+  margin-top: -16px;
+  margin-bottom: 16px;
+}
+
 /* Header（已迁移至 PageHeader flat 变体） */
 
 /* Toolbar */
@@ -452,6 +472,77 @@ onMounted(() => {
 }
 /* vec-table 已迁移至全局 .data-table */
 .vec-table td { padding: 8px 12px; }
+
+/* ──── CSS Grid + subgrid 表格 (2026-07-15 v2) ────
+   与 /list 同架构：
+   - .grid-table 作根 grid,定义 grid-template-columns (8 列内容感知)
+   - .grid-header / .grid-row 都是直接子节点,走 subgrid 继承父列
+   - max-content 在整列跨 header + 所有 body rows 求最大值 → 列宽严格一致
+*/
+.grid-table {
+  display: grid;
+  grid-template-columns:
+    40px                                /* # 固定 */
+    minmax(90px, 1fr)                   /* breed flex 吃剩余 */
+    minmax(60px, max-content)           /* attr */
+    minmax(60px, max-content)           /* 分类 */
+    minmax(120px, max-content)          /* pattern */
+    minmax(220px, max-content)          /* code */
+    minmax(80px, max-content)           /* note */
+    minmax(110px, max-content);         /* 创建时间 */
+  grid-auto-rows: auto;
+  width: 100%;
+}
+
+/* 行用 subgrid 继承父列（必须是 .grid-table 的直接子节点） */
+.grid-table > .grid-header,
+.grid-table > .grid-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: stretch;
+}
+.grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--surface-2, #f8fafc);
+  box-shadow: 0 1px 0 var(--border);
+}
+.grid-head-cell,
+.grid-cell {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+.grid-head-cell:last-child,
+.grid-cell:last-child { border-right: none; }
+.grid-head-cell {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.grid-cell.col-id   { justify-content: flex-end; color: var(--text-2); font-family: 'Courier New', monospace; font-size: 11px; }
+.grid-cell.col-attr { justify-content: center; }
+.grid-cell.col-pattern { white-space: normal; word-break: break-all; }
+.grid-cell.col-code { white-space: normal; padding: 6px 10px; }
+.grid-row {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.1s;
+}
+.grid-row:hover { background: rgba(37,99,235,0.04); }
+.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
+.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
+.grid-row-empty { cursor: default; }
+.grid-row-empty:hover { background: var(--surface); }
+.grid-cell-empty { justify-content: center; }
+.text-left { text-align: left; }
 
 /* Loading */
 .vec-loading {

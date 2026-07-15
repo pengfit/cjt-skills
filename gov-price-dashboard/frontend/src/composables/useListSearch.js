@@ -14,6 +14,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { exportCsvAsFile, withTimestamp } from './useExport.js'
+// P2-15:历史模块拆分
+import { useSearchHistory } from './useSearchHistory.js'
 import { useFormatNumber } from './useFormatNumber.js'
 
 export function useListSearch({ router, loadOverview }) {
@@ -81,10 +83,11 @@ export function useListSearch({ router, loadOverview }) {
   // ============================================================
   // STATE — 历史 / 列配置 / 抽屉 / Toast
   // ============================================================
-  const searchHistory = ref(JSON.parse(localStorage.getItem('gov_price_history') || '[]'))
+  // P2-15:抽到 useSearchHistory
+  const { history: searchHistory, add: addHistory, clear: clearHistoryFn } = useSearchHistory()
   const allColumns = ref([
     { key: 'breed',    label: '产品名称',  sortable: true,  visible: true, width: 180 },
-    { key: 'price',    label: '价格',      sortable: true,  visible: true, width: 110 },
+    { key: 'price',    label: '价格',      sortable: true,  visible: true, width: 140 },
     { key: 'attr',     label: '属性',      sortable: false, visible: false, width: 220 },
     { key: 'unit',     label: '单位',      sortable: false, visible: true, width: 60  },
     { key: 'date',     label: '日期',      sortable: true,  visible: true, width: 95  },
@@ -273,9 +276,9 @@ export function useListSearch({ router, loadOverview }) {
     priceMax.value = ''
   }
 
+  // P2-15:直接调 composable 的 clear
   function clearHistory() {
-    searchHistory.value = []
-    window.localStorage.removeItem('gov_price_history')
+    clearHistoryFn()
   }
 
   function applyDatePreset(preset) {
@@ -338,10 +341,7 @@ export function useListSearch({ router, loadOverview }) {
 
       if (searchKeyword.value.trim()) {
         const kw = searchKeyword.value.trim()
-        const hist = searchHistory.value.filter(h => h !== kw)
-        hist.unshift(kw)
-        searchHistory.value = hist.slice(0, 10)
-        localStorage.setItem('gov_price_history', JSON.stringify(searchHistory.value))
+        addHistory(kw)  // P2-15:走 composable,内部去重+trim+localStorage
       }
     } catch (e) {
       searchError.value = true

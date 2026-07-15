@@ -1,8 +1,10 @@
 <!--
-  列表页 — list tab 视图(2026-07-13 抽自 App.vue)
+  列表页 — list tab 视图(2026-07-13 抽自 App.vue, 2026-07-15 Grid 化 + 内容感知列宽)
   - 模板来自原 App.vue `<template v-if="currentTab === 'list'">` 整块
   - state / computed / actions 全部委托给 useListSearch composable
   - 跨 tab 依赖(loadOverview)由 App.vue 通过 props 注入
+  - 表格部分从原生 <table> 改为 CSS Grid + subgrid (2026-07-15)
+  - 列宽按内容自适应：5 列都用 minmax(min, max-content)，但 max-content 在整列跨所有行求最大值
 -->
 <template>
   <!-- Filter Drawer (slide-in from right) -->
@@ -44,7 +46,6 @@
             :searchable="true"
           />
         </div>
-        <!-- Price range presets exposed in drawer -->
         <div class="filter-group">
           <label class="filter-label">日期范围</label>
           <div class="date-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
@@ -90,7 +91,7 @@
               :key="preset.label"
               class="preset-chip"
               :class="{ active: isPresetActive(preset) }"
-              @click="isPresetActive(preset) ? expandRange() : applyPreset(preset); /* 选中不搜索,等确定 */"
+              @click="isPresetActive(preset) ? expandRange() : applyPreset(preset);"
             >{{ preset.label }}</span>
           </div>
           <div class="price-range-row" style="margin-top:6px">
@@ -118,12 +119,10 @@
       </div>
     </div>
   </Transition>
-  <!-- Drawer backdrop for mobile/desktop click-outside close -->
   <Transition name="fade">
     <div class="drawer-backdrop" v-if="showDrawer" @click="showDrawer = false"></div>
   </Transition>
 
-    <!-- 列表页:左侧分类树 + 右侧产品表格 -->
     <div class="list-tree-layout">
       <aside class="list-tree-panel" :class="{ collapsed: categoryPanelCollapsed }">
         <button class="panel-toggle" @click="categoryPanelCollapsed = !categoryPanelCollapsed" :title="categoryPanelCollapsed ? '展开分类' : '收起分类'">
@@ -137,46 +136,55 @@
         </div>
       </aside>
 
-      <!-- Content Area -->
       <main class="content-area">
 
-      <!-- 分类面包屑 -->
-      <div class="category-breadcrumb" v-if="categoryBreadcrumb.length">
-        <span class="breadcrumb-icon">🏷️</span>
-        <template v-for="(part, i) in categoryBreadcrumb" :key="part.code">
-          <span v-if="i > 0" class="breadcrumb-sep">›</span>
-          <span class="breadcrumb-part" :class="{ active: i === categoryBreadcrumb.length - 1 }">{{ part.name }}</span>
-        </template>
-      </div>
+      <!-- PageHeader 在 main 内,跨 content-area 全宽(原位恢复) -->
+      <PageHeader
+        variant="flat"
+        title="全部数据"
+        subtitle="产品名称 / 多维筛选 / 全城跨期比价 · 数据源 <code>DWS</code> 索引族"
+        :stats="[
+          { label: '总记录', value: fmt.int(stats.total), title: '当前筛选条件下的总命中条数' },
+          { label: '覆盖省份', value: stats.provinces, title: '已有数据的省份数' },
+          { label: '当前页', value: stats.current, title: `本页 ${pageSize} 条中的可见条数` },
+        ]"
+      />
 
-      <div class="filter-bar filter-bar-inside">
-        <input
-          class="filter-bar-input"
-          v-model="searchKeyword"
-          placeholder="🔍 产品名称 / 关键词"
-          @keyup.enter="doSearch()"
-          @input="onKeywordInput"
-        />
-        <!-- 日期预设平铺(A.2026-07-12 P0):默认 7 天 + 随时切换 -->
-        <div class="date-presets-inline">
-          <span
-            v-for="preset in datePresets"
-            :key="preset.key"
-            class="preset-chip-inline"
-            :class="{ active: dateRangeKey === preset.key }"
-            @click="applyDatePreset(preset); doSearch()"
-          >{{ preset.label }}</span>
+      <div class="list-toolbar-sticky">
+        <div class="category-breadcrumb" v-if="categoryBreadcrumb.length">
+          <span class="breadcrumb-icon">🏷️</span>
+          <template v-for="(part, i) in categoryBreadcrumb" :key="part.code">
+            <span v-if="i > 0" class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-part" :class="{ active: i === categoryBreadcrumb.length - 1 }">{{ part.name }}</span>
+          </template>
         </div>
-        <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
-        <!-- 导出(P3-batch3):利用已有 useExport,支持 CSV / JSON -->
-        <button
-          class="btn-export"
-          :disabled="!sortedData.length"
-          :title="sortedData.length ? `导出 ${sortedData.length} 条记录为 CSV(当前筛选)` : '请先加载数据'"
-          @click="exportSearchResultCsv"
-        >📊 导出 CSV</button>
 
-        <!-- Active Filter Tags (inside filter-bar) -->
+        <div class="filter-bar filter-bar-inside">
+          <input
+            class="filter-bar-input"
+            v-model="searchKeyword"
+            placeholder="🔍 产品名称 / 关键词"
+            @keyup.enter="doSearch()"
+            @input="onKeywordInput"
+          />
+          <div class="date-presets-inline">
+            <span
+              v-for="preset in datePresets"
+              :key="preset.key"
+              class="preset-chip-inline"
+              :class="{ active: dateRangeKey === preset.key }"
+              @click="applyDatePreset(preset); doSearch()"
+            >{{ preset.label }}</span>
+          </div>
+          <button class="btn-more" @click="showDrawer = true">更多筛选 ▸</button>
+          <button
+            class="btn-export"
+            :disabled="!sortedData.length"
+            :title="sortedData.length ? `导出 ${sortedData.length} 条记录为 CSV(当前筛选)` : '请先加载数据'"
+            @click="exportSearchResultCsv"
+          >📊 导出 CSV</button>
+        </div>
+
         <div class="filter-tags" v-if="searchKeyword || searchProvince || searchCity || searchCounty || searchCategoryCode || dateFrom || dateTo">
           <span class="filter-tag" v-if="searchKeyword">
             <strong>产品名称</strong>
@@ -212,17 +220,23 @@
         </div>
       </div>
 
-        <!-- Toolbar (standalone, outside Transition) -->
-        <!-- ========== TABLE or CHART or LOADING or EMPTY ========== -->
-
-        <!-- Skeleton loading - uses flex:0 0 Npx so widths always match table -->
-        <!-- 加载时仍保留表头文字,避免"表格消失"错觉(fix 2026-07-12 P3-batch2) -->
+        <!-- Skeleton loading (用同一 subgrid 模板) -->
         <div class="content-card skeleton-card" v-if="loading">
-          <div class="skeleton-header">
-            <div class="skeleton-col has-label" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }">{{ col.label }}</div>
-          </div>
-          <div class="skeleton-row" v-for="i in 8" :key="i">
-            <div class="skeleton-col" v-for="col in visibleColumns" :key="col.key" :style="{ flex: `0 0 ${col.width}px`, minWidth: col.width + 'px' }"></div>
+          <div class="grid-table skel">
+            <div class="grid-header">
+              <div
+                v-for="col in visibleColumns"
+                :key="'h-' + col.key"
+                class="grid-cell skel-head"
+              >{{ col.label }}</div>
+            </div>
+            <div class="grid-row skel-grid-row" v-for="i in 8" :key="i">
+              <div
+                v-for="col in visibleColumns"
+                :key="i + '-' + col.key"
+                class="grid-cell skel-cell-bar"
+              ></div>
+            </div>
           </div>
           <div class="skeleton-footer">⏳ 加载中...</div>
         </div>
@@ -247,38 +261,36 @@
           </div>
         </div>
 
-          <!-- Data Table(桌面端) -->
+        <!-- Data Grid (subgrid 列对齐像素级精准,列宽由内容自适应) -->
         <div class="content-card table-desktop" v-else>
-          <div class="table-scroll">
-            <table class="data-table compact-table">
-              <thead>
-                <tr>
-                  <th
-                    v-for="col in visibleColumns"
-                    :key="col.key"
-                    :class="['col-' + col.key, { sorted: sortKey === col.key, sortable: col.sortable }]"
-                    :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
-                    @click="col.sortable && sortBy(col.key)"
-                  >
-                    {{ col.label }}
-                    <span v-if="col.sortable" class="sort-icon">
-                      {{ sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕' }}
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="(item, idx) in sortedData" :key="item.id || idx">
-                <tr
-                  class="data-row"
+          <div class="grid-scroll">
+            <div class="grid-table" :data-cols="visibleColumns.length">
+              <!-- Sticky header — 第 1 行 -->
+              <div class="grid-header">
+                <div
+                  v-for="col in visibleColumns"
+                  :key="'h-' + col.key"
+                  :class="['grid-cell', 'grid-head-cell', 'col-' + col.key, { sorted: sortKey === col.key, sortable: col.sortable }]"
+                  @click="col.sortable && sortBy(col.key)"
+                >
+                  {{ col.label }}
+                  <span v-if="col.sortable" class="sort-icon">
+                    {{ sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Body rows + 展开详情 — 都是 .grid-table 的直接子节点，参与同一 subgrid -->
+              <template v-for="(item, idx) in sortedData" :key="item.id || idx">
+                <div
+                  class="grid-row data-row"
                   :class="{ 'stale-row': isStale(item.date), 'row-expanded': expandedRow === (item.id || idx) }"
                   @click="toggleRow(item, idx)"
                 >
-                  <td
+                  <div
                     v-for="col in visibleColumns"
-                    :key="col.key"
-                    :class="['col-' + col.key, getCellClass(col.key, item)]"
-                    :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
+                    :key="item.id + '-' + col.key"
+                    :class="['grid-cell', 'col-' + col.key, getCellClass(col.key, item)]"
                     :title="col.key === 'breed' ? item.breed : col.key === 'spec' ? item.spec_clean : undefined"
                   >
                     <template v-if="col.key === 'breed'">
@@ -291,9 +303,6 @@
                         </div>
                       </div>
                     </template>
-                    <template v-else-if="col.key === 'province'"></template>
-                    <template v-else-if="col.key === 'city'"></template>
-                    <template v-else-if="col.key === 'county'"></template>
                     <template v-else-if="col.key === 'unit'">{{ item.unit }}</template>
                     <template v-else-if="col.key === 'price'">
                       <div class="price-main">{{ fmtCell(item.price) }}</div>
@@ -309,70 +318,67 @@
                       <span :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</span>
                     </template>
                     <template v-else-if="col.key === 'category'">
-                      <span class="cat-badge">{{ item.category || '-' }}</span>
+                      <span class="cat-badge" :title="item.category || ''">{{ item.category || '-' }}</span>
                     </template>
                     <template v-else>{{ item[col.key] ?? '-' }}</template>
-                  </td>
-                </tr>
-                <!-- 展开详情行 -->
-                <tr v-if="expandedRow === (item.id || idx)" class="detail-row">
-                  <td :colspan="visibleColumns.length">
-                    <div class="detail-panel">
-                      <div class="detail-panel-grid">
-                        <div class="detail-field full-width">
-                          <span class="detail-field-label">产品名称</span>
-                          <span class="detail-field-value">{{ item.breed }}</span>
-                        </div>
-                        <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
-                          <span class="detail-field-label">规格型号</span>
-                          <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '-' }}</span>
-                        </div>
-                        <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
-                          <span class="detail-field-label">规格属性</span>
-                          <span class="detail-field-value"><AttrTags :attr="item.attr" /></span>
-                        </div>
-                        <div class="detail-field">
-                          <span class="detail-field-label">价格</span>
-                          <span class="detail-field-value price-em">{{ fmtCell(item.price) }} 元</span>
-                        </div>
-                        <div class="detail-field" v-if="item.tax_price && Number(item.tax_price) > 0">
-                          <span class="detail-field-label">含税价</span>
-                          <span class="detail-field-value">{{ fmtCell(item.tax_price) }} 元</span>
-                        </div>
-                        <div class="detail-field">
-                          <span class="detail-field-label">单位</span>
-                          <span class="detail-field-value">{{ item.unit || '-' }}</span>
-                        </div>
-                        <div class="detail-field">
-                          <span class="detail-field-label">日期</span>
-                          <span class="detail-field-value">{{ item.date || '-' }}</span>
-                        </div>
-                        <div class="detail-field">
-                          <span class="detail-field-label">省份</span>
-                          <span class="detail-field-value">{{ item.province || '-' }}</span>
-                        </div>
-                        <div class="detail-field">
-                          <span class="detail-field-label">城市</span>
-                          <span class="detail-field-value">{{ item.city || '-' }}</span>
-                        </div>
-                        <div class="detail-field" v-if="item.county">
-                          <span class="detail-field-label">区县</span>
-                          <span class="detail-field-value">{{ item.county }}</span>
-                        </div>
-                        <div class="detail-field" v-if="item.category">
-                          <span class="detail-field-label">分类</span>
-                          <span class="detail-field-value"><span class="cat-badge">{{ item.category }}</span></span>
-                        </div>
+                  </div>
+                </div>
+                <!-- 展开详情行 — 跨满所有列，不是 subgrid（详情面板用内部 auto-fit grid） -->
+                <div v-if="expandedRow === (item.id || idx)" class="grid-detail-row" @click.stop>
+                  <div class="detail-panel">
+                    <div class="detail-panel-grid">
+                      <div class="detail-field full-width">
+                        <span class="detail-field-label">产品名称</span>
+                        <span class="detail-field-value">{{ item.breed }}</span>
+                      </div>
+                      <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
+                        <span class="detail-field-label">规格型号</span>
+                        <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '-' }}</span>
+                      </div>
+                      <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
+                        <span class="detail-field-label">规格属性</span>
+                        <span class="detail-field-value"><AttrTags :attr="item.attr" /></span>
+                      </div>
+                      <div class="detail-field">
+                        <span class="detail-field-label">价格</span>
+                        <span class="detail-field-value price-em">{{ fmtCell(item.price) }} 元</span>
+                      </div>
+                      <div class="detail-field" v-if="item.tax_price && Number(item.tax_price) > 0">
+                        <span class="detail-field-label">含税价</span>
+                        <span class="detail-field-value">{{ fmtCell(item.tax_price) }} 元</span>
+                      </div>
+                      <div class="detail-field">
+                        <span class="detail-field-label">单位</span>
+                        <span class="detail-field-value">{{ item.unit || '-' }}</span>
+                      </div>
+                      <div class="detail-field">
+                        <span class="detail-field-label">日期</span>
+                        <span class="detail-field-value">{{ item.date || '-' }}</span>
+                      </div>
+                      <div class="detail-field">
+                        <span class="detail-field-label">省份</span>
+                        <span class="detail-field-value">{{ item.province || '-' }}</span>
+                      </div>
+                      <div class="detail-field">
+                        <span class="detail-field-label">城市</span>
+                        <span class="detail-field-value">{{ item.city || '-' }}</span>
+                      </div>
+                      <div class="detail-field" v-if="item.county">
+                        <span class="detail-field-label">区县</span>
+                        <span class="detail-field-value">{{ item.county }}</span>
+                      </div>
+                      <div class="detail-field" v-if="item.category">
+                        <span class="detail-field-label">分类</span>
+                        <span class="detail-field-value"><span class="cat-badge">{{ item.category }}</span></span>
                       </div>
                     </div>
-                  </td>
-                </tr>
-                </template>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
 
-          <!-- 移动端卡片视图 -->
+          <!-- 移动端卡片视图（保留） -->
           <div class="table-mobile">
             <div
               v-for="(item, idx) in sortedData"
@@ -396,7 +402,6 @@
                   <div class="mobile-card-date" :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</div>
                 </div>
               </div>
-              <!-- 展开详情 -->
               <div v-if="expandedRow === (item.id || idx)" class="mobile-card-detail">
                 <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
                   <span class="detail-field-label">完整规格</span>
@@ -437,7 +442,7 @@
           </div>
         </div>
 
-        <!-- 列配置弹层(右上角 ⓘ 触发) -->
+        <!-- 列配置弹层 -->
         <div v-if="showColConfig" ref="colConfigRef" class="col-config-popover" @click.stop>
           <div class="col-config-title">列显示</div>
           <label v-for="col in allColumns" :key="col.key" class="col-config-row">
@@ -453,29 +458,27 @@
           <div v-if="toast.show" :class="['toast', 'toast-' + toast.type]">{{ toast.msg }}</div>
         </Transition>
       </main>
-      </div> <!-- /.list-tree-layout -->
+      </div>
 </template>
 
 <script setup>
-import { defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import AttrTags from './AttrTags.vue'
 import CustomSelect from './CustomSelect.vue'
+import PageHeader from './PageHeader.vue'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
+
+const fmt = useFormatNumber()
 
 const CategoryTreeSidebar = defineAsyncComponent(() => import('./CategoryTreeSidebar.vue'))
 
 const props = defineProps({
-  /** useListSearch composable 返回的 bundle(refs + computed + actions)。
-   * 由 App.vue 在顶层调用 useListSearch 持有,保证切 tab 不丢 state。 */
   bundle: { type: Object, required: true },
-  /** 全局 overview(模板里用 by_province 给省份下拉做选项) */
   overview: { type: Object, required: true },
-  /** 分类面板收起状态(由 App.vue 持有,跨页面持久) */
   categoryPanelCollapsed: { type: Boolean, default: false },
 })
 
-// 从 bundle 拆出 refs / computed / actions，setup 顶层变量会被模板自动 expose。
 const {
-  // refs (template 直接 v-model)
   searchKeyword, searchProvince, searchCity, searchCounty,
   searchCategoryCode, searchCategoryLevel,
   priceMin, priceMax, dateFrom, dateTo, dateRangeKey, datePresets,
@@ -486,10 +489,8 @@ const {
   sortKey, sortDir, expandedRow,
   searchHistory, allColumns, showColConfig, showDrawer, colConfigRef,
   toast,
-  // computed
   visibleColumns, filteredCities, filteredCounties, sortedData,
   pageStart, pageEnd, pageRange,
-  // actions
   sortBy, onPageSizeChange, prevPage, nextPage, goToPage,
   onCityChange, onProvinceChange, onCategoryTreeSelect, resetSearch,
   onKeywordInput, isPresetActive, applyPreset, expandRange, clearHistory,
@@ -503,5 +504,194 @@ const {
   loadCategoryOptions,
 } = props.bundle
 
+// 顶部统计（与 taxonomy 页同样的 PageHeader.stats 形态）
+const stats = computed(() => ({
+  total:     searchResult.value?.total ?? 0,
+  provinces: props.overview?.by_province?.length ?? 0,
+  current:   sortedData.value?.length ?? 0,
+}))
+
 defineExpose({ loadCategoryOptions })
 </script>
+
+<style scoped>
+/* ===========================================================================
+   列表页 CSS Grid + subgrid 表格 (2026-07-15 改造 v2)
+   - .grid-table 为根 grid container,定义 grid-template-columns (5 列内容感知)
+     max-content 在整列跨 header + 所有 body rows 求最大值 → 列宽严格一致
+   - .grid-row / .grid-header 走 subgrid: display:grid + grid-template-columns:subgrid
+   - 列下界保护: minmax(min, max-content) — 极少内容(如单位「个」)不塌缩,极多内容自适应
+   =========================================================================== */
+.table-desktop { padding: 0; }
+
+/* PageHeader 位置与 /taxonomy 对齐 (2026-07-15 P-排错):
+   /taxonomy 的 .ctx-page 是 padding: 0 28px 64px（无 top padding）,
+   /list 被全局 .content-area 的 `padding: 16px 20px 20px` 推下去 16px。
+   补偿方案：margin-top: -16px 让 PageHeader 顶边贴合表格顶部参考线。
+   （全局 rules.css 不能动,这里用 scoped 限定仅 /list 生效） */
+.page-header {
+  margin-top: -16px;
+  margin-bottom: 16px;
+}
+.grid-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-height: calc(100vh - 320px);
+}
+
+/* 根 grid container — 5 列定义 */
+.grid-table {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1fr)            /* 产品名称 flex 吃剩余 */
+    minmax(110px, max-content)    /* 价格 */
+    minmax(40px,  max-content)    /* 单位 */
+    minmax(80px,  max-content)    /* 日期 */
+    minmax(110px, max-content);   /* 分类 */
+  grid-auto-rows: auto;
+  width: 100%;
+}
+
+/* 每一行(表头/数据/骨架)继承父列模板 — subgrid 关键（行必须是 .grid-table 的直接子节点） */
+.grid-table > .grid-header,
+.grid-table > .grid-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: stretch;
+}
+
+/* 详情行不参与 subgrid（自身内部 grid 自适应），仅占满一行宽度 */
+.grid-table > .grid-detail-row {
+  grid-column: 1 / -1;
+}
+
+.grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--surface-2, #f8fafc);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.grid-cell {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text, #0f172a);
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+.grid-cell:last-child { border-right: none; }
+
+.grid-head-cell {
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--text-2);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.grid-head-cell.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
+.grid-head-cell.sortable:hover { background: var(--surface-3, #f1f5f9); }
+.grid-head-cell.sorted { color: var(--primary); background: rgba(37,99,235,0.06); }
+.grid-head-cell .sort-icon { margin-left: 4px; font-size: 10px; opacity: 0.6; }
+.grid-head-cell.sorted .sort-icon { opacity: 1; }
+
+.grid-cell.col-price   { justify-content: flex-end; padding-right: 14px; }
+.grid-cell.col-unit    { justify-content: center; }
+.grid-cell.col-date    { justify-content: center; }
+.grid-cell.col-category { justify-content: center; }
+.grid-cell.col-breed   { white-space: normal; }
+
+/* 行 */
+.grid-row {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  background: var(--surface);
+}
+.grid-row:hover { background: rgba(37,99,235,0.04); }
+.grid-row.stale-row { background: rgba(245,158,11,0.04); }
+.grid-row.row-expanded { background: rgba(37,99,235,0.05); }
+.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
+.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
+.grid-row:nth-child(even).stale-row { background: rgba(245,158,11,0.06); }
+.grid-row.stale-row:hover { background: rgba(245,158,11,0.1); }
+
+/* 展开详情行(跨满所有列) */
+.grid-detail-row {
+  background: var(--surface-2, #f8fafc);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+
+/* 骨架屏 — 复用同一 grid-table */
+.skel .grid-cell { background: transparent; }
+.skel .skel-head {
+  font-size: 11.5px; font-weight: 700; color: var(--text-2);
+  background: var(--surface-2);
+}
+.skel .skel-grid-row {
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s infinite linear;
+}
+.skel .skel-cell-bar {
+  height: 22px;
+  background: rgba(15,23,42,0.06);
+  border-radius: 4px;
+}
+@keyframes skelShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-footer { text-align: center; color: var(--text-3); font-size: 12px; padding: 16px; }
+
+/* detail panel(沿用原样式) */
+.detail-panel { padding: 14px 18px; }
+.detail-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 18px;
+}
+.detail-field { display: flex; flex-direction: column; gap: 2px; }
+.detail-field.full-width { grid-column: 1 / -1; }
+.detail-field-label { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.detail-field-value { font-size: 13px; color: var(--text); font-weight: 500; word-break: break-word; }
+.detail-field-value.spec-full { white-space: pre-wrap; }
+.detail-field-value.price-em { font-weight: 700; color: var(--primary); font-family: 'Courier New', monospace; }
+
+/* 内容排版 */
+.breed-cell { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; }
+.breed-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.breed-meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--text-3); }
+.meta-sep { color: var(--text-3); opacity: 0.6; }
+.meta-tag.city-tag { color: var(--text-3); }
+.price-main { font-family: 'Courier New', monospace; font-weight: 700; font-size: 13px; color: var(--text); }
+.price-tax { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
+.price-change { font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600; }
+.price-change.up { color: var(--status-alert, #ef4444); }
+.price-change.down { color: var(--status-ok, #16a34a); }
+.stale-date { color: var(--status-warn, #f59e0b); }
+.cat-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 11px; background: rgba(37,99,235,0.1); color: var(--primary);
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.attr-cell { font-size: 11px; color: var(--text-3); }
+
+/* 移动端 */
+.table-mobile { display: none; }
+@media (max-width: 768px) {
+  .table-desktop { display: none; }
+  .table-mobile { display: block; }
+}
+</style>
