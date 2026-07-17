@@ -426,7 +426,7 @@ const PROVINCE_ADCODE = {
 // === 无下钻省份清单 ===
 // 这些省份的源站数据按地州市(prefecture-level)发布,没有更细的区/县粒度。
 // 进入 city 下钻后展示 city 列表 + "无下钻" 标注,不再尝试渲染地图。
-const NO_COUNTY_DATA_PROVINCES = new Set(['贵州', '海南'])
+const NO_COUNTY_DATA_PROVINCES = new Set(['海南'])
 const currentProvinceName = computed(() => breadcrumbs.value[0]?.label || '')
 const noDrilldown = computed(() =>
   currentLevel.value === 'city' && NO_COUNTY_DATA_PROVINCES.has(currentProvinceName.value)
