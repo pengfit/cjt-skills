@@ -28,6 +28,14 @@
           :count-suffix="true"
           @change="loadVecRules(1)"
         />
+        <CustomSelect
+          v-model="vecL3Filter"
+          :options="vecL3Options.map(o => ({ key: o.key, label: o.key, count: o.count }))"
+          placeholder="全部 L3 (v0.7)"
+          :searchable="true"
+          :count-suffix="true"
+          @change="loadVecRules(1)"
+        />
       </div>
       <div class="vec-toolbar-right">
         <button class="vec-order-btn" @click="toggleOrder" title="切换升序/降序">

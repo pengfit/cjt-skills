@@ -1885,6 +1885,7 @@ def _category_coverage(city="xian"):
 def stats_rules_vector(
     attr: str = Query("", description="按属性过滤（空=全部）"),
     category: str = Query("", description="按分类过滤（空=全部）"),
+    l3: str = Query("", description="按 L3 分项过滤（空=全部，v0.7+）"),
     search: str = Query("", description="搜索 pattern/note/代码片段"),
     order: str = Query("desc", description="排序方向：asc / desc"),
     page: int = Query(1, description="页码"),
@@ -1911,6 +1912,11 @@ def stats_rules_vector(
     elif category:
         where_clauses.append("category = ?")
         params.append(category)
+    if l3 == '（空）':
+        where_clauses.append("(l3 = '' OR l3 IS NULL)")
+    elif l3:
+        where_clauses.append("l3 = ?")
+        params.append(l3)
     if search:
         where_clauses.append("(pattern LIKE ? OR note LIKE ? OR code LIKE ?)")
         s = f"%{search}%"
@@ -1923,7 +1929,7 @@ def stats_rules_vector(
     offset = (page - 1) * page_size
     order = order.lower() if order.lower() in ("asc", "desc") else "desc"
     c.execute(
-        f"SELECT id, pattern, attr, note, code, breed, category, tokens, created_at "
+        f"SELECT id, pattern, attr, note, code, breed, category, l3, tokens, created_at "
         f"FROM breed_spec_rules WHERE {where_sql} ORDER BY id {order.upper()} LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
@@ -1941,8 +1947,9 @@ def stats_rules_vector(
             "code": r[4],
             "breed": r[5] or "",
             "category": cat,
-            "tokens": r[7] or "",
-            "created_at": r[8],
+            "l3": r[7] or "",  # v0.7+: L3 分项工程
+            "tokens": r[8] or "",
+            "created_at": r[9],
         })
 
     conn2 = sqlite3.connect(db_path)
@@ -1958,6 +1965,14 @@ def stats_rules_vector(
     category_options = [{"key": row[0] or "（空）", "label": row[0] or "（空）", "count": row[1]} for row in c3.fetchall()]
     conn3.close()
 
+    # v0.7+: L3 列表(供前端下拉)
+    conn4 = sqlite3.connect(db_path)
+    c4 = conn4.cursor()
+    c4.execute("SELECT l3, COUNT(*) FROM breed_spec_rules WHERE l3 IS NOT NULL AND l3 != '' "
+               "GROUP BY l3 ORDER BY l3")
+    l3_options = [{"key": row[0], "label": row[0], "count": row[1]} for row in c4.fetchall()]
+    conn4.close()
+
     return {
         "total": total,
         "page": page,
@@ -1966,6 +1981,7 @@ def stats_rules_vector(
         "items": items,
         "attr_options": attr_options,
         "category_options": category_options,
+            "l3_options": l3_options,
     }
 
 @router.get("/api/stats/spec-quality")
@@ -3874,8 +3890,8 @@ def rules_vector_create(body: dict = Body(...)):
     c = conn.cursor()
     try:
         c.execute(
-            "INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, l3, tokens) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 pattern,
                 attr,
@@ -3883,6 +3899,7 @@ def rules_vector_create(body: dict = Body(...)):
                 body.get("code", ""),
                 body.get("breed", ""),
                 body.get("category", ""),
+                body.get("l3", ""),  # v0.7+
                 _json.dumps(body.get("tokens", []), ensure_ascii=False),
             ),
         )
@@ -3906,7 +3923,7 @@ def rules_vector_update(rule_id: int, body: dict = Body(...)):
     import sqlite3, json as _json
     fields = []
     params = []
-    for k in ("pattern", "attr", "note", "code", "breed", "category"):
+    for k in ("pattern", "attr", "note", "code", "breed", "category", "l3"):
         if k in body:
             fields.append(f"{k} = ?")
             params.append(body[k] or "")
