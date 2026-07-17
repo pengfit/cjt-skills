@@ -121,6 +121,7 @@
           <div class="grid-head-cell col-breed">breed</div>
           <div class="grid-head-cell col-attr">attr</div>
           <div class="grid-head-cell col-cat">分类</div>
+          <div class="grid-head-cell col-l3">L3 分项 (v0.7)</div>
           <div class="grid-head-cell col-pattern">pattern</div>
           <div class="grid-head-cell col-code text-left">code</div>
           <div class="grid-head-cell col-note">note</div>
@@ -141,6 +142,7 @@
             <span class="vec-attr-tag">{{ r.attr }}</span>
           </div>
           <div class="grid-cell col-cat">{{ r.category || '—' }}</div>
+          <div class="grid-cell col-l3">{{ r.l3 || '—' }}</div>
           <div class="grid-cell col-pattern">
             <code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code>
           </div>
@@ -206,7 +208,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // CSS Grid 列模板 — 内容感知版 (2026-07-15 v2)
 // 与 /list 同样 subgrid 架构：.grid-table 作根定义列模板，max-content 在整列跨所有行求最大值。
 // 8 列：# 固定 / breed flex 吃剩余 / 其余按内容自适应
-const GRID_COLS = '40px minmax(90px, 1fr) minmax(60px, max-content) minmax(60px, max-content) minmax(120px, max-content) minmax(220px, max-content) minmax(80px, max-content) minmax(110px, max-content)'
+const GRID_COLS = '40px minmax(90px, 1fr) minmax(60px, max-content) minmax(60px, max-content) minmax(120px, max-content) minmax(110px, max-content) minmax(220px, max-content) minmax(80px, max-content) minmax(110px, max-content) minmax(130px, max-content)'
 
 const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [] })
 const vecPageSize = ref(50)
