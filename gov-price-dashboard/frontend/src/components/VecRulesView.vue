@@ -12,6 +12,9 @@
     <div class="vec-toolbar">
       <div class="vec-toolbar-left">
         <input class="vec-input" v-model="vecSearch" placeholder="搜索 pattern / note / code..." @input="loadVecRules(1)" />
+        <input type="date" class="vec-input vec-date" v-model="vecDateFrom" @change="loadVecRules(1)" title="起始日期 (created_at)" />
+        <input type="date" class="vec-input vec-date" v-model="vecDateTo" @change="loadVecRules(1)" title="结束日期 (created_at)" />
+        <button v-if="vecDateFrom || vecDateTo" class="vec-clear-btn" @click="clearDateRange" title="清除日期范围">×</button>
         <CustomSelect
           v-model="vecAttrFilter"
           :options="vecAttrOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
@@ -189,7 +192,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
 import CustomSelect from './CustomSelect.vue'
@@ -233,6 +237,10 @@ function goToVecPage() {
 const vecSearch = ref('')
 const vecAttrFilter = ref('')
 const vecCatFilter = ref('')
+const vecL3Filter = ref('')
+const vecL3Options = ref([])
+const vecDateFrom = ref('')
+const vecDateTo = ref('')
 const vecOrder = ref('desc')
 const vecAttrOptions = ref([])
 const vecCatOptions = ref([])
@@ -336,10 +344,14 @@ async function loadVecRules(page = 1) {
     if (vecSearch.value) params.search = vecSearch.value
     if (vecAttrFilter.value) params.attr = vecAttrFilter.value
     if (vecCatFilter.value) params.category = vecCatFilter.value
+    if (vecL3Filter.value) params.l3 = vecL3Filter.value
+    if (vecDateFrom.value) params.date_from = vecDateFrom.value
+    if (vecDateTo.value) params.date_to = vecDateTo.value
     const res = await axios.get(`${API}/stats/rules-vector`, { params })
     vecRules.value = res.data || {}
     vecAttrOptions.value = res.data.attr_options || []
     vecCatOptions.value = res.data.category_options || []
+    vecL3Options.value = res.data.l3_options || []
   } catch(e) {
     console.warn('rules-vector failed', e)
   } finally {
@@ -349,6 +361,29 @@ async function loadVecRules(page = 1) {
 
 function toggleOrder() {
   vecOrder.value = vecOrder.value === 'desc' ? 'asc' : 'desc'
+  loadVecRules(1)
+}
+
+const route = useRoute()
+const router = useRouter()
+
+// 从 URL query 初始化 date 筛选(支持 /spec-rules?date_from=...&date_to=... 直达)
+if (route.query.date_from) vecDateFrom.value = String(route.query.date_from)
+if (route.query.date_to) vecDateTo.value = String(route.query.date_to)
+
+// watch date 变化 → 同步到 URL query(便于刷新保持 / 分享链接)
+watch([vecDateFrom, vecDateTo], () => {
+  const q = { ...route.query }
+  if (vecDateFrom.value) q.date_from = vecDateFrom.value
+  else delete q.date_from
+  if (vecDateTo.value) q.date_to = vecDateTo.value
+  else delete q.date_to
+  router.replace({ query: q })
+})
+
+function clearDateRange() {
+  vecDateFrom.value = ''
+  vecDateTo.value = ''
   loadVecRules(1)
 }
 
@@ -403,6 +438,29 @@ onMounted(() => {
   width: 240px;
   box-sizing: border-box;
   font-family: inherit;
+}
+
+.vec-date {
+  width: 140px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.vec-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  width: 28px;
+  height: 32px;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.vec-clear-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-3);
 }
 .vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.4); }
 .vec-toolbar-right { display: flex; align-items: center; gap: 8px; }
