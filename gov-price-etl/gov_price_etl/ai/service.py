@@ -37,6 +37,7 @@ from gov_price_etl.classify.category_v3 import classify_v3
 from gov_price_etl.paths import (
     PROJECT_ROOT,
     SPEC_RULES_DB,
+    CATEGORY_V3_RULES_DB,
 )
 import requests
 
@@ -236,9 +237,8 @@ def _validate_l3(l3: str) -> bool:
     if l3 in _V2_L3_CACHE:
         return True
     try:
-        from gov_price_etl.paths import PROJECT_ROOT
         import sqlite3
-        v2_db_path = PROJECT_ROOT / "data" / "category_v3_rules.db"
+        v2_db_path = CATEGORY_V3_RULES_DB
         conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
         row = conn.execute(
             "SELECT 1 FROM category_v3 WHERE l3 = ? LIMIT 1", (l3,),
@@ -276,7 +276,7 @@ def _auto_extend_dict(l1: str, l2: str, l3: str, name_l3: str,
     if l1 != l3[:2] or l2 != l3[:5]:
         return False  # L1/L2/L3 必须一致
 
-    v2_db_path = PROJECT_ROOT / "data" / "category_v3_rules.db"
+    v2_db_path = CATEGORY_V3_RULES_DB
     json_path = PROJECT_ROOT / "data" / "category_v3.json"
 
     # 1. 写 SQLite
@@ -336,7 +336,7 @@ def _lookup_names(l1: str, l2: str, l3: str) -> tuple:
     try:
         from gov_price_etl.paths import PROJECT_ROOT
         import sqlite3
-        v2_db_path = PROJECT_ROOT / "data" / "category_v3_rules.db"
+        v2_db_path = CATEGORY_V3_RULES_DB
         conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
         row = conn.execute(
             "SELECT name_l1, name_l2, name_l3 FROM category_v3 WHERE l3 = ? LIMIT 1",
@@ -359,7 +359,7 @@ def _load_taxonomy_for_prompt() -> list:
     try:
         from gov_price_etl.paths import PROJECT_ROOT
         import sqlite3
-        v2_db_path = PROJECT_ROOT / "data" / "category_v3_rules.db"
+        v2_db_path = CATEGORY_V3_RULES_DB
         conn = sqlite3.connect(f"file:{v2_db_path}?mode=ro", uri=True)
         rows = conn.execute(
             "SELECT DISTINCT l1, l2, l3, name_l1, name_l2, name_l3 "
@@ -559,7 +559,7 @@ def classify_v3_batch(
             try:
                 import sqlite3
                 from gov_price_etl.paths import PROJECT_ROOT
-                _v2_db_path = PROJECT_ROOT / "data" / "category_v3_rules.db"
+                _v2_db_path = CATEGORY_V3_RULES_DB
                 _v2_conn = sqlite3.connect(str(_v2_db_path))
             except Exception:
                 _stats["classify_v3_db_open_failed"] = _stats.get("classify_v3_db_open_failed", 0) + 1

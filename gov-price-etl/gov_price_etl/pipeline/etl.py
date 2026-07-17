@@ -240,8 +240,7 @@ def etl_city(
         # 错删会导致：ODS 全角 vs DB 半角等样式差异场景，DB 里正确的记录被删后，
         # AI 重新分类又返回 fallback → 第三轮永远 miss。
         import sqlite3 as _sqlite
-        from gov_price_etl.paths import PROJECT_ROOT as _pr
-        _db_path = _pr / "data" / "category_v3_rules.db"
+        from gov_price_etl.paths import CATEGORY_V3_RULES_DB as _db_path
 
         unique_breeds = list(uncategorized_breeds.values())
         print(f"    [AI 补缓存] {len(unique_breeds)} 个 breed 送 Dify...")
