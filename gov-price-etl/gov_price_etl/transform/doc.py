@@ -93,10 +93,10 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
 
     parser = get_parser(city)
     # breed_raw 用于查规则库（规则里存的是原始格式），breed_clean 用于分类/展示
-    spec_parsed = parser.parse(spec_clean, breed_raw, category)
+    spec_parsed = parser.parse(spec_clean, breed_raw, category, category_l3)
     if not spec_parsed:
         # 回退：用 clean_breed 再查一次（部分规则可能用 clean 格式录入）
-        spec_parsed = parser.parse(spec_clean, breed_clean, category)
+        spec_parsed = parser.parse(spec_clean, breed_clean, category, category_l3)
 
     # v4 (2026-07-02) : 重庆园林景观类补调专用解析器（合成 spec 格式: 干径X 冠径Y）
     if city == "chongqing" and category == "园林景观":
@@ -109,9 +109,12 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         except Exception:
             pass
 
-    flat_attr = {k: v for k, v in spec_parsed.items() if v}
-    # DWD 统一用 nested attr 格式存储，与 DWS 保持一致
-    nested_attr = [{"k": k, "v": v} for k, v in flat_attr.items()]
+    # ── v0.7: DWD 不再存 attr(避免脏数据随 DWD→DWS 阶段 1 扩散)──
+    # attr 改为 DWS sync 阶段通过 _parse_spec_local 现算,
+    # attr_source 永远是 local_db / ai / ai_fallback,不再有 etl 脏数据。
+    # spec_parsed 仍解析(用于调试),但不写 DWD 持久化字段。
+    spec_parsed = {k: v for k, v in spec_parsed.items() if v}
+    nested_attr = []  # 显式空 list,确保 DWD 不带 attr
 
     doc = {
         "breed": breed_raw,

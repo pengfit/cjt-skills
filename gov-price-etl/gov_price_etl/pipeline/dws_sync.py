@@ -90,11 +90,15 @@ def _source_to_dws(d: dict) -> dict:
 
 
 # ── 阶段 2: 本地规则库解析 ──────────────────────────────────────────────
-def _parse_spec_local(spec: str, breed: str, category: str, city: str) -> dict:
-    """阶段 2：本地规则库 breed_spec_rules.db 解析（不调 AI）。
+def _parse_spec_local(spec: str, breed: str, category: str, city: str,
+                        l3: str = "") -> dict:
+    """阶段 2:本地规则库 breed_spec_rules.db 解析(不调 AI)。
+
+    v0.7:加 l3 参数(类目分级,如"建筑玻璃" / "焊接与切割材料"),
+    透传到 parser.parse() 用于 vector_store 召回加权(+0.40 最高优先级)。
 
     Returns:
-        {attr_name: value, ...} 或 {}（未命中）
+        {attr_name: value, ...} 或 {}(未命中)
     """
     if not spec:
         return {}
@@ -102,7 +106,7 @@ def _parse_spec_local(spec: str, breed: str, category: str, city: str) -> dict:
     if not parser:
         return {}
     try:
-        parsed = parser.parse(spec, breed, category)
+        parsed = parser.parse(spec, breed, category, l3)
         return {k: v for k, v in parsed.items() if v}
     except Exception:
         return {}
@@ -313,22 +317,13 @@ def _dwd_to_dws_three_stages(
             breed = d.get("breed", "")
             cat = d.get("category", "")
 
-            existing_attr = build_attr(d)
-            if existing_attr:
-                # ── 阶段 1: DWD attr 非空 → 直接同步 ────────────────────
-                dws_doc = _source_to_dws(d)
-                dws_doc["attr_source"] = "etl"
-                dws_docs_s1.append(dws_doc)
-                dws_ids_s1.append(doc_id)
-                continue
-
-            # ── 阶段 2: 本地规则库 breed_spec_rules.db 解析 ─────────────
-            local_attrs = _parse_spec_local(spec, breed, cat, city)
+# v0.7: DWD 不再存 attr(transform_doc 写空 attr),
+            # 阶段 1 (直通 etl) 取消,所有 doc 统一走解析路径。
+            # ── 阶段 1 (原阶段 2): 本地规则库 breed_spec_rules.db 解析 ─────────────
+            local_attrs = _parse_spec_local(spec, breed, cat, city,
+                                                     l3=d.get("category_l3", ""))
             if local_attrs:
                 nested = flat_attr_to_nested(local_attrs)
-                dwd_update_s2.append(json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n" +
-                                     json.dumps({"doc": {"attr": nested}}, ensure_ascii=False) + "\n")
-                dwd_update_docs_s2.append(doc_id)
                 dws_doc = _source_to_dws(d)
                 dws_doc["attr"] = nested
                 dws_doc["attr_source"] = "local_db"
@@ -336,7 +331,7 @@ def _dwd_to_dws_three_stages(
                 dws_ids_s2.append(doc_id)
                 continue
 
-            # ── 阶段 3: 攒批送 AI 串行解析 ──────────────────────────────
+            # ── 阶段 2 (原阶段 3): 攒批送 AI 串行解析 ──────────────────────────────
             ai_batch.append({
                 "doc_id": doc_id, "spec": spec,
                 "breed": breed, "category": cat,
