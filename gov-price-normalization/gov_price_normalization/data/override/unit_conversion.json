@@ -1,0 +1,285 @@
+{
+  "_meta": {
+    "version": "0.1.1",
+    "updated": "2026-07-17",
+    "note": "增量补单位: piece 类(千块/条/具)、体积(l/升/m３)、长度全角(ｍ)、功率(w/kw)、能量(kw·h)"
+  },
+  "units": {
+    "kg": {
+      "dim": "mass",
+      "to_base": 1000.0,
+      "base": "g"
+    },
+    "t": {
+      "dim": "mass",
+      "to_base": 1000000.0,
+      "base": "g"
+    },
+    "吨": {
+      "dim": "mass",
+      "to_base": 1000000.0,
+      "base": "g"
+    },
+    "g": {
+      "dim": "mass",
+      "to_base": 1.0,
+      "base": "g"
+    },
+    "mg": {
+      "dim": "mass",
+      "to_base": 0.001,
+      "base": "g"
+    },
+    "mm": {
+      "dim": "length",
+      "to_base": 1.0,
+      "base": "mm"
+    },
+    "cm": {
+      "dim": "length",
+      "to_base": 10.0,
+      "base": "mm"
+    },
+    "dm": {
+      "dim": "length",
+      "to_base": 100.0,
+      "base": "mm"
+    },
+    "m": {
+      "dim": "length",
+      "to_base": 1000.0,
+      "base": "mm"
+    },
+    "km": {
+      "dim": "length",
+      "to_base": 1000000.0,
+      "base": "mm"
+    },
+    "mm²": {
+      "dim": "area",
+      "to_base": 1.0,
+      "base": "mm²"
+    },
+    "cm²": {
+      "dim": "area",
+      "to_base": 100.0,
+      "base": "mm²"
+    },
+    "m²": {
+      "dim": "area",
+      "to_base": 1000000.0,
+      "base": "mm²"
+    },
+    "mm³": {
+      "dim": "volume",
+      "to_base": 1.0,
+      "base": "mm³"
+    },
+    "cm³": {
+      "dim": "volume",
+      "to_base": 1000.0,
+      "base": "mm³"
+    },
+    "dm³": {
+      "dim": "volume",
+      "to_base": 1000000.0,
+      "base": "mm³"
+    },
+    "m³": {
+      "dim": "volume",
+      "to_base": 1000000000.0,
+      "base": "mm³"
+    },
+    "L": {
+      "dim": "volume",
+      "to_base": 1000000.0,
+      "base": "mm³"
+    },
+    "个": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "只": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "根": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "块": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "套": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "件": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "台": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "盏": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "樘": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "座": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "片": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "卷": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "袋": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "桶": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "h": {
+      "dim": "time",
+      "to_base": 1.0,
+      "base": "h"
+    },
+    "d": {
+      "dim": "time",
+      "to_base": 24.0,
+      "base": "h"
+    },
+    "天": {
+      "dim": "time",
+      "to_base": 24.0,
+      "base": "h"
+    },
+    "小时": {
+      "dim": "time",
+      "to_base": 1.0,
+      "base": "h"
+    },
+    "千块": {
+      "dim": "piece",
+      "to_base": 1000.0,
+      "base": "个"
+    },
+    "条": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "具": {
+      "dim": "piece",
+      "to_base": 1.0,
+      "base": "个"
+    },
+    "l": {
+      "dim": "volume",
+      "to_base": 1000000.0,
+      "base": "mm³"
+    },
+    "升": {
+      "dim": "volume",
+      "to_base": 1000000.0,
+      "base": "mm³"
+    },
+    "m３": {
+      "dim": "volume",
+      "to_base": 1000000000.0,
+      "base": "mm³"
+    },
+    "ｍ": {
+      "dim": "length",
+      "to_base": 1000.0,
+      "base": "mm"
+    },
+    "w": {
+      "dim": "power",
+      "to_base": 1.0,
+      "base": "w"
+    },
+    "W": {
+      "dim": "power",
+      "to_base": 1.0,
+      "base": "w"
+    },
+    "kw": {
+      "dim": "power",
+      "to_base": 1000.0,
+      "base": "w"
+    },
+    "kW": {
+      "dim": "power",
+      "to_base": 1000.0,
+      "base": "w"
+    },
+    "kw·h": {
+      "dim": "energy",
+      "to_base": 1.0,
+      "base": "kw·h"
+    },
+    "kWh": {
+      "dim": "energy",
+      "to_base": 1.0,
+      "base": "kw·h"
+    },
+    "kW·h": {
+      "dim": "energy",
+      "to_base": 1.0,
+      "base": "kw·h"
+    }
+  },
+  "l3_default_unit": {
+    "_comment": "按 v3 分类（GB 50500）默认单位。价格比较前先 convert 到这个单位。L3 缺省 → 不换算（保持原值）。",
+    "01.01.01": "t",
+    "01.01.02": "t",
+    "01.01.03": "t",
+    "01.02.01": "m",
+    "01.02.02": "m",
+    "01.02.03": "m²",
+    "01.02.04": "m²",
+    "01.03.01": "m²",
+    "01.03.02": "m²",
+    "01.04.01": "m²",
+    "01.04.02": "m²",
+    "01.05.01": "m³",
+    "01.05.02": "m³",
+    "01.05.03": "m³",
+    "01.05.04": "m³",
+    "01.05.05": "m³",
+    "01.05.06": "m³",
+    "01.05.07": "m³",
+    "01.06.01": "个",
+    "01.06.02": "个",
+    "01.06.03": "个",
+    "01.07.01": "m",
+    "01.07.02": "m"
+  }
+}
