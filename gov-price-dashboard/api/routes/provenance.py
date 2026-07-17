@@ -1887,6 +1887,8 @@ def stats_rules_vector(
     category: str = Query("", description="按分类过滤（空=全部）"),
     l3: str = Query("", description="按 L3 分项过滤（空=全部，v0.7+）"),
     search: str = Query("", description="搜索 pattern/note/代码片段"),
+    date_from: str = Query("", description="起始日期 YYYY-MM-DD（按 created_at 过滤，空=不限）"),
+    date_to: str = Query("", description="结束日期 YYYY-MM-DD（按 created_at 过滤，空=不限）"),
     order: str = Query("desc", description="排序方向：asc / desc"),
     page: int = Query(1, description="页码"),
     page_size: int = Query(50, description="每页条数"),
@@ -1917,6 +1919,12 @@ def stats_rules_vector(
     elif l3:
         where_clauses.append("l3 = ?")
         params.append(l3)
+    if date_from:
+        where_clauses.append("DATE(created_at) >= ?")
+        params.append(date_from)
+    if date_to:
+        where_clauses.append("DATE(created_at) <= ?")
+        params.append(date_to)
     if search:
         where_clauses.append("(pattern LIKE ? OR note LIKE ? OR code LIKE ?)")
         s = f"%{search}%"
