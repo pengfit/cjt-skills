@@ -320,6 +320,11 @@ def build_dws_mapping() -> dict:
             "type": "nested",
             "properties": {"k": {"type": "keyword"}, "v": {"type": "keyword"}},
         },
+        # ── 属性来源（2026-07-17 显式声明 keyword，防 ES 自动推断为 text）──
+        # 2026-07-17 山西事故:DWS 由非标准路径写入时,ES 把 attr_source 推断成 text,
+        # 导致 terms aggregation 报 fielddata is disabled。显式声明 keyword 解决,
+        # 同时保证后续新增城市也走同一规范。
+        "attr_source":        {"type": "keyword"},  # etl / local_db / ai / ai_fallback
     }
     return {
         "mappings": {"properties": base},
