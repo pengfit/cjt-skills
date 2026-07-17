@@ -22,7 +22,28 @@
     </div>
 
     <div class="map-chart-wrap">
-      <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length"></div>
+      <!-- 无下钻模式:city 列表 + 标注(贵州/海南等按地州市发布的省份) -->
+      <div v-if="noDrilldown && !loading" class="no-drilldown-view">
+        <div class="nd-banner">
+          <span class="nd-badge">无下钻</span>
+          <span class="nd-text">{{ currentProvinceName }}按地州市发布,无区/县级细分数据。点击下方地州市可进入"全部数据"查询明细。</span>
+        </div>
+        <div class="nd-grid">
+          <div v-for="c in sortedCities" :key="c.name" class="nd-card">
+            <div class="nd-name">{{ c.name }}</div>
+            <div class="nd-stats">
+              <span class="nd-count">{{ c.count.toLocaleString() }} 条</span>
+              <span class="nd-value">¥{{ c.value }}</span>
+            </div>
+            <div v-if="c.min != null && c.max != null" class="nd-range">
+              <span class="nd-range-min">¥{{ c.min }}</span>
+              <span class="nd-range-bar"><span :style="{ width: Math.min(100, Math.max(0, ((c.value - c.min) / Math.max(1, c.max - c.min)) * 100)) + '%' }"></span></span>
+              <span class="nd-range-max">¥{{ c.max }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length && !noDrilldown"></div>
       <div v-if="loading" class="map-loading">
         <SkeletonChart :height="'100%'" variant="auto" :grid-lines="3" :y-labels="3" />
       </div>
@@ -401,6 +422,16 @@ const PROVINCE_ADCODE = {
   '云南': 530000, '西藏': 540000, '陕西': 610000, '甘肃': 620000,
   '青海': 630000, '宁夏': 640000, '新疆': 650000, '台湾': 710000,
 }
+
+// === 无下钻省份清单 ===
+// 这些省份的源站数据按地州市(prefecture-level)发布,没有更细的区/县粒度。
+// 进入 city 下钻后展示 city 列表 + "无下钻" 标注,不再尝试渲染地图。
+const NO_COUNTY_DATA_PROVINCES = new Set(['贵州', '海南'])
+const currentProvinceName = computed(() => breadcrumbs.value[0]?.label || '')
+const noDrilldown = computed(() =>
+  currentLevel.value === 'city' && NO_COUNTY_DATA_PROVINCES.has(currentProvinceName.value)
+)
+const sortedCities = computed(() => [...dataItems.value].sort((a, b) => b.count - a.count))
 </script>
 
 <style scoped>
@@ -567,5 +598,100 @@ const PROVINCE_ADCODE = {
   align-items: center;
   justify-content: center;
   background: var(--surface);
+}
+
+/* 无下钻视图(贵州/海南等按地州市发布的省份) */
+.no-drilldown-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px;
+  overflow: auto;
+  background: var(--surface);
+}
+.nd-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #9a3412;
+}
+.nd-badge {
+  background: #f59e0b;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.nd-text {
+  flex: 1;
+}
+.nd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.nd-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px 14px;
+  transition: all 0.15s;
+}
+.nd-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.nd-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.nd-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.nd-count {
+  color: var(--text-3);
+}
+.nd-value {
+  color: #15803d;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.nd-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.nd-range-bar {
+  flex: 1;
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.nd-range-bar > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #f59e0b);
+  border-radius: 2px;
 }
 </style>
