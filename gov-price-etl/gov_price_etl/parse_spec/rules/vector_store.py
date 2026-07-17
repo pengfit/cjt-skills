@@ -226,9 +226,14 @@ class VecStore:
     def _row_to_rule(self, row: tuple) -> dict:
         """Map a DB row to a rule dict.
 
-        2026-07-05 优化：缓存 tok_json → tokens frozenset（避免重复 json.loads）。
+        2026-07-05 优化:缓存 tok_json → tokens frozenset(避免重复 json.loads)。
+        v0.7:row 多一列 l3(L3 分项工程),精确匹配 +0.40 最高加权;兼容旧 7 列 row。
         """
-        pat, attr, note, code, breed, cat, tok_json = row
+        if len(row) >= 8:
+            pat, attr, note, code, breed, cat, l3, tok_json = row[:8]
+        else:
+            pat, attr, note, code, breed, cat, tok_json = row
+            l3 = ""
         if tok_json:
             cached = _TOKENS_CACHE.get(tok_json)
             if cached is None:
@@ -238,7 +243,8 @@ class VecStore:
         else:
             tokens = _EMPTY_FROZENSET
         return dict(pattern=pat, attr=attr, note=note or "", code=code or "",
-                    breed=breed or "", category=cat or "", tokens=tokens)
+                    breed=breed or "", category=cat or "", l3=l3 or "",
+                    tokens=tokens)
 
     def _validate_rule_code(self, code: str, spec: str, attr: str) -> bool:
         """执行校验：code_block 对给定 spec 能否产出目标 attr 的值。
@@ -263,26 +269,28 @@ class VecStore:
             return False
 
     def search(self, spec: str = "", category: str = "", breed: str = "",
+               l3: str = "",  # v0.7: L3 分项工程(例 "钢化玻璃"),精确匹配 +0.40 最高加权
                top_k: int = 8, attr_filter: str = "",
                validate_spec: str = None) -> list:
         """
-        Keyword similarity search with breed/category scoring + execution validation.
+        Keyword similarity search with l3 / breed / category scoring + execution validation.
 
         参数:
-          - spec / category / breed: 查询上下文（品种/分类用于加权）
+          - spec / category / breed / l3: 查询上下文,用于加权召回
           - top_k: 返回数量
           - attr_filter: 属性名过滤
-          - validate_spec: 执行校验用 spec 字符串（传入则对每个规则执行 code_block，
-            不产出结果的规则直接剔除，解决向量相似度误匹配问题）
+          - validate_spec: 执行校验用 spec 字符串(传入则对每个规则执行 code_block,
+            不产出结果的规则直接剔除,解决向量相似度误匹配问题)
 
-        评分规则:
+        v0.7 评分规则(三段式优先级):
           - Jaccard 相似度 (0-1)
+          + l3 精确匹配: +0.40     (L3 分项,最高优先,例 "建筑玻璃" 不会窜到 "瓷砖")
           + breed 精确匹配: +0.30
           + category 精确匹配: +0.20
           × 空 breed 规则 + 有 breed 查询: ×0.80 (通用规则降权)
 
         Returns:
-            [(score, rule_dict), ...] 按 score 降序，最多 top_k 条
+            [(score, rule_dict), ...] 按 score 降序,最多 top_k 条
         """
         spec_tokens = _build_spec_tokens(spec or "") or set()
         # _build_spec_tokens 对含字母的 spec（如 Φ14 HRB500E）返回空 set，
@@ -296,7 +304,7 @@ class VecStore:
             # category='' means "no category filter" (skip the AND clause)
             if attr_filter:
                 if category:
-                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
+                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
                     if breed:
                         sql = base + " AND breed=?"
                         rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
@@ -304,7 +312,7 @@ class VecStore:
                         rows = conn.execute(base, (attr_filter, category)).fetchall()
                 else:
                     # No category filter: match all categories
-                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE attr=?"
+                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE attr=?"
                     if breed:
                         sql = base + " AND breed=?"
                         rows = conn.execute(sql, (attr_filter, breed)).fetchall()
@@ -312,7 +320,7 @@ class VecStore:
                         rows = conn.execute(base, (attr_filter,)).fetchall()
             else:
                 if category:
-                    base = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE category=?"
+                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE category=?"
                     if breed:
                         sql = base + " AND breed=?"
                         rows = conn.execute(sql, (category, breed)).fetchall()
@@ -321,10 +329,10 @@ class VecStore:
                 else:
                     # No category filter: match all categories (skip AND category=? clause)
                     if breed:
-                        sql = "SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules WHERE breed=?"
+                        sql = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE breed=?"
                         rows = conn.execute(sql, (breed,)).fetchall()
                     else:
-                        rows = conn.execute("SELECT pattern, attr, note, code, breed, category, tokens FROM breed_spec_rules").fetchall()
+                        rows = conn.execute("SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules").fetchall()
 
         results = []
         for row in rows:
@@ -345,8 +353,12 @@ class VecStore:
             else:
                 score = 1.0
 
-            # ═══ breed/category 加权 ═══
-            # breed 精确匹配 → +0.30（规则专为该品种设计，优先）
+            # ═══ l3 / breed / category 加权(v0.7 l3 最高)═══
+            # l3 精确匹配 → +0.40(L3 分项,最高优先)
+            rule_l3 = (rule.get("l3") or "").strip()
+            if l3 and rule_l3 and rule_l3 == l3:
+                score += 0.40
+            # breed 精确匹配 → +0.30(规则专为该品种设计)
             rule_breed = (rule.get("breed") or "").strip()
             if breed and rule_breed and rule_breed == breed:
                 score += 0.30
