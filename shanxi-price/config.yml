@@ -1,0 +1,39 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_shanxi_price
+  progress_index: ods_material_shanxi_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: shanxi-price
+  secure: false
+
+site:
+  # 山西省住房和城乡建设厅 - 服务专栏/数字造价服务/价格信息
+  base_url: https://zjt.shanxi.gov.cn
+  list_path: /fwzl/bzdexx/jgxx/
+  # 分页规则：index.shtml 为首页(index_0=首页), 之后 index_N.shtml
+  # 总页数从首页 JS 解析（dataCount / pageSize 向上取整），本规则保守固定 9 页
+  max_pages: 9
+  page_size: 20
+  # User-Agent
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+  timeout_sec: 30
+  referer: https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/
+
+sync:
+  # 道友要求"2026 年数据"，默认仅入库 2026 年
+  default_year: 2026
+  # 关键词过滤（标题必须命中"建筑工程材料价格信息"系列）
+  include_keywords:
+    - 常用建设工程材料价格信息
+  # 排除关键词（勘误/走势图/园林苗木等不同类型）
+  exclude_keywords:
+    - 勘误
+    - 勘误表
+    - 走势图
+    - 园林苗木

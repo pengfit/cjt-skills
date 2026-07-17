@@ -1,0 +1,27 @@
+key: shanxi
+label: 山西
+province: 山西
+ods_index: ods_material_shanxi_price
+dwd_index: dwd_shanxi_price
+dws_index: dws_shanxi_price
+progress_index: ods_material_shanxi_price_sync_progress
+progress_mode: period
+expand_label: "▾ 期数详情"
+config_path: config.yml
+default_year: 2026
+cities:
+  - 太原市
+  - 大同市
+  - 阳泉市
+  - 长治市
+  - 晋城市
+  - 朔州市
+  - 晋中市
+  - 运城市
+  - 临汾市
+  - 吕梁市
+  - 忻州市
+# 山西 PDF 是扫描型, OCR 路径（rapidocr_onnxruntime + pdf2image）
+ocr_backend: rapidocr
+# 旋转 90° CCW (PDF 原生是横版, 扫描存为竖版)
+rotation: 90_ccw

@@ -1,0 +1,28 @@
+{
+  "done": {
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202605/t20260521_10131407.shtml": {
+      "status": "ok",
+      "period": "2026.3-4月",
+      "docs_written": 2923,
+      "ts": "2026-07-17T16:33:40"
+    },
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202605/t20260521_10131405.shtml": {
+      "status": "ok",
+      "period": "2026.3-4月",
+      "docs_written": 2984,
+      "ts": "2026-07-17T16:39:10"
+    },
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202603/t20260325_10086743.shtml": {
+      "status": "ok",
+      "period": "2026.1-2月",
+      "docs_written": 2919,
+      "ts": "2026-07-17T16:44:51"
+    },
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202603/t20260325_10086725.shtml": {
+      "status": "ok",
+      "period": "2026.1-2月",
+      "docs_written": 2979,
+      "ts": "2026-07-17T16:50:42"
+    }
+  }
+}
