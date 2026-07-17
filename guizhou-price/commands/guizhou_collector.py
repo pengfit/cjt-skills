@@ -81,6 +81,31 @@ if _SCRIPT_DIR not in sys.path:
 import sync as _legacy  # fetch_all_periods, parse_pdf_tables, parse_period_from_title, bulk_index, ...
 
 
+# === 贵州 PDF 地州市名 → GeoJSON 名映射 ===
+# PDF 用 "贵阳市区" / "黔西南州" 等简称;ECharts DataV GeoJSON 用 "贵阳市" / "黔西南布依族苗族自治州" 等全称。
+# 直接做精确查表;查不到保留 raw(向后兼容)。
+_GUIZHOU_CITY_NAME_MAP = {
+    '贵阳市区':   '贵阳市',
+    '六盘水市区': '六盘水市',
+    '遵义市区':   '遵义市',
+    '安顺市区':   '安顺市',
+    '毕节市区':   '毕节市',
+    '铜仁市区':   '铜仁市',
+    '黔西南州':   '黔西南布依族苗族自治州',
+    '黔东南州':   '黔东南苗族侗族自治州',
+    '黔南州':     '黔南布依族苗族自治州',
+}
+
+
+def _normalize_guizhou_city(raw: str) -> str:
+    """PDF 解析出的 city 字段做归一化,匹配 ECharts GeoJSON feature name。
+    空值/未命中保留原值。"""
+    if not raw:
+        return '贵州'
+    return _GUIZHOU_CITY_NAME_MAP.get(raw.strip(), raw)
+
+
+
 # ─────────────────────────────────────────────────────────────
 # GuizhouCollector - guizhou v0.7 sync.py 的 SyncRunner 化版本
 # ─────────────────────────────────────────────────────────────
@@ -224,7 +249,7 @@ class GuizhouCollector(SyncRunner):
                         'spec':          r.get('spec', ''),
                         'unit':          r.get('unit', ''),
                         'price':         r['price'],
-                        'city':          r.get('city', '贵州'),
+                        'city':          _normalize_guizhou_city(r.get('city', '贵州')),
                         'province':      '贵州',
                         'update_date':   unit['publish_date'],
                         'create_time':   now,
