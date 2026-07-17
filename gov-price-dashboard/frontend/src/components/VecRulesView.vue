@@ -427,6 +427,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;       /* 2026-07-17 修:筛选元素多,允许换行 */
+  min-width: 0;
 }
 .vec-input {
   background: #ffffff;
@@ -437,15 +439,22 @@ onMounted(() => {
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
-  width: 240px;
+  width: 180px;            /* 2026-07-17 改:240→180,给 date + L3 下拉让位 */
   box-sizing: border-box;
   font-family: inherit;
 }
 
 .vec-date {
-  width: 140px;
+  width: 130px;
   font-size: 12px;
   cursor: pointer;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-family: inherit;
+}
+/* .vec-input 优先级覆盖:.vec-date 继承 .vec-input 的白底/边框/padding */
+input.vec-input.vec-date {
+  background: var(--surface);
 }
 .vec-clear-btn {
   background: transparent;
@@ -679,7 +688,7 @@ onMounted(() => {
 .vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vec-pattern-cell { width: 160px; }
 .vec-breed { color: var(--text-3); font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vec-date { color: var(--text-3, #94a3b8); white-space: nowrap; font-size: 11px; }
+/* 2026-07-17 旧 .vec-date 样式已被前面的新样式取代,此处删除避免冲突 */
 
 
 /* Pagination — 沿用全局 `.pagination` / `.page-btn` 样式 */
