@@ -295,7 +295,12 @@
                   >
                     <template v-if="col.key === 'breed'">
                       <div class="breed-cell">
-                        <span class="breed-name" v-html="highlightKeyword(item.breed)"></span>
+                        <span
+                          class="breed-name ctx-breed-link"
+                          :title="`${item.breed_clean || item.breed} (点击查看详情)`"
+                          @click.stop="openBreedDetail(item)"
+                          v-html="highlightKeyword(item.breed)"
+                        ></span>
                         <div class="breed-meta">
                           <AttrTags :attr="item.attr" />
                           <span class="meta-sep" v-if="item.city">·</span>
@@ -463,6 +468,7 @@
 
 <script setup>
 import { computed, defineAsyncComponent } from 'vue'
+import { useRouter } from 'vue-router'
 import AttrTags from './AttrTags.vue'
 import CustomSelect from './CustomSelect.vue'
 import PageHeader from './PageHeader.vue'
@@ -471,6 +477,22 @@ import { useFormatNumber } from '../composables/useFormatNumber.js'
 const fmt = useFormatNumber()
 
 const CategoryTreeSidebar = defineAsyncComponent(() => import('./CategoryTreeSidebar.vue'))
+
+const router = useRouter()
+
+// 跨页详情中心 (2026-07-15 A):产品名称点击 → /breed-detail
+function openBreedDetail(item) {
+  router.push({
+    path: '/breed-detail',
+    query: {
+      breed: item.breed_clean || item.breed || '',
+      l3: item.l3 || '',
+      province: item.province || '',
+      city: item.city || '',
+      from: 'list',
+    },
+  })
+}
 
 const props = defineProps({
   bundle: { type: Object, required: true },
@@ -670,6 +692,19 @@ defineExpose({ loadCategoryOptions })
 /* 内容排版 */
 .breed-cell { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; }
 .breed-name { font-weight: 600; font-size: 13px; color: var(--text); }
+/* 跨页详情中心跳转链接样式 (2026-07-15 A) */
+.ctx-breed-link {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+.ctx-breed-link:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
 .breed-meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--text-3); }
 .meta-sep { color: var(--text-3); opacity: 0.6; }
 .meta-tag.city-tag { color: var(--text-3); }

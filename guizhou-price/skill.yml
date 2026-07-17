@@ -1,0 +1,13 @@
+key: guizhou
+label: 贵州
+province: 贵州
+ods_index: ods_material_guizhou_price
+dwd_index: dwd_guizhou_price
+dws_index: dws_guizhou_price
+progress_index: ods_material_guizhou_price_sync_progress
+progress_mode: period
+# 前端 ScrapeView 展开按钮文案
+expand_label: "▾ 期数详情"
+config_path: config.yml
+# 时间方法 2026 年（道友指定）
+default_year: 2026

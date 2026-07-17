@@ -44,6 +44,11 @@
       />
     </template>
 
+    <!-- 跨页详情中心 (2026-07-15 改造 A) — 走 currentTab === 'breed-detail' 路由 -->
+    <template v-if="currentTab === 'breed-detail'">
+      <BreedDetailView />
+    </template>
+
     <template v-if="currentTab === 'dist'">
       <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
       <div v-else class="scroll-panel">
@@ -127,6 +132,9 @@ const DataHealthView = defineAsyncComponent(() => import('./components/DataHealt
 const CockpitView = defineAsyncComponent(() => import('./components/CockpitView.vue'))
 const VecRulesView = defineAsyncComponent(() => import('./components/VecRulesView.vue'))
 const CategoryTaxonomyView = defineAsyncComponent(() => import('./components/CategoryTaxonomyView.vue'))
+
+// 跨页详情中心 (2026-07-15 改造 A) — /breed-detail
+const BreedDetailView = defineAsyncComponent(() => import('./components/BreedDetailView.vue'))
 // 全局小工具(CmdPalette 始终挂载,保留 sync import)
 import CmdPalette from './components/CmdPalette.vue'
 import Sidebar from './components/layout/Sidebar.vue'

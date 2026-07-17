@@ -29,9 +29,13 @@ const routes = [
     component: TabsLayout,
     meta: { key: r.key, label: r.label },
   })),
+  // 跨页详情中心 (2026-07-15 改造 A) — 单页,不走 currentTab
+  // /breed-detail?breed=X&l3=Y&province=Z&city=W[&from=list|taxonomy|spec-rules]
+  // 用「直接挂组件」而非 TabsLayout,以免 router-view 二级路由丢渲染
+  { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
   { path: '/', redirect: '/cockpit' },
   { path: '/:pathMatch(.*)*', redirect: '/cockpit' },
-]
+] 
 
 const router = createRouter({
   history: createWebHistory(),

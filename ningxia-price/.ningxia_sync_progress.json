@@ -27,7 +27,21 @@
       "status": "completed",
       "error": "",
       "created_at": "2026-07-03T16:15:51"
+    },
+    "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202607/t20260716_5290859.html": {
+      "period": "2026.第3期",
+      "period_start": "2026-05-01",
+      "period_end": "2026-06-30",
+      "period_days": 61,
+      "publish_date": "2026-07-15",
+      "detail_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202607/t20260716_5290859.html",
+      "pdf_url": "https://jst.nx.gov.cn/ztzl/gczj/zjtt/202607/P020260716529575213993.pdf",
+      "minio_key": "ningxia-price/2026.第3期/P020260716529575213993.pdf",
+      "docs_written": 3219,
+      "status": "completed",
+      "error": "",
+      "created_at": "2026-07-17T05:31:35"
     }
   },
-  "saved_at": "2026-07-03 16:15:51"
+  "saved_at": "2026-07-17 05:31:35"
 }

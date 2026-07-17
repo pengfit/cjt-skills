@@ -120,6 +120,12 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
         # 当前 mapping update_date 已是 date 类型，直接用 update_date 即可。
         "sort_field": "update_date",
     },
+    "guizhou": {
+        "ods": "ods_material_guizhou_price",
+        "dwd": "dwd_guizhou_price",
+        "dws": "dws_guizhou_price",
+        "city_label": "贵州",
+    },
 }
 
 

@@ -1,0 +1,32 @@
+es:
+  host: http://localhost:59200
+  ods_index: ods_material_guizhou_price
+  progress_index: ods_material_guizhou_price_sync_progress
+  batch_size: 1000
+
+minio:
+  endpoint: http://localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: gov-price-data
+  prefix: guizhou-price
+  secure: false
+
+site:
+  # 贵州省建设工程造价管理协会
+  base_url: http://www.gzszj.com
+  # 主页（造价信息 tab）
+  list_path: /Home/Policies/c2a45b5e-fb3e-43c6-a77c-000000000046
+  # AJAX 翻页端点（POST form-encoded）
+  ajax_path: /Home/GetPoliciesListBy
+  # 工程造价信息 子 tab guid（tid=... 后缀对应该 sub-tab）
+  sub_tab_guid: c2a45b5e-fb3e-43c6-a77c-000000004601
+  page_size: 20
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  timeout_sec: 30
+
+sync:
+  last_period: ""
+  last_publish_date: ""
+  # 道友要求"时间方法 2026 年"，默认仅入库 2026 年期
+  default_year: 2026
