@@ -110,6 +110,12 @@ CITY_CONFIGS: Dict[str, Dict[str, str]] = {
         "dws": "dws_shaanxi_price",
         "city_label": "陕西",
     },
+    "shanxi": {
+        "ods": "ods_material_shanxi_price",
+        "dwd": "dwd_shanxi_price",
+        "dws": "dws_shanxi_price",
+        "city_label": "山西",
+    },
     "xinjiang": {
         "ods": "ods_material_xinjiang_price",
         "dwd": "dwd_xinjiang_price",
