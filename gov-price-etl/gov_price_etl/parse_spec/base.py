@@ -92,7 +92,7 @@ def _get_compiled_pattern(pat: str):
     return _PATTERN_COMPILE_CACHE[pat]
 
 
-def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> list:
+def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_filter: str = "") -> list:
     """通过向量库召回候选规则，返回 [(compiled_pattern, attr, note, code), ...]
 
     2026-07-05 性能优化：返回预编译 regex 对象（避免 parse() 循环内重复编译）。
@@ -119,6 +119,7 @@ def _rag_candidates(spec: str, category: str, breed: str, attr_filter: str) -> l
             spec=spec,
             category=category,
             breed="",  # 传空跳过 breed 精确过滤
+            l3=l3,    # v0.7: L3 分项工程,精确匹配 +0.40 最高加权
             top_k=5000,
             attr_filter=attr_filter if attr_filter else None,
         )
@@ -190,7 +191,7 @@ class BaseParseSpec:
     规则来源：vector_store（SQLite + blob），唯一数据源。
     """
 
-    def parse(self, spec: str, breed: str = "", category: str = "") -> dict:
+    def parse(self, spec: str, breed: str = "", category: str = "", l3: str = "") -> dict:
         """
         全量 RAG 召回，每个 attr_name 独立竞争，命中即写入。
         支持动态字段：不在 ATTR_SLOTS 中的 attr_name 自动被捕获。
@@ -201,7 +202,7 @@ class BaseParseSpec:
         resolved = {}
         claimed = set()
 
-        all_candidates = _rag_candidates(spec, category, breed, attr_filter="")
+        all_candidates = _rag_candidates(spec, category, breed, l3=l3, attr_filter="")
         for compiled_pattern, attr_name, note, code in all_candidates:
             if attr_name in claimed:
                 continue
