@@ -44,7 +44,8 @@ PROMPTS_YML = ETL_PROJECT_ROOT / "prompts.yml"
 
 # 数据文件（集中到 DATA_DIR）
 SPEC_RULES_DB = DATA_DIR / "breed_spec_rules.db"
-CATEGORY_V2_RULES_DB = DATA_DIR / "category_v2_rules.db"   # 已废弃，保留供回滚
+# 2026-07-18：删掉 CATEGORY_V2_RULES_DB——文件不存在，v2 模块也不再调用
+# （如需回滚，从 git history 恢复）
 CATEGORY_V3_RULES_DB = DATA_DIR / "category_v3_rules.db"   # 当前主库
 
 # 确保 data/ 存在

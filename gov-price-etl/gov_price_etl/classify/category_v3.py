@@ -24,10 +24,11 @@ DEFAULT_DB_PATH = CATEGORY_V3_RULES_DB
 
 
 # ── 模块级 SQLite 连接单例（性能优化） ──────────────────────────────
-# 背景：ETL 一轮 150K 条记录，classify_v2 被调 150K 次。
+# 背景：ETL 一轮 150K 条记录，classify_v3 被调 150K 次。
 #       每次新建 sqlite3.connect + HEAD/INDEX 加载~5ms，150K 次 = 12 分钟。
 # 优化：进程级单例连接（read-only + 线程锁），
 #       首次调用打开，后续复用 ~0.05ms/次。
+# 2026-07-18：原注释误写 classify_v2（v2 db 已不存在）
 _DB_SINGLETON: dict = {}  # {db_path: Connection}
 _DB_LOCK = threading.Lock()
 
@@ -276,6 +277,7 @@ if __name__ == "__main__":
         ("螺纹钢", "HRB400 Φ20", "t", "螺纹钢"),
         ("商品砼", "C30", "m³", "商品砼"),
     ]
+    # 2026-07-18：原调 classify_v2()，v2 db 已不存在，改调 v3
     for breed, spec, unit, clean in samples:
-        r = classify_v2(breed, spec, unit, clean)
-        print(f"  {breed:15s} | {spec:20s} | {unit:3s} → L3={r['l3']:8s} {r['category_v2_source']:15s} conf={r['category_v2_confidence']}")
+        r = classify_v3(breed, spec, unit, clean)
+        print(f"  {breed:15s} | {spec:20s} | {unit:3s} → L3={r['l3']:8s} src={r['category_v2_source']:15s} conf={r['category_v2_confidence']}")

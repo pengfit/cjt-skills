@@ -2,8 +2,9 @@
 
 设计目标：
   1. ETL 与 dashboard 解耦：所有 AI 调用走这里
-  2. 本地规则库前置：调 AI 之前先查 v2 规则库（category_v2_rules.db），
+  2. 本地规则库前置：调 AI 之前先查 v3 规则库（category_v3_rules.db），
      命中直接返回，不调 AI（核心省钱策略）
+     2026-07-18：原调 v2（category_v2_rules.db），v2 db 已不存在，改 v3
   3. **只走 Dify workflow API**（2026-06-18 起：OpenClaw gateway 路径已废）
      - 分类：app-rUtcXqTyV8N8TY0s6RhSu0GB (etl-classify-category)
      - 解析：app-kgaF6jNrpd4PytjhUk3VTCQ4 (etl-parse-spec)
