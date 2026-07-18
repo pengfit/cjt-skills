@@ -23,16 +23,6 @@
         >
           <div class="pipeline-card-header">
             <span class="pipeline-card-city">{{ pipe.city_label }}</span>
-            <button
-              class="pipeline-sync-btn"
-              :disabled="!!dwsRunning[key]"
-              :title="`立即重跑 DWD→DWS 同步（${pipe.city_label}）`"
-              @click.stop="runFlushDws(key)"
-            >
-              <span v-if="dwsRunning[key]" class="spinner"></span>
-              <span v-else>⟳</span>
-              {{ dwsRunning[key] ? '同步中' : '同步' }}
-            </button>
           </div>
           <div class="pipeline-card-stages">
             <div class="pipe-stage stage-ods">
@@ -175,7 +165,6 @@ const loading = ref(false)
 const error = ref('')
 const scrapeExpandedCity = ref('')
 const scrapeRunning = ref({})
-const dwsRunning = ref({})
 const selectedCity = ref('xian')
 const cityOptions = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南', heze: '菏泽' }
 const cityMap = { xian: '西安', sichuan: '四川', chongqing: '重庆', jinan: '济南', rizhao: '日照', henan: '河南', heze: '菏泽' }
@@ -277,24 +266,6 @@ function showSyncToast(msg, type = 'info') {
   syncToast.value = { show: true, msg, type }
   if (_syncToastTimer) clearTimeout(_syncToastTimer)
   _syncToastTimer = setTimeout(() => { syncToast.value.show = false }, 3500)
-}
-
-async function runFlushDws(city) {
-  dwsRunning.value = { ...dwsRunning.value, [city]: true }
-  try {
-    const { data } = await axios.post(`${API}/stats/provenance/flush-city`, { city })
-    if (data?.ok) {
-      showSyncToast(`${city} 同步完成 · DWS ${data.dws_synced ?? 0} 条`, 'ok')
-    } else {
-      showSyncToast(`${city} 同步失败: ${data?.message || '未知错误'}`, 'error')
-    }
-  } catch (e) {
-    console.error('flush-city failed', e)
-    showSyncToast(`${city} 同步失败: ${e.message || '网络错误'}`, 'error')
-  } finally {
-    dwsRunning.value = { ...dwsRunning.value, [city]: false }
-    loadData()
-  }
 }
 
 function toggleScrapeCounties(city, pipe) {
@@ -899,42 +870,6 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 .pipeline-card-city { font-size: 13px; font-weight: 700; color: #1e293b; }
-
-/* 立即同步按钮(C.2026-07-12 P0)：调 /api/stats/provenance/flush-city */
-.pipeline-sync-btn {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 9px;
-  font-size: 11px; font-weight: 600;
-  color: var(--primary-light, var(--primary));
-  background: rgba(37,99,235,0.08);
-  border: 1px solid rgba(37,99,235,0.25);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.18s;
-  white-space: nowrap;
-}
-.pipeline-sync-btn:hover:not(:disabled) {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(37,99,235,0.3);
-}
-.pipeline-sync-btn:active:not(:disabled) { transform: translateY(0); }
-.pipeline-sync-btn:disabled {
-  opacity: 0.55;
-  cursor: wait;
-  background: rgba(37,99,235,0.04);
-}
-.pipeline-sync-btn .spinner {
-  width: 10px; height: 10px;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  display: inline-block;
-  animation: sync-spin 0.8s linear infinite;
-}
-@keyframes sync-spin { to { transform: rotate(360deg); } }
 
 /* 同步 toast(C.2026-07-12 P0) */
 .sync-toast {

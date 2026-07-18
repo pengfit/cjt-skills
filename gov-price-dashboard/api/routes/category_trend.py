@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.skill_registry import get as _registry_get, get_all as _registry_all
 
 router = APIRouter()
-ES_HOST = "http://localhost:59200"
+ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 es = Elasticsearch([ES_HOST])
 
 # ──────────────────────────────────────────────────────────────────────────

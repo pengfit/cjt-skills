@@ -12,13 +12,21 @@
 """
 from __future__ import annotations
 import sys
+import os
 from pathlib import Path
 
-# api/normalization_bridge.py → api/ → gov-price-dashboard/ → skills/
-_BRIDGE = Path(__file__).resolve()
-_DASHBOARD = _BRIDGE.parent.parent            # skills/gov-price-dashboard/
-_SKILLS_ROOT = _DASHBOARD.parent               # skills/
-_NORM_PKG = _SKILLS_ROOT / "gov-price-normalization"
+# 路径优先走 SKILLS_ROOT 环境变量（与 api/paths.py 一致）
+# 本地开发：~/.openclaw/workspace/cjt/skills
+# 容器内：/app/skills
+try:
+    from api.paths import SKILLS_ROOT as _SKILLS_ROOT
+except ImportError:
+    # api.paths 加载失败时（如直接 import 本文件），从 __file__ 反推兜底
+    _BRIDGE = Path(__file__).resolve()
+    _DASHBOARD = _BRIDGE.parent.parent
+    _SKILLS_ROOT = _DASHBOARD.parent
+
+_NORM_PKG = Path(_SKILLS_ROOT) / "gov-price-normalization"
 
 if not _NORM_PKG.exists():
     raise RuntimeError(
