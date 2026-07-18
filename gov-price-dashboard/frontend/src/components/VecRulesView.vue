@@ -87,27 +87,6 @@
         <input type="date" class="vec-input vec-date" v-model="vecDateFrom" @change="loadVecRules(1)" title="起始日期 (created_at)" />
         <input type="date" class="vec-input vec-date" v-model="vecDateTo" @change="loadVecRules(1)" title="结束日期 (created_at)" />
         <button v-if="vecDateFrom || vecDateTo" class="vec-clear-btn" @click="clearDateRange" title="清除日期范围">×</button>
-        <CustomSelect
-          v-model="vecAttrFilter"
-          :options="vecAttrOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
-          placeholder="全部属性"
-          :count-suffix="true"
-          @change="loadVecRules(1)"
-        />
-        <CustomSelect
-          v-model="vecCatFilter"
-          :options="vecCatOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
-          placeholder="全部分类"
-          :count-suffix="true"
-          @change="loadVecRules(1)"
-        />
-        <CustomSelect
-          v-model="vecL3Filter"
-          :options="vecL3Options.map(o => ({ key: o.key, label: o.key, count: o.count }))"
-          placeholder="全部 L3"
-          :count-suffix="true"
-          @change="loadVecRules(1)"
-        />
       </div>
       <div class="vec-toolbar-side">
         <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
@@ -121,7 +100,7 @@
       <div class="vec-help" v-if="showHelp">
         <div class="vec-help-grid">
           <div class="vec-help-row"><b>是什么</b>存储于 <code>breed_spec_rules.db</code> 的解析正则 + Python 代码，由 sync_dws stage 3 自动回写。</div>
-          <div class="vec-help-row"><b>怎么检索</b>关键字（pattern / note / code）+ 属性 + 分类 + L3 + 日期范围 多维组合。</div>
+          <div class="vec-help-row"><b>怎么检索</b>关键字（pattern / note / code）+ 日期范围 组合查询。</div>
           <div class="vec-help-row"><b>怎么新增</b>暂无人工入口，自动从 AI 解析成功后回写；脏数据可通过 <code>DELETE FROM breed_spec_rules</code> 清理。</div>
           <div class="vec-help-row"><b>字段含义</b><code>attr</code> 业务属性名；<code>pattern</code> 不带 <code>r</code> 前缀的 regex；<code>code</code> 单行或 <code>\\n</code> 多行 Python；<code>l3</code> 召回 +0.40 加权。</div>
         </div>
@@ -200,7 +179,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
-import CustomSelect from './CustomSelect.vue'
 import PageHeader from './PageHeader.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 
@@ -217,9 +195,6 @@ const vecPageSizeOptions = [50, 100, 200]
 const vecJumpPage = ref(1)
 
 const vecSearch = ref('')
-const vecAttrFilter = ref('')
-const vecCatFilter = ref('')
-const vecL3Filter = ref('')
 const vecDateFrom = ref('')
 const vecDateTo = ref('')
 const vecOrder = ref('desc')
@@ -263,9 +238,6 @@ const activeChips = computed(() => {
   if (vecSearch.value) cs.push({ key: 'search', label: '🔍 「' + vecSearch.value + '」', clear: () => { vecSearch.value = '' } })
   if (vecDateFrom.value) cs.push({ key: 'date_from', label: '📅 起「' + vecDateFrom.value + '」', clear: () => { vecDateFrom.value = '' } })
   if (vecDateTo.value) cs.push({ key: 'date_to', label: '📅 止「' + vecDateTo.value + '」', clear: () => { vecDateTo.value = '' } })
-  if (vecAttrFilter.value) cs.push({ key: 'attr', label: '属性「' + vecAttrFilter.value + '」', clear: () => { vecAttrFilter.value = '' } })
-  if (vecCatFilter.value) cs.push({ key: 'cat', label: '分类「' + vecCatFilter.value + '」', clear: () => { vecCatFilter.value = '' } })
-  if (vecL3Filter.value) cs.push({ key: 'l3', label: 'L3「' + vecL3Filter.value + '」', clear: () => { vecL3Filter.value = '' } })
   return cs
 })
 
@@ -285,9 +257,6 @@ function clearAllFilters() {
   vecSearch.value = ''
   vecDateFrom.value = ''
   vecDateTo.value = ''
-  vecAttrFilter.value = ''
-  vecCatFilter.value = ''
-  vecL3Filter.value = ''
   loadVecRules(1)
 }
 
@@ -315,9 +284,6 @@ async function loadVecRules(page = 1) {
   try {
     const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
     if (vecSearch.value) params.search = vecSearch.value
-    if (vecAttrFilter.value) params.attr = vecAttrFilter.value
-    if (vecCatFilter.value) params.category = vecCatFilter.value
-    if (vecL3Filter.value) params.l3 = vecL3Filter.value
     if (vecDateFrom.value) params.date_from = vecDateFrom.value
     if (vecDateTo.value) params.date_to = vecDateTo.value
     const res = await axios.get(`${API}/stats/rules-vector`, { params })
@@ -531,8 +497,12 @@ onMounted(() => loadVecRules())
 }
 .vec-toolbar-main {
   display: flex; align-items: center; gap: 8px;
-  flex: 1; min-width: 0; flex-wrap: wrap;
+  flex: 1; min-width: 0; flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+.vec-toolbar-main::-webkit-scrollbar { height: 6px; }
+.vec-toolbar-main::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border-radius: 3px; }
 .vec-toolbar-side {
   flex-shrink: 0;
 }
@@ -548,7 +518,7 @@ onMounted(() => loadVecRules())
   font-family: inherit;
 }
 .vec-input:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
-.vec-input:not(.vec-date) { flex: 1 1 240px; max-width: 380px; min-width: 200px; }
+.vec-input:not(.vec-date) { flex: 1 1 200px; max-width: 380px; min-width: 140px; }
 .vec-date {
   width: 132px;
   font-size: 12px;
