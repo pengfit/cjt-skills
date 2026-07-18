@@ -394,6 +394,10 @@ def _dwd_to_dws_three_stages(
                 ai_batch.append({
                     "doc_id": doc_id, "spec": spec,
                     "breed": breed, "category": cat,
+                    # v0.12+ (2026-07-18): 补 category_l3，透传到 chunk_items → service.py write_rules
+                    # → db.breed_spec_rules.l3。之前缺这一项导致 db 141 条规则 l3 全空，
+                    # 召回加权 +0.40 失效（vec_store.search l3 匹配分项工程最高加权）。
+                    "category_l3": d.get("category_l3", ""),
                 })
 
         # ── 批量写入 ─────────────────────────────────────────────────

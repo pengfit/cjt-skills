@@ -1043,14 +1043,44 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                             code = s.get("code_block", "") or ""
                             if not pattern or not attr:
                                 continue
+                            if code:
+                                # v0.12+ (2026-07-18): Dify 常用 'm = ...; if m: result[...]'
+                                # 单行风格省 token；Python 语法禁止 ; 后接复合语句(if/for/def/...)，
+                                # 导致 compile() SyntaxError → write_rules 链路 0 入库。
+                                # 修复：把 ; 连同其后空白一起替换成 \n（避免 's); if m:' → 's)\n if m:'
+                                # 缩进错乱）。re.sub(r';\s*', '\n', code) 语义等价于把多 simple
+                                # statement 拆成多行；<compound> 前的 ; 本身必非法，无副作用。
+                                import re as _re_semi
+                                code = _re_semi.sub(r';\s*', '\n', code)
+                                try:
+                                    compile(code, "<ai_rule>", "exec")
+                                except SyntaxError:
+                                    # 末尾常见 LLM 烂尾: "m.group(1)级" → 拼 +'级'
+                                    m_tail = re.search(r"group\((\d+)\)([^=.]*)$", code.strip())
+                                    if m_tail:
+                                        code = code.rstrip() + "+ '" + m_tail.group(2) + "'"
+                                        try:
+                                            compile(code, "<ai_rule>", "exec")
+                                        except SyntaxError:
+                                            continue
+                                    else:
+                                        continue
                             try:
+                                # v0.12+ (2026-07-18): VecStore.insert() 签名 l3 在 category 前
+                                # 位置传 (breed, category) 会让 Python 把 category 绑到 l3 位
+                                # → 关键字 l3=item.l3 二次传参触发 TypeError
+                                # 修复：breed/category/l3 全部走关键字，避免位置歧义。
                                 # v0.7+: 把 L3 一并入库,下次 stage 2 召回可获 +0.40 加权
                                 if vs.insert(pattern, attr, note, code,
-                                             breed, category,
+                                             breed=breed, category=category,
                                              l3=item.get("l3", ""),
                                              skip_duplicate=True):
                                     written += 1
-                            except Exception:
+                            except Exception as e:
+                                # v0.12+: 记入 fail 计数供后续诊断（之前完全静默吞）
+                                _stats["parse_rules_insert_exc"] = _stats.get("parse_rules_insert_exc", 0) + 1
+                                if _stats["parse_rules_insert_exc"] <= 3:
+                                    print(f"    [parse_rules_insert_exc] {type(e).__name__}: {e}")
                                 pass
                     _stats["parse_rules_written"] = _stats.get("parse_rules_written", 0) + written
                 except Exception:
