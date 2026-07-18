@@ -183,3 +183,55 @@ def flat_attr_to_nested(flat: dict) -> list:
     """
     cleaned = sanitize_attr(flat)
     return [{"k": k, "v": _normalize_value(v)} for k, v in cleaned.items() if v]
+
+
+
+# ── v0.7+ L3 类目白名单 ──────────────────────────────────────────
+_WHITELIST_CACHE: dict = {}
+_WHITELIST_PATH_CACHE: dict = {}
+
+
+def load_l3_whitelist() -> dict:
+    """加载 L3 类目 attr 白名单(从 data/category_l3_whitelist.json)。
+
+    v0.7+: 数据驱动生成(由 scripts/gen_l3_whitelist.py 产出)。
+    加载后内存缓存,避免每次 parse 都读盘。
+
+    Returns:
+        {l3_code: [allowed_attr_key, ...], ...}
+        无白名单的 L3 返回 {} → 视为"放行"(保守策略)
+    """
+    import json
+    from pathlib import Path
+    # 关键:DATA_DIR 是 monorepo 的 data/(cjt/skills/data/),不是 ETL 私有 data/
+    # 白名单由 scripts/gen_l3_whitelist.py 输出到 monorepo 根的 data/,
+    # 多个项目(etl / dashboard)共享同一份。
+    from gov_price_etl.paths import DATA_DIR
+
+    path = DATA_DIR / "category_l3_whitelist.json"
+    if not path.exists():
+        return {}
+    # 用 mtime 作 cache key,文件更新自动失效
+    mtime = path.stat().st_mtime
+    if _WHITELIST_PATH_CACHE.get("path") == path and _WHITELIST_PATH_CACHE.get("mtime") == mtime:
+        return _WHITELIST_CACHE
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        _WHITELIST_CACHE.clear()
+        _WHITELIST_CACHE.update(data)
+        _WHITELIST_PATH_CACHE["path"] = path
+        _WHITELIST_PATH_CACHE["mtime"] = mtime
+        return data
+    except Exception:
+        return {}
+
+
+def filter_by_l3_whitelist(parsed: dict, l3: str) -> dict:
+    """白名单过滤:L3 不在白名单的 key 丢弃;L3 无白名单 = 放行(保守)。"""
+    whitelist = load_l3_whitelist()
+    allowed = whitelist.get(l3)
+    if not allowed:
+        return parsed  # 无白名单 = 放行
+    allowed_set = set(allowed)
+    return {k: v for k, v in parsed.items() if k in allowed_set}

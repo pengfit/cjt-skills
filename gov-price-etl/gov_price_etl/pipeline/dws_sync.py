@@ -39,7 +39,7 @@ from gov_price_etl.config import CITY_CONFIGS
 from gov_price_etl.es_client import bulk_index, get_es_client
 from gov_price_etl.indexer import ensure_indices
 from gov_price_etl.parse_spec import get_parser
-from gov_price_etl.transform import build_attr, flat_attr_to_nested
+from gov_price_etl.transform import build_attr, flat_attr_to_nested, filter_by_l3_whitelist
 
 
 # AI 解析串行批次大小（道友要求"串行"，默认 20/批，逐批调用 AI）
@@ -90,12 +90,61 @@ def _source_to_dws(d: dict) -> dict:
 
 
 # ── 阶段 2: 本地规则库解析 ──────────────────────────────────────────────
+def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
+    """v0.7+:同一 spec 值被填入多个 attr 时,按语义优先级保留 1 个。
+
+    场景:纯文字 spec (如"珍珠岩")被多个 catch-all 规则填到 type/grade/material,
+    但正确归属只该是 material。这种数据冗余要清理掉,避免下游看板分类错误。
+
+    优先级顺序（业务约定，material 最贴切）:
+      material > diameter/thickness/width/length/height > strength
+      > pressure > grade > type > spec
+
+    Args:
+        attrs: 解析出的 {attr: value} 字典
+        spec: 原始 spec 字符串
+
+    Returns:
+        去重后的 {attr: value} 字典
+    """
+    if not attrs or len(attrs) <= 1 or not spec:
+        return attrs
+
+    from collections import defaultdict
+    # 按值分组: 同值 attr 聚到一起
+    val_to_attrs = defaultdict(list)
+    for k, v in attrs.items():
+        val_to_attrs[v].append(k)
+
+    priority = [
+        'material', 'diameter', 'thickness', 'width', 'length', 'height',
+        'strength', 'pressure', 'grade', 'type', 'spec', 'note'
+    ]
+
+    cleaned = {}
+    for v, ks in val_to_attrs.items():
+        if len(ks) == 1:
+            cleaned[ks[0]] = v
+        else:
+            # 多 attr 同值: 取优先级最高的保留,其余丢
+            kept = None
+            for p in priority:
+                if p in ks:
+                    kept = p
+                    break
+            if not kept:
+                kept = ks[0]
+            cleaned[kept] = v
+    return cleaned
+
+
 def _parse_spec_local(spec: str, breed: str, category: str, city: str,
                         l3: str = "") -> dict:
     """阶段 2:本地规则库 breed_spec_rules.db 解析(不调 AI)。
 
     v0.7:加 l3 参数(类目分级,如"建筑玻璃" / "焊接与切割材料"),
     透传到 parser.parse() 用于 vector_store 召回加权(+0.40 最高优先级)。
+    v0.7+:末尾加 _dedup_attr_by_spec_value 清理同值多 attr 冗余。
 
     Returns:
         {attr_name: value, ...} 或 {}(未命中)
@@ -107,6 +156,10 @@ def _parse_spec_local(spec: str, breed: str, category: str, city: str,
         return {}
     try:
         parsed = parser.parse(spec, breed, category, l3)
+        # v0.7+: L3 类目白名单过滤(数据驱动生成)
+        parsed = filter_by_l3_whitelist(parsed, l3)
+        # v0.7+: dedup 同值多 attr (如"珍珠岩"同时填 type 和 grade)
+        parsed = _dedup_attr_by_spec_value(parsed, spec)
         return {k: v for k, v in parsed.items() if v}
     except Exception:
         return {}
@@ -143,7 +196,9 @@ def _ai_parse_specs_serial(items: list, city: str) -> dict:
     for i in range(0, len(deduped), AI_PARSE_BATCH_SIZE):
         batch_idx = i // AI_PARSE_BATCH_SIZE + 1
         chunk = deduped[i:i + AI_PARSE_BATCH_SIZE]
-        chunk_items = [{"spec": it["spec"], "breed": it["breed"], "category": it["category"]}
+        chunk_items = [{"spec": it["spec"], "breed": it["breed"],
+                        "category": it["category"],
+                        "l3": it.get("category_l3", "")}  # v0.7+: L3 透传到 AI 解析与入库
                        for it in chunk]
         t0 = time.time()
         try:
@@ -220,6 +275,7 @@ def _dwd_to_dws_three_stages(
     batch_size: int = 500,
     category: str = "",
     dry_run: bool = False,
+    with_ai: bool = True,  # v0.7+ bug fix: plain 模式传 False 跳过 stage 3,避免误清 attr_source
 ) -> Tuple[int, int, int, int]:
     """DWD → DWS 显式三段式。
 
@@ -332,10 +388,13 @@ def _dwd_to_dws_three_stages(
                 continue
 
             # ── 阶段 2 (原阶段 3): 攒批送 AI 串行解析 ──────────────────────────────
-            ai_batch.append({
-                "doc_id": doc_id, "spec": spec,
-                "breed": breed, "category": cat,
-            })
+            # v0.7+ bug fix: plain 模式 (with_ai=False) 跳过 stage 3,
+            #   依赖 AI 才能解析的 spec 留在 DWD 不进 DWS (与"无 AI"语义一致)
+            if with_ai:
+                ai_batch.append({
+                    "doc_id": doc_id, "spec": spec,
+                    "breed": breed, "category": cat,
+                })
 
         # ── 批量写入 ─────────────────────────────────────────────────
         if dws_docs_s1:
@@ -363,8 +422,8 @@ def _dwd_to_dws_three_stages(
                 stage2_synced += len(set(dws_ids_s2))  # unique doc 数
                 failed += err
 
-        # AI batch 满了则触发串行解析 + 回写
-        if len(ai_batch) >= AI_PARSE_BATCH_SIZE * 5:  # 攒够 5 批就触发，避免攒太多
+        # AI batch 满了则触发串行解析 + 回写（plain 模式跳过）
+        if with_ai and len(ai_batch) >= AI_PARSE_BATCH_SIZE * 5:  # 攒够 5 批就触发，避免攒太多
             stage3_synced += _flush_ai_batch_to_dws(
                 es_host, city, dwd_idx, dws_idx,
                 ai_batch, hits_by_id, dry_run
@@ -397,7 +456,7 @@ def _dwd_to_dws_three_stages(
         prev_etl_time = last_etl_time
 
     # 剩余 AI batch
-    if ai_batch:
+    if with_ai and ai_batch:
         stage3_synced += _flush_ai_batch_to_dws(
             es_host, city, dwd_idx, dws_idx,
             ai_batch, hits_by_id, dry_run
@@ -452,6 +511,9 @@ def _flush_ai_batch_to_dws(
                         av = item.get("v", "")
                         if ak and ak not in attrs:
                             attrs[ak] = str(av)
+
+        # v0.7+: stage 3 AI 路径也要 dedup（如粉煤灰烧结砖 AI 解出 5 键含 length/diameter 同值）
+        attrs = _dedup_attr_by_spec_value(attrs, src_doc.get("spec", ""))
 
         nested = flat_attr_to_nested(attrs)
         # 回写 DWD
@@ -590,13 +652,18 @@ def sync_dws(es_host: str, city: str, cfg: dict, *,
 
 def sync_dws_plain(es_host: str, city: str, cfg: dict, batch_size: int = 500,
                    category: str = "", dry_run: bool = False) -> Tuple[int, int]:
-    """DWD spec 非空 → DWS（不调 AI，对应旧 flush_to_dws）。"""
-    # category 过滤：旧 flush_to_dws 支持，这里走 source_filter 透传
-    if category:
-        def _filter(d, h):
-            return bool(d.get("spec")) and d.get("category") == category
-        return sync_dws(es_host, city, cfg, batch_size=batch_size, dry_run=dry_run, source_filter=_filter)
-    return sync_dws(es_host, city, cfg, batch_size=batch_size, dry_run=dry_run)
+    """DWD spec 非空 → DWS（不调 AI，对应旧 flush_to_dws）。
+
+    v0.7+ bug fix: 旧实现走 legacy sync_dws(),会清空 attr_source 字段。
+    现在改走三段式 + with_ai=False,保证 attr_source 不被覆盖。
+    依赖 AI 的 spec 留在 DWD 不进 DWS（与"不调 AI"语义一致）。
+    """
+    s1, s2, s3, f = _dwd_to_dws_three_stages(
+        es_host, city, cfg,
+        batch_size=batch_size, category=category, dry_run=dry_run,
+        with_ai=False,  # plain 模式 = 只走 stage 1 (etl) + stage 2 (local_db)
+    )
+    return (s1 + s2 + s3), f
 
 
 def sync_dws_quick(es_host: str, city: str, cfg: dict, batch_size: int = 1000,

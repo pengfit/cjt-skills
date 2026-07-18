@@ -1,0 +1,851 @@
+{
+  "01.01.01": [
+    "type",
+    "particle_size"
+  ],
+  "01.01.04": [
+    "particle_size_min",
+    "particle_size_range",
+    "natural",
+    "type",
+    "material"
+  ],
+  "01.01.05": [
+    "type",
+    "particle_size_min",
+    "particle_size_range"
+  ],
+  "01.02.01": [
+    "unit_weight",
+    "thickness",
+    "diameter"
+  ],
+  "01.02.02": [
+    "diameter",
+    "type"
+  ],
+  "01.03.01": [
+    "diameter",
+    "grade",
+    "type",
+    "wall_thickness"
+  ],
+  "01.03.02": [
+    "material",
+    "type",
+    "diameter"
+  ],
+  "01.04.01": [
+    "width",
+    "length",
+    "height"
+  ],
+  "01.04.02": [
+    "width",
+    "length",
+    "height",
+    "grade"
+  ],
+  "01.04.03": [
+    "width",
+    "thickness",
+    "length"
+  ],
+  "01.04.04": [
+    "particle_size_max",
+    "particle_size_min",
+    "mix_ratio",
+    "particle_size",
+    "particle_size_range"
+  ],
+  "01.05.01": [
+    "particle_size_min",
+    "strength",
+    "grade",
+    "packaging",
+    "diameter_range",
+    "particle_size_max",
+    "mix_ratio"
+  ],
+  "01.05.02": [
+    "grade",
+    "wall_thickness",
+    "strength",
+    "reinforcement_content",
+    "sleeve_count"
+  ],
+  "01.05.03": [
+    "grade",
+    "strength",
+    "thickness",
+    "reinforcement_content"
+  ],
+  "01.05.04": [
+    "grade",
+    "wall_thickness",
+    "spec"
+  ],
+  "01.05.05": [
+    "thickness"
+  ],
+  "01.05.07": [
+    "grade",
+    "strength"
+  ],
+  "01.05.08": [
+    "thickness",
+    "length",
+    "grade"
+  ],
+  "01.05.09": [
+    "diameter_range",
+    "reinforcement_content",
+    "strength",
+    "width_range"
+  ],
+  "01.05.10": [
+    "grade",
+    "width",
+    "height",
+    "length",
+    "reinforcement_content"
+  ],
+  "01.05.12": [
+    "thickness",
+    "grade",
+    "reinforcement_content"
+  ],
+  "01.05.13": [
+    "grade",
+    "spec"
+  ],
+  "01.05.14": [
+    "width",
+    "thickness",
+    "length",
+    "diameter"
+  ],
+  "01.05.15": [
+    "diameter",
+    "grade",
+    "material"
+  ],
+  "01.05.16": [
+    "diameter",
+    "length"
+  ],
+  "01.06.01": [
+    "spec"
+  ],
+  "01.06.02": [
+    "grade"
+  ],
+  "01.06.03": [
+    "grade"
+  ],
+  "01.06.04": [
+    "spec",
+    "height",
+    "grade"
+  ],
+  "01.06.05": [
+    "thickness",
+    "material",
+    "width",
+    "thickness_range"
+  ],
+  "01.06.06": [
+    "material",
+    "thickness",
+    "width"
+  ],
+  "01.06.07": [
+    "thickness",
+    "material"
+  ],
+  "01.07.02": [
+    "length",
+    "width",
+    "thickness",
+    "grade"
+  ],
+  "01.08.01": [
+    "width",
+    "thickness",
+    "type",
+    "length"
+  ],
+  "01.08.02": [
+    "thickness",
+    "type"
+  ],
+  "01.08.03": [
+    "thickness",
+    "grade",
+    "length",
+    "width"
+  ],
+  "01.08.04": [
+    "thickness",
+    "type",
+    "diameter"
+  ],
+  "01.09.01": [
+    "thickness",
+    "grade",
+    "density",
+    "type"
+  ],
+  "01.09.02": [
+    "thickness",
+    "type"
+  ],
+  "01.09.03": [
+    "type",
+    "thickness"
+  ],
+  "02.01.01": [
+    "grade",
+    "type",
+    "mix_grade",
+    "strength"
+  ],
+  "02.01.02": [
+    "thickness",
+    "width",
+    "length"
+  ],
+  "02.01.03": [
+    "thickness",
+    "width",
+    "length",
+    "brand"
+  ],
+  "02.01.04": [
+    "thickness",
+    "length",
+    "width"
+  ],
+  "02.01.05": [
+    "height",
+    "type",
+    "material",
+    "grade"
+  ],
+  "02.01.06": [
+    "thickness"
+  ],
+  "02.01.07": [
+    "length",
+    "height",
+    "width"
+  ],
+  "02.01.08": [
+    "material",
+    "type",
+    "width",
+    "thickness"
+  ],
+  "02.02.01": [
+    "grade",
+    "mix_grade",
+    "type"
+  ],
+  "02.02.03": [
+    "unit_weight",
+    "container_type",
+    "packaging"
+  ],
+  "02.02.04": [
+    "width",
+    "length",
+    "thickness"
+  ],
+  "02.02.06": [
+    "thickness"
+  ],
+  "02.02.07": [
+    "thickness",
+    "width",
+    "length"
+  ],
+  "02.02.09": [
+    "thickness",
+    "glass",
+    "type"
+  ],
+  "02.02.10": [
+    "thickness",
+    "width",
+    "type"
+  ],
+  "02.03.02": [
+    "width",
+    "thickness",
+    "type",
+    "length"
+  ],
+  "02.03.03": [
+    "thickness",
+    "material",
+    "type"
+  ],
+  "02.03.04": [
+    "spec",
+    "length",
+    "width",
+    "power",
+    "area_range"
+  ],
+  "02.04.01": [
+    "type",
+    "grade",
+    "natural"
+  ],
+  "02.04.02": [
+    "series",
+    "type",
+    "material"
+  ],
+  "02.04.03": [
+    "type",
+    "grade",
+    "material",
+    "structure"
+  ],
+  "02.04.04": [
+    "grade",
+    "type"
+  ],
+  "02.04.05": [
+    "grade",
+    "type",
+    "material"
+  ],
+  "02.04.07": [
+    "glass",
+    "series"
+  ],
+  "02.04.08": [
+    "width_range",
+    "length_range",
+    "width"
+  ],
+  "02.04.10": [
+    "type",
+    "width",
+    "diameter_range",
+    "material"
+  ],
+  "02.05.03": [
+    "spec",
+    "type",
+    "material",
+    "coating",
+    "natural"
+  ],
+  "02.05.04": [
+    "spec",
+    "coating",
+    "color",
+    "type",
+    "material"
+  ],
+  "02.05.05": [
+    "unit_weight",
+    "container_type",
+    "coating",
+    "type"
+  ],
+  "02.05.06": [
+    "type",
+    "spec",
+    "coating"
+  ],
+  "02.05.07": [
+    "width"
+  ],
+  "02.06.01": [
+    "length",
+    "width",
+    "thickness",
+    "breed",
+    "material",
+    "spec"
+  ],
+  "02.06.02": [
+    "width",
+    "thickness",
+    "type"
+  ],
+  "02.06.03": [
+    "material",
+    "diameter",
+    "height",
+    "wall_thickness",
+    "width",
+    "type"
+  ],
+  "02.06.04": [
+    "area_range"
+  ],
+  "03.01.01": [
+    "diameter"
+  ],
+  "03.01.02": [
+    "wall_thickness",
+    "diameter",
+    "pressure"
+  ],
+  "03.01.03": [
+    "diameter",
+    "wall_thickness"
+  ],
+  "03.01.04": [
+    "diameter"
+  ],
+  "03.01.05": [
+    "diameter",
+    "type"
+  ],
+  "03.02.01": [
+    "diameter"
+  ],
+  "03.02.02": [
+    "diameter",
+    "sn_grade",
+    "wall_thickness"
+  ],
+  "03.02.03": [
+    "diameter"
+  ],
+  "03.03.02": [
+    "diameter"
+  ],
+  "03.04.01": [
+    "diameter",
+    "wall_thickness"
+  ],
+  "03.04.02": [
+    "diameter",
+    "branch_count"
+  ],
+  "03.05.01": [
+    "diameter",
+    "model"
+  ],
+  "03.06.01": [
+    "type",
+    "material",
+    "length"
+  ],
+  "03.06.02": [
+    "diameter",
+    "material",
+    "branch_diameter",
+    "type"
+  ],
+  "04.02.01": [
+    "power",
+    "voltage"
+  ],
+  "04.02.02": [
+    "type",
+    "spec"
+  ],
+  "04.03.01": [
+    "type",
+    "spec",
+    "mix_grade"
+  ],
+  "04.04.01": [
+    "diameter",
+    "spec",
+    "type"
+  ],
+  "04.04.02": [
+    "voltage",
+    "power",
+    "current",
+    "type"
+  ],
+  "04.06.01": [
+    "core_count",
+    "cross_section_area"
+  ],
+  "04.06.02": [
+    "cross_section_area",
+    "core_count"
+  ],
+  "04.06.03": [
+    "width",
+    "height"
+  ],
+  "04.07.01": [
+    "cross_section_area",
+    "core_count"
+  ],
+  "04.07.02": [
+    "diameter",
+    "width",
+    "height",
+    "wall_thickness"
+  ],
+  "04.08.01": [
+    "spec"
+  ],
+  "04.08.02": [
+    "width",
+    "thickness",
+    "spec"
+  ],
+  "04.09.01": [
+    "power",
+    "type"
+  ],
+  "05.01.01": [
+    "width",
+    "thickness",
+    "height"
+  ],
+  "05.02.01": [
+    "power",
+    "model"
+  ],
+  "05.02.02": [
+    "model"
+  ],
+  "05.02.03": [
+    "air_volume",
+    "width",
+    "length",
+    "pressure"
+  ],
+  "05.02.04": [
+    "width",
+    "length"
+  ],
+  "05.03.01": [
+    "height",
+    "material",
+    "length",
+    "width"
+  ],
+  "05.03.02": [
+    "diameter",
+    "wall_thickness",
+    "branch_count"
+  ],
+  "06.01.01": [
+    "type",
+    "spec",
+    "core_count",
+    "cross_section"
+  ],
+  "06.01.02": [
+    "core_count",
+    "type"
+  ],
+  "06.01.03": [
+    "type"
+  ],
+  "06.02.01": [
+    "type"
+  ],
+  "06.02.02": [
+    "type",
+    "spec"
+  ],
+  "06.03.01": [
+    "type",
+    "natural"
+  ],
+  "06.03.02": [
+    "type",
+    "spec"
+  ],
+  "06.04.01": [
+    "type",
+    "spec"
+  ],
+  "07.01.01": [
+    "thickness",
+    "width",
+    "length",
+    "grade",
+    "type"
+  ],
+  "07.01.02": [
+    "mix_ratio",
+    "particle_size",
+    "material",
+    "type",
+    "particle_size_min"
+  ],
+  "07.01.03": [
+    "width",
+    "length",
+    "height",
+    "thickness"
+  ],
+  "07.02.01": [
+    "thickness",
+    "grade",
+    "type",
+    "length",
+    "width"
+  ],
+  "07.02.02": [
+    "type",
+    "spec",
+    "material"
+  ],
+  "07.03.01": [
+    "diameter",
+    "grade"
+  ],
+  "07.03.02": [
+    "diameter",
+    "length",
+    "socket_type",
+    "wall_thickness"
+  ],
+  "07.03.03": [
+    "diameter",
+    "width",
+    "height",
+    "length"
+  ],
+  "07.03.04": [
+    "width",
+    "length",
+    "diameter"
+  ],
+  "07.04.01": [
+    "length",
+    "width",
+    "height"
+  ],
+  "07.05.01": [
+    "type",
+    "width",
+    "natural"
+  ],
+  "07.05.02": [
+    "packaging",
+    "width",
+    "height",
+    "length"
+  ],
+  "07.06.01": [
+    "spec",
+    "height",
+    "strength",
+    "diameter",
+    "type"
+  ],
+  "08.01.01": [
+    "height_range",
+    "diameter_range",
+    "crown_width_range",
+    "diameter"
+  ],
+  "08.01.02": [
+    "plant_spec",
+    "type",
+    "packaging",
+    "natural"
+  ],
+  "08.01.03": [
+    "crown_width_range",
+    "height_range",
+    "container_size"
+  ],
+  "08.01.04": [
+    "height_range",
+    "crown_width_range",
+    "container_size"
+  ],
+  "08.01.05": [
+    "length",
+    "length_range"
+  ],
+  "08.01.06": [
+    "diameter",
+    "temperature_rating",
+    "type",
+    "mix_ratio"
+  ],
+  "08.02.01": [
+    "thickness",
+    "width",
+    "length"
+  ],
+  "08.02.02": [
+    "length",
+    "width",
+    "height",
+    "cut_angle"
+  ],
+  "08.02.03": [
+    "width",
+    "surface",
+    "thickness",
+    "length"
+  ],
+  "08.03.01": [
+    "color",
+    "diameter",
+    "height"
+  ],
+  "09.01.01": [
+    "diameter",
+    "diameter_range"
+  ],
+  "09.01.02": [
+    "diameter",
+    "thickness"
+  ],
+  "09.02.01": [
+    "grade",
+    "volume",
+    "spec",
+    "type"
+  ],
+  "09.02.02": [
+    "grade",
+    "volume",
+    "container_size"
+  ],
+  "09.02.03": [
+    "grade"
+  ],
+  "09.03.01": [
+    "length",
+    "width",
+    "spec",
+    "type"
+  ],
+  "09.03.02": [
+    "type",
+    "spec",
+    "width",
+    "unit_weight"
+  ],
+  "09.03.03": [
+    "width",
+    "type",
+    "length",
+    "diameter_range",
+    "usage"
+  ],
+  "09.04.01": [
+    "length",
+    "width"
+  ],
+  "09.04.02": [
+    "diameter",
+    "branch_diameter",
+    "width",
+    "length"
+  ],
+  "09.05.01": [
+    "type",
+    "grade",
+    "capacity"
+  ],
+  "09.05.02": [
+    "pressure",
+    "diameter",
+    "type"
+  ],
+  "09.05.03": [
+    "type",
+    "pressure",
+    "power",
+    "diameter"
+  ],
+  "09.05.04": [
+    "type",
+    "length",
+    "width",
+    "height"
+  ],
+  "09.05.05": [
+    "diameter",
+    "spec",
+    "pressure",
+    "type"
+  ],
+  "09.06.01": [
+    "diameter",
+    "grade",
+    "spec",
+    "diameter_range"
+  ],
+  "09.06.02": [
+    "diameter",
+    "spec",
+    "diameter_range"
+  ],
+  "09.06.03": [
+    "material",
+    "unit_weight",
+    "type",
+    "grade",
+    "unit"
+  ],
+  "09.07.01": [
+    "height",
+    "width",
+    "thickness"
+  ],
+  "09.07.02": [
+    "spec",
+    "series",
+    "natural",
+    "type"
+  ],
+  "09.07.03": [
+    "type",
+    "natural",
+    "spec"
+  ],
+  "09.07.04": [
+    "material"
+  ],
+  "09.08.01": [
+    "spec",
+    "type",
+    "material"
+  ],
+  "09.08.02": [
+    "type",
+    "spec"
+  ],
+  "09.08.03": [
+    "length",
+    "spec"
+  ],
+  "09.09.01": [
+    "capacity",
+    "spec",
+    "strength"
+  ],
+  "09.09.02": [
+    "capacity",
+    "power",
+    "height_range",
+    "height"
+  ],
+  "09.09.03": [
+    "capacity",
+    "type",
+    "power"
+  ],
+  "09.99.01": [
+    "diameter",
+    "pressure",
+    "thickness"
+  ]
+}

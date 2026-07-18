@@ -96,12 +96,13 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
     """通过向量库召回候选规则，返回 [(compiled_pattern, attr, note, code), ...]
 
     2026-07-05 性能优化：返回预编译 regex 对象（避免 parse() 循环内重复编译）。
+    v0.8+: category 参数已弃用,内部不再传给 search()。L3 + breed 主导召回。
 
     关键设计：
     - 规则库 1064/1098 条有具体 category（如'砌体墙体材料'、'钢材金属材料'），
       用精确 category 过滤会阻断 97% 的规则。
     - breed 精确过滤同样会导致漏召回（如'砖渣多孔砖'无精确规则）。
-    - 改为：跳过 category+breed 过滤，完全依赖 Jaccard 相似度召回。
+    - 改为：跳过 breed 过滤，完全依赖 Jaccard 相似度召回。
       Jaccard score >= 0.001 的规则即为候选，再经 regex 最终匹配。
     - 必须传 spec=spec 而非 spec=''，否则 Jaccard 评分失效。
     """
@@ -109,15 +110,15 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
         return []
     try:
         vs = get_vec_store()
-        # 跳过 category 和 breed 过滤，纯靠 Jaccard 召回 + regex 最终验证
-        # 注意：2026-07-04 fix — search() 内部对 breed/category 用精确匹配 SQL 过滤，
+        # v0.8+: 不再传 category（search() 内部忽略）
+        # 跳过 breed 过滤，纯靠 Jaccard 召回 + regex 最终验证
+        # 注意：2026-07-04 fix — search() 内部对 breed 用精确匹配 SQL 过滤，
         # breed='球墨铸铁给水管DN100' 会把所有 breed='球墨铸铁给水管' 的规则排除掉。
         # 这里传空字符串让 SQL 跳过对应过滤，规则全量召回后由 Jaccard + regex 双层把关。
         # 2026-07-04 fix2 — 调大 top_k=5000，因为通用空 breed 规则 score 较低（0.37），
         # 容易被有 breed 的具体规则（0.575）挤出 top 500，导致电缆/管材 N*M 通用规则不命中。
         results = vs.search(
             spec=spec,
-            category=category,
             breed="",  # 传空跳过 breed 精确过滤
             l3=l3,    # v0.7: L3 分项工程,精确匹配 +0.40 最高加权
             top_k=5000,

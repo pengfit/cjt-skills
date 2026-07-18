@@ -47,14 +47,15 @@ def _keyword_score(spec_tokens: set, rule_tokens: frozenset | set) -> float:
 CREATE_TABLE_SPEC = """
 CREATE TABLE IF NOT EXISTS breed_spec_rules (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    pattern     TEXT    NOT NULL UNIQUE,
+    pattern     TEXT    NOT NULL,
     attr        TEXT    NOT NULL,
     note        TEXT    DEFAULT '',
     code        TEXT    DEFAULT '',
     breed       TEXT    DEFAULT '',
-    category    TEXT    DEFAULT '',
+    l3          TEXT    DEFAULT '',
     tokens      TEXT    DEFAULT '[]',
-    created_at  TEXT    DEFAULT (datetime('now', 'localtime'))
+    created_at  TEXT    DEFAULT (datetime('now', 'localtime')),
+    UNIQUE(pattern, attr, breed, l3)
 )
 """
 
@@ -76,18 +77,50 @@ CREATE TABLE IF NOT EXISTS breed_category_rules (
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.execute(CREATE_TABLE_SPEC)
-    conn.commit()
-    cols = {r[1] for r in conn.execute(ENSURE_COLS).fetchall()}
-    for col, dtype in [
-        ("breed",    "TEXT DEFAULT ''"),
-        ("category", "TEXT DEFAULT ''"),
-        ("tokens",   "TEXT DEFAULT '[]'"),
-    ]:
-        if col not in cols:
-            conn.execute(f"ALTER TABLE breed_spec_rules ADD COLUMN {col} {dtype}")
-    conn.execute(CREATE_TABLE_BREED_CATEGORY)
-    conn.commit()
+    # v0.7+：检测旧 schema（无 l3 列）→ 迁移到新 schema
+    # 迁移识别符：CREATE SQL 中是否含 l3 关键字。新 schema 已含 l3，跳过迁移。
+    cur = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='breed_spec_rules'"
+    )
+    row = cur.fetchone()
+    needs_migration = bool(row) and 'l3' not in row[0].lower()
+
+    if needs_migration:
+        # 重命名旧表 → 建新表 → 拷贝数据 → 删旧表
+        conn.execute("ALTER TABLE breed_spec_rules RENAME TO breed_spec_rules_v6_old")
+        conn.execute(CREATE_TABLE_SPEC)
+        # 旧表无 l3 列，l3 默认为空（后面可走 backfill_l3.py 回填）
+        conn.execute("""
+            INSERT INTO breed_spec_rules
+                (pattern, attr, note, code, breed, category, l3, tokens, created_at)
+            SELECT pattern, attr, note, code, breed, category, '', tokens, created_at
+            FROM breed_spec_rules_v6_old
+        """)
+        conn.execute("DROP TABLE breed_spec_rules_v6_old")
+        conn.commit()
+    else:
+        conn.execute(CREATE_TABLE_SPEC)
+        conn.commit()
+
+    # 列级迁移：补 l3 / tokens 等可能新增的列（仅在不需要表迁移时执行）
+    if not needs_migration:
+        cols = {r[1] for r in conn.execute(ENSURE_COLS).fetchall()}
+        for col, dtype in [
+            ("breed",    "TEXT DEFAULT ''"),
+            ("l3",       "TEXT DEFAULT ''"),  # v0.7+: L3 分项工程精确加权 +0.40, 必填字段
+            ("tokens",   "TEXT DEFAULT '[]'"),
+        ]:
+            if col not in cols:
+                conn.execute(f"ALTER TABLE breed_spec_rules ADD COLUMN {col} {dtype}")
+
+        # v0.8+: 删除 category 列（L3 已蕴含 category 信息,冗余）
+        if 'category' in cols:
+            try:
+                conn.execute("ALTER TABLE breed_spec_rules DROP COLUMN category")
+            except Exception:
+                # 老 SQLite 版本不支持 DROP COLUMN,重建表
+                _rebuild_table_without_category(conn)
+
     conn.execute(CREATE_TABLE_BREED_CATEGORY)
     conn.commit()
 
@@ -95,7 +128,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 # ── VecStore ────────────────────────────────────────────────────────────────
 
 
-def _build_tokens(pattern: str, attr: str, breed: str = "", category: str = "") -> list:
+def _build_tokens(pattern: str, attr: str, breed: str = "", l3: str = "") -> list:
     """
     Detect structural features from the normalized pattern string (literal backslashes,
     NOT regex escapes) and generate semantic tokens for Jaccard matching.
@@ -118,8 +151,8 @@ def _build_tokens(pattern: str, attr: str, breed: str = "", category: str = "") 
         tags += ["精确匹配", "格式"]
     if breed:
         tags.append(breed)
-    if category:
-        tags.append(category)
+    if l3:
+        tags.append(f"L3:{l3}")  # v0.7+: L3 作为独立 token 参与 Jaccard 召回
     if attr:
         tags.append(attr)
     return list(set(tags))
@@ -196,29 +229,35 @@ class VecStore:
     # ── CRUD ──────────────────────────────────────────────────────────────
 
     def insert(self, pattern: str, attr: str, note: str = "",
-               code: str = "", breed: str = "", category: str = "",
+               code: str = "", breed: str = "",
+               l3: str = "",  # v0.7+: L3 分项工程,召回 +0.40 加权关键字段,入库必填
+               category: str = "",  # v0.8+ 已弃用,保留参数兼容旧调用方
                tokens: list = None, skip_duplicate: bool = False) -> bool:
-        """Insert or update a rule. Returns True on success."""
+        """Insert or update a rule. Returns True on success.
+
+        v0.8+: 移除 category 字段（L3 已蕴含 category 信息）。
+        保留 category 参数仅为兼容旧调用方,新代码不应再传。
+        """
         norm_pat = self._strip_r(pattern)
-        tokens   = tokens or _build_tokens(norm_pat, attr, breed, category)
+        tokens   = tokens or _build_tokens(norm_pat, attr, breed, l3)
         tok_json = json.dumps(list(tokens))
         with self._lock:
             conn = self._get_conn()
             _ensure_schema(conn)
             if skip_duplicate:
                 exists = conn.execute(
-                    "SELECT 1 FROM breed_spec_rules WHERE pattern=? AND attr=? AND breed=? AND category=?",
-                    (norm_pat, attr, breed or "", category or "")
+                    "SELECT 1 FROM breed_spec_rules WHERE pattern=? AND attr=? AND breed=? AND l3=?",
+                    (norm_pat, attr, breed or "", l3 or "")
                 ).fetchone()
                 if exists:
                     return False
             try:
                 conn.execute("""
-                    INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, category, tokens)
+                    INSERT INTO breed_spec_rules (pattern, attr, note, code, breed, l3, tokens)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (norm_pat, attr, note, code, breed, category, tok_json))
+                """, (norm_pat, attr, note, code, breed, l3 or "", tok_json))
             except sqlite3.IntegrityError:
-                # pattern 单字段唯一约束冲突（同一 pattern 不同 attr/breed/category 组合）
+                # pattern 单字段唯一约束冲突（同一 pattern 不同 attr/breed/l3 组合）
                 return False
             conn.commit()
         return True
@@ -229,11 +268,15 @@ class VecStore:
         2026-07-05 优化:缓存 tok_json → tokens frozenset(避免重复 json.loads)。
         v0.7:row 多一列 l3(L3 分项工程),精确匹配 +0.40 最高加权;兼容旧 7 列 row。
         """
-        if len(row) >= 8:
-            pat, attr, note, code, breed, cat, l3, tok_json = row[:8]
+        if len(row) >= 7:
+            pat, attr, note, code, breed, l3, tok_json = row[:7]
         else:
-            pat, attr, note, code, breed, cat, tok_json = row
-            l3 = ""
+            # 兼容旧 8 列 row（含 category,从索引 6 取 l3 而非 category）
+            if len(row) >= 8:
+                pat, attr, note, code, breed, _cat, l3, tok_json = row[:8]
+            else:
+                pat, attr, note, code, breed, tok_json = row[:6]
+                l3 = ""
         if tok_json:
             cached = _TOKENS_CACHE.get(tok_json)
             if cached is None:
@@ -243,7 +286,7 @@ class VecStore:
         else:
             tokens = _EMPTY_FROZENSET
         return dict(pattern=pat, attr=attr, note=note or "", code=code or "",
-                    breed=breed or "", category=cat or "", l3=l3 or "",
+                    breed=breed or "", l3=l3 or "",
                     tokens=tokens)
 
     def _validate_rule_code(self, code: str, spec: str, attr: str) -> bool:
@@ -273,20 +316,20 @@ class VecStore:
                top_k: int = 8, attr_filter: str = "",
                validate_spec: str = None) -> list:
         """
-        Keyword similarity search with l3 / breed / category scoring + execution validation.
+        Keyword similarity search with l3 / breed scoring + execution validation.
 
         参数:
-          - spec / category / breed / l3: 查询上下文,用于加权召回
+          - spec / breed / l3: 查询上下文,用于加权召回
+          - category: v0.8+ 已弃用,保留仅为兼容旧调用方,内部不使用
           - top_k: 返回数量
           - attr_filter: 属性名过滤
           - validate_spec: 执行校验用 spec 字符串(传入则对每个规则执行 code_block,
             不产出结果的规则直接剔除,解决向量相似度误匹配问题)
 
-        v0.7 评分规则(三段式优先级):
+        v0.8 评分规则(两段式,移除 category):
           - Jaccard 相似度 (0-1)
           + l3 精确匹配: +0.40     (L3 分项,最高优先,例 "建筑玻璃" 不会窜到 "瓷砖")
           + breed 精确匹配: +0.30
-          + category 精确匹配: +0.20
           × 空 breed 规则 + 有 breed 查询: ×0.80 (通用规则降权)
 
         Returns:
@@ -300,39 +343,22 @@ class VecStore:
 
         with self._lock:
             conn = self._get_conn()
-            # Build SQL dynamically: breed='' means "no breed filter"
-            # category='' means "no category filter" (skip the AND clause)
+            # v0.8+: 移除 category SQL filter（category 已被 L3 蕴含）
+            # 空 breed 规则也要召回（设计意图是降权而非排除），
+            # 用 OR breed='' 让通用规则参与召回，后续在打分环节乘 0.80 降权
             if attr_filter:
-                if category:
-                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE attr=? AND category=?"
-                    if breed:
-                        sql = base + " AND breed=?"
-                        rows = conn.execute(sql, (attr_filter, category, breed)).fetchall()
-                    else:
-                        rows = conn.execute(base, (attr_filter, category)).fetchall()
+                base = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE attr=?"
+                if breed:
+                    sql = base + " AND (breed=? OR breed='')"
+                    rows = conn.execute(sql, (attr_filter, breed)).fetchall()
                 else:
-                    # No category filter: match all categories
-                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE attr=?"
-                    if breed:
-                        sql = base + " AND breed=?"
-                        rows = conn.execute(sql, (attr_filter, breed)).fetchall()
-                    else:
-                        rows = conn.execute(base, (attr_filter,)).fetchall()
+                    rows = conn.execute(base, (attr_filter,)).fetchall()
             else:
-                if category:
-                    base = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE category=?"
-                    if breed:
-                        sql = base + " AND breed=?"
-                        rows = conn.execute(sql, (category, breed)).fetchall()
-                    else:
-                        rows = conn.execute(base, (category,)).fetchall()
+                if breed:
+                    sql = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE (breed=? OR breed='')"
+                    rows = conn.execute(sql, (breed,)).fetchall()
                 else:
-                    # No category filter: match all categories (skip AND category=? clause)
-                    if breed:
-                        sql = "SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules WHERE breed=?"
-                        rows = conn.execute(sql, (breed,)).fetchall()
-                    else:
-                        rows = conn.execute("SELECT pattern, attr, note, code, breed, category, l3, tokens FROM breed_spec_rules").fetchall()
+                    rows = conn.execute("SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules").fetchall()
 
         results = []
         for row in rows:
@@ -353,7 +379,7 @@ class VecStore:
             else:
                 score = 1.0
 
-            # ═══ l3 / breed / category 加权(v0.7 l3 最高)═══
+            # ═══ l3 / breed 加权(v0.7 l3 最高,v0.8 移除 category)═══
             # l3 精确匹配 → +0.40(L3 分项,最高优先)
             rule_l3 = (rule.get("l3") or "").strip()
             if l3 and rule_l3 and rule_l3 == l3:
@@ -362,10 +388,9 @@ class VecStore:
             rule_breed = (rule.get("breed") or "").strip()
             if breed and rule_breed and rule_breed == breed:
                 score += 0.30
-            # category 精确匹配 → +0.20
-            rule_cat = (rule.get("category") or "").strip()
-            if category and rule_cat and rule_cat == category:
-                score += 0.20
+            elif breed and not rule_breed:
+                # v0.7+ bug fix: 空 breed 规则 + 有 breed 查询 → 降权 ×0.80 (docstring 意图补全)
+                score *= 0.80
 
             # ═══ 执行校验 ═══
             if validate_spec is not None:
@@ -396,7 +421,7 @@ class VecStore:
         with self._lock:
             conn = self._get_conn()
             rows = conn.execute(
-                "SELECT pattern, attr, note, code, breed, category, tokens "
+                "SELECT pattern, attr, note, code, breed, l3, tokens "
                 "FROM breed_spec_rules WHERE attr=? AND pattern=?",
                 (attr, norm_pat)
             ).fetchall()
@@ -455,8 +480,11 @@ class VecStore:
                 breed = breed_m.group(1).strip() if breed_m else ""
                 cat_m = _re.search(r"category[:：]\s*['\"]?([^'\"\n]+)['\"]?", body)
                 cat = cat_m.group(1).strip() if cat_m else ""
+                # v0.7+: 规则文件支持可选 l3 字段（XX.XX.XX 编码）。未填则空，后续 backfill_l3 补充。
+                l3_m = _re.search(r"l3[:：]\s*['\"]?([^'\"\n]+)['\"]?", body)
+                l3 = l3_m.group(1).strip() if l3_m else ""
 
-                self.insert(pattern, attr, note, code, breed, cat, skip_duplicate=True)
+                self.insert(pattern, attr, note, code, breed, cat, l3=l3, skip_duplicate=True)
                 count += 1
 
         return count

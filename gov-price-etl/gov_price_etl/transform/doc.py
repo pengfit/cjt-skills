@@ -82,6 +82,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
         )
     # DWD.category = v2 L1 中文名（spec 规则库按此过滤，11,061 条规则已迁到 v2 L1 名）
     category = v2.get("name_l1") or ""
+    category_l3 = v2.get("l3", "")  # v0.7+:v2 L3 编码,透传 parser.parse() 用于白名单过滤
 
     price = clean_price(raw.get("price")) or 0.0
     tax_price = clean_price(raw.get("tax_price")) or 0.0

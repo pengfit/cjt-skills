@@ -1044,7 +1044,11 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                             if not pattern or not attr:
                                 continue
                             try:
-                                if vs.insert(pattern, attr, note, code, breed, category, skip_duplicate=True):
+                                # v0.7+: 把 L3 一并入库,下次 stage 2 召回可获 +0.40 加权
+                                if vs.insert(pattern, attr, note, code,
+                                             breed, category,
+                                             l3=item.get("l3", ""),
+                                             skip_duplicate=True):
                                     written += 1
                             except Exception:
                                 pass

@@ -54,6 +54,11 @@ def get_parser(city: str = "base") -> BaseParseSpec:
     return getattr(mod, cls_name)()
 
 
-def parse_spec(s: str, city: str = "base", breed: str = "", category: str = "") -> dict:
-    """通用入口：parse_spec("δ=4.5", city="xian") → {"thickness": "4.5"}"""
-    return get_parser(city).parse(s, breed, category)
+def parse_spec(s: str, city: str = "base", breed: str = "",
+               category: str = "",  # v0.8+ 已弃用,保留兼容旧调用
+               l3: str = "") -> dict:
+    """通用入口：parse_spec("δ=4.5", city="xian", l3="01.05.15") → {"thickness": "4.5"}
+
+    v0.8+: category 参数已弃用（L3 蕴含 category）,新代码用 l3 代替。
+    """
+    return get_parser(city).parse(s, breed, category, l3)
