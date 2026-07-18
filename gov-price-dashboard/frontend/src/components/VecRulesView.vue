@@ -7,66 +7,11 @@
       subtitle="存储在 <code>breed_spec_rules.db</code>（SQLite + Blob），ETL DWD→DWS 阶段 3 AI 自动回写；本页支持 <code>pattern+attr+code</code> 多维检索"
       :stats="[
         { label: '规则总数', value: fmt.int(vecRules.total) },
-        { label: '属性种类', value: vecAttrOptions.length },
-        { label: 'L3 覆盖', value: vecL3Options.length, tone: vecL3Options.length > 0 ? 'ok' : 'mute' },
         { label: '当前页', value: `${vecRules.page} / ${vecRules.pages || 1}` },
       ]"
     />
 
     <!-- 3-column stat cards (Top attrs / Top L3 / Query context) — 借鉴 /taxonomy 的 .ctx-conf-cards -->
-    <div class="vec-stat-cards">
-      <!-- 属性分布 -->
-      <div class="vec-stat-card">
-        <div class="vec-stat-card-head">
-          <span class="vec-stat-label">属性 Top {{ topAttrs.length }}</span>
-          <span class="vec-stat-value">{{ fmt.int(vecRules.total) }}</span>
-        </div>
-        <div class="vec-stat-rows">
-          <div v-for="row in topAttrs" :key="row.key" class="vec-stat-row">
-            <span class="vec-stat-name">{{ row.key }}</span>
-            <span class="vec-stat-count">{{ fmt.int(row.count) }}</span>
-            <span class="vec-stat-bar"><span class="vec-stat-bar-fill" :style="{ width: pct(row.count) + '%' }"></span></span>
-          </div>
-          <div v-if="!topAttrs.length" class="vec-stat-empty">暂无属性分布数据</div>
-        </div>
-      </div>
-
-      <!-- L3 分布 -->
-      <div class="vec-stat-card">
-        <div class="vec-stat-card-head">
-          <span class="vec-stat-label">L3 Top {{ topL3s.length }}</span>
-          <span class="vec-stat-value">{{ vecL3Options.length }}</span>
-        </div>
-        <div class="vec-stat-rows">
-          <div v-for="row in topL3s" :key="row.key" class="vec-stat-row">
-            <span class="vec-stat-l3">{{ row.key }}</span>
-            <span class="vec-stat-count">{{ fmt.int(row.count) }}</span>
-            <span class="vec-stat-bar"><span class="vec-stat-bar-fill" :style="{ width: pct(row.count) + '%' }"></span></span>
-          </div>
-          <div v-if="!topL3s.length" class="vec-stat-empty">暂无 L3 覆盖</div>
-        </div>
-      </div>
-
-      <!-- 查询态 -->
-      <div class="vec-stat-card vec-stat-card-meta">
-        <div class="vec-stat-card-head">
-          <span class="vec-stat-label">查询状态</span>
-          <span class="vec-stat-value">{{ activeChips.length ? '已筛选' : '全部' }}</span>
-        </div>
-        <div class="vec-stat-rows">
-          <template v-if="!activeChips.length">
-            <div class="vec-stat-meta-line">无任何筛选条件</div>
-            <div class="vec-stat-meta-line ctx-muted">展示全部 <code>{{ fmt.int(vecRules.total) }}</code> 条规则</div>
-          </template>
-          <template v-else>
-            <div v-for="chip in activeChips" :key="chip.key" class="vec-stat-meta-line">
-              <code>{{ chip.label }}</code>
-            </div>
-          </template>
-        </div>
-      </div>
-    </div>
-
     <!-- 激活筛选 chips (横条) — 借鉴 /taxonomy 的 source tag 样式 -->
     <Transition name="slide-down">
       <div class="vec-chips" v-if="activeChips.length">
@@ -198,9 +143,6 @@ const vecSearch = ref('')
 const vecDateFrom = ref('')
 const vecDateTo = ref('')
 const vecOrder = ref('desc')
-const vecAttrOptions = ref([])
-const vecCatOptions = ref([])
-const vecL3Options = ref([])
 const vecLoading = ref(false)
 const showHelp = ref(false)
 
@@ -220,18 +162,6 @@ const vecPageRange = computed(() => {
   return out
 })
 
-// Top 8 attrs / L3（按 count 降序）— 用作 stat cards 数据源
-const topAttrs = computed(() =>
-  [...(vecAttrOptions.value || [])]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8)
-)
-const topL3s = computed(() =>
-  [...(vecL3Options.value || [])]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8)
-)
-
 // 激活筛选条件汇总（用于顶部 chips 横条 + 卡片展示）
 const activeChips = computed(() => {
   const cs = []
@@ -240,12 +170,6 @@ const activeChips = computed(() => {
   if (vecDateTo.value) cs.push({ key: 'date_to', label: '📅 止「' + vecDateTo.value + '」', clear: () => { vecDateTo.value = '' } })
   return cs
 })
-
-function pct(v) {
-  const arr = topAttrs.value.length > topL3s.value.length ? topAttrs.value : topL3s.value
-  const total = Math.max(1, ...arr.map(r => r.count || 0))
-  return ((v / total) * 100).toFixed(1)
-}
 
 // ── 交互 ──
 function clearOne(chip) {
@@ -288,10 +212,7 @@ async function loadVecRules(page = 1) {
     if (vecDateTo.value) params.date_to = vecDateTo.value
     const res = await axios.get(`${API}/stats/rules-vector`, { params })
     vecRules.value = res.data || {}
-    vecAttrOptions.value = res.data.attr_options || []
-    vecCatOptions.value = res.data.category_options || []
-    vecL3Options.value = res.data.l3_options || []
-  } catch (e) {
+    } catch (e) {
     console.warn('rules-vector failed', e)
   } finally {
     vecLoading.value = false
@@ -341,7 +262,7 @@ onMounted(() => loadVecRules())
 /* ── 3 卡片行（借鉴 /taxonomy .ctx-conf-cards） ── */
 .vec-stat-cards {
   display: grid;
-  grid-template-columns: 1.3fr 1.3fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   margin: 16px 0;
 }

@@ -48,27 +48,6 @@
           <span class="foot-tag low">● 低 {{ fmt.int(confDist.buckets.low) }} ({{ pct(confDist.buckets.low) }}%)</span>
         </div>
       </div>
-      <div class="ctx-conf-source">
-        <div class="ctx-conf-source-title">来源分布</div>
-        <div v-for="row in confDist.by_source" :key="row.source" class="ctx-conf-source-row">
-          <span class="ctx-src" :class="`ctx-src-${row.source}`">{{ sourceLabel(row.source) }}</span>
-          <span class="ctx-conf-source-count">{{ fmt.int(row.count) }}</span>
-          <span class="ctx-conf-source-pct">{{ pct(row.count) }}%</span>
-          <span class="ctx-conf-source-bar" :style="{ width: pct(row.count) + '%' }"></span>
-        </div>
-      </div>
-      <div class="ctx-conf-meta">
-        <div class="ctx-conf-meta-title">时间范围</div>
-        <div class="ctx-conf-meta-line">
-          <code>{{ dateFrom || '*' }}</code> → <code>{{ dateTo || '*' }}</code>
-          <span v-if="!dateFrom && !dateTo" class="ctx-conf-meta-note">(全部历史)</span>
-        </div>
-        <div class="ctx-conf-meta-line ctx-conf-meta-stats">
-          <span>命中 L1：{{ confDist.by_l1.length }} 个大类</span>
-          <span>·</span>
-          <span>已加载到表格</span>
-        </div>
-      </div>
     </div>
 
     <!-- 子组件 -->
@@ -199,7 +178,7 @@ onMounted(() => {
 /* Conf dist cards */
 .ctx-conf-cards {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 0.8fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   margin: 16px 0;
 }
