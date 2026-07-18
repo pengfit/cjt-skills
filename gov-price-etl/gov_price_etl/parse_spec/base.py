@@ -7,7 +7,7 @@ parse_spec/base.py - 通用规格解析基类
   - 规则唯一来源：vector_store（SQLite + blob）
   - parse() 按 ATTR_SLOTS 槽位制解析，每个 slot 独立竞争
   - RAG 召回（vector_store.search）替代线性遍历
-  - fix-case API confirm 时写入向量库（同步写入 rules/*.py 作为备份）
+  - 规则确认 / 案例生产路径已下线（2026-07-18）；新规则通过 sync_dws stage 3 AI 解析回写
   - rules/*.py 不再作为解析时的数据源，仅作备份/人工审查用
 
 槽位制解析（修复 A/B/C 短路）：
@@ -136,50 +136,6 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
 
 
 # ─── AI 配置 ──────────────────────────────────────────────────
-FIX_CASE_API = "http://localhost:5200/api/stats/spec-quality/fix-case"
-FIX_CASE_TOKEN = ""
-try:
-    with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-        FIX_CASE_TOKEN = json.load(f).get("gateway", {}).get("auth", {}).get("token", "")
-except Exception:
-    pass
-
-
-def clean_spec(spec: str) -> str:
-    """清洗原始 spec 字符串"""
-    if not spec or spec in ("/", ""):
-        return ""
-    s = str(spec).strip()
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
-def _call_fix_case(spec: str, breed: str = "", category: str = "", confirm: bool = True) -> dict:
-    """调用 fix-case API 生成并写入规则（confirm=True 写入向量库）"""
-    body = json.dumps({
-        "city": "xian",
-        "spec": spec,
-        "breed": breed,
-        "category": category,
-        "expected": {},
-        "confirm": confirm,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        FIX_CASE_API,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {FIX_CASE_TOKEN}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return {"ok": False}
-
-
 class BaseParseSpec:
     """
     规格解析基类
@@ -187,7 +143,7 @@ class BaseParseSpec:
     解析流程：
       - 每个 attr 槽位独立竞争，RAG 召回候选规则
       - 不再 first-match-return，填完所有 slot（或全部未命中）才返回
-      - 全部未命中 → 调用 fix-case API
+      - 全部未命中 → 返空（不降级、不调外部 API）
 
     规则来源：vector_store（SQLite + blob），唯一数据源。
     """

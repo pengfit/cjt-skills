@@ -1,17 +1,89 @@
 <template>
-  <div class="vec-page">
-    <!-- Header -->
+  <div class="ctx-page">
+    <!-- PageHeader (matching /taxonomy flat variant) -->
     <PageHeader
       variant="flat"
       title="规格规则库"
-      subtitle="存储在 rules_vec.db 中的规格解析正则规则，支持 attr / pattern / note / code 多维检索"
-      :stats="[{ label: '规则总数', value: fmtInt(vecRules.total) }]"
+      subtitle="存储在 <code>breed_spec_rules.db</code>（SQLite + Blob），ETL DWD→DWS 阶段 3 AI 自动回写；本页支持 <code>pattern+attr+code</code> 多维检索"
+      :stats="[
+        { label: '规则总数', value: fmt.int(vecRules.total) },
+        { label: '属性种类', value: vecAttrOptions.length },
+        { label: 'L3 覆盖', value: vecL3Options.length, tone: vecL3Options.length > 0 ? 'ok' : 'mute' },
+        { label: '当前页', value: `${vecRules.page} / ${vecRules.pages || 1}` },
+      ]"
     />
+
+    <!-- 3-column stat cards (Top attrs / Top L3 / Query context) — 借鉴 /taxonomy 的 .ctx-conf-cards -->
+    <div class="vec-stat-cards">
+      <!-- 属性分布 -->
+      <div class="vec-stat-card">
+        <div class="vec-stat-card-head">
+          <span class="vec-stat-label">属性 Top {{ topAttrs.length }}</span>
+          <span class="vec-stat-value">{{ fmt.int(vecRules.total) }}</span>
+        </div>
+        <div class="vec-stat-rows">
+          <div v-for="row in topAttrs" :key="row.key" class="vec-stat-row">
+            <span class="vec-stat-name">{{ row.key }}</span>
+            <span class="vec-stat-count">{{ fmt.int(row.count) }}</span>
+            <span class="vec-stat-bar"><span class="vec-stat-bar-fill" :style="{ width: pct(row.count) + '%' }"></span></span>
+          </div>
+          <div v-if="!topAttrs.length" class="vec-stat-empty">暂无属性分布数据</div>
+        </div>
+      </div>
+
+      <!-- L3 分布 -->
+      <div class="vec-stat-card">
+        <div class="vec-stat-card-head">
+          <span class="vec-stat-label">L3 Top {{ topL3s.length }}</span>
+          <span class="vec-stat-value">{{ vecL3Options.length }}</span>
+        </div>
+        <div class="vec-stat-rows">
+          <div v-for="row in topL3s" :key="row.key" class="vec-stat-row">
+            <span class="vec-stat-l3">{{ row.key }}</span>
+            <span class="vec-stat-count">{{ fmt.int(row.count) }}</span>
+            <span class="vec-stat-bar"><span class="vec-stat-bar-fill" :style="{ width: pct(row.count) + '%' }"></span></span>
+          </div>
+          <div v-if="!topL3s.length" class="vec-stat-empty">暂无 L3 覆盖</div>
+        </div>
+      </div>
+
+      <!-- 查询态 -->
+      <div class="vec-stat-card vec-stat-card-meta">
+        <div class="vec-stat-card-head">
+          <span class="vec-stat-label">查询状态</span>
+          <span class="vec-stat-value">{{ activeChips.length ? '已筛选' : '全部' }}</span>
+        </div>
+        <div class="vec-stat-rows">
+          <template v-if="!activeChips.length">
+            <div class="vec-stat-meta-line">无任何筛选条件</div>
+            <div class="vec-stat-meta-line ctx-muted">展示全部 <code>{{ fmt.int(vecRules.total) }}</code> 条规则</div>
+          </template>
+          <template v-else>
+            <div v-for="chip in activeChips" :key="chip.key" class="vec-stat-meta-line">
+              <code>{{ chip.label }}</code>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- 激活筛选 chips (横条) — 借鉴 /taxonomy 的 source tag 样式 -->
+    <Transition name="slide-down">
+      <div class="vec-chips" v-if="activeChips.length">
+        <span class="vec-chips-label">当前筛选</span>
+        <span
+          v-for="chip in activeChips" :key="chip.key"
+          class="vec-chip" @click="clearOne(chip)"
+          :title="`移除 ${chip.label}`"
+        >{{ chip.label }}<span class="vec-chip-x">×</span></span>
+        <button class="vec-chips-clear-all" @click="clearAllFilters" title="一键清除所有筛选">全部清除</button>
+      </div>
+    </Transition>
 
     <!-- Toolbar -->
     <div class="vec-toolbar">
-      <div class="vec-toolbar-left">
-        <input class="vec-input" v-model="vecSearch" placeholder="搜索 pattern / note / code..." @input="loadVecRules(1)" />
+      <div class="vec-toolbar-main">
+        <input class="vec-input" v-model="vecSearch" placeholder="🔍 搜索 pattern / note / code..." @input="loadVecRules(1)" />
         <input type="date" class="vec-input vec-date" v-model="vecDateFrom" @change="loadVecRules(1)" title="起始日期 (created_at)" />
         <input type="date" class="vec-input vec-date" v-model="vecDateTo" @change="loadVecRules(1)" title="结束日期 (created_at)" />
         <button v-if="vecDateFrom || vecDateTo" class="vec-clear-btn" @click="clearDateRange" title="清除日期范围">×</button>
@@ -19,157 +91,89 @@
           v-model="vecAttrFilter"
           :options="vecAttrOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
           placeholder="全部属性"
-          :searchable="false"
           :count-suffix="true"
           @change="loadVecRules(1)"
         />
         <CustomSelect
           v-model="vecCatFilter"
-          :options="vecCatOptions.map(o => ({ key: o.key, label: o.key === '（空）' ? '（空）' : o.key, count: o.count }))"
+          :options="vecCatOptions.map(o => ({ key: o.key, label: o.key, count: o.count }))"
           placeholder="全部分类"
-          :searchable="false"
           :count-suffix="true"
           @change="loadVecRules(1)"
         />
         <CustomSelect
           v-model="vecL3Filter"
           :options="vecL3Options.map(o => ({ key: o.key, label: o.key, count: o.count }))"
-          placeholder="全部 L3 (v0.7)"
-          :searchable="true"
+          placeholder="全部 L3"
           :count-suffix="true"
           @change="loadVecRules(1)"
         />
       </div>
-      <div class="vec-toolbar-right">
-        <button class="vec-order-btn" @click="toggleOrder" title="切换升序/降序">
-          {{ vecOrder === 'desc' ? '🔽 最新优先' : '🔼 最早优先' }}
-        </button>
-        <!-- v0.7.1 起：仅查询/查看，隐藏新增入口。后端 POST 端点保留备查。 -->
+      <div class="vec-toolbar-side">
         <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
-          {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
+          {{ showHelp ? '🔼 收起说明' : '📖 使用说明' }}
         </button>
       </div>
     </div>
 
-    <!-- 使用说明 -->
+    <!-- 帮助区 (collapsible) -->
     <Transition name="slide-down">
       <div class="vec-help" v-if="showHelp">
-        <div class="vec-help-title">📖 规格规则库说明</div>
         <div class="vec-help-grid">
-          <div class="vec-help-item">
-            <span class="vec-help-key">是什么</span>
-            <span class="vec-help-val">
-              规格解析用的 <strong>规则向量库</strong>，存于 <code>skills/data/breed_spec_rules.db</code>（SQLite）<br/>
-              ETL 阶段 2（DWD→DWS）依赖它把 <code>spec</code> 拆成 <code>length/width/height</code> 等 attr<br/>
-              详见仓库根目录 <code>gov-price-etl/SPEC_RULES.md</code>
-            </span>
-          </div>
-          <div class="vec-help-item">
-            <span class="vec-help-key">本页能做什么</span>
-            <span class="vec-help-val">
-              <strong>只读查询</strong>：搜索 · attr 筛选 · 分类筛选 · 升降序 · 分页<br/>
-              新增 / 编辑 / 删除 <strong>不在本页</strong>，统一走后端 API 或 SQL（见「补充规则」）
-            </span>
-          </div>
-          <div class="vec-help-item">
-            <span class="vec-help-key">怎么召回</span>
-            <span class="vec-help-val">
-              <code>spec</code> 与规则都生成 <strong>结构语义标签</strong>（三段/LWW/长宽高/数字 等）<br/>
-              按 <strong>Jaccard</strong> = <code>|A∩B| / |A∪B|</code> 打分，score ≥ <code>0.001</code> 入选<br/>
-              按 attr 槽位独立竞争，同 attr+pattern 去重保留最高分
-            </span>
-          </div>
-          <div class="vec-help-item">
-            <span class="vec-help-key">一行记录</span>
-            <span class="vec-help-val">
-              <code>pattern</code> 正则（不含 r 前缀）→ 命中 spec 某段<br/>
-              <code>attr</code> 该段落到哪个属性 · <code>code</code> 提取代码（可空）<br/>
-              <code>breed / category</code> 适用范围（空=通用）· <code>tokens</code> 结构标签（自动生成）
-            </span>
-          </div>
-          <div class="vec-help-item">
-            <span class="vec-help-key">补充规则</span>
-            <span class="vec-help-val">
-              <strong>① API</strong>：<code>POST/PUT/DELETE /api/stats/rules-vector</code><br/>
-              <strong>② CLI</strong>：<code>python3 commands/parse_spec/rules/vector_store.py</code>（ETL 内部）<br/>
-              <strong>③ SQL</strong>：<code>sqlite3 skills/data/breed_spec_rules.db</code>
-            </span>
-          </div>
-          <div class="vec-help-item">
-            <span class="vec-help-key">解析兜底</span>
-            <span class="vec-help-val">
-              所有 attr 槽位都没命中 → 返回空 <strong>不降级</strong><br/>
-              走 <code>POST /api/stats/spec-quality/fix-case</code>，AI 给 <code>expected</code> 后回写规则库
-            </span>
-          </div>
+          <div class="vec-help-row"><b>是什么</b>存储于 <code>breed_spec_rules.db</code> 的解析正则 + Python 代码，由 sync_dws stage 3 自动回写。</div>
+          <div class="vec-help-row"><b>怎么检索</b>关键字（pattern / note / code）+ 属性 + 分类 + L3 + 日期范围 多维组合。</div>
+          <div class="vec-help-row"><b>怎么新增</b>暂无人工入口，自动从 AI 解析成功后回写；脏数据可通过 <code>DELETE FROM breed_spec_rules</code> 清理。</div>
+          <div class="vec-help-row"><b>字段含义</b><code>attr</code> 业务属性名；<code>pattern</code> 不带 <code>r</code> 前缀的 regex；<code>code</code> 单行或 <code>\\n</code> 多行 Python；<code>l3</code> 召回 +0.40 加权。</div>
         </div>
       </div>
     </Transition>
 
-    <!-- Table (CSS Grid 2026-07-15 重构) -->
+    <!-- 主表格 -->
     <div class="vec-table-wrap">
-      <!-- Loading -->
-      <div class="vec-loading" v-if="vecLoading">
+      <div v-if="vecLoading" class="vec-loading">
         <div class="vec-spinner"></div>
         <span>加载中...</span>
       </div>
 
-      <div class="grid-table" v-else>
-        <!-- Sticky header — 第 1 行,subgrid 继承父列 -->
-        <div class="grid-header">
-          <div class="grid-head-cell col-id">#</div>
-          <div class="grid-head-cell col-breed">breed</div>
-          <div class="grid-head-cell col-attr">attr</div>
-          <div class="grid-head-cell col-cat">分类</div>
-          <div class="grid-head-cell col-l3">L3 分项 (v0.7)</div>
-          <div class="grid-head-cell col-pattern">pattern</div>
-          <div class="grid-head-cell col-code text-left">code</div>
-          <div class="grid-head-cell col-note">note</div>
-          <div class="grid-head-cell col-date">创建时间</div>
+      <div v-else class="vec-table" :style="{ gridTemplateColumns: GRID_COLS }">
+        <!-- Header -->
+        <div class="vec-row vec-row-head">
+          <div class="vec-cell col-id">#</div>
+          <div class="vec-cell col-breed">breed</div>
+          <div class="vec-cell col-attr">属性</div>
+          <div class="vec-cell col-l3">L3 分项</div>
+          <div class="vec-cell col-pattern">pattern</div>
+          <div class="vec-cell col-code">code</div>
+          <div class="vec-cell col-note">note</div>
+          <div class="vec-cell col-date">创建时间</div>
         </div>
 
-        <!-- Body rows — 直接子节点参与 subgrid -->
-        <div
-          v-for="(r, idx) in vecRules.items"
-          :key="r.id"
-          class="grid-row"
-        >
-          <div class="grid-cell col-id">
-            <span>{{ (vecRules.page - 1) * 50 + idx + 1 }}</span>
-          </div>
-          <div class="grid-cell col-breed" :title="r.breed">{{ r.breed || '—' }}</div>
-          <div class="grid-cell col-attr">
-            <span class="vec-attr-tag">{{ r.attr }}</span>
-          </div>
-          <div class="grid-cell col-cat">{{ r.category || '—' }}</div>
-          <div class="grid-cell col-l3">{{ r.l3 || '—' }}</div>
-          <div class="grid-cell col-pattern">
-            <code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code>
-          </div>
-          <div class="grid-cell col-code text-left">
-            <pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre>
-          </div>
-          <div class="grid-cell col-note">{{ r.note || '—' }}</div>
-          <div class="grid-cell col-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</div>
+        <!-- Data rows -->
+        <div v-for="(r, idx) in vecRules.items" :key="r.id" class="vec-row vec-row-data">
+          <div class="vec-cell col-id">{{ (vecRules.page - 1) * vecPageSize + idx + 1 }}</div>
+          <div class="vec-cell col-breed" :title="r.breed">{{ r.breed || '—' }}</div>
+          <div class="vec-cell col-attr"><span class="vec-attr-tag">{{ r.attr || '—' }}</span></div>
+          <div class="vec-cell col-l3">{{ r.l3 || '—' }}</div>
+          <div class="vec-cell col-pattern"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></div>
+          <div class="vec-cell col-code"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></div>
+          <div class="vec-cell col-note">{{ r.note || '—' }}</div>
+          <div class="vec-cell col-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</div>
         </div>
 
         <!-- Empty state -->
-        <div v-if="!vecRules.items?.length" class="grid-row grid-row-empty">
-          <div class="grid-cell" style="grid-column: 1 / -1;">
-            <EmptyState compact
-              :title="vecSearch || vecAttrFilter ? `没有匹配「${vecSearch || vecAttrFilter}」的规则` : '暂无规则'"
-              message="点击右上角【使用说明】了解如何添加规则" />
-          </div>
+        <div v-if="!vecLoading && !vecRules.items?.length" class="vec-empty">
+          <div class="vec-empty-icon">📭</div>
+          <div class="vec-empty-title">{{ activeChips.length ? '没有匹配当前筛选的规则' : '暂无规则' }}</div>
+          <div class="vec-empty-hint">{{ activeChips.length ? '点击右上角【全部清除】或单独移除筛选条件' : 'sync_dws stage 3 AI 解析后会写入规则库' }}</div>
         </div>
       </div>
     </div>
 
-    <!-- Pagination -->
+    <!-- 分页 -->
     <div class="vec-pagination" v-if="vecRules.pages > 1">
       <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
       <button
-        v-for="p in vecPageRange" :key="p"
-        class="page-btn"
+        v-for="p in vecPageRange" :key="p" class="page-btn"
         :class="{ active: Number(p) === Number(vecRules.page), ellipsis: p === '...' }"
         :disabled="p === '...'"
         @click="p !== '...' && loadVecRules(Number(p))"
@@ -188,8 +192,6 @@
         <span>条</span>
       </div>
     </div>
-
-    <!-- v0.7.1 起：新增/编辑对话框入口隐藏(只读视图)。相关 state + 函数保留为注释备查。 -->
   </div>
 </template>
 
@@ -200,21 +202,34 @@ import axios from 'axios'
 
 import CustomSelect from './CustomSelect.vue'
 import PageHeader from './PageHeader.vue'
-import EmptyState from './EmptyState.vue'
-import { fmtInt } from '../composables/useFormatNumber.js'
+import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const fmt = useFormatNumber()
 
-// CSS Grid 列模板 — 内容感知版 (2026-07-15 v2)
-// 与 /list 同样 subgrid 架构：.grid-table 作根定义列模板，max-content 在整列跨所有行求最大值。
-// 8 列：# 固定 / breed flex 吃剩余 / 其余按内容自适应
-const GRID_COLS = '40px minmax(90px, 1fr) minmax(60px, max-content) minmax(60px, max-content) minmax(120px, max-content) minmax(110px, max-content) minmax(220px, max-content) minmax(80px, max-content) minmax(110px, max-content) minmax(130px, max-content)'
+// ── 表格 CSS Grid 列模板 (fr 比例，等宽分布) ──
+const GRID_COLS = '52px minmax(110px, 1.4fr) minmax(90px, 1fr) minmax(110px, 1.1fr) minmax(150px, 1.6fr) minmax(260px, 2.4fr) minmax(120px, 1fr) minmax(150px, 1fr)'
 
-const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [] })
+// ── 响应式状态 ──
+const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [], l3_options: [] })
 const vecPageSize = ref(50)
 const vecPageSizeOptions = [50, 100, 200]
 const vecJumpPage = ref(1)
 
+const vecSearch = ref('')
+const vecAttrFilter = ref('')
+const vecCatFilter = ref('')
+const vecL3Filter = ref('')
+const vecDateFrom = ref('')
+const vecDateTo = ref('')
+const vecOrder = ref('desc')
+const vecAttrOptions = ref([])
+const vecCatOptions = ref([])
+const vecL3Options = ref([])
+const vecLoading = ref(false)
+const showHelp = ref(false)
+
+// ── 衍生统计 ──
 const vecPageRange = computed(() => {
   const tp = vecRules.value.pages
   const cur = vecRules.value.page
@@ -230,115 +245,71 @@ const vecPageRange = computed(() => {
   return out
 })
 
+// Top 8 attrs / L3（按 count 降序）— 用作 stat cards 数据源
+const topAttrs = computed(() =>
+  [...(vecAttrOptions.value || [])]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+)
+const topL3s = computed(() =>
+  [...(vecL3Options.value || [])]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+)
+
+// 激活筛选条件汇总（用于顶部 chips 横条 + 卡片展示）
+const activeChips = computed(() => {
+  const cs = []
+  if (vecSearch.value) cs.push({ key: 'search', label: '🔍 「' + vecSearch.value + '」', clear: () => { vecSearch.value = '' } })
+  if (vecDateFrom.value) cs.push({ key: 'date_from', label: '📅 起「' + vecDateFrom.value + '」', clear: () => { vecDateFrom.value = '' } })
+  if (vecDateTo.value) cs.push({ key: 'date_to', label: '📅 止「' + vecDateTo.value + '」', clear: () => { vecDateTo.value = '' } })
+  if (vecAttrFilter.value) cs.push({ key: 'attr', label: '属性「' + vecAttrFilter.value + '」', clear: () => { vecAttrFilter.value = '' } })
+  if (vecCatFilter.value) cs.push({ key: 'cat', label: '分类「' + vecCatFilter.value + '」', clear: () => { vecCatFilter.value = '' } })
+  if (vecL3Filter.value) cs.push({ key: 'l3', label: 'L3「' + vecL3Filter.value + '」', clear: () => { vecL3Filter.value = '' } })
+  return cs
+})
+
+function pct(v) {
+  const arr = topAttrs.value.length > topL3s.value.length ? topAttrs.value : topL3s.value
+  const total = Math.max(1, ...arr.map(r => r.count || 0))
+  return ((v / total) * 100).toFixed(1)
+}
+
+// ── 交互 ──
+function clearOne(chip) {
+  chip.clear()
+  loadVecRules(1)
+}
+
+function clearAllFilters() {
+  vecSearch.value = ''
+  vecDateFrom.value = ''
+  vecDateTo.value = ''
+  vecAttrFilter.value = ''
+  vecCatFilter.value = ''
+  vecL3Filter.value = ''
+  loadVecRules(1)
+}
+
+function clearDateRange() {
+  vecDateFrom.value = ''
+  vecDateTo.value = ''
+  loadVecRules(1)
+}
+
+function toggleOrder() {
+  vecOrder.value = vecOrder.value === 'desc' ? 'asc' : 'desc'
+  loadVecRules(1)
+}
+
 function goToVecPage() {
   const p = Number(vecJumpPage.value)
   if (p >= 1 && p <= vecRules.value.pages && p !== vecRules.value.page) {
     loadVecRules(p)
   }
 }
-const vecSearch = ref('')
-const vecAttrFilter = ref('')
-const vecCatFilter = ref('')
-const vecL3Filter = ref('')
-const vecL3Options = ref([])
-const vecDateFrom = ref('')
-const vecDateTo = ref('')
-const vecOrder = ref('desc')
-const vecAttrOptions = ref([])
-const vecCatOptions = ref([])
-const vecLoading = ref(false)
-const showHelp = ref(false)
 
-// ── 新增/编辑对话框状态（v0.7.1 起隐藏；保留备查） ─────────────────
-// const showDialog = ref(false)
-// const dialogMode = ref('add')  // 'add' | 'edit'
-// const dialogSaving = ref(false)
-// const dialogError = ref('')
-// const dialogEditingId = ref(null)
-// const dialogForm = ref({
-//   pattern: '',
-//   attr: '',
-//   note: '',
-//   breed: '',
-//   category: '',
-//   code: '',
-// })
-
-// function openAddDialog() {
-//   dialogMode.value = 'add'
-//   dialogEditingId.value = null
-//   dialogForm.value = { pattern: '', attr: '', note: '', breed: '', category: '', code: '' }
-//   dialogError.value = ''
-//   showDialog.value = true
-// }
-
-// v0.7 起：编辑按钮隐藏，该函数不再被调用。保留备查。
-// function openEditDialog(rule) {
-//   dialogMode.value = 'edit'
-//   dialogEditingId.value = rule.id
-//   dialogForm.value = {
-//     pattern: rule.pattern || '',
-//     attr: rule.attr || '',
-//     note: rule.note || '',
-//     breed: rule.breed || '',
-//     category: rule.category || '',
-//     code: rule.code || '',
-//   }
-//   dialogError.value = ''
-//   showDialog.value = true
-// }
-
-// v0.7.1 起：对话框提交函数隐藏。保留备查（后端 POST/PUT 端点仍可用）。
-// async function submitDialog() {
-//   dialogError.value = ''
-//   if (!dialogForm.value.pattern.trim() || !dialogForm.value.attr.trim()) {
-//     dialogError.value = 'pattern 和 attr 必填'
-//     return
-//   }
-//   dialogSaving.value = true
-//   try {
-//     if (dialogMode.value === 'add') {
-//       await axios.post(`${API}/stats/rules-vector`, dialogForm.value)
-//     } else {
-//       await axios.put(`${API}/stats/rules-vector/${dialogEditingId.value}`, dialogForm.value)
-//     }
-//     showDialog.value = false
-//     await loadVecRules(vecRules.value.page)
-//   } catch (e) {
-//     dialogError.value = e?.response?.data?.detail || e.message
-//   } finally {
-//     dialogSaving.value = false
-//   }
-// }
-
-// v0.7 起：删除按钮隐藏，该函数不再被调用。保留备查。
-// async function confirmDelete(rule) {
-//   if (!window.confirm(`确认删除规则 #${rule.id}？\npattern: ${rule.pattern}\nattr: ${rule.attr}`)) return
-//   try {
-//     await axios.delete(`${API}/stats/rules-vector/${rule.id}`)
-//     await loadVecRules(vecRules.value.page)
-//   } catch (e) {
-//     alert('删除失败：' + (e?.response?.data?.detail || e.message))
-//   }
-// }
-
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-}
-
-function highlightPy(code) {
-  if (!code) return ''
-  return code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/(#[^\n]*)/g, '<span class="cm-comment">$1</span>')
-    .replace(/(\'[^\n]*\'|"[^\n]*")/g, '<span class="cm-string">$1</span>')
-    .replace(/\b(re|match|search|find|group|compile|sub|exec|print|if|else|elif|for|while|return|in|not|and|or|True|False|None)\b/g, '<span class="cm-keyword">$1</span>')
-    .replace(/\b(\d+\.?\d*)\b/g, '<span class="cm-number">$1</span>')
-    .replace(/\b(r['"])/g, '<span class="cm-string">$1</span>')
-}
-
+// ── 网络 ──
 async function loadVecRules(page = 1) {
   vecLoading.value = true
   try {
@@ -354,26 +325,19 @@ async function loadVecRules(page = 1) {
     vecAttrOptions.value = res.data.attr_options || []
     vecCatOptions.value = res.data.category_options || []
     vecL3Options.value = res.data.l3_options || []
-  } catch(e) {
+  } catch (e) {
     console.warn('rules-vector failed', e)
   } finally {
     vecLoading.value = false
   }
 }
 
-function toggleOrder() {
-  vecOrder.value = vecOrder.value === 'desc' ? 'asc' : 'desc'
-  loadVecRules(1)
-}
-
+// ── URL query 同步 (date_from / date_to 直达链接) ──
 const route = useRoute()
 const router = useRouter()
-
-// 从 URL query 初始化 date 筛选(支持 /spec-rules?date_from=...&date_to=... 直达)
 if (route.query.date_from) vecDateFrom.value = String(route.query.date_from)
 if (route.query.date_to) vecDateTo.value = String(route.query.date_to)
 
-// watch date 变化 → 同步到 URL query(便于刷新保持 / 分享链接)
 watch([vecDateFrom, vecDateTo], () => {
   const q = { ...route.query }
   if (vecDateFrom.value) q.date_from = vecDateFrom.value
@@ -383,427 +347,404 @@ watch([vecDateFrom, vecDateTo], () => {
   router.replace({ query: q })
 })
 
-function clearDateRange() {
-  vecDateFrom.value = ''
-  vecDateTo.value = ''
-  loadVecRules(1)
+// ── Python 代码染色 (高亮注释/字符串/关键字/数字) ──
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function highlightPy(code) {
+  if (!code) return ''
+  return code
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/(#[^\n]*)/g, '<span class="cm-comment">$1</span>')
+    .replace(/(\'[^\n]*\'|"[^\n]*")/g, '<span class="cm-string">$1</span>')
+    .replace(/\b(re|match|search|find|group|compile|sub|exec|print|if|else|elif|for|while|return|in|not|and|or|True|False|None)\b/g, '<span class="cm-keyword">$1</span>')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="cm-number">$1</span>')
 }
 
-onMounted(() => {
-  loadVecRules()
-})
-
-
+onMounted(() => loadVecRules())
 </script>
 
 <style scoped>
-.vec-page {
-  display: block;
-  padding: 16px 20px 0;
-  color: #1e293b;
+/* ── 借鉴 /taxonomy 的设计 token + 页面容器 ── */
+.ctx-page {
+  padding: 0 28px 64px;
+  color: var(--text, #1e293b);
   font-size: 13px;
-  padding-bottom: 64px;
 }
 
-/* PageHeader 位置与 /taxonomy 对齐(2026-07-15):
-   /taxonomy 用 .ctx-page { padding: 0 28px 64px },PHY=56;
-   VecRulesView 原本有 padding-top:16,补偿 -16 让 PageHeader 顶贴齐 /taxonomy */
-.page-header {
-  margin-top: -16px;
-  margin-bottom: 16px;
+/* ── 3 卡片行（借鉴 /taxonomy .ctx-conf-cards） ── */
+.vec-stat-cards {
+  display: grid;
+  grid-template-columns: 1.3fr 1.3fr 1fr;
+  gap: 14px;
+  margin: 16px 0;
 }
-
-/* Header（已迁移至 PageHeader flat 变体） */
-
-/* Toolbar */
-.vec-toolbar {
+.vec-stat-card,
+.vec-stat-card-meta {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(15,23,42,0.08));
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
   display: flex;
+  flex-direction: column;
+  min-height: 160px;
+}
+.vec-stat-card-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.vec-stat-label {
+  font-size: 11px; font-weight: 600; color: var(--text-3, #64748b);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.vec-stat-value {
+  font-size: 22px; font-weight: 700; color: var(--text, #1e293b);
+  font-family: 'Courier New', monospace;
+}
+.vec-stat-rows { flex: 1; overflow-y: auto; max-height: 220px; }
+.vec-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto 50px;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px dashed rgba(15,23,42,0.04);
 }
-.vec-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;       /* 2026-07-17 修:筛选元素多,允许换行 */
-  min-width: 0;
+.vec-stat-row:last-child { border-bottom: none; }
+.vec-stat-name,
+.vec-stat-l3 {
+  color: var(--text, #1e293b);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vec-stat-l3 {
+  font-family: 'Courier New', monospace;
+  font-size: 11.5px;
+  color: var(--primary, #2563eb);
+}
+.vec-stat-count {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: right;
+}
+.vec-stat-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3, #e2e8f0);
+  overflow: hidden;
+  opacity: 0.6;
+}
+.vec-stat-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary, #2563eb), rgba(37,99,235,0.6));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.vec-stat-empty,
+.vec-stat-meta-line,
+.ctx-muted {
+  color: var(--text-3, #64748b);
+  font-size: 12px;
+  padding: 5px 0;
+}
+.vec-stat-meta-line code {
+  background: rgba(37,99,235,0.1);
+  color: var(--primary, #2563eb);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+/* ── 激活筛选 chips ── */
+.vec-chips {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: linear-gradient(180deg, rgba(37,99,235,0.05), rgba(37,99,235,0.02));
+  border: 1px solid rgba(37,99,235,0.18);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.vec-chips-label {
+  color: var(--text-3, #64748b);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.vec-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  background: #ffffff;
+  color: var(--primary, #2563eb);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.vec-chip:hover {
+  background: rgba(37,99,235,0.1);
+  border-color: var(--primary, #2563eb);
+}
+.vec-chip-x {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(37,99,235,0.5);
+}
+.vec-chip:hover .vec-chip-x { color: var(--primary, #2563eb); }
+.vec-chips-clear-all {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-3, #64748b);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.vec-chips-clear-all:hover {
+  background: rgba(220,38,38,0.08);
+  color: #dc2626;
+  border-color: rgba(220,38,38,0.3);
+}
+
+/* ── Toolbar ── */
+.vec-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--surface-2, #f8fafc);
+  border: 1px solid var(--border, rgba(15,23,42,0.06));
+  border-radius: 10px;
+}
+.vec-toolbar-main {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0; flex-wrap: wrap;
+}
+.vec-toolbar-side {
+  flex-shrink: 0;
 }
 .vec-input {
   background: #ffffff;
-  color: #1e293b;
-  border: 1px solid rgba(241,245,249,0.6);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  color: var(--text, #1e293b);
+  border: 1px solid rgba(15,23,42,0.1);
+  border-radius: var(--radius-sm, 6px);
+  padding: 7px 10px;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  width: 180px;            /* 2026-07-17 改:240→180,给 date + L3 下拉让位 */
-  box-sizing: border-box;
+  transition: all 0.15s;
   font-family: inherit;
 }
-
+.vec-input:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+.vec-input:not(.vec-date) { flex: 1 1 240px; max-width: 380px; min-width: 200px; }
 .vec-date {
-  width: 130px;
+  width: 132px;
   font-size: 12px;
-  cursor: pointer;
   color: var(--text-3);
-  white-space: nowrap;
-  font-family: inherit;
+  cursor: pointer;
 }
-/* .vec-input 优先级覆盖:.vec-date 继承 .vec-input 的白底/边框/padding */
-input.vec-input.vec-date {
-  background: var(--surface);
-}
+input.vec-input.vec-date { background: var(--surface, #ffffff); }
 .vec-clear-btn {
+  width: 28px; height: 30px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(15,23,42,0.1);
   color: var(--text-3);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
-  width: 28px;
-  height: 32px;
   font-size: 16px;
   line-height: 1;
-  transition: all 0.15s;
 }
-.vec-clear-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-  border-color: var(--text-3);
-}
-.vec-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.4); }
-.vec-toolbar-right { display: flex; align-items: center; gap: 8px; }
-.vec-order-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.25);
-  border-radius: 20px; color: var(--primary); font-size: 11.5px;
-  font-weight: 500; padding: 5px 12px; cursor: pointer; transition: all 0.18s;
-}
-.vec-order-btn:hover { background: rgba(37,99,235,0.16); border-color: rgba(37,99,235,0.4); }
-.vec-input::placeholder { color: #475569; }
+.vec-clear-btn:hover { background: rgba(220,38,38,0.06); color: #dc2626; border-color: rgba(220,38,38,0.3); }
 .vec-help-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 12px;
   background: rgba(37,99,235,0.06);
-  border: 1px solid rgba(37,99,235,0.15);
-  border-radius: 20px;
-  color: var(--primary);
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: all 0.18s;
-  white-space: nowrap;
-}
-.vec-help-btn:hover {
-  background: rgba(37,99,235,0.12);
-  border-color: rgba(37,99,235,0.3);
-}
-.vec-help-btn.active {
-  background: rgba(37,99,235,0.15);
-  border-color: rgba(37,99,235,0.35);
-  box-shadow: 0 0 10px rgba(37,99,235,0.1);
-}
-
-/* Help */
-.vec-help {
-  background: rgba(241,245,249,0.8); border: 1px solid rgba(37,99,235,0.12);
-  border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
-}
-.vec-help-title {
-  font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 14px;
-}
-.vec-help-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px 24px;
-}
-.vec-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
-.vec-help-key { color: var(--primary); font-weight: 600; white-space: nowrap; min-width: 56px; }
-.vec-help-val { color: var(--text-3); }
-.vec-help-val code {
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
-  color: var(--primary);
-  background: rgba(37,99,235,0.08);
-  border-radius: 3px;
-  padding: 1px 4px;
-  font-weight: 500;
-}
-.vec-help-val strong { color: #1e293b; font-weight: 600; }
-
-/* Slide transition */
-.slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; overflow: hidden; }
-.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
-
-/* Table */
-.vec-table-wrap {
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  overflow-x: hidden;
-}
-/* vec-table 已迁移至全局 .data-table */
-.vec-table td { padding: 8px 12px; }
-
-/* ──── CSS Grid + subgrid 表格 (2026-07-15 v2) ────
-   与 /list 同架构：
-   - .grid-table 作根 grid,定义 grid-template-columns (8 列内容感知)
-   - .grid-header / .grid-row 都是直接子节点,走 subgrid 继承父列
-   - max-content 在整列跨 header + 所有 body rows 求最大值 → 列宽严格一致
-*/
-.grid-table {
-  display: grid;
-  grid-template-columns:
-    40px                                /* # 固定 */
-    minmax(90px, 1fr)                   /* breed flex 吃剩余 */
-    minmax(60px, max-content)           /* attr */
-    minmax(60px, max-content)           /* 分类 */
-    minmax(120px, max-content)          /* pattern */
-    minmax(220px, max-content)          /* code */
-    minmax(80px, max-content)           /* note */
-    minmax(110px, max-content);         /* 创建时间 */
-  grid-auto-rows: auto;
-  width: 100%;
-}
-
-/* 行用 subgrid 继承父列（必须是 .grid-table 的直接子节点） */
-.grid-table > .grid-header,
-.grid-table > .grid-row {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: stretch;
-}
-.grid-header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  background: var(--surface-2, #f8fafc);
-  box-shadow: 0 1px 0 var(--border);
-}
-.grid-head-cell,
-.grid-cell {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  border-right: 1px solid var(--border);
-  min-width: 0;
-  overflow: hidden;
-  box-sizing: border-box;
-  justify-content: flex-start;
-}
-.grid-head-cell:last-child,
-.grid-cell:last-child { border-right: none; }
-.grid-head-cell {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-2);
-}
-.grid-cell.col-id   { justify-content: flex-end; color: var(--text-2); font-family: 'Courier New', monospace; font-size: 11px; }
-.grid-cell.col-attr { justify-content: center; }
-.grid-cell.col-pattern { white-space: normal; word-break: break-all; }
-.grid-cell.col-code { white-space: normal; padding: 6px 10px; }
-.grid-row {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  transition: background 0.1s;
-}
-.grid-row:hover { background: rgba(37,99,235,0.04); }
-.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
-.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
-.grid-row-empty { cursor: default; }
-.grid-row-empty:hover { background: var(--surface); }
-.grid-cell-empty { justify-content: center; }
-.text-left { text-align: left; }
-
-/* Loading */
-.vec-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: #475569;
-  padding: 40px;
+  border: 1px solid rgba(37,99,235,0.18);
+  border-radius: 8px;
+  color: var(--primary, #2563eb);
   font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s;
+}
+.vec-help-btn:hover { background: rgba(37,99,235,0.12); }
+.vec-help-btn.active { background: rgba(37,99,235,0.14); }
+
+/* ── 帮助区 ── */
+.vec-help {
+  background: var(--surface-2, #f8fafc);
+  border: 1px solid var(--border, rgba(15,23,42,0.06));
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-2, #475569);
+}
+.vec-help-grid { display: flex; flex-direction: column; gap: 8px; }
+.vec-help-row b { color: var(--text, #1e293b); margin-right: 4px; }
+.vec-help-row code {
+  background: rgba(37,99,235,0.08);
+  color: var(--primary, #2563eb);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+
+/* ── 主表格 ── */
+.vec-table-wrap {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(15,23,42,0.06));
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.vec-loading {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 60px 20px;
+  color: var(--text-3);
+  font-size: 13px;
 }
 .vec-spinner {
-  width: 18px;
-  height: 18px;
+  width: 18px; height: 18px;
   border: 2px solid rgba(15,23,42,0.08);
-  border-top-color: rgba(37,99,235,0.6);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Cells */
-.vec-id { color: var(--text-2, #475569); font-family: 'Courier New', monospace; font-size: 11px; }
+.vec-table {
+  display: grid;
+  font-size: 12.5px;
+  overflow-x: auto;
+}
+.vec-row {
+  display: contents;
+}
+.vec-row-head .vec-cell {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-2, #f8fafc);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 10px;
+  position: sticky; top: 0;
+  z-index: 2;
+}
+.vec-row-data .vec-cell {
+  padding: 10px;
+  border-bottom: 1px solid var(--surface-2, rgba(15,23,42,0.04));
+  display: flex; align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.vec-row-data:hover .vec-cell {
+  background: rgba(37,99,235,0.03);
+}
+.vec-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.col-id { justify-content: center; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text-3); }
 .vec-attr-tag {
   display: inline-block;
   background: rgba(37,99,235,0.1);
   color: var(--primary);
-  border: 1px solid rgba(37,99,235,0.15);
+  border: 1px solid rgba(37,99,235,0.18);
   border-radius: 5px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
 }
-.vec-cat { color: var(--text-3); font-size: 11px; }
-.vec-pattern, .vec-code {
+.vec-pattern {
   font-family: 'Courier New', monospace;
-  font-size: 11px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  font-size: 11.5px;
+  background: rgba(37,99,235,0.06);
+  color: var(--primary);
+  border: 1px solid rgba(37,99,235,0.12);
   border-radius: 4px;
-  padding: 3px 6px;
+  padding: 2px 6px;
+  font-weight: 600;
   word-break: break-all;
+  white-space: normal;
   display: inline-block;
-  max-width: 300px;
+  max-width: 100%;
 }
-.vec-pattern { color: var(--primary); font-weight: 600; }
 .vec-code-block {
   background: #0d1117;
   border: 1px solid #30363d;
-  border-radius: 4px;
-  padding: 4px 6px;
+  border-radius: 5px;
+  padding: 6px 8px;
   font-family: 'Courier New', monospace;
   font-size: 11px;
   color: #c9d1d9;
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.4;
-  overflow-x: auto;
+  max-height: 100px;
+  overflow-y: auto;
+  width: 100%;
 }
-.vec-code-block .cm-comment { color: #8b949e; }
+.vec-code-block .cm-comment { color: #8b949e; font-style: italic; }
 .vec-code-block .cm-string { color: #a5d6ff; }
-.vec-code-block .cm-keyword { color: #ff7b72; }
+.vec-code-block .cm-keyword { color: #ff7b72; font-weight: 600; }
 .vec-code-block .cm-number { color: #79c0ff; }
-.vec-code-block .cm-func { color: #d2a8ff; }
-.vec-code-cell { width: 350px; overflow: hidden; }
-.vec-note-cell { color: #6b7288; font-size: 12px; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vec-pattern-cell { width: 160px; }
-.vec-breed { color: var(--text-3); font-size: 11px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 2026-07-17 旧 .vec-date 样式已被前面的新样式取代,此处删除避免冲突 */
 
+/* ── 空态 ── */
+.vec-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-3);
+  grid-column: 1 / -1;
+}
+.vec-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
+.vec-empty-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.vec-empty-hint { font-size: 12px; color: var(--text-3); max-width: 480px; margin: 0 auto; }
 
-/* Pagination — 沿用全局 `.pagination` / `.page-btn` 样式 */
+/* ── 分页 — 沿用全局 .pagination / .page-btn ── */
 .vec-pagination {
   position: sticky;
   bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   gap: 5px;
   padding: 12px 18px;
-  border-top: 1px solid rgba(15,23,42,0.08);
+  margin-top: 12px;
   background: rgba(241,245,249,0.95);
   backdrop-filter: blur(8px);
-  flex-shrink: 0;
-  margin-top: 12px;
+  border-top: 1px solid rgba(15,23,42,0.06);
   border-radius: 10px;
-  z-index: 5;
+}
+
+/* ── Transition ── */
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ── 响应式 ── */
+@media (max-width: 1200px) {
+  .vec-stat-cards { grid-template-columns: 1fr 1fr; }
+  .vec-stat-card-meta { grid-column: 1 / -1; }
+}
+@media (max-width: 768px) {
+  .vec-stat-cards { grid-template-columns: 1fr; }
+  .vec-toolbar-main { width: 100%; }
 }
 </style>
-
-/* ── 新增/编辑对话框样式（fix 2026-07-12） ───────────────── */
-.vec-add-btn {
-  padding: 6px 12px;
-  background: var(--primary, #2563eb);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.vec-add-btn:hover { background: #1d4ed8; }
-
-.vec-row-id-wrap { display: flex; align-items: center; gap: 6px; }
-.vec-row-actions { display: none; gap: 2px; }
-.vec-row-id-wrap:hover .vec-row-actions { display: inline-flex; }
-.vec-action-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-.vec-action-btn:hover { background: rgba(15, 23, 42, 0.06); }
-.vec-action-btn.danger:hover { background: rgba(239, 68, 68, 0.08); }
-
-.vec-modal-mask {
-  position: fixed; inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  z-index: 100;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
-.vec-modal {
-  background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-}
-.vec-modal-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(15,23,42,0.08);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.vec-modal-title { font-size: 16px; font-weight: 600; }
-.vec-modal-close {
-  cursor: pointer; font-size: 18px; color: #94a3b8;
-  padding: 4px 8px; border-radius: 4px;
-}
-.vec-modal-close:hover { background: rgba(15,23,42,0.06); }
-.vec-modal-body { padding: 20px; overflow-y: auto; }
-.vec-form-row { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
-.vec-form-label {
-  font-size: 13px; font-weight: 500; color: #475569;
-  display: flex; align-items: center; gap: 8px;
-}
-.vec-form-hint { font-size: 11px; color: #94a3b8; font-weight: 400; }
-.vec-form-input, .vec-form-textarea {
-  padding: 8px 12px;
-  border: 1px solid rgba(15,23,42,0.12);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.vec-form-input:focus, .vec-form-textarea:focus {
-  border-color: var(--primary, #2563eb);
-}
-.vec-form-textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
-.vec-form-error {
-  color: #dc2626; font-size: 13px;
-  padding: 8px 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border-radius: 6px;
-  margin-top: 8px;
-}
-.vec-modal-footer {
-  padding: 14px 20px;
-  border-top: 1px solid rgba(15,23,42,0.08);
-  display: flex; justify-content: flex-end; gap: 8px;
-}
-.btn-ghost {
-  padding: 8px 16px; border: 1px solid rgba(15,23,42,0.12);
-  background: white; border-radius: 6px; cursor: pointer; font-size: 13px;
-}
-.btn-ghost:hover { background: rgba(15,23,42,0.04); }
-.btn-primary {
-  padding: 8px 16px; background: var(--primary, #2563eb);
-  color: white; border: none; border-radius: 6px;
-  cursor: pointer; font-size: 13px;
-}
-.btn-primary:hover:not(:disabled) { background: #1d4ed8; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

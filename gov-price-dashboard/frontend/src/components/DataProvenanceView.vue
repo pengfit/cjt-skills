@@ -142,108 +142,11 @@
           :loading="sqSamplesLoading"
           :sampleMsg="specQuality.message || ''"
           @close="closeSamples"
-          @fix="openFixCase"
         />
       </div>
     </div>
 
     <!-- Spec 修复 Modal -->
-    <div class="fix-overlay" v-if="fixCase" @click.self="closeFixCase">
-      <div class="fix-modal">
-        <div class="fix-header">
-          <div class="fix-title">✎ Spec 规则修复建议</div>
-          <button class="fix-close" @click="closeFixCase">✕</button>
-        </div>
-        <div class="fix-body">
-
-          <!-- 规格信息卡 -->
-          <div class="fix-spec-card">
-            <div class="fix-spec-row">
-              <span class="fix-spec-label">规格</span>
-              <span class="fix-spec-value">{{ fixCase.spec }}</span>
-            </div>
-            <div class="fix-spec-row" v-if="fixCombinedResult && Object.keys(fixCombinedResult).length">
-              <span class="fix-spec-label">AI 解析</span>
-              <div class="fix-current">
-                <span v-for="(v,k) in fixCombinedResult" :key="k" class="fix-ai-result-chip">{{ k }}: {{ v }}</span>
-              </div>
-            </div>
-            <div class="fix-spec-row" v-if="fixCase.attr_keys?.length">
-              <span class="fix-spec-label">已有属性</span>
-              <div class="fix-current">
-                <span v-for="k in fixCase.attr_keys" :key="k" class="fix-attr-chip">{{ k }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 分析按钮 -->
-          <div class="fix-actions">
-            <button class="btn-analyze" @click="previewFix" :disabled="fixLoading">
-              <span class="btn-analyze-icon">{{ fixLoading ? '⏳' : '✨' }}</span>
-              {{ fixLoading ? 'AI 分析中...' : 'AI 建议（规则）' }}
-            </button>
-          </div>
-
-          <!-- 分析结果 -->
-          <div class="fix-suggestions" v-if="fixSuggestions.length">
-            <div class="fix-suggestions-header">
-              <span class="fix-suggestions-count">{{ fixSuggestions.length }} 条规则建议</span>
-            </div>
-            <div v-for="(sg, i) in fixSuggestions" :key="i" class="fix-suggestion-card">
-              <div class="fix-sg-card-header">
-                <div class="fix-sg-rule-badge">
-                  <span class="fix-sg-attr-tag">{{ sg.attr }}</span>
-                  <span class="fix-sg-note-tag">{{ sg.note }}</span>
-                </div>
-              </div>
-              <div class="fix-sg-card-body">
-                <div class="fix-sg-pattern-row">
-                  <span class="fix-sg-key">pattern</span>
-                  <code class="fix-sg-pattern">{{ sg.pattern }}</code>
-                </div>
-                <div class="fix-sg-code-block">
-                  <pre class="fix-sg-code">{{ sg.code_block }}</pre>
-                </div>
-                <div class="fix-sg-result-row" v-if="sg.parse_result && Object.keys(sg.parse_result).length">
-                  <span class="fix-sg-key">解析结果</span>
-                  <div class="fix-sg-result-tags">
-                    <span v-for="(v,k) in sg.parse_result" :key="k" class="fix-sg-result-chip">{{ k }}: {{ v }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="fix-sg-card-footer">
-                <button class="btn-confirm-fix" :disabled="sg.applied" @click="confirmFix(sg)">
-                  {{ sg.applied ? '✓ 已录入' : '✅ 确认录入规则库' }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 加载中 -->
-          <div class="fix-loading-placeholder" v-else-if="fixLoading">
-            <div class="fix-loading-funnel"><div class="funnel-icon">⏳</div></div>
-            <span>AI 分析中...</span>
-          </div>
-
-          <!-- 结果反馈 -->
-          <div class="fix-result" v-if="fixResult">
-            <div class="fix-result-ok" v-if="fixResult.ok">✅ {{ fixResult.message }}</div>
-            <div class="fix-result-fail" v-else>❌ {{ fixResult.message }}</div>
-          </div>
-
-          <!-- 成功弹窗 -->
-          <div class="fix-success-modal" v-if="showFixSuccess">
-            <div class="fix-success-content">
-              <div class="fix-success-icon">✅</div>
-              <div class="fix-success-title">规则已录入规则库</div>
-              <div class="fix-success-msg">{{ fixSuccessMsg }}</div>
-              <button class="btn-ok" @click="showFixSuccess = false">确定</button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
 
     <!-- 同步 toast(C.2026-07-12 P0) -->
     <Transition name="fade">
@@ -514,10 +417,6 @@ function closeSamples() {
   sqCatFilter.value = ''
   specQuality.value = { ...specQuality.value, samples: [] }
 }
-const fixCase = ref(null)
-const fixSuggestions = ref([])
-const fixResult = ref(null)
-const fixLoading = ref(false)
 const refreshLoading = ref(false)
 const sqCatFilter = ref('')
 const sqCatOptions = ref([])
@@ -531,77 +430,6 @@ const cleaningCatsKey = computed(() => {
   const keys = Object.keys(cleaningCats.value)
   return keys.length === 1 ? keys[0] : ''
 })
-const fixCombinedResult = ref({})
-const showFixSuccess = ref(false)
-const fixSuccessMsg = ref('')
-
-function openFixCase(s) {
-  sqActiveCat.value = ''
-  fixCase.value = s
-  fixSuggestions.value = []
-  fixResult.value = null
-}
-
-function closeFixCase() {
-  fixCase.value = null
-  fixSuggestions.value = []
-  fixResult.value = null
-  fixCombinedResult.value = {}
-}
-
-async function previewFix() {
-  if (!fixCase.value) return
-  fixLoading.value = true
-  fixSuggestions.value = []
-  fixResult.value = null
-  try {
-    const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
-      city: dwdDrilldownCity.value || 'xian',
-      spec: fixCase.value.spec,
-      breed: fixCase.value.breed || '',
-      category: fixCase.value.category || '',
-      expected: {},
-      confirm: false,
-    })
-    if (res.data.ok) {
-      fixSuggestions.value = res.data.suggestions || []
-      fixCombinedResult.value = res.data.parse_result || {}
-    } else {
-      fixResult.value = { ok: false, message: res.data.message }
-    }
-  } catch(e) {
-    fixResult.value = { ok: false, message: e.message }
-  } finally {
-    fixLoading.value = false
-  }
-}
-
-async function confirmFix(sg) {
-  if (!fixCase.value) return
-  fixLoading.value = true
-  fixResult.value = null
-  try {
-    const res = await axios.post(`${API}/stats/spec-quality/fix-case`, {
-      city: dwdDrilldownCity.value || 'xian',
-      spec: fixCase.value.spec,
-      breed: fixCase.value.breed || '',
-      category: fixCase.value.category || '',
-      expected: {},
-      confirm: true,
-      suggestions: [sg],
-    })
-    fixResult.value = res.data
-    if (res.data.ok) {
-      sg.applied = true
-    }
-  } catch(e) {
-    fixResult.value = { ok: false, message: e.message }
-  } finally {
-    fixLoading.value = false
-  }
-}
-
-
 async function loadData() {
   loading.value = true
   error.value = ''

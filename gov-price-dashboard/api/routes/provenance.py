@@ -1615,24 +1615,6 @@ def _get_ref_attr_names() -> str:
         names = _get_ref_attr_names_from_db()
         _ATTR_NAMES_CACHE = (names, time.time())
     return ", ".join(names)
-
-def fix_case_prompt_fn(spec, breed="", category="", expected=None):
-    """生成 fix-case API 的 user content（fix-case 端点专用）"""
-    prompts_cfg = PROMPTS.get("fix_case", {})
-    tmpl = prompts_cfg.get("template", "")
-    breed_hint = f"{breed}" if breed else ""
-    cat_hint = f"{category}" if category else ""
-    attr_desc = ", ".join(f"{k}({v})" for k, v in ATTR_FIELDS_MAP.items())
-    expected_json = json.dumps(expected or {}, ensure_ascii=False)
-    ref_attr_names = _get_ref_attr_names()
-    return tmpl.format(
-            spec=spec,
-            breed_hint=breed_hint,
-            cat_hint=cat_hint,
-            ref_attr_names=ref_attr_names,
-        )
-
-
 def classify_breed_batch_prompt_fn(breeds: list[str]) -> str:
     """生成 classify-breed-batch API 的 user content"""
     prompts_cfg = PROMPTS.get("classify_breed_batch", {})
@@ -1909,11 +1891,7 @@ def stats_rules_vector(
     if attr:
         where_clauses.append("attr = ?")
         params.append(attr)
-    if category == '（空）':
-        where_clauses.append("(category = '' OR category IS NULL)")
-    elif category:
-        where_clauses.append("category = ?")
-        params.append(category)
+    # v0.8+: category 列已 DROP,参数保留兼容旧 URL,过滤走 l3
     if l3 == '（空）':
         where_clauses.append("(l3 = '' OR l3 IS NULL)")
     elif l3:
@@ -1937,7 +1915,7 @@ def stats_rules_vector(
     offset = (page - 1) * page_size
     order = order.lower() if order.lower() in ("asc", "desc") else "desc"
     c.execute(
-        f"SELECT id, pattern, attr, note, code, breed, category, l3, tokens, created_at "
+        f"SELECT id, pattern, attr, note, code, breed, l3, tokens, created_at "
         f"FROM breed_spec_rules WHERE {where_sql} ORDER BY id {order.upper()} LIMIT ? OFFSET ?",
         params + [page_size, offset]
     )
@@ -1946,7 +1924,6 @@ def stats_rules_vector(
 
     items = []
     for r in rows:
-        cat = r[6] or ""
         items.append({
             "id": r[0],
             "pattern": r[1],
@@ -1954,10 +1931,9 @@ def stats_rules_vector(
             "note": r[3],
             "code": r[4],
             "breed": r[5] or "",
-            "category": cat,
-            "l3": r[7] or "",  # v0.7+: L3 分项工程
-            "tokens": r[8] or "",
-            "created_at": r[9],
+            "l3": r[6] or "",  # v0.7+: L3 分项工程
+            "tokens": r[7] or "",
+            "created_at": r[8],
         })
 
     conn2 = sqlite3.connect(db_path)
@@ -1966,12 +1942,34 @@ def stats_rules_vector(
     attr_options = [{"key": row[0], "count": row[1]} for row in c2.fetchall()]
     conn2.close()
 
-    # Category 列表（用于下拉）
-    conn3 = sqlite3.connect(db_path)
-    c3 = conn3.cursor()
-    c3.execute("SELECT category, COUNT(*) FROM breed_spec_rules GROUP BY category ORDER BY category")
-    category_options = [{"key": row[0] or "（空）", "label": row[0] or "（空）", "count": row[1]} for row in c3.fetchall()]
-    conn3.close()
+    # v0.8+: category 列已 DROP，category_options 改为从 l3 推导 l2 名（JOIN category_v3）
+    category_options = []
+    try:
+        cat_db_path = os.path.expanduser(
+            "~/.openclaw/workspace/cjt/skills/data/breed_canonical.db"
+        )
+        if os.path.exists(cat_db_path):
+            conn3 = sqlite3.connect(db_path)
+            conn_cat = sqlite3.connect(cat_db_path)
+            l2_rows = conn_cat.execute(
+                "SELECT l3, l2 FROM category_v3 WHERE l3 IS NOT NULL AND l3 != ''"
+            ).fetchall()
+            conn_cat.close()
+            l3_to_l2 = {r[0]: r[1] for r in l2_rows}
+            sr_rows = conn3.execute(
+                "SELECT l3 FROM breed_spec_rules WHERE l3 IS NOT NULL AND l3 != ''"
+            ).fetchall()
+            from collections import Counter as _Counter
+            l2_cnt = _Counter()
+            for (l3v,) in sr_rows:
+                l2_cnt[l3_to_l2.get(l3v, "（空）")] += 1
+            conn3.close()
+            category_options = [
+                {"key": k, "label": k, "count": v}
+                for k, v in sorted(l2_cnt.items(), key=lambda x: (-x[1], x[0]))
+            ]
+    except Exception:
+        category_options = []
 
     # v0.7+: L3 列表(供前端下拉)
     conn4 = sqlite3.connect(db_path)
@@ -1989,7 +1987,7 @@ def stats_rules_vector(
         "items": items,
         "attr_options": attr_options,
         "category_options": category_options,
-            "l3_options": l3_options,
+        "l3_options": l3_options,
     }
 
 @router.get("/api/stats/spec-quality")
@@ -2279,17 +2277,6 @@ def flush_city_dws(
 # Spec 修复接口：预览 + 确认写入
 # ═══════════════════════════════════════════════════════
 
-
-class FixCaseRequest(BaseModel):
-    city: str = "xian"
-    spec: str
-    expected: dict
-    confirm: bool = False
-    suggestions: list = []
-    breed: str = ""
-    category: str = ""
-
-
 def _apply_rule_to_base(code_lines: list, attr: str, note: str, pattern: str = "", breed: str = "", category: str = "") -> str | bool:
     """
     写入规则：向量库为唯一来源，rules/*.py 不再写入。
@@ -2568,68 +2555,6 @@ def _fix_json_escapes(s):
             i += 1
     return ''.join(result)
 
-
-def _call_openclaw_llm(spec: str, expected: dict, breed: str = "", category: str = "") -> dict:
-    """本地规则库为空时，调用 OpenClaw /v1/chat/completions 获取 AI 规则建议"""
-    import urllib.request, urllib.error
-    token = ""
-    try:
-        with open("/Users/pengfit/.openclaw/openclaw.json") as f:
-            import json
-            d = json.load(f)
-            token = d.get("gateway", {}).get("auth", {}).get("token", "")
-    except Exception:
-        return {"ok": False, "message": "无法读取 OpenClaw token"}
-
-    prompt = fix_case_prompt_fn(spec, breed=breed, category=category, expected=expected)
-    system_msg = PROMPTS.get("fix_case", {}).get("system", "")
-
-    body = json.dumps({
-        "model": "openclaw",
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": prompt},
-        ],
-        "user": "spec-fix-agent"
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "http://localhost:18789/v1/chat/completions",
-        data=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        import http.client
-        c = http.client.HTTPConnection("localhost", 18789, timeout=60)
-        c.request("POST", "/v1/chat/completions", body=body, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Content-Length": str(len(body)),
-        })
-        resp = c.getresponse()
-        data = json.loads(resp.read())
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not content:
-            return {"ok": False, "message": "AI 返回空内容"}
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
-                content = content[4:]
-        result = _parse_ai_json(content)
-        return result
-    except urllib.error.URLError as e:
-        return {"ok": False, "message": f"OpenClaw 连接失败: {e}"}
-    except json.JSONDecodeError as e:
-        return {"ok": False, "message": f"AI 返回格式错误: {e}"}
-    except Exception as e:
-        return {"ok": False, "message": f"AI 分析异常: {e}"}
-
-
 @router.post("/api/stats/spec-quality/batch-spec-parse")
 def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
     """
@@ -2730,129 +2655,6 @@ def batch_spec_parse(req: BatchSpecParseRequest = Body(...)):
         "results": all_results,
         "rules_written": rules_written,
     }
-
-
-@router.post("/api/stats/spec-quality/fix-case")
-def fix_spec_case(req: FixCaseRequest = Body(...)):
-    """
-    confirm=False（默认）：分析返回规则建议（预览）
-    confirm=True：用户确认后写入 rules/ 目录，触发 ETL
-    suggestions 由前端直接传入，跳过 AI 生成
-    """
-    import shutil, re as re_mod
-
-    city = req.city
-    spec = req.spec.strip()
-    expected = req.expected
-
-    if req.confirm:
-        # confirm=True: 使用前端传入的 suggestions 直接写入，不调 AI
-        if req.suggestions:
-            all_suggestions = list(req.suggestions)
-        else:
-            return {"ok": False, "message": "confirm=True 但无 suggestions，请先预览", "spec": spec}
-    else:
-        # 预览模式：先尝试本地规则库，再用 AI 生成建议
-        all_suggestions = list(req.suggestions) if req.suggestions else []
-        if not all_suggestions:
-            ai_result = _call_openclaw_llm(
-                spec, expected,
-                req.breed if hasattr(req, "breed") and req.breed else "",
-                req.category if hasattr(req, "category") and req.category else "",
-            )
-            if ai_result.get("ok"):
-                ai_suggestions = ai_result.get("suggestions", [])
-                if ai_suggestions:
-                    all_suggestions = ai_suggestions
-            if not all_suggestions:
-                return {
-                    "ok": False,
-                    "message": ai_result.get("message", "无法为此 spec 生成规则建议"),
-                    "spec": spec,
-                    "expected": expected,
-                }
-
-    if not req.confirm:
-        # 预览模式：模拟解析结果
-        parse_result = {}
-        for s in all_suggestions:
-            pattern = s.get("pattern", "")
-            if not pattern:
-                continue
-            try:
-                code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
-                exec_globals = {"result": {}, "re": re_mod, "s": spec}
-                exec("\n".join(code_block), exec_globals)
-                parse_result.update(exec_globals.get("result", {}))
-            except Exception:
-                pass
-        return {
-            "ok": True,
-            "mode": "preview",
-            "spec": spec,
-            "expected": expected,
-            "source": "ai" if not req.suggestions else "local",
-            "parse_result": parse_result,
-            "suggestions": [
-                {
-                    "note": s["note"],
-                    "attr": s["attr"],
-                    "pattern": s["pattern"],
-                    "code_block": "\n".join(s["code_block"]) if isinstance(s["code_block"], list) else s["code_block"],
-                }
-                for s in all_suggestions
-            ],
-        }
-
-    # confirm 模式：写入 rules/ 目录
-    applied_note = None
-    wrote_new = False
-    for s in all_suggestions:
-        code_block = s["code_block"] if isinstance(s["code_block"], list) else s["code_block"].replace("\\n", "\n").split("\n")
-        # 反查补全 category：请求为空时，从 category_v2_rules.db 反查（_resolve_category_for_breed 待实现）
-        _s_breed = req.breed or s.get("breed", "")
-        _s_category = req.category or s.get("category", "") or _resolve_category_for_breed(_s_breed)
-        result = _apply_rule_to_base(
-            code_block, s["attr"], s["note"], s.get("pattern", ""),
-            _s_breed, _s_category,
-        )
-        if result is False:
-            return {"ok": False, "message": "规则写入失败，已 rollback", "spec": spec}
-        if result in ("new", "duplicate"):
-            wrote_new = True
-        code_str = "\n".join(code_block)
-        passed, total = _run_spec_validation_quiet(spec, s["attr"], code_str)
-        if not (passed == total and total > 0):
-            return {
-                "ok": False,
-                "mode": "confirm",
-                "message": f"测试集 {passed}/{total} 不通过，rollback",
-                "spec": spec,
-            }
-        applied_note = s["note"]
-
-    if not wrote_new:
-        return {
-            "ok": True,
-            "mode": "confirm",
-            "spec": spec,
-            "expected": expected,
-            "message": "规则已存在，无需录入。",
-            "etl_ok": True,
-        }
-
-    return {
-        "ok": True,
-        "mode": "confirm",
-        "spec": spec,
-        "expected": expected,
-        "message": "规则已录入规则库。清洗请通过「分类清洗」按钮触发",
-        "etl_ok": False,
-    }
-
-
-
-# ── 清洗维度汇总（方案 A：分类清洗 + 规格清洗两个汇总面板）────────────
 @router.get("/api/stats/clean-summary")
 def clean_summary(
     dim: str = Query("category", pattern="^(category|spec)$", description="聚合维度: category=一级分类, spec=规格"),
