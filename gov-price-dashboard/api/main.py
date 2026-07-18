@@ -11,11 +11,8 @@ ES_INDEX = os.environ.get("ES_INDEX", "dwd_xian_price")
 
 # 分类库路径（2026-07-09 起统一到 breed_canonical.db）
 # 原 category_v3_rules.db 仍由 gov-price-etl 写入，但 dashboard 层改读 breed_canonical.db
-# 单一数据源：breed_canonical.db 内已包含 category_v3 表（分类法骨架）
-CATEGORY_DB = os.environ.get(
-    "CATEGORY_DB",
-    os.path.expanduser("~/.openclaw/workspace/cjt/skills/data/breed_canonical.db"),
-)
+# 路径统一从 api.paths 推导（单一来源，只读 SKILLS_ROOT 环境变量）
+from api.paths import CATEGORY_DB  # noqa: E402
 
 # 集中引用 skill registry（见 api/skill_registry.py）
 # 新增/修改 skill 只需编辑 skills/<name>/skill.yml，重启后自动生效
@@ -201,9 +198,11 @@ def _build_bool_query(must_clauses, filter_clauses):
     return {"bool": {"must": must_clause}}
 
 
-@app.get("/")
-def root():
-    return {"message": "材价通 API", "version": "1.0.0"}
+# @app.get("/") 原返回 JSON，现改为 SPA 路由处理（让 Vue index.html 占领根路径）
+# API 信息改为 /api/ 路径，避免与 SPA fallback 冲突
+@app.get("/api/", include_in_schema=False)
+def api_info():
+    return {"message": "材价通 API", "version": "1.0.0", "docs": "/api/health"}
 
 
 @app.get("/api/taxonomy/v3/tree")
@@ -2013,6 +2012,54 @@ def geo_regions():
         return {"provinces": provinces}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ 前端静态服务（Docker 部署）============
+# Dockerfile 构建时 COPY frontend/dist → /app/static
+# 仅当 /app/static 存在时挂载（开发环境没 dist 也不报错）
+import os as _os
+from fastapi.staticfiles import StaticFiles as _StaticFiles
+from fastapi.responses import FileResponse as _FileResponse
+from fastapi import HTTPException as _HTTPException
+
+_STATIC_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "static")
+_STATIC_DIR = _os.path.normpath(_STATIC_DIR)
+
+if _os.path.isdir(_STATIC_DIR):
+    # 1) 静态资源（/assets/* → /app/static/assets/*）
+    _assets_dir = _os.path.join(_STATIC_DIR, "assets")
+    if _os.path.isdir(_assets_dir):
+        app.mount("/assets", _StaticFiles(directory=_assets_dir), name="assets")
+
+    # 2) /api/health 健康检查（Docker healthcheck 依赖）
+    @app.get("/api/health", include_in_schema=False)
+    async def _health():
+        return {"ok": True, "service": "gov-price-dashboard"}
+
+    # 3) SPA fallback（Vue Router history 模式）
+    #    非 /api/* 请求全部返回 index.html，路由由前端处理
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_fallback(full_path: str):
+        # 不拦 /api（已被上面 router 处理，这里仅作为 catch-all）
+        if full_path.startswith("api/"):
+            raise _HTTPException(status_code=404, detail="API not found")
+
+        # 静态文件（favicon.ico 等）直接返回
+        file_path = _os.path.join(_STATIC_DIR, full_path)
+        if _os.path.isfile(file_path):
+            return _FileResponse(file_path)
+
+        # 其余返回 index.html
+        index_path = _os.path.join(_STATIC_DIR, "index.html")
+        if _os.path.isfile(index_path):
+            return _FileResponse(index_path)
+
+        raise _HTTPException(status_code=404, detail="Frontend not built")
+else:
+    # 开发环境没 dist 时，只暴露 /api/health
+    @app.get("/api/health", include_in_schema=False)
+    async def _health():
+        return {"ok": True, "service": "gov-price-dashboard", "frontend": "not_built"}
 
 
 if __name__ == "__main__":

@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  dashboard:
+    build:
+      # 上下文设父目录，让 Dockerfile 能 COPY skills/ 和 gov-price-dashboard/
+      context: ..
+      dockerfile: gov-price-dashboard/Dockerfile
+    image: pengfit/dashboard:latest
+    container_name: gov-price-dashboard
+    restart: unless-stopped
+    ports:
+      # host nginx(8088) → 127.0.0.1:8080 → 容器内 uvicorn:5200
+      - "127.0.0.1:8080:5200"
+    environment:
+      - ES_HOST=http://host.docker.internal:59200
+      - ES_INDEX=dws_xian_price
+      # 所有 db / ETL 路径从 SKILLS_ROOT 推导（详见 api/paths.py）
+      - SKILLS_ROOT=/app/skills
+    extra_hosts:
+      # macOS Docker Desktop 默认支持，但显式声明更稳
+      # Linux Docker 也会自动解析 host-gateway
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5200/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

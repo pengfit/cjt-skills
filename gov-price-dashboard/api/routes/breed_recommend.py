@@ -30,11 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.routes.provenance import _registry_get_all, ES_HOST
 
 # 2026-07-09 起 dashboard 层统一从 breed_canonical.db 读（category_v3 表内嵌）
-# 与 api/routes/category_trend.py 内的 _CANON_DB 同源
-_CANON_DB = Path(os.environ.get(
-    "BREED_CANONICAL_DB",
-    "/Users/pengfit/.openclaw/workspace/cjt/skills/data/breed_canonical.db",
-))
+# 与 api/routes/category_trend.py / provenance.py 同源（2026-07-18 统一从 api.paths 读）
+from api.paths import CATEGORY_DB as _CANON_DB  # noqa: E402
 
 
 def _canon_db_ready() -> bool:

@@ -112,5 +112,11 @@ export function useFormatReactive() {
   }
 }
 
+// 货币格式快捷版（直接调用 fmtMoney(value) 返回格式化金额字符串）
+// 2026-07-18 补充：BreedDetailView.vue 需要此 export
+export function useFormatMoney() {
+  return fmtPrice
+}
+
 // 同时提供具名常量,方便直接 import { fmtPrice } from '...'
 export { num, fmtInt, fmtPrice, fmtCompact, fmtCount, fmtPct, fmtDelta }

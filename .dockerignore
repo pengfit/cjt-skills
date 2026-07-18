@@ -1,0 +1,34 @@
+# .dockerignore for skills/ 根（build context 为 .. 时生效）
+# 过滤与 dashboard 镜像无关的内容，缩短 build context 传输
+# 注：gov-price-dashboard/ 不能排除（Dockerfile 要从它 COPY）
+
+# 版本控制 + IDE 缓存
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# skills/ 下各 skill 的运行时缓存和本地环境
+*/.venv/
+*/node_modules/
+*/__pycache__/
+*/etl_env/
+*/.pytest_cache/
+*/dist/
+*/build/
+*/.idea/
+*/.DS_Store
+
+# dashboard 不读的 db（v2/v3 分类法 + 白名单），只服务 ETL 自身
+# ETL 还能正常写读 host 上的原文件
+*/category_v2_rules.db
+*/category_v3_rules.db
+*/category_l3_whitelist.json
+
+# 文档（不要进镜像）
+README.md
+*.md

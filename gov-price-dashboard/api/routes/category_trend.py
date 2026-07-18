@@ -187,7 +187,8 @@ def _all_norm_indices_csv(max_cities: int = 50) -> Tuple[str, List[dict]]:
 #   原 category_v3_rules.db 不再被本模块读
 # ──────────────────────────────────────────────────────────────────────────
 
-_CANON_DB = Path("/Users/pengfit/.openclaw/workspace/cjt/skills/data/breed_canonical.db")
+# 与 breed_recommend.py / provenance.py 同源（2026-07-18 统一从 api.paths 读）
+from api.paths import CATEGORY_DB as _CANON_DB  # noqa: E402
 
 
 def _l3_info_from_v3(l3_code: str) -> dict:
