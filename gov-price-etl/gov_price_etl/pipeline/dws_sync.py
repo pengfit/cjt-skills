@@ -90,15 +90,41 @@ def _source_to_dws(d: dict) -> dict:
 
 
 # ── 阶段 2: 本地规则库解析 ──────────────────────────────────────────────
+# 2026-07-18: catch-all 拦截已下放到 parse_spec/base.py (CATCH_ALL_KEYS)
+# 本文件 dedup 只处理描述字段去重，数值字段不去重
+
+# 数值字段（不去重）—— 即使 width=240 + length=240 数字相同，语义不同也不能合并
+_NUMERIC_ATTR_KEYS = frozenset({
+    "wall_thickness", "core_count", "thickness",
+    "diameter", "outer_diameter", "inner_diameter",
+    "length", "width", "height", "voltage", "pressure",
+    "cross_section", "cross_section_area", "ring_stiffness", "fiber_core",
+    "channels", "doors", "current", "temperature", "output",
+    "spec_volume", "weight",
+})
+# 描述字段（catch-all 同值去重）—— type/grade/material/spec/note 同值只保留一个
+_DESC_ATTR_KEYS = frozenset({
+    "material", "type", "grade", "spec", "note", "feature", "usage",
+    "series", "model", "color", "surface", "form",
+    "fire_rating", "ip_rating", "drain_type", "inlet_type", "installation_type",
+})
+
+
 def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
-    """v0.7+:同一 spec 值被填入多个 attr 时,按语义优先级保留 1 个。
+    """v0.7+:同值多 attr 去重。
 
-    场景:纯文字 spec (如"珍珠岩")被多个 catch-all 规则填到 type/grade/material,
-    但正确归属只该是 material。这种数据冗余要清理掉,避免下游看板分类错误。
+    场景:纯文字 spec (如"珍珠岩"、"综合")被多个 catch-all 规则填到 type/grade/material,
+    但正确归属只该是一个。这种数据冗余要清理掉,避免下游看板分类错误。
 
-    优先级顺序（业务约定，material 最贴切）:
-      material > diameter/thickness/width/length/height > strength
-      > pressure > grade > type > spec
+    2026-07-18 改造:
+      - 数值字段（width/height/thickness/length/diameter...）不去重——
+        即使多个 attr 的 value 数字相同（如 width=240 + length=240）,
+        语义不同也不能合并。
+      - 描述字段（type/grade/material/spec/note...）才去重——
+        catch-all 同值时按业务优先级保留 1 个。
+
+    描述字段优先级顺序（业务约定）:
+      material > grade > type > spec > note > 其他描述字段
 
     Args:
         attrs: 解析出的 {attr: value} 字典
@@ -116,9 +142,9 @@ def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
     for k, v in attrs.items():
         val_to_attrs[v].append(k)
 
-    priority = [
-        'material', 'diameter', 'thickness', 'width', 'length', 'height',
-        'strength', 'pressure', 'grade', 'type', 'spec', 'note'
+    desc_priority = [
+        'material', 'grade', 'type', 'spec', 'note',
+        'feature', 'usage', 'series', 'model', 'color', 'surface', 'form',
     ]
 
     cleaned = {}
@@ -126,15 +152,27 @@ def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
         if len(ks) == 1:
             cleaned[ks[0]] = v
         else:
-            # 多 attr 同值: 取优先级最高的保留,其余丢
-            kept = None
-            for p in priority:
-                if p in ks:
-                    kept = p
-                    break
-            if not kept:
-                kept = ks[0]
-            cleaned[kept] = v
+            # 2026-07-18: 拆分数值字段 vs 描述字段
+            numeric_ks = [k for k in ks if k in _NUMERIC_ATTR_KEYS]
+            desc_ks = [k for k in ks if k in _DESC_ATTR_KEYS]
+            other_ks = [k for k in ks if k not in _NUMERIC_ATTR_KEYS and k not in _DESC_ATTR_KEYS]
+
+            # 数值字段全部保留（不去重）
+            for k in numeric_ks:
+                cleaned[k] = v
+            # 描述字段按优先级去重保留 1 个
+            if desc_ks:
+                kept = None
+                for p in desc_priority:
+                    if p in desc_ks:
+                        kept = p
+                        break
+                if not kept:
+                    kept = desc_ks[0]
+                cleaned[kept] = v
+            # 其他字段全部保留（未知 key 不去重，避免误丢）
+            for k in other_ks:
+                cleaned[k] = v
     return cleaned
 
 
@@ -145,6 +183,8 @@ def _parse_spec_local(spec: str, breed: str, category: str, city: str,
     v0.7:加 l3 参数(类目分级,如"建筑玻璃" / "焊接与切割材料"),
     透传到 parser.parse() 用于 vector_store 召回加权(+0.40 最高优先级)。
     v0.7+:末尾加 _dedup_attr_by_spec_value 清理同值多 attr 冗余。
+    v0.8+ (2026-07-18): 移除 filter_by_l3_whitelist 调用（白名单生成逻辑有 bug,
+    会误过滤掉 width/height/thickness 等数值字段。catch-all 拦截已下放 parser 层）。
 
     Returns:
         {attr_name: value, ...} 或 {}(未命中)
@@ -156,9 +196,8 @@ def _parse_spec_local(spec: str, breed: str, category: str, city: str,
         return {}
     try:
         parsed = parser.parse(spec, breed, category, l3)
-        # v0.7+: L3 类目白名单过滤(数据驱动生成)
-        parsed = filter_by_l3_whitelist(parsed, l3)
-        # v0.7+: dedup 同值多 attr (如"珍珠岩"同时填 type 和 grade)
+        # v0.8+ (2026-07-18): 移除白名单过滤，避免误过滤数值字段
+        # v0.7+: dedup 仅对描述字段去重（数值字段不去重）
         parsed = _dedup_attr_by_spec_value(parsed, spec)
         return {k: v for k, v in parsed.items() if v}
     except Exception:

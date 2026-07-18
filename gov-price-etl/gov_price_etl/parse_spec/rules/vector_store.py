@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS breed_spec_rules (
     attr        TEXT    NOT NULL,
     note        TEXT    DEFAULT '',
     code        TEXT    DEFAULT '',
-    breed       TEXT    DEFAULT '',
+    breed       TEXT    NOT NULL CHECK(breed <> ''),
     l3          TEXT    DEFAULT '',
     tokens      TEXT    DEFAULT '[]',
     created_at  TEXT    DEFAULT (datetime('now', 'localtime')),
@@ -79,11 +79,14 @@ CREATE TABLE IF NOT EXISTS breed_category_rules (
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     # v0.7+：检测旧 schema（无 l3 列）→ 迁移到新 schema
     # 迁移识别符：CREATE SQL 中是否含 l3 关键字。新 schema 已含 l3，跳过迁移。
+    # v0.9 (2026-07-18): 检测 breed CHECK 约束，缺则重建表
     cur = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='breed_spec_rules'"
     )
     row = cur.fetchone()
     needs_migration = bool(row) and 'l3' not in row[0].lower()
+    # v0.9: breed 字段须含 CHECK(breed <> '') 约束
+    needs_breed_check = bool(row) and 'CHECK(breed' not in row[0].replace(' ', '')
 
     if needs_migration:
         # 重命名旧表 → 建新表 → 拷贝数据 → 删旧表
@@ -98,6 +101,30 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         """)
         conn.execute("DROP TABLE breed_spec_rules_v6_old")
         conn.commit()
+    elif needs_breed_check:
+        # v0.9: 旧表缺 breed CHECK 约束 → 重建表，过滤掉空 breed 行
+        conn.execute("ALTER TABLE breed_spec_rules RENAME TO breed_spec_rules_v8_old")
+        conn.execute(CREATE_TABLE_SPEC)
+        # 拷贝数据时过滤掉空 breed 行（不达标不迁移）
+        cur_old = conn.execute(
+            "SELECT pattern, attr, note, code, breed, l3, tokens, created_at "
+            "FROM breed_spec_rules_v8_old WHERE breed IS NOT NULL AND breed <> ''"
+        )
+        rows = cur_old.fetchall()
+        conn.executemany(
+            "INSERT INTO breed_spec_rules "
+            "(pattern, attr, note, code, breed, l3, tokens, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        skipped = conn.execute(
+            "SELECT COUNT(*) FROM breed_spec_rules_v8_old WHERE breed IS NULL OR breed = ''"
+        ).fetchone()[0]
+        conn.execute("DROP TABLE breed_spec_rules_v8_old")
+        conn.commit()
+        if skipped:
+            import sys
+            print(f"[vector_store] v0.9 迁移: 跳过 {skipped} 条空 breed 规则", file=sys.stderr)
     else:
         conn.execute(CREATE_TABLE_SPEC)
         conn.commit()
@@ -237,7 +264,13 @@ class VecStore:
 
         v0.8+: 移除 category 字段（L3 已蕴含 category 信息）。
         保留 category 参数仅为兼容旧调用方,新代码不应再传。
+        v0.9 (2026-07-18): 强制 breed 非空——空 breed 会抛 ValueError。
         """
+        # v0.9 (2026-07-18): breed 强制非空校验，防止 AI 写规则时传入空字符串
+        if not breed or not str(breed).strip():
+            raise ValueError(
+                f"VecStore.insert: breed 不能为空 (pattern={pattern!r} attr={attr!r})"
+            )
         norm_pat = self._strip_r(pattern)
         tokens   = tokens or _build_tokens(norm_pat, attr, breed, l3)
         tok_json = json.dumps(list(tokens))
@@ -247,7 +280,7 @@ class VecStore:
             if skip_duplicate:
                 exists = conn.execute(
                     "SELECT 1 FROM breed_spec_rules WHERE pattern=? AND attr=? AND breed=? AND l3=?",
-                    (norm_pat, attr, breed or "", l3 or "")
+                    (norm_pat, attr, breed, l3 or "")
                 ).fetchone()
                 if exists:
                     return False

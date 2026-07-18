@@ -101,14 +101,18 @@ def clean_breed(breed: str) -> str:
 
 # ─── 规格清洗 ───────────────────────────────────────────────────────────────────
 def clean_spec(spec: str) -> str:
-    """标准化规格字符串"""
+    """标准化规格字符串
+
+    2026-07-18 改造（威海 ETL 复盘）：
+    - **保留内部空格** —— 空格在某些规格中是有效分隔符（如 "H 形钢"、"DN 65"、"C 30"），
+      删掉会导致后续 parse_spec / breed_spec_rules.db 召回率下降
+    - 只做头尾 strip（去爬虫无关空白），不删内部空格
+    """
     if not spec:
         return ""
     s = spec.strip()
     # 统一乘号
     s = s.replace("×", "*").replace("X", "*").replace("x", "*")
-    # 去除多余空格
-    s = re.sub(r'\s+', '', s)
     # 统一单位符号大小写
     s = s.replace("m³", "m³").replace("M³", "m³")
     return s

@@ -72,6 +72,12 @@ except Exception:
         "form", "color", "series", "temperature",
     ] + [k for k in _ATTR_PREFIX_EXTRAS]
 
+# ─── catch-all 拦截（2026-07-18）──────────────────────────
+# 场景：纯文字 spec（如"珍珠岩"、"综合"）被 catch-all 规则填到 material/type/grade，
+# 导致 attr 写"material='240*115*53'"这种把原 spec 当 material 的污染值。
+# 拦截策略：catch-all 类 attr 键 + value 与 spec 相同 → 不写入（兜底规则不算解析成功）。
+_CATCH_ALL_KEYS = frozenset({"material", "type", "grade", "spec", "note", "feature", "usage"})
+
 # ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
 
 # 2026-07-05 性能优化：预编译 pattern，避免每次 re.search 重复编译。
@@ -124,6 +130,10 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
             top_k=5000,
             attr_filter=attr_filter if attr_filter else None,
         )
+        # 2026-07-18: 过滤软删除的规则（attr 以 __deleted__ 开头）
+        # 软删除保留规则以便审计回滚，召回阶段直接跳过
+        # 注意：results 是 [(score, rule_dict), ...] 元组列表
+        results = [(score, r) for score, r in results if not r["attr"].startswith("__deleted__")]
         # 预编译 pattern，过滤编译失败的规则
         out = []
         for _, r in results:
@@ -201,6 +211,10 @@ class BaseParseSpec:
                 for k, v in exec_result.items():
                     # 规范命名：去掉 attr_ 前缀，统一为"干净"名称
                     norm_k = k[5:] if k.startswith("attr_") else k
+                    # 2026-07-18 catch-all 拦截：catch-all 类 attr 键 + value == spec → 跳过
+                    # 防止 material='240*115*53' 这种 spec 原值回流污染
+                    if norm_k in _CATCH_ALL_KEYS and str(v).strip() == spec.strip():
+                        continue
                     if v and norm_k not in claimed:
                         resolved[norm_k] = v
                         claimed.add(norm_k)
@@ -209,6 +223,9 @@ class BaseParseSpec:
                 groups = m.groups()
                 val = groups[0] if len(groups) >= 1 else m.group(0)
                 norm_attr = attr_name[5:] if attr_name.startswith("attr_") else attr_name
+                # 2026-07-18 catch-all 拦截（纯正则路径）
+                if norm_attr in _CATCH_ALL_KEYS and str(val).strip() == spec.strip():
+                    continue
                 if val and norm_attr not in claimed:
                     resolved[norm_attr] = val
                     claimed.add(norm_attr)

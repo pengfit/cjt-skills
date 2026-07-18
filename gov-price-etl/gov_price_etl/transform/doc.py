@@ -113,8 +113,7 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
     # ── v0.7: DWD 不再存 attr(避免脏数据随 DWD→DWS 阶段 1 扩散)──
     # attr 改为 DWS sync 阶段通过 _parse_spec_local 现算,
     # attr_source 永远是 local_db / ai / ai_fallback,不再有 etl 脏数据。
-    # spec_parsed 仍解析(用于调试),但不写 DWD 持久化字段。
-    spec_parsed = {k: v for k, v in spec_parsed.items() if v}
+    # 2026-07-18: 删掉 spec_parsed 死代码（解析后无下游使用）
     nested_attr = []  # 显式空 list,确保 DWD 不带 attr
 
     doc = {
