@@ -48,15 +48,23 @@ def _scroll_ods(
     新疆 ODS 的 update_date 是 keyword，改用 _period（date 类型）做正确时间排序。
     """
     session = get_es_client(es_host)
-    must = [{"match_all": {}}]
+    # v0.12+ (2026-07-18): 源头杜绝 — breed / spec 任一字段缺失或为空都不进 DWD。
+    # _base_must / must_not 三个路径（match_all / category / incremental）都加，
+    # 防 category/incremental 覆盖时丢失空值过滤。
+    _base_must = [
+        {"exists": {"field": "breed"}},   # breed 字段必须存在
+        {"exists": {"field": "spec"}},    # spec 字段必须存在
+    ]
     must_not = [
-        {"terms": {"breed.keyword": ["", "/"]}},
-        # 2026-06-30: 移除 spec.keyword 过滤（半月表天然粗砂/机制砂/电/水等品种无规格）
+        {"terms": {"breed.keyword": ["", "/"]}},  # breed 不能是 '' 或 '/'
+        {"term": {"spec.keyword": ""}},            # spec 不能是 ''
     ]
     if category and not (incremental and since_date):
-        must = [{"term": {"category": category}}]
+        must = _base_must + [{"term": {"category": category}}]
     elif incremental and since_date:
-        must = [{"range": {sort_field: {"gte": since_date}}}]
+        must = _base_must + [{"range": {sort_field: {"gte": since_date}}}]
+    else:
+        must = _base_must
 
     body = {
         "query": {"bool": {"must": must, "must_not": must_not}},
@@ -179,6 +187,12 @@ def etl_city(
         pages += 1
         try:
             breed_raw = raw.get("breed", "")
+            spec_raw = raw.get("spec", "")
+            # v0.12+ (2026-07-18): 源头杜绝 — breed/spec 任一为空都跳过（query 层已过滤，此处兑底）
+            if not breed_raw.strip() or not spec_raw.strip():
+                stats["failed"] += 1
+                stats["skipped_empty_breed_or_spec"] = stats.get("skipped_empty_breed_or_spec", 0) + 1
+                continue
             # 2026-06-29 新疆 ETL 优化 A：双 key 查询
             #   1. raw_breed 直接（ODS 文档的 breed 字段，含规格的完整名）
             #   2. ODS 索引的 breed_clean（xinjiang-price 的 split_breed_spec 算，去掉规格的核心名）
@@ -277,6 +291,10 @@ def etl_city(
         round2_hits = 0
         for doc_id, raw in fetched:
             breed_raw = raw.get("breed", "")
+            spec_raw = raw.get("spec", "")
+            # v0.12+ (2026-07-18): 第二轮重携同样需要兑底（防 query 层覆盖丢失）
+            if not breed_raw.strip() or not spec_raw.strip():
+                continue
             breed_clean = clean_breed(breed_raw)
             if not breed_clean:
                 continue
