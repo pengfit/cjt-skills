@@ -43,8 +43,10 @@
           </div>
         </div>
       </div>
-      <div ref="chartEl" class="map-chart" v-show="!loading && dataItems.length && !noDrilldown"></div>
-      <div v-if="loading" class="map-loading">
+      <!-- 地图本体始终渲染(2026-07-19):先骨架后数据,loading 期间也能看到轮廓 -->
+      <div ref="chartEl" class="map-chart"></div>
+      <!-- loading 时叠半透明遮罩,不影响看到地图骨架,知道在加载数据 -->
+      <div v-if="loading" class="map-loading-overlay">
         <SkeletonChart :height="'100%'" variant="auto" :grid-lines="3" :y-labels="3" />
       </div>
       <EmptyState
@@ -138,23 +140,24 @@ const currentMapName = computed(() => {
 // === Lifecycle ===
 onMounted(async () => {
   registerGovPriceTheme()
-  await reload()
-  window.addEventListener('resize', handleResize)
-  if (chartEl.value) {
+  // 1) 立即渲染基础地图骨架(不等 ES 数据),让用户先看到中国地图轮廓
+  await renderMap()
+  // 2) resize observer(容器尺寸变化时调 chart.resize)
+  if (chartEl.value && !resizeObserver) {
     resizeObserver = new ResizeObserver(entries => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect
-        if (width > 0 && height > 0) {
-          if (chart) {
-            chart.resize()
-          } else if (dataItems.value.length) {
-            renderMap()
-          }
+        if (width > 0 && height > 0 && chart) {
+          chart.resize()
         }
       }
     })
     resizeObserver.observe(chartEl.value)
   }
+  // 3) 加载数据(内部 renderMap 用真实数据覆盖 base map)
+  await reload()
+  // 4) 全局 resize 监听
+  window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
@@ -212,6 +215,44 @@ async function renderMap() {
   }
   const mapName = await ensureMapLoaded(currentMapName.value)
   if (!mapName) return
+
+  // === 数据为空:渲染基础地图骨架(feature 全灰、无 visualMap) ===
+  // 2026-07-19:loading 期间或下钻到无数据区域时,先显示地图轮廓
+  if (!dataItems.value.length) {
+    const featureNames = mapFeatures.value || []
+    const data = featureNames.map(name => ({
+      name, value: null, _count: 0, _price: 0, _rawName: null,
+    }))
+    chart.setOption({
+      backgroundColor: 'transparent',
+      visualMap: { show: false },
+      tooltip: { show: false },
+      series: [{
+        type: 'map',
+        map: mapName,
+        roam: false,
+        ...(currentLevel.value === 'province'
+          ? { boundingCoords: [[73, 53.5], [137, 18]] }
+          : { layoutCenter: ['50%', '50%'], layoutSize: '100%' }),
+        label: {
+          show: true,
+          fontSize: 9,
+          color: '#94a3b8',  // 灰字,与数据态深色字区分
+          fontWeight: 500,
+          textBorderColor: '#fff',
+          textBorderWidth: 2.5,
+        },
+        labelLayout: { hideOverlap: true },
+        itemStyle: { borderColor: '#fff', borderWidth: 1, areaColor: '#f1f5f9' },  // 灰底
+        emphasis: {
+          label: { show: true, fontSize: 12, fontWeight: 700, color: '#0f172a', textBorderWidth: 2 },
+          itemStyle: { areaColor: '#facc15' },  // hover 仍高亮,提示可交互
+        },
+        data,
+      }],
+    }, true)
+    return
+  }
 
   // 把 ES 数据归一为地图 feature 名（与 feature.properties.name 对齐）
   // province level：原始名不带后缀；city/county level：以 mapFeatures 为准反查常见后缀。
@@ -591,7 +632,20 @@ const sortedCities = computed(() => [...dataItems.value].sort((a, b) => b.count 
   width: 100%;
   height: 100%;
 }
+.map-loading-overlay {
+  /* 2026-07-19:loading 时叠半透明遮罩,用户能看到地图轮廓 */
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(1px);
+  z-index: 5;
+  pointer-events: none;  /* 不阻挡地图 hover/click */
+}
 .map-loading {
+  /* 兜底:理论上不再触发(地图始终渲染) */
   position: absolute;
   inset: 0;
   display: flex;

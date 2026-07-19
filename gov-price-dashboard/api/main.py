@@ -131,7 +131,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from api.auth import JWT_SECRET, JWT_ALG, decode_token
 from jose import JWTError
-_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api"}
+_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api", "/api/showcase/stats"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -187,6 +187,11 @@ from api.routes.norm_search import router as norm_search_router
 app.include_router(norm_search_router, **_PROTECTED)
 from api.routes.category_trend import router as category_trend_router
 app.include_router(category_trend_router, **_PROTECTED)
+
+# 2026-07-19：对外展示页聚合数据（公开，不需要 JWT）
+# 只读 ES 聚合 + skill registry,无原始数据泄露
+from api.routes.showcase import router as showcase_router
+app.include_router(showcase_router)
 
 es = Elasticsearch([ES_HOST])
 

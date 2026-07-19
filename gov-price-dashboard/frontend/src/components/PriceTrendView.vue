@@ -5,43 +5,14 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="trendMode === 'single'
-        ? `基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`
-        : trendMode === 'category'
-        ? `基于 normalized_breed 的品类级视角 · 跨城 NORM 归一全国聚合 · 规格热力图 + 价格带 + 同 L3 横向推荐`
-        : '跨城同品种时序对比 · 按 attr-based spec_key 拼接 · 同单位约束，周期以日历对齐'"
+      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`"
       :stats="topStats"
     >
       <template #icon>📈</template>
-      <template #right>
-        <div class="trend-mode-tabs">
-          <button
-            class="mode-tab"
-            :class="{ active: trendMode === 'single' }"
-            @click="trendMode = 'single'"
-          >单城市</button>
-          <button
-            class="mode-tab"
-            :class="{ active: trendMode === 'category' }"
-            @click="trendMode = 'category'"
-          >品类聚合</button>
-          <button
-            class="mode-tab"
-            :class="{ active: trendMode === 'compare' }"
-            @click="trendMode = 'compare'"
-          >跨城市对比</button>
-        </div>
-      </template>
+
     </PageHeader>
 
-    <!-- 品类聚合面板 -->
-    <CategoryTrendView v-if="trendMode === 'category'" />
 
-    <!-- 跨城对比面板 -->
-    <PriceTrendComparePanel v-if="trendMode === 'compare'" />
-
-    <!-- 单城市面板（默认） -->
-    <template v-if="trendMode === 'single'">
 
     <!-- 筛选条 -->
     <div class="trend-filter-bar">
@@ -246,19 +217,14 @@
         </table>
       </div>
     </div>
-    </template>
-    <!-- /单城市面板 -->
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount, defineAsyncComponent } from 'vue'
 // 三个子 tab 视图都 async 化（首屏只加载 PageHeader 架子，切 tab 才拉对应代码；2026-07-09 优化）
-const PriceTrendComparePanel = defineAsyncComponent(() => import('./PriceTrendComparePanel.vue'))
-const CategoryTrendView = defineAsyncComponent(() => import('./CategoryTrendView.vue'))
 
 // 顶部 tab 状态：'single'（默认）| 'category' | 'compare'
-const trendMode = ref('single')
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
 import PageHeader from './PageHeader.vue'

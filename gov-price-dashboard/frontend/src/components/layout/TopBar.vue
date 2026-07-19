@@ -1,6 +1,12 @@
 <template>
   <header class="top-bar">
-    <div class="top-bar-left"></div>
+    <div class="top-bar-left">
+      <!-- 2026-07-19 对外展示首页入口(从 dashboard 内部返回 /index) -->
+      <router-link to="/index" class="showcase-link" title="返回对外展示首页 /index">
+        <span class="showcase-link-icon">←</span>
+        <span class="showcase-link-text">首页</span>
+      </router-link>
+    </div>
     <div class="top-bar-meta">
       <!-- P1-5 KPI 可点击 chip:加右侧 → 暗示 -->
       <button
@@ -200,6 +206,34 @@ async function confirmLogout() {
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
+}
+
+/* 2026-07-19 对外首页入口链接 */
+.showcase-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: all var(--transition-fast);
+}
+
+.showcase-link:hover {
+  color: var(--primary);
+  background: var(--surface-2);
+}
+
+.showcase-link-icon {
+  font-size: 14px;
+  transition: transform var(--transition-fast);
+}
+
+.showcase-link:hover .showcase-link-icon {
+  transform: translateX(-2px);
 }
 
 /* 品牌 logo 圆点 */

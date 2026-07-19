@@ -25,6 +25,8 @@ const TabsLayout = { name: 'TabsLayout', template: '<router-view />' }
 const routes = [
   // 2026-07-19 鉴权:登录页放在最前,公开
   { path: '/login', name: 'login', component: () => import('../components/LoginView.vue'), meta: { public: true } },
+  // 2026-07-19 对外展示首页(/index),公开,不鉴权
+  { path: '/index', name: 'showcase', component: () => import('../components/ShowcaseView.vue'), meta: { public: true } },
   ...TAB_ROUTES.map(r => ({
     path: r.path,
     name: r.key,
