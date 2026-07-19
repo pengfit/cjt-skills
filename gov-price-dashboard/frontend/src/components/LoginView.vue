@@ -43,7 +43,7 @@ const router = useRouter()
 const route = useRoute()
 const { login, isAuthed } = useAuth()
 
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const errMsg = ref('')
