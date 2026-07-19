@@ -1,12 +1,6 @@
 <template>
   <header class="top-bar">
-    <div class="top-bar-left">
-      <button class="hamburger" @click="$emit('toggle-sidebar')" aria-label="菜单">
-        <span></span><span></span><span></span>
-      </button>
-      <span class="brand-logo">价</span>
-      <span class="top-bar-title">材价通</span>
-    </div>
+    <div class="top-bar-left"></div>
     <div class="top-bar-meta">
       <!-- P1-5 KPI 可点击 chip:加右侧 → 暗示 -->
       <button
