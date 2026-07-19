@@ -71,33 +71,6 @@
       </div>
     </div>
 
-    <!-- Range table -->
-    <div class="dist-card table-card">
-      <div class="card-title">价格区间明细</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="no-sort">价格区间</th>
-            <th class="no-sort text-right">产品数量</th>
-            <th class="no-sort text-left">占比</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in rangeData" :key="item.range">
-            <td><span class="range-badge">{{ item.range }}</span></td>
-            <td class="text-right">{{ fmt.int(item.count) }}</td>
-            <td class="text-left">
-              <div class="pct-bar-wrap">
-                <div class="pct-bar" :style="{ width: getPct(item.count) + '%', background: getRangeColor(item.range) }"></div>
-                <span class="pct-label">{{ getPct(item.count) }}%</span>
-              </div>
-            </td>
-
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
     <SkeletonChart v-if="loading" :height="300" variant="bar" :bars="12" :grid-lines="4" :y-labels="4" />
     <ErrorState v-if="error" :title="'加载失败'" :message="error" compact :on-retry="loadData" />
   </div>
@@ -153,15 +126,6 @@ const dominantPct = computed(() => {
   return total ? (dominant.count / total * 100).toFixed(0) : '0'
 })
 
-
-const highPricePct = computed(() => {
-  if (!rangeData.value.length) return '0'
-  const total = rangeData.value.reduce((s, r) => s + r.count, 0)
-  const high = rangeData.value
-    .filter(r => ['3000-4000','4000-5000','>5000'].includes(r.range))
-    .reduce((s, r) => s + r.count, 0)
-  return total ? (high / total * 100).toFixed(1) : '0'
-})
 const provinceHeatIns = ref(null)
 const mountedRef = ref(true)
 
@@ -196,11 +160,6 @@ const totalCount = ref(0)
 function getPct(count) {
   if (!totalCount.value) return 0
   return ((count / totalCount.value) * 100).toFixed(1)
-}
-
-function getRangePct(count, total) {
-  if (!total) return 0
-  return (count / total) * 100
 }
 
 // Export chart as PNG
@@ -477,37 +436,6 @@ onMounted(() => { mountedRef.value = true; loadData() })
   font-weight: 600;
   color: var(--text-3);
   margin-bottom: 12px;
-}
-
-/* dist-table 已迁移至全局 .data-table */
-
-.range-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  background: rgba(37,99,235,0.12);
-  color: var(--primary);
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.pct-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pct-bar {
-  height: 6px;
-  border-radius: 3px;
-  min-width: 4px;
-  transition: width 0.3s;
-}
-
-.pct-label {
-  font-size: 12px;
-  color: var(--text-3);
-  white-space: nowrap;
 }
 
 .province-chart-grid {

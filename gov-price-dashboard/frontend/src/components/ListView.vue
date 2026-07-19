@@ -311,8 +311,11 @@
                     <template v-else-if="col.key === 'unit'">{{ item.unit }}</template>
                     <template v-else-if="col.key === 'price'">
                       <div class="price-main">{{ fmtCell(item.price) }}</div>
-                      <div class="price-tax" v-if="item.tax_price && Number(item.tax_price) > 0">含税 {{ fmtCell(item.tax_price) }}</div>
                       <div class="price-change" v-if="getPriceChange(item)" :class="getPriceChange(item).cls" style="pointer-events:none">{{ getPriceChange(item).text }}</div>
+                    </template>
+                    <template v-else-if="col.key === 'tax_price'">
+                      <div class="price-main" v-if="item.tax_price && Number(item.tax_price) > 0">{{ fmtCell(item.tax_price) }}</div>
+                      <div class="price-empty" v-else>—</div>
                     </template>
                     <template v-else-if="col.key === 'attr'">
                       <div class="attr-cell">
@@ -403,6 +406,7 @@
                 </div>
                 <div class="mobile-card-right">
                   <div class="mobile-card-price">{{ fmtCell(item.price) }}</div>
+                  <div class="mobile-card-tax" v-if="item.tax_price && Number(item.tax_price) > 0">含税 {{ fmtCell(item.tax_price) }}</div>
                   <div class="mobile-card-unit">{{ item.unit || '' }}</div>
                   <div class="mobile-card-date" :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</div>
                 </div>
@@ -561,12 +565,13 @@ defineExpose({ loadCategoryOptions })
   max-height: calc(100vh - 320px);
 }
 
-/* 根 grid container — 5 列定义 */
+/* 根 grid container — 7 列定义 (2026-07-19: 价格拆为不含税/含税两列) */
 .grid-table {
   display: grid;
   grid-template-columns:
     minmax(180px, 1fr)            /* 产品名称 flex 吃剩余 */
-    minmax(110px, max-content)    /* 价格 */
+    minmax(100px, max-content)    /* 不含税 */
+    minmax(100px, max-content)    /* 含税 */
     minmax(40px,  max-content)    /* 单位 */
     minmax(80px,  max-content)    /* 日期 */
     minmax(110px, max-content);   /* 分类 */
@@ -626,6 +631,7 @@ defineExpose({ loadCategoryOptions })
 .grid-head-cell.sorted .sort-icon { opacity: 1; }
 
 .grid-cell.col-price   { justify-content: flex-end; padding-right: 14px; }
+.grid-cell.col-tax_price { justify-content: flex-end; padding-right: 14px; }
 .grid-cell.col-unit    { justify-content: center; }
 .grid-cell.col-date    { justify-content: center; }
 .grid-cell.col-category { justify-content: center; }
@@ -709,6 +715,7 @@ defineExpose({ loadCategoryOptions })
 .meta-sep { color: var(--text-3); opacity: 0.6; }
 .meta-tag.city-tag { color: var(--text-3); }
 .price-main { font-family: 'Courier New', monospace; font-weight: 700; font-size: 13px; color: var(--text); }
+.price-empty { font-size: 12px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .price-tax { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .price-change { font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600; }
 .price-change.up { color: var(--status-alert, #ef4444); }

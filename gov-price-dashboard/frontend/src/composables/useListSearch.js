@@ -86,12 +86,13 @@ export function useListSearch({ router, loadOverview }) {
   // P2-15:抽到 useSearchHistory
   const { history: searchHistory, add: addHistory, clear: clearHistoryFn } = useSearchHistory()
   const allColumns = ref([
-    { key: 'breed',    label: '产品名称',  sortable: true,  visible: true, width: 180 },
-    { key: 'price',    label: '价格',      sortable: true,  visible: true, width: 140 },
-    { key: 'attr',     label: '属性',      sortable: false, visible: false, width: 220 },
-    { key: 'unit',     label: '单位',      sortable: false, visible: true, width: 60  },
-    { key: 'date',     label: '日期',      sortable: true,  visible: true, width: 95  },
-    { key: 'category', label: '分类',      sortable: true,  visible: true, width: 120 },
+    { key: 'breed',     label: '产品名称',  sortable: true,  visible: true, width: 180 },
+    { key: 'price',     label: '不含税(元)', sortable: true,  visible: true, width: 110 },
+    { key: 'tax_price', label: '含税(元)',   sortable: true,  visible: true, width: 110 },
+    { key: 'attr',      label: '属性',      sortable: false, visible: false, width: 220 },
+    { key: 'unit',      label: '单位',      sortable: false, visible: true, width: 60  },
+    { key: 'date',      label: '日期',      sortable: true,  visible: true, width: 95  },
+    { key: 'category',  label: '分类',      sortable: true,  visible: true, width: 120 },
   ])
   const showColConfig = ref(false)
   const showDrawer = ref(false)

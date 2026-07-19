@@ -377,18 +377,19 @@ class VecStore:
         with self._lock:
             conn = self._get_conn()
             # v0.8+: 移除 category SQL filter（category 已被 L3 蕴含）
-            # 空 breed 规则也要召回（设计意图是降权而非排除），
-            # 用 OR breed='' 让通用规则参与召回，后续在打分环节乘 0.80 降权
+            # 通用规则也要召回（设计意图是降权而非排除），
+            # 用 OR breed='通用' 让通用规则参与召回，后续在打分环节乘 0.80 降权
+            # 注：v0.9 改用 '通用' 占位代替 v0.8 的空 breed（schema CHECK 不允许空）
             if attr_filter:
                 base = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE attr=?"
                 if breed:
-                    sql = base + " AND (breed=? OR breed='')"
+                    sql = base + " AND (breed=? OR breed='通用')"
                     rows = conn.execute(sql, (attr_filter, breed)).fetchall()
                 else:
                     rows = conn.execute(base, (attr_filter,)).fetchall()
             else:
                 if breed:
-                    sql = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE (breed=? OR breed='')"
+                    sql = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE (breed=? OR breed='通用')"
                     rows = conn.execute(sql, (breed,)).fetchall()
                 else:
                     rows = conn.execute("SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules").fetchall()
@@ -421,9 +422,12 @@ class VecStore:
             rule_breed = (rule.get("breed") or "").strip()
             if breed and rule_breed and rule_breed == breed:
                 score += 0.30
-            elif breed and not rule_breed:
-                # v0.7+ bug fix: 空 breed 规则 + 有 breed 查询 → 降权 ×0.80 (docstring 意图补全)
-                score *= 0.80
+            elif breed and rule_breed == "通用":
+                # v0.9+ (2026-07-19): 通用规则跟 breed-specific 同等优先级 (+0.30)
+                # 不降权 — 之前的 ×0.80 降权导致 通用 regex 规则 score 0.0001 总是被
+                # breed-specific (score 0.3+) 抢走。现在让 通用 规则跟 breed-specific
+                # 平起平坐，谁 regex 匹配谁先 claim attr。
+                score += 0.30
 
             # ═══ 执行校验 ═══
             if validate_spec is not None:

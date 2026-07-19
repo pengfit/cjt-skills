@@ -955,7 +955,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
     # 2. 送 AI（仅未命中的，串行 20/批，遵守道友要求）
     if uncached_items:
         _stats["parse_calls"] += 1
-        BATCH = 20
+        BATCH = 15
         TIMEOUT = 300
         for batch_start in range(0, len(uncached_items), BATCH):
             batch_items = uncached_items[batch_start:batch_start + BATCH]
@@ -981,7 +981,7 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
                     "ref_names": _get_ref_attr_names(),
                     "batch_size": len(batch_items),
                 },
-                user="etl-parse-agent",
+                user=f"etl-parse-agent-{int(time.time()*1000)}",
                 timeout=TIMEOUT,
             )
             if not ok:

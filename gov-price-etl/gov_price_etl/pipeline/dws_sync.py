@@ -123,6 +123,12 @@ def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
       - 描述字段（type/grade/material/spec/note...）才去重——
         catch-all 同值时按业务优先级保留 1 个。
 
+    2026-07-19 P0 改造 (脏率从 26.5% → 5% 以下):
+      - brand 黑名单：单字母或强度等级前缀字母（M/C/P/PC/PO/S/SB/AC/PA/PP/PE/PVC）
+        误被识别为 brand 时直接丢弃。
+      - 三段式尺寸 spec 精确分配：识别 "X*Y*Z" 这种砖/板类 spec 模式，
+        按位置（宽×高×厚）分配，删除多余的 diameter/length。
+
     描述字段优先级顺序（业务约定）:
       material > grade > type > spec > note > 其他描述字段
 
@@ -133,7 +139,50 @@ def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
     Returns:
         去重后的 {attr: value} 字典
     """
-    if not attrs or len(attrs) <= 1 or not spec:
+    if not attrs:
+        return attrs
+    attrs = dict(attrs)  # 不修改原 dict
+
+    # P0-26: 特定 spec 模式补漏 (P5 补 2026-07-19)
+    # 必须在 P0-1 之前,避免被 early return 截
+    import re as _re
+    _spec0 = (spec or "").strip()
+    mP130_0 = _re.match(r"^P(\d+)$", _spec0)
+    if mP130_0:
+        if "brand" in attrs: del attrs["brand"]
+        attrs["grade"] = f"P{mP130_0.group(1)}"
+        return attrs
+    mSN_0 = _re.match(r"^[Ss][Nn]\d+/[Ss]?[Nn]?\d+$", _spec0)
+    if mSN_0:
+        if "brand" in attrs: del attrs["brand"]
+        attrs["model"] = mSN_0.group(0)
+        return attrs
+    mAC_0 = _re.match(r"^AC[-—\s]+(\d+)$", _spec0)
+    if mAC_0:
+        for k in ("pressure", "type", "brand"):
+            if k in attrs: del attrs[k]
+        attrs["grade"] = f"AC-{mAC_0.group(1)}"
+        return attrs
+
+    # P0-1: brand 黑名单（防 M32.5 → brand=M 这种情况）
+    _BRAND_BLACKLIST = {
+        "m", "c", "p", "pc", "po", "s", "sb", "sbs", "ac",
+        "pa", "pp", "pe", "pvc", "pom", "abs", "pa6", "pp-r",
+        # 中文 grade/type 误被识别为 brand (2026-07-19 P1 审计追加)
+        "a级", "b级", "c级", "d级", "e级", "f级",
+        "n类", "p类", "b类", "a类", "m类",
+        "u型", "v型", "h型", "t型", "l型", "z型", "o型",
+        "一等品", "优等品", "合格品", "正品", "副品",
+        "厚", "薄", "标准", "非标",
+    }
+    if "brand" in attrs:
+        bv = str(attrs["brand"]).lower().strip()
+        # 中文双字品牌（海螺/冀东/盾石）是合法的，只对纯 ASCII 字母做长度限制
+        is_ascii_letters = bool(bv) and all(ch.isascii() and ch.isalpha() for ch in bv)
+        if bv in _BRAND_BLACKLIST or (is_ascii_letters and len(bv) <= 2):
+            del attrs["brand"]
+
+    if len(attrs) <= 1 or not spec:
         return attrs
 
     from collections import defaultdict
@@ -173,6 +222,440 @@ def _dedup_attr_by_spec_value(attrs: dict, spec: str) -> dict:
             # 其他字段全部保留（未知 key 不去重，避免误丢）
             for k in other_ks:
                 cleaned[k] = v
+
+    # P0-2~6: 尺寸 spec 精确分配 (2026-07-19 P0+ 升级)
+    # 覆盖：三段式带单位/前缀、二段式、单值带电气单位、单值带长度单位
+    import re
+
+    # 提取 spec 中的数字和单位
+    spec_stripped = (spec or "").strip()
+
+    # P0-23: pressure == strength 同值 dedup (全局,任何 P0 路径后)
+    if (cleaned.get("pressure") and cleaned.get("strength") and
+        cleaned["pressure"] == cleaned["strength"]):
+        del cleaned["strength"]
+
+    # P0-27: 全局 dedup (P5 补 2026-07-19) — 27a/c/d 在此, 27b 移后
+    # 27a: model == power → 删 model (灯具 36W/LED12W)
+    if cleaned.get("model") and cleaned.get("power") and cleaned["model"] == cleaned["power"]:
+        del cleaned["model"]
+    # 27c: weight == strength → 删 strength (160kg/m³ 等密度类)
+    if cleaned.get("weight") and cleaned.get("strength") and cleaned["weight"] == cleaned["strength"]:
+        del cleaned["strength"]
+    # 27d: pressure == strength → 删 strength (32.5MPa 等)
+    if cleaned.get("pressure") and cleaned.get("strength") and cleaned["pressure"] == cleaned["strength"]:
+        del cleaned["strength"]
+
+    # P0-11: H 型钢 "H N*N*N*N"（4 个数字 = 高×宽×腹板厚×翼缘厚） — 必须在 P0-2 之前
+    mH = re.match(
+        r"^[Hh]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)",
+        spec_stripped
+    )
+    if mH:
+        h, w, t1, t2 = mH.group(1), mH.group(2), mH.group(3), mH.group(4)
+        # H 型钢：直径/长度不该出现
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "outer_diameter", "inner_diameter", "volume")}
+        if "height" in cleaned:    cleaned["height"]    = f"{h}mm"
+        if "width" in cleaned:     cleaned["width"]     = f"{w}mm"
+        if "thickness" in cleaned: cleaned["thickness"] = f"{t1}mm"
+        # 2026-07-19 P0-24: 第 4 数字 = 翼缘厚
+        cleaned["flange_thickness"] = f"{t2}mm"
+        return cleaned
+
+    # P0-9: DN(N) 环刚度 "DN300(SN8)" / "DN500(SN12.5)" — 必须在 P0-2/3 之前
+    mDN = re.match(
+        r"^[Dd][Nn](\d+(?:\.\d+)?)\s*\(([A-Za-z]+\d*(?:\.\d+)?|[A-Za-z]+)\)\s*$",
+        spec_stripped
+    )
+    if mDN:
+        d, stiffness = mDN.group(1), mDN.group(2)
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("width", "height", "thickness", "length",
+                                "outer_diameter", "inner_diameter", "volume",
+                                "package_type", "model")}
+        if "diameter" in cleaned:    cleaned["diameter"]    = f"{d}mm"
+        if "ring_stiffness" in cleaned: cleaned["ring_stiffness"] = stiffness
+        return cleaned
+
+    # P0-8: 钢管外径×壁厚 "ΦN*N" — 必须在 P0-3 之前
+    mPhi = re.match(
+        r"^[Φφ]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(mm)?\s*$",
+        spec_stripped
+    )
+    if mPhi:
+        od, wt = mPhi.group(1), mPhi.group(2)
+        unit = mPhi.group(3) or "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("width", "height", "length",
+                                "outer_diameter", "inner_diameter", "volume")}
+        if "diameter" in cleaned:   cleaned["diameter"]   = f"{od}{unit}"
+        if "thickness" in cleaned:  cleaned["thickness"]  = f"{wt}{unit}"
+        return cleaned
+
+    # P0-17: D 单字母前缀 "D22*2" (无缝钢管) — 必须在 P0-7 之前
+    mD = re.match(
+        r"^D\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(mm)?\s*$",
+        spec_stripped
+    )
+    if mD:
+        od, wt = mD.group(1), mD.group(2)
+        unit = mD.group(3) or "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("width", "height", "length",
+                                "outer_diameter", "inner_diameter", "volume")}
+        cleaned["diameter"]  = f"{od}{unit}"
+        cleaned["thickness"] = f"{wt}{unit}"
+        return cleaned
+
+    # P0-7: 管件 "dnN*N" / "DeN*N" — 必须在 P0-3 之前
+    mDn = re.match(
+        r"^[Dd][nNeE]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(mm)?\s*$",
+        spec_stripped
+    )
+    if mDn:
+        d1, d2 = mDn.group(1), mDn.group(2)
+        unit = mDn.group(3) or "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("width", "height", "thickness", "length",
+                                "outer_diameter", "inner_diameter", "volume")}
+        if "diameter" in cleaned: cleaned["diameter"] = f"{d1}{unit}"
+        return cleaned
+
+    # P0-12: 二段式 + 中文质量/表面后缀 "N*N优等品" "N*N光面" — 必须在 P0-3 之前
+    m2q = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*"
+        r"(优等品|一等品|合格品|正品|副品|光面|火烧面|拉丝|抛光|覆膜|磨砂)\s*$",
+        spec_stripped
+    )
+    if m2q:
+        a, b = m2q.group(1), m2q.group(2)
+        unit = "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("thickness", "diameter", "length",
+                                "outer_diameter", "inner_diameter", "volume")}
+        if a == b:
+            if "width" in cleaned: cleaned["width"] = f"{a}{unit}"
+        else:
+            if "width" in cleaned:  cleaned["width"]  = f"{a}{unit}"
+            if "height" in cleaned: cleaned["height"] = f"{b}{unit}"
+        return cleaned
+
+    # P0-13: 三段式 + 中文后缀 "N*N*N光面" "N*N*N优等品" — 必须在 P0-2 之前
+    m3q = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*"
+        r"(优等品|一等品|合格品|正品|副品|光面|火烧面|拉丝|抛光|覆膜|磨砂|（覆膜）)\s*$",
+        spec_stripped
+    )
+    if m3q:
+        a, b, c = m3q.group(1), m3q.group(2), m3q.group(3)
+        unit = "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "outer_diameter",
+                                "inner_diameter", "volume", "thickness", "width", "height", "volume")}
+        # 2026-07-19 P0-19: 5xxx 系列铝合金 (6063/6061) - 删 diameter/thickness/width/height
+        if re.match(r"^60\d{2}", spec_stripped):
+            cleaned = {k: v for k, v in cleaned.items()
+                       if k not in ("diameter", "thickness", "width", "height", "volume", "length")}
+        if a == b:
+            if "width" in cleaned: cleaned["width"] = f"{a}{unit}"
+        else:
+            if "width" in cleaned:  cleaned["width"]  = f"{a}{unit}"
+            if "height" in cleaned: cleaned["height"] = f"{b}{unit}"
+        if "thickness" in cleaned: cleaned["thickness"] = f"{c}{unit}"
+        return cleaned
+
+    # P0-14: 二段式 + 英寸/分数 "N*N/N″" "N*N″" (内丝三通) — 必须在 P0-3 之前
+    m2in = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:/\d+)?)\s*(″|" + chr(34) + "|" + chr(39) + chr(39) + "|" + chr(39) + "|英寸)\s*$",
+        spec_stripped
+    )
+    if m2in:
+        a, b = m2in.group(1), m2in.group(2)
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("thickness", "length", "width", "height",
+                                "outer_diameter", "inner_diameter", "volume")}
+        if "diameter" in cleaned: cleaned["diameter"] = f"{a}mm"
+        return cleaned
+
+    # P0-15: 单值带"厚"+后缀 "30mm厚光面" — 必须在 P0-10 之前
+    mThickSuf = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(mm|cm|m)\s*厚\s*(优等品|一等品|合格品|正品|副品|光面|火烧面|拉丝|抛光|覆膜|磨砂)\s*$",
+        spec_stripped, re.IGNORECASE
+    )
+    if mThickSuf:
+        val = mThickSuf.group(1) + mThickSuf.group(2)
+        suf = mThickSuf.group(3)
+        geo_keys = {"width", "height", "length", "diameter", "outer_diameter",
+                    "inner_diameter", "volume"}
+        if "thickness" in cleaned:
+            cleaned["thickness"] = val
+        for k in list(cleaned.keys()):
+            if k in geo_keys and k != "thickness":
+                del cleaned[k]
+        if "surface" in cleaned:
+            cleaned["surface"] = suf
+        for k in list(cleaned.keys()):
+            v = str(cleaned.get(k, "")).strip()
+            if v in ("厚", "薄", "标准", "非标"):
+                del cleaned[k]
+        return cleaned
+
+    # P0-16: 负号前缀 "-4*40" (扁钢) — 必须在 P0-3 之前
+    mNeg = re.match(
+        r"^-(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(mm)?\s*$",
+        spec_stripped
+    )
+    if mNeg:
+        a, b = mNeg.group(1), mNeg.group(2)
+        unit = mNeg.group(3) or "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length",
+                                "outer_diameter", "inner_diameter", "volume")}
+        if "thickness" in cleaned: cleaned["thickness"] = f"{a}{unit}"
+        if "width" in cleaned:     cleaned["width"]     = f"{b}{unit}"
+        return cleaned
+
+    # P0-18: PHC管桩型号 "400AB95" "400A95" (hainan 24 cases) — 必须在 P0-2 之前
+    mPHC = re.match(
+        r"^\d+[A-Z]+\d+$",
+        spec_stripped
+    )
+    if mPHC:
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "thickness", "width", "height",
+                                "length", "outer_diameter", "inner_diameter", "volume")}
+        cleaned["model"] = mPHC.group(0)
+        return cleaned
+
+    # P0-21: 三段式 + 尾随 Q 等级 "N*N*NQ" (角钢) — 必须在 P0-2 之前
+    m3qEnd = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(Q\d+[A-Z]?)\s*$",
+        spec_stripped
+    )
+    if m3qEnd:
+        a, b, c, qgrade = m3qEnd.group(1), m3qEnd.group(2), m3qEnd.group(3), m3qEnd.group(4)
+        unit = "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "outer_diameter",
+                                "inner_diameter", "volume")}
+        if a == b:
+            if "width" in cleaned: cleaned["width"] = f"{a}{unit}"
+            if "height" in cleaned: del cleaned["height"]
+        else:
+            if "width" in cleaned:  cleaned["width"]  = f"{a}{unit}"
+            if "height" in cleaned: cleaned["height"] = f"{b}{unit}"
+        cleaned["thickness"] = f"{c}{unit}"
+        cleaned["material"]  = qgrade
+        return cleaned
+
+    # P0-22: 三段式 + 尾随 # 等级 "N*N*NN#" (砼空心砌块) — 必须在 P0-2 之前
+    # 注：3rd 数字限 1-2 位 (避免 19050 这种 4 位数被错拆)
+    m3hash = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d{1,2})\s*#\s*$",
+        spec_stripped
+    )
+    if m3hash:
+        a, b, c = m3hash.group(1), m3hash.group(2), m3hash.group(3)
+        unit = "mm"
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "outer_diameter",
+                                "inner_diameter", "volume")}
+        if a == b:
+            if "width" in cleaned: cleaned["width"] = f"{a}{unit}"
+            if "height" in cleaned: del cleaned["height"]
+        else:
+            if "width" in cleaned:  cleaned["width"]  = f"{a}{unit}"
+            if "height" in cleaned: cleaned["height"] = f"{b}{unit}"
+        cleaned["thickness"] = f"{c}{unit}"
+        cleaned["grade"]     = "#"  # 标记为等级,具体值需 breed context
+        return cleaned
+
+    # P0-19: 6063-T5 铝合金型材 (hainan 7 cases) — 必须在 P0-2 之前
+    m6063 = re.match(
+        r"^60\d{2}-T\d+$",
+        spec_stripped
+    )
+    if m6063:
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "thickness", "width", "height",
+                                "length", "outer_diameter", "inner_diameter", "volume")}
+        return cleaned
+
+    # P0-27b: diameter == thickness → 删 diameter (H型钢/玻璃/排水板, 必须在 P0-7~22 之后)
+    if cleaned.get("diameter") and cleaned.get("thickness") and cleaned["diameter"] == cleaned["thickness"]:
+        del cleaned["diameter"]
+
+    # P0-2: 三段式 "X*Y*Z"（允许前缀文字和后缀单位）
+    # 例: "200*95*53" / "600*600*0.8mm" / "Q235B 50*50*5mm" / "2440*1220*18"
+    m3 = re.match(
+        r"^(?:[A-Za-z0-9_\-\u4e00-\u9fa5]+\s+)?"
+        r"(\d+(?:\.\d+)?)\s*[\*×x]\s*"
+        r"(\d+(?:\.\d+)?)\s*[\*×x]\s*"
+        r"(\d+(?:\.\d+)?)\s*"
+        r"(mm|cm|m|[\u338d-\u338f])?\s*$",
+        spec_stripped
+    )
+    if m3:
+        a, b, c = m3.group(1), m3.group(2), m3.group(3)
+        unit = m3.group(4) or "mm"
+        # 砖/板/瓦类只有 3 个尺寸字段，diameter/length/volume 不该出现
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "outer_diameter",
+                                "inner_diameter", "volume")}
+        if "width" in cleaned:     cleaned["width"]     = f"{a}{unit}"
+        if "height" in cleaned:    cleaned["height"]    = f"{b}{unit}"
+        if "thickness" in cleaned: cleaned["thickness"] = f"{c}{unit}"
+        # 2026-07-19 P0++: 首二数相等 → 删 height
+        if a == b and "width" in cleaned and "height" in cleaned:
+            del cleaned["height"]
+        # 2026-07-19 P0-25: 第二三数相等 → 删 thickness (如 600*200*200)
+        if b == c and "height" in cleaned and "thickness" in cleaned:
+            del cleaned["thickness"]
+        # 2026-07-19 P0++: 尾随 Q\d+ 等级 (如 40*40*4Q235) → 删 diameter, 抓 grade
+        if re.search(r"Q\d+[A-Z]?$", spec_stripped):
+            if "diameter" in cleaned: del cleaned["diameter"]
+            if "length" in cleaned:   del cleaned["length"]
+            qm = re.search(r"Q\d+[A-Z]?", spec_stripped)
+            if qm and "material" in cleaned:
+                cleaned["material"] = qm.group(0)
+        # 2026-07-19 P0++: 尾随 # 等级 (如 390*240*19050#) → 删 diameter
+        if re.search(r"\d+#$", spec_stripped):
+            if "diameter" in cleaned: del cleaned["diameter"]
+            if "length" in cleaned:   del cleaned["length"]
+        return cleaned
+
+    # P0-3: 二段式 "X*Y"（例: "200*200" / "400*150" / "3*12"）
+    m2 = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[\*×x]\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?\s*$",
+        spec_stripped
+    )
+    if m2:
+        a, b = m2.group(1), m2.group(2)
+        unit = m2.group(3) or "mm"
+        # 2 段是 长×宽 或 宽×高，diameter/thickness/volume 不该出现
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "thickness", "outer_diameter",
+                                "inner_diameter", "volume")}
+        if "length" in cleaned and "width" in cleaned:
+            cleaned["length"] = f"{a}{unit}"
+            cleaned["width"]  = f"{b}{unit}"
+        elif "width" in cleaned and "height" in cleaned:
+            cleaned["width"]  = f"{a}{unit}"
+            cleaned["height"] = f"{b}{unit}"
+        elif "width" in cleaned:
+            cleaned["width"] = f"{a}{unit}"
+        # 2026-07-19 P0++: 二段式首二数相等 (如 200*200) → width=height 同值
+        # 保留 width，删除 height 避免同值多 attr
+        if a == b and "width" in cleaned and "height" in cleaned:
+            del cleaned["height"]
+        return cleaned
+
+    # P0-4: 单值带电气单位 W/V/A/kV/MPa（例: "400W" / "200A" / "220V"）
+    m1e = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(W|kW|V|kV|A|mA|MPa|kPa|bar|kg|t|g|l|mol)$",
+        spec_stripped, re.IGNORECASE
+    )
+    if m1e:
+        val = m1e.group(1) + m1e.group(2)
+        # model 保留（型号就是这个数值+单位），删 diameter/length/thickness/width/height/volume
+        cleaned = {k: v for k, v in cleaned.items()
+                   if k not in ("diameter", "length", "thickness", "width",
+                                "height", "outer_diameter", "inner_diameter", "volume")}
+        # 如果 model/power 存在，正确写入
+        if "model" in cleaned:  cleaned["model"]  = val
+        if "power" in cleaned:  cleaned["power"]  = val
+        if "voltage" in cleaned and m1e.group(2).lower() in ("v", "kv"):  cleaned["voltage"] = val
+        if "current" in cleaned and m1e.group(2).lower() in ("a", "ma"):  cleaned["current"] = val
+        if "pressure" in cleaned and m1e.group(2).lower() in ("mpa", "kpa", "bar"):  cleaned["pressure"] = val
+        return cleaned
+
+    # P0-10: 单值带长度单位+厚 "Nmm厚"（例: "1.0mm厚" / "5mm厚"）
+    mThick = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(mm|cm|m|[\u338d-\u338f])\s*厚\s*$",
+        spec_stripped, re.IGNORECASE
+    )
+    if mThick:
+        val = mThick.group(1) + mThick.group(2)
+        geo_keys = {"width", "height", "length", "diameter", "outer_diameter",
+                    "inner_diameter", "volume"}
+        keep_one = None
+        if "thickness" in cleaned:
+            keep_one = "thickness"; cleaned["thickness"] = val
+        elif "width" in cleaned:
+            keep_one = "width"; cleaned["width"] = val
+        elif "diameter" in cleaned:
+            keep_one = "diameter"; cleaned["diameter"] = val
+        for k in list(cleaned.keys()):
+            if k in geo_keys and k != keep_one:
+                del cleaned[k]
+        # 清理“厚”词尾残留（不这该出现在任何字段中）
+        for k in list(cleaned.keys()):
+            v = str(cleaned.get(k, "")).strip()
+            if v in ("厚", "薄", "标准", "非标"):
+                del cleaned[k]
+        return cleaned
+
+    # P0-20: 密度 Nkg/m³ (jilin 2 cases) — 必须在 P0-5 之前
+    mDensity = re.match(
+        r"^(\d+)\s*kg/m[3³³]$",
+        spec_stripped, re.IGNORECASE
+    )
+    if mDensity:
+        val = mDensity.group(1) + "kg/m³"
+        geo_keys = {"width", "height", "length", "diameter", "outer_diameter",
+                    "inner_diameter", "volume", "thickness"}
+        for k in list(cleaned.keys()):
+            if k in geo_keys:
+                del cleaned[k]
+        if "density" in cleaned:
+            cleaned["density"] = val
+        return cleaned
+
+    # P0-5: 单值带长度单位 mm/cm/m（例: "5mm" / "300mm" / "10cm"）
+    m1l = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(mm|cm|m|[\u338d-\u338f])$",
+        spec_stripped, re.IGNORECASE
+    )
+    if m1l:
+        val = m1l.group(1) + m1l.group(2)
+        # 单值 spec 只该有 1 个几何属性，保留 thickness（最常见），删其他几何类
+        if "thickness" in cleaned:
+            cleaned["thickness"] = val
+        elif "width" in cleaned:
+            cleaned["width"] = val
+        elif "diameter" in cleaned:
+            cleaned["diameter"] = val
+        # 删多余几何字段（model/grade/material 不在集合里，不动）
+        geo_keys = {"width", "height", "length", "diameter", "outer_diameter",
+                    "inner_diameter", "volume"}
+        # 保留 priority 1 的，删其他
+        keep_one = None
+        for p in ("thickness", "width", "diameter", "height", "length"):
+            if p in cleaned:
+                keep_one = p
+                break
+        for k in list(cleaned.keys()):
+            if k in geo_keys and k != keep_one:
+                del cleaned[k]
+        return cleaned
+
+    # P0-6: 单值无单位（例: "300" / "50"） → 视为型号/代号，保留 model
+    m1n = re.match(
+        r"^(\d+(?:\.\d+)?)$",
+        spec_stripped
+    )
+    if m1n:
+        val = m1n.group(1)
+        # 删多余几何字段，保留 model/power/grade 等描述字段
+        if "model" in cleaned:
+            cleaned["model"] = val
+        for k in ("width", "height", "length", "diameter", "outer_diameter",
+                  "inner_diameter", "thickness", "volume"):
+            if k in cleaned:
+                del cleaned[k]
+        return cleaned
+
     return cleaned
 
 
