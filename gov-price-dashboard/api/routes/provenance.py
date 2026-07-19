@@ -1767,50 +1767,47 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
     return samples
 
 
-def _category_coverage(city="xian"):
-    """各分类的 spec 解析覆盖率"""
-    import sys
-    sys.path.insert(0, ETL_CMD_DIR)
-    city_idx_map = {
-        "xian": "dwd_xian_price",
-        "sichuan": "dwd_sichuan_price",
-        "chongqing": "dwd_chongqing_price",
-        "jinan": "dwd_jinan_price",
-        "rizhao": "dwd_rizhao_price",
-        "henan": "dwd_henan_price",
-        "heze": "dwd_heze_price",
-        "qingdao": "dwd_qingdao_price",
-    }
-    idx = city_idx_map.get(city, "dwd_xian_price")
-    attr_fields = ATTR_FIELDS
+def _category_coverage(city="xian", date_from="", date_to=""):
+    """各分类的 spec 解析覆盖率（基于 DWS 终态，按 update_date 日期过滤）
+
+    返回 dict：
+      - coverage: 按 category 分桶（按 rate 降序）
+      - attr_source_breakdown: 按 attr_source 分桶（含 share 占比）
+      - total_docs: 总文档数
+      - date_range: 实际应用的日期过滤
+    """
+    # DWS 索引从 registry 拿，覆盖全 18 城（DWD 是中间态，不能用于数据质量指标）
+    idx = CITY_INDEXES().get(city, {}).get("dws")
+    if not idx:
+        return {
+            "coverage": [],
+            "attr_source_breakdown": [],
+            "total_docs": 0,
+            "date_range": {"from": date_from, "to": date_to},
+            "index": "",
+        }
+
+    # 日期过滤：DWS 文档中只有 etl_time 是 date 类型（update_date 是 keyword，无法 range）
+    # 与 Cockpit 现有的“7日趋势” sparkline 口径一致：按 ETL 处理时间
+    date_filter = []
+    if date_from:
+        date_filter.append({"range": {"etl_time": {"gte": date_from}}})
+    if date_to:
+        date_filter.append({"range": {"etl_time": {"lte": date_to + "T23:59:59"}}})
+
+    base_query = (
+        {"bool": {"must": date_filter}} if date_filter else {"match_all": {}}
+    )
+
     aggs_body = {
         "size": 0,
-        "aggs": {
-            "by_category": {
-                "terms": {"field": "category", "size": 40},
-                "aggs": {
-                    "total_spec": {
-                        "filter": {"bool": {"must_not": [{"term": {"spec.keyword": "/"}}, {"term": {"spec.keyword": ""}}]}}
-                    },
-                    "with_attr": {
-                        "filter": {
-                            "bool": {
-                                "should": [{"exists": {"field": f"attr.{f}"} if False else {"bool": {"must_not": [{"term": {f: ""}}]}}} for f in attr_fields],
-                                "minimum_should_match": 1
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    real_aggs_body = {
-        "size": 0,
+        "track_total_hits": True,  # ES 默认上限 10000 会导致 total_docs 偏小、share 超 100%
+        "query": base_query,
         "aggs": {
             "by_category": {
                 "terms": {"field": "category", "size": 60},
                 "aggs": {
-                    # 待解析总数：spec 非空 且 attr 为空
+                    # 待解析：spec 非空 且 attr 尚未解析
                     "needs_parse": {
                         "filter": {"bool": {
                             "must_not": [
@@ -1820,7 +1817,7 @@ def _category_coverage(city="xian"):
                             ]
                         }}
                     },
-                    # 已解析成功：spec 非空 且 attr 已有字段
+                    # 已解析：spec 非空 且 attr 已有字段
                     "parsed_ok": {
                         "filter": {"bool": {
                             "must_not": [
@@ -1834,23 +1831,39 @@ def _category_coverage(city="xian"):
                     }
                 }
             },
-            "missing_category": {
-                "missing": {"field": "category"}
+            # 数据质量诊断：attr_source 分布（DWS 三段式最终态）
+            # 注：DWS mappings 里 attr_source 是 text + keyword 多字段（text 不支持 fielddata 聚合）
+            "by_attr_source": {
+                "terms": {"field": "attr_source.keyword", "size": 10},
+                "aggs": {
+                    "with_attr": {
+                        "filter": {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}}
+                    }
+                }
             }
         }
     }
+
     try:
-        result = es.search(index=idx, body=real_aggs_body)
+        result = es.search(index=idx, body=aggs_body)
     except Exception:
-        return []
+        return {
+            "coverage": [],
+            "attr_source_breakdown": [],
+            "total_docs": 0,
+            "date_range": {"from": date_from, "to": date_to},
+            "index": idx,
+        }
+
+    total_docs = result.get("hits", {}).get("total", {}).get("value", 0)
+
+    # by_category
     buckets = result.get("aggregations", {}).get("by_category", {}).get("buckets", [])
     coverage = []
     for b in buckets:
         needs = b.get("needs_parse", {}).get("doc_count", 0)
         parsed_ok = b.get("parsed_ok", {}).get("doc_count", 0)
-        # 分母 = needs_parse（待解析数） + parsed_ok（已解析数）= spec 有效的文档总数
         total = needs + parsed_ok
-        # 覆盖率 = 1 - 待解析占比
         rate = round(parsed_ok / max(1, total) * 100, 1)
         coverage.append({
             "category": b["key"],
@@ -1860,7 +1873,31 @@ def _category_coverage(city="xian"):
             "rate": rate,
         })
     coverage.sort(key=lambda x: x["rate"], reverse=True)
-    return coverage
+
+    # by_attr_source（数据质量诊断关键分桶）
+    src_buckets = result.get("aggregations", {}).get("by_attr_source", {}).get("buckets", [])
+    attr_source_breakdown = []
+    for b in src_buckets:
+        src_total = b.get("doc_count", 0)
+        with_attr = b.get("with_attr", {}).get("doc_count", 0)
+        rate = round(with_attr / max(1, src_total) * 100, 1)
+        share = round(src_total / max(1, total_docs) * 100, 1)
+        attr_source_breakdown.append({
+            "attr_source": b["key"],
+            "total": src_total,
+            "with_attr": with_attr,
+            "rate": rate,
+            "share": share,
+        })
+    attr_source_breakdown.sort(key=lambda x: x["total"], reverse=True)
+
+    return {
+        "coverage": coverage,
+        "attr_source_breakdown": attr_source_breakdown,
+        "total_docs": total_docs,
+        "date_range": {"from": date_from, "to": date_to},
+        "index": idx,
+    }
 
 
 
@@ -1998,10 +2035,12 @@ def stats_spec_quality(
     sample_size: int = Query(50, description="抽样数量"),
     category: str = Query("", description="分类筛选"),
     _sample: bool = Query(True, description="是否返回抽样明细（打开页面时传 false 避免无用查询）"),
+    date_from: str = Query("", description="起始日期 YYYY-MM-DD（按 update_date 过滤，空=不限）"),
+    date_to: str = Query("", description="结束日期 YYYY-MM-DD（按 update_date 过滤，空=不限）"),
 ):
-    """Spec 解析质量报告：DWD 抽样 + 分类覆盖率"""
+    """Spec 解析质量报告：DWD 抽样 + 分类覆盖率（DWS 终态）"""
     samples = _sample_dwd_specs(city, sample_size, category) if _sample else []
-    coverage = _category_coverage(city)
+    cov = _category_coverage(city, date_from=date_from, date_to=date_to)
 
     # 当抽样为空时给出提示
     msg = None
@@ -2014,7 +2053,11 @@ def stats_spec_quality(
     return {
         "city": city,
         "samples": samples,
-        "coverage": coverage,
+        "coverage": cov["coverage"],
+        "attr_source_breakdown": cov["attr_source_breakdown"],
+        "total_docs": cov["total_docs"],
+        "date_range": cov["date_range"],
+        "index": cov["index"],
         "message": msg,
     }
 
@@ -3785,9 +3828,13 @@ def rules_vector_delete(rule_id: int):
 def stats_spec_quality_all(
     cities: str = Query("", description="逗号分隔城市 key，留空=从 skill registry 取全部"),
     sample_size: int = Query(0, description="抽样数量，0=不抽样"),
+    date_from: str = Query("", description="起始日期 YYYY-MM-DD（按 update_date 过滤，空=不限）"),
+    date_to: str = Query("", description="结束日期 YYYY-MM-DD（按 update_date 过滤，空=不限）"),
 ):
     """聚合多城规格质量，覆盖率数据用一次 ES 多索引查询返回。
     用于驾驶舱 30 分钟轮询时减少 18 次串行请求 → 1 次请求。
+
+    数据源：DWS 终态（按 ETL 三段式后的最终 attr 状态计算）。
     """
     # 解析城市列表
     if cities:
@@ -3805,15 +3852,60 @@ def stats_spec_quality_all(
     import concurrent.futures
     def fetch_city(city):
         try:
-            cov = _category_coverage(city)
-            total = sum(c.get("total", 0) for c in cov)
-            with_attr = sum(c.get("with_attr", 0) for c in cov)
+            cov = _category_coverage(city, date_from=date_from, date_to=date_to)
+            coverage_list = cov["coverage"]
+            total = sum(c.get("total", 0) for c in coverage_list)
+            with_attr = sum(c.get("with_attr", 0) for c in coverage_list)
             rate = (with_attr / total * 100) if total > 0 else 0
-            return city, {"coverage": cov, "rate": round(rate, 1), "with_attr": with_attr, "total": total}
+            return city, {
+                "coverage": coverage_list,
+                "rate": round(rate, 1),
+                "with_attr": with_attr,
+                "total": total,
+                "attr_source_breakdown": cov["attr_source_breakdown"],
+                "date_range": cov["date_range"],
+                "index": cov["index"],
+            }
         except Exception as e:
-            return city, {"coverage": [], "rate": 0, "with_attr": 0, "total": 0, "error": str(e)}
+            return city, {"coverage": [], "rate": 0, "with_attr": 0, "total": 0,
+                          "attr_source_breakdown": [], "error": str(e)}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         results = dict(pool.map(fetch_city, city_list))
 
-    return {"cities": results, "count": len(results)}
+    # 全局汇总：DWS attr_source 分布
+    global_attr_source = {}
+    global_total = 0
+    global_with_attr = 0
+    for city_data in results.values():
+        global_total += city_data.get("total", 0)
+        global_with_attr += city_data.get("with_attr", 0)
+        for src in city_data.get("attr_source_breakdown", []):
+            k = src["attr_source"]
+            if k not in global_attr_source:
+                global_attr_source[k] = {"total": 0, "with_attr": 0}
+            global_attr_source[k]["total"] += src["total"]
+            global_attr_source[k]["with_attr"] += src["with_attr"]
+    global_breakdown = []
+    for k, v in global_attr_source.items():
+        global_breakdown.append({
+            "attr_source": k,
+            "total": v["total"],
+            "with_attr": v["with_attr"],
+            "rate": round(v["with_attr"] / max(1, v["total"]) * 100, 1),
+            "share": round(v["total"] / max(1, global_total) * 100, 1),
+        })
+    global_breakdown.sort(key=lambda x: x["total"], reverse=True)
+    global_rate = round(global_with_attr / max(1, global_total) * 100, 1)
+
+    return {
+        "cities": results,
+        "count": len(results),
+        "global": {
+            "rate": global_rate,
+            "total": global_total,
+            "with_attr": global_with_attr,
+            "attr_source_breakdown": global_breakdown,
+        },
+        "date_range": {"from": date_from, "to": date_to},
+    }
