@@ -7,7 +7,7 @@
           <input
             v-model.trim="username"
             type="text"
-            autocomplete="username"
+            autocomplete="off"
             placeholder="admin"
             required
             :disabled="loading"
@@ -18,7 +18,7 @@
           <input
             v-model="password"
             type="password"
-            autocomplete="current-password"
+            autocomplete="new-password"
             placeholder="••••••"
             required
             :disabled="loading"
