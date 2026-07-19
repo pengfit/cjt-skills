@@ -47,15 +47,24 @@ def _load_attr_label_cn() -> dict:
     labels = {}
 
     # 1) 权威基础：gov-price-etl/gov_price_etl/parse_spec/rules/_attrs.py
-    #    trend.py 位于 skills/gov-price-dashboard/api/routes/trend.py
-    #    routes/ → api/ → dashboard/ → skills/ (4 .parent)
-    #    工作区根目录即为 skills/，gov-price-etl 在其下并列。
+    #    路径解析(2026-07-19 修复):
+    #      - Docker 镜像: SKILLS_ROOT=/app/skills,_attrs.py 在 ${SKILLS_ROOT}/gov-price-etl/...
+    #        .parent 算到 '/' 找不到,所以优先用 SKILLS_ROOT 环境变量。
+    #      - 本地 dev:  未设 SKILLS_ROOT,走 .parent 兜底 (4 层 .parent 到 skills/ 根)。
     try:
-        attrs_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
-            / "gov-price-etl"
-            / "gov_price_etl" / "parse_spec" / "rules" / "_attrs.py"
-        )
+        skills_root = os.environ.get("SKILLS_ROOT")
+        if skills_root:
+            attrs_path = (
+                Path(skills_root)
+                / "gov-price-etl"
+                / "gov_price_etl" / "parse_spec" / "rules" / "_attrs.py"
+            )
+        else:
+            attrs_path = (
+                Path(__file__).resolve().parent.parent.parent.parent
+                / "gov-price-etl"
+                / "gov_price_etl" / "parse_spec" / "rules" / "_attrs.py"
+            )
         if attrs_path.exists():
             content = attrs_path.read_text(encoding="utf-8")
             arrow = chr(0x2192)  # →
@@ -220,6 +229,45 @@ def _load_attr_label_cn() -> dict:
         "softening_rate": "软化率",
         "price_range": "价格区间",
         "cross_section_range": "截面范围",
+        # ─ 2026-07-19 补全：trend 页 chip 仍有英文飘红 ─
+        # ─ 苗木(树龄/胸径/地径) ─
+        "age": "树龄",
+        "chest_diameter": "胸径",
+        "ground_diameter": "地径",
+        "ground_diameter_max": "最大地径",
+        "ground_diameter_min": "最小地径",
+        # ─ 几何/物理 ─
+        "alloy": "合金",
+        "area": "面积",
+        "depth": "深度",
+        "diameter_max": "最大直径",
+        "diameter_min": "最小直径",
+        "height_max": "最大高度",
+        "height_min": "最小高度",
+        "thickness_max": "最大厚度",
+        "weight": "重量",
+        "volume": "体积",
+        "distance": "距离",
+        # ─ 电/电伴热 ─
+        "air_flow": "风量",
+        "aux_power": "辅助功率",
+        "lifting_height": "起升高度",
+        "pixel": "像素",
+        "port_count": "端口数",
+        # ─ 工艺/材质/表面 ─
+        "content_percent": "含量",
+        "fire_rating": "防火等级",
+        "package_type": "包装方式",
+        "reinforcement_code": "含筋代号",
+        "surface_material": "表面材质",
+        "surface_treatment": "表面处理工艺",
+        "temper": "调质",
+        # ─ 时长 ─
+        "duration": "持续时间",
+        # ─ 元数据(数据噪音归一,展示友好) ─
+        "modifier": "修饰词",
+        "note": "备注",
+        "price": "价格",
     }
     for k, v in dws_extras.items():
         labels.setdefault(k, v)
