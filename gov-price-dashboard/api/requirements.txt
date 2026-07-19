@@ -3,3 +3,7 @@ uvicorn==0.24.0
 elasticsearch==8.11.0
 pyyaml>=6.0.1
 requests>=2.31.0
+# 鉴权(2026-07-19)
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+python-multipart>=0.0.5  # OAuth2PasswordRequestForm(form data)依赖

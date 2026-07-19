@@ -123,16 +123,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 2026-07-19 全局鉴权 middleware(刀切)
+# 规则:/api/* 全部要求 admin JWT,仅 /api/auth/login 公开
+# (因为 /api/auth/me 与 /api/auth/logout 仍需 token,不算严格公众)
+# /api/health 改迁 /healthz(docker healthcheck 用),跳出 /api/
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+from api.auth import JWT_SECRET, JWT_ALG, decode_token
+from jose import JWTError
+_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api"}
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """对所有 /api/* 路径强制 JWT 鉴权(/api/auth/login 除外)"""
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        # 非 /api/ 路径(SPA、static、/healthz 等)直接放过
+        if not path.startswith("/api/") and path != "/api":
+            return await call_next(request)
+        # 白名单
+        if path in _PUBLIC_PATHS:
+            return await call_next(request)
+        # 取 Bearer token
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return JSONResponse(
+                {"detail": "missing Authorization header"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        token = auth[7:].strip()
+        try:
+            # 直接复用 decode_token 的逻辑,但走原始 jwt.decode 不要抛 HTTPException
+            from jose import jwt as _jwt
+            payload = _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        except JWTError as e:
+            return JSONResponse(
+                {"detail": f"invalid token: {e}"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # 把 user 信息挂到 request.state,后续路由可以直接读
+        request.state.user = payload
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
+from api.routes.auth import router as auth_router
+app.include_router(auth_router)  # 公开（登录/验证 token）
+from api.auth import get_current_user
+from fastapi import Depends
+# 2026-07-19：所有业务路由都要求 admin JWT（/api/auth/* 与 /api/health 仍公开）
+_PROTECTED = {"dependencies": [Depends(get_current_user)]}
 from api.routes.provenance import router as provenance_router
-app.include_router(provenance_router)
+app.include_router(provenance_router, **_PROTECTED)
 from api.routes.trend import router as trend_router
-app.include_router(trend_router)
+app.include_router(trend_router, **_PROTECTED)
 from api.routes.breed_recommend import router as breed_recommend_router
-app.include_router(breed_recommend_router)
+app.include_router(breed_recommend_router, **_PROTECTED)
 from api.routes.norm_search import router as norm_search_router
-app.include_router(norm_search_router)
+app.include_router(norm_search_router, **_PROTECTED)
 from api.routes.category_trend import router as category_trend_router
-app.include_router(category_trend_router)
+app.include_router(category_trend_router, **_PROTECTED)
 
 es = Elasticsearch([ES_HOST])
 
@@ -202,7 +256,7 @@ def _build_bool_query(must_clauses, filter_clauses):
 # API 信息改为 /api/ 路径，避免与 SPA fallback 冲突
 @app.get("/api/", include_in_schema=False)
 def api_info():
-    return {"message": "材价通 API", "version": "1.0.0", "docs": "/api/health"}
+    return {"message": "材价通 API", "version": "1.0.0", "docs": "/healthz"}
 
 
 @app.get("/api/taxonomy/v3/tree")
@@ -2031,8 +2085,9 @@ if _os.path.isdir(_STATIC_DIR):
     if _os.path.isdir(_assets_dir):
         app.mount("/assets", _StaticFiles(directory=_assets_dir), name="assets")
 
-    # 2) /api/health 健康检查（Docker healthcheck 依赖）
-    @app.get("/api/health", include_in_schema=False)
+    # 2) /healthz 健康检查(Docker healthcheck 用)
+    #    2026-07-19 迁出 /api/* 以合规:所有 /api/* 必须鉴权
+    @app.get("/healthz", include_in_schema=False)
     async def _health():
         return {"ok": True, "service": "gov-price-dashboard"}
 
@@ -2056,8 +2111,8 @@ if _os.path.isdir(_STATIC_DIR):
 
         raise _HTTPException(status_code=404, detail="Frontend not built")
 else:
-    # 开发环境没 dist 时，只暴露 /api/health
-    @app.get("/api/health", include_in_schema=False)
+    # 开发环境没 dist 时，只暴露 /healthz
+    @app.get("/healthz", include_in_schema=False)
     async def _health():
         return {"ok": True, "service": "gov-price-dashboard", "frontend": "not_built"}
 

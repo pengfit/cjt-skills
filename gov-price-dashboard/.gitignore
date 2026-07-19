@@ -1,0 +1,25 @@
+# 鉴权密钥(2026-07-19) - bcrypt 密码 hash + JWT secret,禁止入库
+.env.auth
+.env.auth.*
+api/.env.auth
+api/.env.auth.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.local
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

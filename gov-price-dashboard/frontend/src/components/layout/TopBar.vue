@@ -85,12 +85,57 @@
         <span class="cmd-hint-slash">/</span>
         <kbd class="cmd-kbd">⌘K</kbd>
       </button>
+
+      <!-- 2026-07-19 鉴权:当前用户 + 退出 -->
+      <div class="user-menu" v-if="user">
+        <span class="user-name" :title="`角色: ${user.role}`">👤 {{ user.username }}</span>
+        <button
+          class="logout-btn"
+          @click="showLogoutConfirm = true"
+          title="退出登录(清除本地 token)"
+        >退出</button>
+      </div>
+
+    <!-- 退出确认弹窗(自定义,不用浏览器原生 confirm) -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showLogoutConfirm"
+          class="logout-modal-backdrop"
+          @click.self="showLogoutConfirm = false"
+          @keydown.esc="showLogoutConfirm = false"
+          tabindex="-1"
+        >
+          <div class="logout-modal" role="dialog" aria-modal="true">
+            <div class="logout-modal-icon">👋</div>
+            <h3 class="logout-modal-title">确认退出登录?</h3>
+            <p class="logout-modal-body">
+              退出后会清除本地 token,需重新输入用户名密码才能继续使用。
+            </p>
+            <div class="logout-modal-actions">
+              <button
+                class="btn-cancel"
+                @click="showLogoutConfirm = false"
+              >取消</button>
+              <button
+                class="btn-confirm"
+                @click="confirmLogout"
+                ref="confirmBtn"
+              >退出登录</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     </div>
   </header>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useTheme } from '../../composables/useTheme'
+import { useAuth } from '../../composables/useAuth'
+import { useRouter } from 'vue-router'
 /**
  * 顶栏(统一组件)
  * 由父级传入数据(overview / alerts / lastRefresh / lastRefreshAgo),
@@ -122,6 +167,17 @@ defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health', 'go-list', 'togg
 const { isDark, toggle } = useTheme()
 function toggleTheme() {
   toggle()
+}
+const router = useRouter()
+const { user, logout } = useAuth()
+const showLogoutConfirm = ref(false)
+
+async function confirmLogout() {
+  showLogoutConfirm.value = false
+  logout()
+  // 跳登录页。App.vue 的 v-if="!isAuthed" 会自动换成 LoginView,
+  // 这里再跳路由确保地址栏是 /login
+  await router.push('/login')
 }
 </script>
 
@@ -507,6 +563,125 @@ function toggleTheme() {
   font-weight: 600;
 }
 .cmd-icon { font-size: 12px; }
+
+/* 2026-07-19 鉴权:用户菜单 + 退出 */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  margin-left: 4px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+}
+.user-name {
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  font-weight: 500;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #dc2626;
+}
+
+/* 退出确认弹窗(自定义,不用浏览器原生 confirm) */
+.logout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  padding: 20px;
+}
+.logout-modal {
+  width: 380px;
+  max-width: 92vw;
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 28px 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  color: #0f172a;
+}
+.logout-modal-icon {
+  font-size: 36px;
+  margin-bottom: 4px;
+}
+.logout-modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+.logout-modal-body {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+.logout-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.btn-cancel,
+.btn-confirm {
+  padding: 9px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  border: 1px solid transparent;
+}
+.btn-cancel {
+  background: #fff;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.btn-cancel:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.btn-confirm {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+.btn-confirm:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+.btn-cancel:active,
+.btn-confirm:active {
+  transform: translateY(1px);
+}
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
 .cmd-hint { font-size: 12px; }
 .cmd-kbd {
   font-family: ui-monospace, monospace;

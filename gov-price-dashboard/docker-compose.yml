@@ -17,12 +17,15 @@ services:
       - ES_INDEX=dws_xian_price
       # 所有 db / ETL 路径从 SKILLS_ROOT 推导（详见 api/paths.py）
       - SKILLS_ROOT=/app/skills
+    # 鉴权(2026-07-19)：从 .env.auth.docker 注入($$ 转义,避免 docker compose 把 $2b 当变量)
+    env_file:
+      - .env.auth.docker
     extra_hosts:
       # macOS Docker Desktop 默认支持，但显式声明更稳
       # Linux Docker 也会自动解析 host-gateway
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5200/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:5200/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

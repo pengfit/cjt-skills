@@ -23,6 +23,8 @@ const TAB_KEYS = new Set(TAB_ROUTES.map(r => r.key))
 const TabsLayout = { name: 'TabsLayout', template: '<router-view />' }
 
 const routes = [
+  // 2026-07-19 鉴权:登录页放在最前,公开
+  { path: '/login', name: 'login', component: () => import('../components/LoginView.vue'), meta: { public: true } },
   ...TAB_ROUTES.map(r => ({
     path: r.path,
     name: r.key,
