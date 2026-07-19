@@ -1062,7 +1062,10 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
 }
-.grid-row-main { align-items: stretch; }
+.grid-row-main {
+  align-items: stretch;
+  column-gap: 16px;  /* 地图 + 管道 之间间距加大（原 .grid-row 默认 8px 偏紧） */
+}
 .grid-row-skill {
   display: block;
   padding: 14px 16px;
@@ -1086,15 +1089,15 @@ onUnmounted(() => {
   box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
 }
 
-/* 地图 8 列 + 管道 4 列：地图容器比例 1.23:1 匹配地图本体，无留白 */
+/* 地图 8 列 + 管道 4 列：两者高度跟 grid-row 一致（取 max(geo aspect-ratio, pipe 内容)） */
 .grid-geo {
   grid-column: span 8;
-  aspect-ratio: 1.23 / 1;
-  align-self: start;  /* 不 stretch，让 aspect-ratio 决定高度 */
+  aspect-ratio: 1.23 / 1;  /* 兜底：管道内容短时地图还是 1.23:1 */
+  min-height: 0;
 }
 .grid-pipe {
   grid-column: span 4;
-  height: 100%;  /* 跟 grid-row 高度一致（=地图高度） */
+  height: 100%;  /* 跟 grid-row 高度一致 */
   align-self: stretch;
   overflow: hidden;
   display: flex;
