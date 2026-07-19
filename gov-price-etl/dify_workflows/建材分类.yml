@@ -10,7 +10,7 @@ dependencies:
 - current_identifier: null
   type: marketplace
   value:
-    marketplace_plugin_unique_identifier: langgenius/minimax:0.0.21@ccfbb9b4f38d35b1daa2483daaad5ed5402896d1119d68601a820a806910bf87
+    marketplace_plugin_unique_identifier: langgenius/minimax:0.0.22@defec8126d46e6427574978827f03e8dd0a4db76985f6004e75ec644a69fc060
     version: null
 kind: app
 version: 0.6.0
@@ -618,7 +618,7 @@ workflow:
             ...\",\n\"uniclass_ss\": \"...\",\n\"eng_part\": \"...\",\n\"eng_stage\"\
             : \"...\",\n\"main_or_aux\": \"...\",\n\"unit\": \"...\",\n\"confidence\"\
             : 0.90,\n\"reason\": \"...\"\n}\n]\n}"
-        selected: false
+        selected: true
         title: v2 分类推理（LLM）
         type: llm
         variables:

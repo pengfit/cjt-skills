@@ -1,0 +1,288 @@
+app:
+  description: 职责是把全国各地源站五花八门的建材名称统一为"产品官方名"，用于跨城市价格对比。
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: 产品官方名
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/minimax:0.0.22@defec8126d46e6427574978827f03e8dd0a4db76985f6004e75ec644a69fc060
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1783515953780-source-1783515966780-target
+      source: '1783515953780'
+      sourceHandle: source
+      target: '1783515966780'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1783515966780-source-1783516093067-target
+      source: '1783515966780'
+      sourceHandle: source
+      target: '1783516093067'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: end
+      id: 1783516093067-source-1783516251093-target
+      source: '1783516093067'
+      sourceHandle: source
+      target: '1783516251093'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: 用户输入
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: breeds_json
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: breeds_json
+        - default: ''
+          hint: ''
+          label: n
+          options: []
+          placeholder: ''
+          required: true
+          type: number
+          variable: n
+      height: 135
+      id: '1783515953780'
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: minimax-m3
+          provider: langgenius/minimax/minimax
+        prompt_template:
+        - id: 099db72b-b800-4eca-9e64-345d95e00a37
+          role: system
+          text: "你是一名工程造价行业的产品命名规范化专家，职责是把全国各地源站五花八门\n的建材名称统一为\"产品官方名\"，用于跨城市价格对比。\n\
+            \n# 核心目标\n\n源站同一产品的写法通常有多个变体：\n  - 括号差异:    \"热轧光圆钢筋（高线）\" / \"热轧光圆钢筋(高线)\"\
+            \ / \"热轧光圆钢筋\"\n  - 含牌号:      \"热轧带肋钢筋 HRB400\" / \"热轧带肋钢筋(HRB400)\" /\
+            \ \"热轧带肋钢筋\"\n  - 全/半角:     \"球墨铸铁管 DN150\" / \"球墨铸铁管dn150\"\n  - 多余修饰:\
+            \    \"国标Ⅱ级钢筋 Φ20\" / \"钢筋 Φ20\"\n  - 命名差异:    \"PE给水管\" / \"PE给水管道\"\
+            \ / \"聚乙烯给水管\"\n\n你的工作：识别这些变体，合并到\"一个产品 = 一个官方名\"。\n\n# 命名规则\n\n1. 官方名\
+            \ = 行业通用、最简洁、无括号修饰、不带牌号/规格的\"产品本质名\"。\n   ✅ \"热轧光圆钢筋\"\n   ❌ \"热轧光圆钢筋（高线）\"\
+            \   (括号是源站加的描述，应去掉)\n   ❌ \"热轧光圆钢筋 HRB300\"    (牌号属于规格维度，不进产品名)\n\n2.\
+            \ 牌号是产品身份的一部分时，保留在产品名里（HRB400/E 是钢筋牌号，\n   不是规格）:\n   ✅ \"HRB400钢筋\" \
+            \ (如果产品名以牌号开头)\n   ✅ \"HPB300钢筋\"\n\n3. 同物异名：判断为同一产品时输出同一个官方名。\n   ✅ \"\
+            PE给水管\" / \"聚乙烯给水管\" / \"PE给水管道\" → 都映射到 \"PE给水管\"\n\n4. 同名异物：判断不是同一产品时（行业子类不同），分别给官方名。\n\
+            \   ✅ \"热轧光圆钢筋\" 和 \"热轧带肋钢筋\" → 不同的两个官方名\n\n5. 不确定的输入（看不懂 / 明显错字 / 业务外词条）：\n\
+            \   原样返回 normalized_breed = 原 breed_clean，confidence ≤ 0.6，note 写\"未识别\"\
+            。\n\n# 必填输出字段\n\n对每条 breed_clean，必须返回：\n  - normalized_breed:  string\
+            \  (官方名；不确定时原样返回)\n  - confidence:        float   0.0-1.0\n  - note: \
+            \             string  (≤40 字，说明依据；空串可)\n\n# 置信度标准\n\n  1.00 写法完全等价（仅括号/全半角/空格差异）\n\
+            \  0.95 行业可识别为同一产品（如同物异名）\n  0.85 较确定但有轻微风险（命名变体略多）\n  0.70 存在歧义（可能是同物也可能不是）\n\
+            \  ≤0.60 看不懂 / 跨语义（如含特殊符号、错字、业务外词）\n\n# 强约束（违反则视为错误结果，必须重做）\n\n  1. 输出\
+            \ N 条之前不要停止。N 是输入长度。\n  2. 输入顺序 = 输出顺序（key 顺序对齐）\n  3. normalized_breed\
+            \ 必填、不可空字符串\n  4. 不得返回 markdown、解释、注释、代码块标记\n  5. 不得编造输入中不存在的字段\n  6.\
+            \ normalized_breed 总 distinct 数必须显著小于输入条数（合并生效），\n     若 = 输入条数（未合并），说明\
+            \ AI 没识别变体，需重做\n\n\n待规范化的品种列表（{{#1783515953780.n#}} 条）：\n\n{{#1783515953780.breeds_json#}}\n\
+            \n输出要求（严格遵守）：\n1. 仅返回以下 JSON，禁止任何额外文字\n2. results 的 key 与输入顺序完全一致\n3.\
+            \ 数量一致：results.length === 输入.length\n4. normalized_breed 去重后数量应 < 输入条数（合并）\n\
+            \n{\n  \"ok\": true,\n  \"results\": {\n    \"热轧光圆钢筋（高线）\": {\"normalized_breed\"\
+            : \"热轧光圆钢筋\", \"confidence\": 1.0,  \"note\": \"去括号修饰\"},\n    \"热轧光圆钢筋(高线)\"\
+            :   {\"normalized_breed\": \"热轧光圆钢筋\", \"confidence\": 1.0,  \"note\"\
+            : \"括号全/半角等价\"},\n    \"热轧光圆钢筋\":         {\"normalized_breed\": \"热轧光圆钢筋\"\
+            , \"confidence\": 0.95, \"note\": \"无修饰\"},\n    \"PE给水管\":          \
+            \   {\"normalized_breed\": \"PE给水管\",     \"confidence\": 0.95, \"note\"\
+            : \"\"},\n    \"聚乙烯给水管\":         {\"normalized_breed\": \"PE给水管\",  \
+            \   \"confidence\": 0.95, \"note\": \"同物异名\"},\n    \"球磨铸铁管\":       \
+            \    {\"normalized_breed\": \"球墨铸铁管\",   \"confidence\": 0.85, \"note\"\
+            : \"疑似错字'磨→墨'\"}\n  }\n}\n"
+        selected: false
+        title: LLM
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1783515966780'
+      position:
+        x: 409
+        y: 303
+      positionAbsolute:
+        x: 409
+        y: 303
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\n\ndef main(llm_output: str) -> dict:\n    try:\n     \
+          \   parsed = json.loads(llm_output)\n    except Exception as e:\n      \
+          \  return {\"ok\": False, \"results\": f\"JSON parse failed: {e}\"}\n\n\
+          \    if not isinstance(parsed, dict) or parsed.get(\"ok\") is not True:\n\
+          \        return {\"ok\": False, \"results\": \"top-level ok != true\"}\n\
+          \n    results = parsed.get(\"results\", {})\n    if not isinstance(results,\
+          \ dict):\n        return {\"ok\": False, \"results\": \"results not a dict\"\
+          }\n\n    # 校验每条\n    cleaned = {}\n    for k, v in results.items():\n  \
+          \      nb = (v.get(\"normalized_breed\") or \"\").strip()\n        cf =\
+          \ v.get(\"confidence\", 0.0)\n        nt = (v.get(\"note\") or \"\").strip()[:40]\n\
+          \        if not nb:\n            return {\"ok\": False, \"results\": f\"\
+          empty normalized_breed for {k!r}\"}\n        if not (0.0 <= float(cf) <=\
+          \ 1.0):\n            return {\"ok\": False, \"results\": f\"bad confidence\
+          \ for {k!r}: {cf}\"}\n        cleaned[k] = {\"normalized_breed\": nb, \"\
+          confidence\": float(cf), \"note\": nt}\n\n    # 强约束：去重数 < 输入数（合并必须生效）\n\
+          \    distinct_out = len(set(v[\"normalized_breed\"] for v in cleaned.values()))\n\
+          \    if distinct_out >= len(cleaned):\n        return {\n            \"\
+          ok\": False,\n            \"results\": f\"未合并: distinct_out={distinct_out}\
+          \ >= inputs={len(cleaned)}，\"\n                       f\"说明 AI 没识别变体，疑似全量\
+          \ 1:1 返回\",\n        }\n\n    return {\"ok\": True, \"results\": cleaned}"
+        code_language: python3
+        outputs:
+          ok:
+            children: null
+            type: boolean
+          results:
+            children: null
+            type: object
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1783515966780'
+          - text
+          value_type: string
+          variable: llm_output
+      height: 52
+      id: '1783516093067'
+      position:
+        x: 711
+        y: 303
+      positionAbsolute:
+        x: 711
+        y: 303
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        outputs:
+        - value_selector:
+          - '1783516093067'
+          - results
+          value_type: object
+          variable: results
+        - value_selector:
+          - '1783516093067'
+          - ok
+          value_type: string
+          variable: ok
+        selected: false
+        title: 输出
+        type: end
+      height: 114
+      id: '1783516251093'
+      position:
+        x: 1013
+        y: 303
+      positionAbsolute:
+        x: 1013
+        y: 303
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -156.25295620361385
+      y: 234.61659529050473
+      zoom: 0.9930924954370359
+  rag_pipeline_variables: []
