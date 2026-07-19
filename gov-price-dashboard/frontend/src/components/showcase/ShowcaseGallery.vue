@@ -48,6 +48,12 @@ const shots = [
     src: '/screenshots/03-provenance.png',
     href: '/cockpit?tab=provenance',
   },
+  {
+    title: '价格趋势',
+    desc: '品类聚合趋势 · 全国跨城归一',
+    src: '/screenshots/04-trend.png',
+    href: '/cockpit?tab=trend',
+  },
 ]
 </script>
 
