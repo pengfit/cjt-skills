@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException, Body
+from fastapi import FastAPI, Query, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch, NotFoundError, RequestError, ConnectionError as ESConnectionError, ConnectionTimeout
 from typing import Optional
@@ -1419,7 +1419,7 @@ def stats_sync_progress(city: str):
 
 
 @app.get("/api/skill-updates")
-def skill_updates():
+def skill_updates(request: Request):
     """各城市 skill 同步检查：调用 7 城 *_sync-progress 端点，返回 last_updated + 距今时长。
 
     返回：
@@ -1445,6 +1445,9 @@ def skill_updates():
     import concurrent.futures
     import requests  # 内调 sync-progress 端点需要
 
+    # 透传调用方的 Authorization header（fix 2026-07-19:以前没传导致 sync-progress 全部 401）
+    auth_header = request.headers.get("Authorization", "")
+
     # 城市列表从 skill registry 动态拼（新增 skill 不用改这里）
     cities = [
         (s["key"], s.get("label", s["key"]), s["key"])
@@ -1463,7 +1466,12 @@ def skill_updates():
 
     def fetch_one(city_key, path):
         try:
-            r = requests.get(f"http://localhost:5200/api/stats/{path}-sync-progress", timeout=10)
+            headers = {"Authorization": auth_header} if auth_header else {}
+            r = requests.get(
+                f"http://localhost:5200/api/stats/{path}-sync-progress",
+                timeout=10,
+                headers=headers,
+            )
             if r.status_code == 200:
                 return city_key, r.json()
         except Exception:

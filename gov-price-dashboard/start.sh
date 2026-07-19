@@ -3,6 +3,20 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# 加载 .env.auth (JWT_SECRET 等) — 不加载会拒绝启动
+# 注：不能用 `set -a; . file` 直接 source,ADMIN_HASH 里的 $2b$... 会被 bash 当变量展开损坏
+# 这里逐行读并 export 字面值
+if [ -f "$SCRIPT_DIR/.env.auth" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        # 跳注释 / 空行
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        key="${line%%=*}"
+        val="${line#*=}"
+        # 只接受合法的环境变量名
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && export "$key=$val"
+    done < "$SCRIPT_DIR/.env.auth"
+fi
+
 start_api() {
     echo "启动 API 服务 (http://localhost:5200)..."
     cd "$SCRIPT_DIR/api"
