@@ -52,7 +52,6 @@
 
         <div class="gauge-card">
           <div class="gauge-label">清洗完成率</div>
-          <div class="gauge-sub">DWD / ODS</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill"
@@ -66,11 +65,13 @@
             <span class="gauge-tag tag-blue">{{ dwdPctAll >= 90 ? '✓ 优秀' : dwdPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
             <span class="gauge-trend">{{ fmt.compact(kpi.dwd) }} / {{ fmt.compact(kpi.ods) }}</span>
           </div>
+          <div class="gauge-formula" :title="dwdPctFormulaDetail">
+            {{ dwdPctAll.toFixed(1) }} = Σ DWD / Σ ODS
+          </div>
         </div>
 
         <div class="gauge-card">
           <div class="gauge-label">服务覆盖率</div>
-          <div class="gauge-sub">DWS / DWD</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill"
@@ -84,11 +85,13 @@
             <span class="gauge-tag tag-blue">{{ dwsPctAll >= 90 ? '✓ 优秀' : dwsPctAll >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
             <span class="gauge-trend">{{ fmt.compact(kpi.dws) }} / {{ fmt.compact(kpi.dwd) }}</span>
           </div>
+          <div class="gauge-formula" :title="dwsPctFormulaDetail">
+            {{ dwsPctAll.toFixed(1) }} = Σ DWS / Σ DWD
+          </div>
         </div>
 
         <div class="gauge-card">
           <div class="gauge-label">属性解析覆盖率</div>
-          <div class="gauge-sub">数据质量</div>
           <svg viewBox="0 0 200 200" class="gauge-svg">
             <circle class="gauge-track" cx="100" cy="100" r="80" />
             <circle class="gauge-fill"
@@ -101,6 +104,9 @@
           <div class="gauge-foot">
             <span class="gauge-tag tag-blue">{{ kpi.attrRate >= 90 ? '✓ 优秀' : kpi.attrRate >= 70 ? '● 良好' : '⚠ 待提升' }}</span>
             <span class="gauge-trend">{{ cityCount }} 城实时</span>
+          </div>
+          <div class="gauge-formula" :title="attrRateFormulaDetail">
+            {{ kpi.attrRate.toFixed(1) }} = avg({{ cityCount }} 城 with_attr/total)
           </div>
         </div>
       </div>
@@ -278,6 +284,7 @@ import GeoMapView from './GeoMapView.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 // P0-2 订阅全局 tick,跟随 TopBar 节奏刷新
 import { useGlobalPolling } from '../composables/useGlobalPolling.js'
+import { useRoute } from 'vue-router'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const loading = ref(false)
@@ -292,7 +299,40 @@ const skillUpdates = ref([])   // /api/skill-updates 返回
 const updatesNow = ref('')     // skill-updates 扫描时间
 let clockTimer = null
 
-// 底栏"轮询 Xm"动态读取
+// 从 URL query 读日期范围（覆盖率指标只统计 DWS 在该日期范围内的文档）
+const route = useRoute()
+const dateFrom = ref(String(route.query.date_from || ''))
+const dateTo = ref(String(route.query.date_to || ''))
+
+// 属性解析覆盖率计算公式明细（hover tooltip）
+const attrRateFormulaDetail = computed(() => {
+  const rates = Object.values(data.all_cities || {})
+    .map(c => attrRate(c))
+    .filter(v => !isNaN(v) && v > 0)
+  if (!rates.length) return '暂无数据'
+  const sum = rates.reduce((s, v) => s + v, 0)
+  // 超过 10 城只取首尾，中间 “…”
+  const shown = rates.length <= 10
+    ? rates.map(r => r.toFixed(1)).join(' + ')
+    : rates.slice(0, 5).map(r => r.toFixed(1)).join(' + ') + ' + … + ' + rates.slice(-3).map(r => r.toFixed(1)).join(' + ')
+  return `(${shown}) ÷ ${rates.length} = ${kpi.value.attrRate.toFixed(1)}%\n各城 with_attr/total 求平均`
+})
+
+// 清洗完成率 / 服务覆盖率公式明细（全局聚合，与属性解析的“均值”不同）
+const dwdPctFormulaDetail = computed(() => {
+  const dwd = kpi.value.dwd
+  const ods = kpi.value.ods
+  if (!ods) return '暂无数据'
+  return `Σ各城 DWD ÷ Σ各城 ODS = ${fmt.compact(dwd)} / ${fmt.compact(ods)} = ${dwdPctAll.value.toFixed(1)}%`
+})
+const dwsPctFormulaDetail = computed(() => {
+  const dws = kpi.value.dws
+  const dwd = kpi.value.dwd
+  if (!dwd) return '暂无数据'
+  return `Σ各城 DWS ÷ Σ各城 DWD = ${fmt.compact(dws)} / ${fmt.compact(dwd)} = ${dwsPctAll.value.toFixed(1)}%`
+})
+
+// 底栏“轮询 Xm”动态读取
 const pollMinutes = computed(() => Math.round(POLL_INTERVAL_MS / 60000) + 'm')
 
 const kpi = computed(() => {
@@ -434,17 +474,31 @@ async function loadData() {
     // 补每个城市的 attr 覆盖率（fix 2026-07-12：聚合端点一次拉全）
     const cities = Object.keys(data.all_cities || {})
     try {
-      const allRes = await axios.get(`${API}/stats/spec-quality-all`, { params: { cities: cities.join(',') } })
-      const citiesData = allRes.data?.cities || {}
+      const allRes = await axios.get(`${API}/stats/spec-quality-all`, {
+        params: {
+          cities: cities.join(','),
+          ...(dateFrom.value && { date_from: dateFrom.value }),
+          ...(dateTo.value && { date_to: dateTo.value }),
+        },
+      })
+      const sq = allRes.data || {}
+      const citiesData = sq.cities || {}
       for (const city of cities) {
-        const sq = citiesData[city] || {}
+        const c = citiesData[city] || {}
         if (data.all_cities[city]) {
           data.all_cities[city].coverage = {
-            rate: sq.rate || 0,
-            with_attr: sq.with_attr || 0,
-            total: sq.total || 0,
+            rate: c.rate || 0,
+            with_attr: c.with_attr || 0,
+            total: c.total || 0,
           }
         }
+      }
+      // 全局 attr_source 分布（供 Cockpit 第 4 仪表展示）
+      data.attr_source_breakdown = sq.global?.attr_source_breakdown || []
+      data.global_coverage = {
+        rate: sq.global?.rate || 0,
+        with_attr: sq.global?.with_attr || 0,
+        total: sq.global?.total || 0,
       }
     } catch (e) {
       console.warn('spec-quality-all 失败:', e?.message)
@@ -723,6 +777,20 @@ onUnmounted(() => {
   color: var(--text-3);
   font-family: var(--font-mono-num);
   font-size: 10px;
+}
+
+/* 属性解析覆盖率计算说明（hover 看明细） */
+.gauge-formula {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 6px;
+  text-align: center;
+  font-family: var(--font-mono-num);
+  cursor: help;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* ── 管道区 ── */
