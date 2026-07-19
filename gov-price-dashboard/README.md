@@ -286,10 +286,72 @@ cities:                       # 可选：静态城市/区县列表
 | weihai-price | `../weihai-price/` | 威海（季度）|
 | xinjiang-price | `../xinjiang-price/` | 新疆（16 地州 + xlsx）|
 
+## 发布与部署
+
+`deploy.sh` 是一键封装 **build → tag → push → restart** 的自动部署脚本，目标 **阿里云 ACR + 本机容器**。
+
+```bash
+./deploy.sh build              # 仅构建镜像（不推送）
+./deploy.sh publish            # 构建 + tag + push 到阿里云 ACR
+./deploy.sh deploy             # 本地拉取 + 重启容器
+./deploy.sh release            # build + publish + deploy 一条龙
+./deploy.sh status             # 查看本地容器/镜像状态
+./deploy.sh rollback [tag]     # 回滚到指定 tag
+./deploy.sh login              # 引导登录 ACR
+./deploy.sh help               # 查看用法
+```
+
+### 首次发布
+
+```bash
+./deploy.sh login              # 登录阿里云 ACR（独立密码）
+./deploy.sh release            # build + push + 重启一条龙
+./deploy.sh status             # 验证状态
+curl http://localhost:5200/api/health
+```
+
+### 配置
+
+默认推送地址：`registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest`
+
+可通过环境变量覆盖：
+
+| 变量 | 默认值 |
+|------|--------|
+| `ACR_REGISTRY` | `registry.cn-hangzhou.aliyuncs.com` |
+| `ACR_NAMESPACE` | `pengfit` |
+| `ACR_IMAGE` | `dashboard` |
+| `IMAGE_TAG` | `latest` |
+
+### 部署架构
+
+```
+┌─────────────────────────────────────────────────┐
+│  build (docker compose build --no-cache)         │
+│  ↓ 多阶段: Node 20 前端 → Python 3.11 后端       │
+│  ↓ COPY skills/ → 自包含部署                     │
+├─────────────────────────────────────────────────┤
+│  tag (本地 → ACR)                                │
+│  pengfit/dashboard:latest                        │
+│    → registry.cn-hangzhou.aliyuncs.com/...       │
+├─────────────────────────────────────────────────┤
+│  push (docker push)                              │
+├─────────────────────────────────────────────────┤
+│  deploy (docker compose up -d --force-recreate)  │
+│  ↓ healthcheck: curl /api/health, 30s×3          │
+└─────────────────────────────────────────────────┘
+```
+
+镜像当前大小约 **325 MB**（压缩后），包含 17 个城市的 ETL 规则库。
+
+详见 `SKILL.md` → 「发布与部署」章节。
+
 ## 停止
 
 ```bash
 ./start.sh stop
+# 或部署版本：
+docker stop gov-price-dashboard && docker rm gov-price-dashboard
 # 或手动
 kill $(lsof -ti :5200 -ti :5300)
 ```

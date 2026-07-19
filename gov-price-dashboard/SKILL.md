@@ -453,10 +453,97 @@ cd skills/gov-price-dashboard
 | henan-price | 河南数据同步（18 地市，按期期刊） |
 | qingdao-price | 青岛数据同步（月度期刊） |
 
+## 发布与部署（deploy.sh）
+
+`deploy.sh` 是一键封装 **build → tag → push → restart** 的自动部署脚本，目标 **阿里云 ACR + 本机容器**。
+
+### 用法
+
+```bash
+./deploy.sh build              # 仅构建镜像（不推送）
+./deploy.sh publish            # 构建 + tag + push 到阿里云 ACR
+./deploy.sh deploy             # 本地拉取 + 重启容器
+./deploy.sh release            # build + publish + deploy 一条龙
+./deploy.sh status             # 查看本地容器/镜像状态
+./deploy.sh rollback [tag]     # 回滚到指定 tag（默认回滚到上一个镜像）
+./deploy.sh login              # 引导登录 ACR
+./deploy.sh help               # 查看用法
+```
+
+### 首次发布
+
+```bash
+# 1. 登录 ACR（密码是 ACR 控制台 → 访问凭证 → 独立密码，不是阿里云账号密码）
+./deploy.sh login
+
+# 2. 一条龙：build + tag + push + 重启
+./deploy.sh release
+
+# 3. 验证
+./deploy.sh status
+curl http://localhost:5200/api/health
+```
+
+### 镜像地址
+
+默认 tag 为 `latest`，完整镜像地址：
+
+```
+registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
+```
+
+可通过环境变量自定义：
+
+```bash
+ACR_REGISTRY=registry.cn-shanghai.aliyuncs.com \
+ACR_NAMESPACE=pengfit \
+IMAGE_TAG=v1.2.3 \
+./deploy.sh publish
+```
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `ACR_REGISTRY` | `registry.cn-hangzhou.aliyuncs.com` | 阿里云 registry 地址 |
+| `ACR_NAMESPACE` | `pengfit` | 命名空间 |
+| `ACR_IMAGE` | `dashboard` | 镜像名 |
+| `IMAGE_TAG` | `latest` | tag |
+
+### 部署流程
+
+```
+build (docker compose build)
+  ↓
+tag (docker tag → registry.cn-hangzhou.aliyuncs.com/...)
+  ↓
+push (docker push)
+  ↓
+deploy (docker compose up -d --force-recreate)
+  ↓
+health check (curl /api/health, 30 次 × 2s)
+```
+
+### 配置要点
+
+- **Dockerfile**：多阶段构建（Node 20 前端构建 + Python 3.11 slim 运行时），把 `skills/` 全部打包进镜像实现自包含部署，build context 为 `..`（父目录）
+- **healthcheck**：容器内 `curl /api/health`，30s 间隔，3 次重试
+- **网络**：`extra_hosts: host.docker.internal:host-gateway` 桥接宿主机 ES（`http://localhost:59200`）
+- **端口**：`127.0.0.1:8080:5200`（仅本机可达，外层 nginx 反代 8088 → 8080）
+- **重启策略**：`unless-stopped`（服务器重启自动拉起）
+
+### 镜像大小参考
+
+当前（2026-07-19）：约 **325 MB**（压缩后），主要来自：
+- 前端构建产物（含 echarts 1.1MB）~ 2 MB
+- Python slim 基础镜像 ~ 120 MB
+- pip 依赖（fastapi/elasticsearch/uvicorn 等）~ 50 MB
+- skills/ 数据（17 个城市 ETL + 规则库）~ 150 MB
+
 ## 停止
 
 ```bash
 ./start.sh stop
+# 或部署版本：
+docker stop gov-price-dashboard && docker rm gov-price-dashboard
 # 或手动
 kill $(lsof -ti :5200 -ti :5300)
 ```
