@@ -63,6 +63,64 @@ def _ms_to_date(ms) -> str:
         return ""
 
 
+@router.get("/insight")
+def showcase_insight():
+    """对外首页 AI 洞察段（公开访问）
+
+    读 /data/showcase/insight.md（由 agent cron 写入），
+    返回 { markdown, updated_at }。文件不存在时返回兜底文案。
+
+    文件位置（按顺序查找，第一个存在的为准）：
+      1. /data/showcase/insight.md            — Docker 部署（volume 挂载点）
+      2. ~/.openclaw/workspace/cjt/data/showcase/insight.md — 本地开发
+
+    写入由 ~/.openclaw/workspace/cjt/scripts/write_showcase_insight.py 负责
+    （建议每日 02:35 跑，先于 02:30 汇总之后）。
+
+    OPC 范式：Agent 写静态文件 → 后端只读 → 前端只读 API → 零耦合
+    """
+    candidates = [
+        "/data/showcase/insight.md",
+        os.path.expanduser("~/.openclaw/workspace/cjt/data/showcase/insight.md"),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            try:
+                stat = os.stat(path)
+                updated_at = datetime.utcfromtimestamp(stat.st_mtime).strftime("%Y-%m-%dT%H:%M:%SZ")
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                return {
+                    "markdown": content,
+                    "updated_at": updated_at,
+                    "source": path,
+                }
+            except Exception:
+                # 文件读失败,继续尝试下一个
+                pass
+
+    # 兜底:文件不存在时返回默认洞察(并尝试落盘,下次直接走文件分支)
+    default_md = (
+        "<!-- updated_at: bootstrap (no file) -->\n\n"
+        "**OPC 工作站已就绪** · Agent 调度 + 模型协作 + 容器编排三层协作。\n\n"
+        "今日完整洞察暂未生成,等待每日 02:35 的 cron 跑完后会自动出现。"
+    )
+    # 尝试落盘默认(双写),下次 fetch 走文件分支
+    for path in candidates:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(default_md)
+        except Exception:
+            continue
+
+    return {
+        "markdown": default_md,
+        "updated_at": "",
+        "source": "fallback",
+    }
+
+
 @router.get("/stats")
 def showcase_stats():
     """对外首页聚合数据 — 公开访问"""
@@ -207,7 +265,9 @@ def showcase_stats():
             "dwd_total": dwd_total,
             "ods_total": ods_total,
             "norm_total": norm_total,
-            "total_records": dws_total + dwd_total + ods_total,
+            # 业务口径:取 DWS(消费层),与 /index 硬编码的 total_records 一致
+            # 不跨层累加,避免 ODS/DWD/DWS 重复计数同一份数据的不同阶段
+            "total_records": dws_total,
             "breeds_count": breeds_count,
             "categories_count": categories_count,
             "storage_mb": storage_mb,

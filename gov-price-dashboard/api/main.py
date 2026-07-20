@@ -131,7 +131,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from api.auth import JWT_SECRET, JWT_ALG, decode_token
 from jose import JWTError
-_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api", "/api/showcase/stats"}
+_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api", "/api/showcase/stats", "/api/showcase/insight"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
