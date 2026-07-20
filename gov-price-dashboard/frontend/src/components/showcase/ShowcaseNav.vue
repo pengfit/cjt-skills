@@ -6,8 +6,8 @@
 <template>
   <nav class="s-nav">
     <div class="s-nav-inner">
-      <router-link to="/index" class="s-brand">
-        <svg class="opc-icon" viewBox="0 0 32 32" width="22" height="22" aria-label="OPC · One Person Company" role="img">
+      <router-link to="/showcase" class="s-brand">
+        <svg class="opc-icon" viewBox="0 0 32 32" width="22" height="22" aria-label="Pengfit" role="img">
           <!-- 外圈: 公司边界 -->
           <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" stroke-dasharray="2 2"/>
           <!-- 中央 1 人 (头 + 肩) -->
@@ -21,15 +21,68 @@
           <circle cx="25.5" cy="8.5" r="2" fill="currentColor"/>
           <circle cx="16" cy="27.5" r="2" fill="currentColor"/>
         </svg>
-        <span class="s-brand-text">One Person Company</span>
+        <span class="s-brand-text">Pengfit</span>
       </router-link>
-      <span class="s-case-chip">案例 · 材价通平台</span>
+      <span class="s-case-chip">案例 · 材价通</span>
+
+      <!-- 2026-07-20: 暗色模式手动切换按钮 (sun/moon) -->
+      <button
+        class="s-theme-toggle"
+        :class="{ 'is-dark': theme === 'dark' }"
+        :title="theme === 'dark' ? '切换到亮色' : '切换到暗色'"
+        :aria-label="theme === 'dark' ? '切换到亮色' : '切换到暗色'"
+        @click="toggleTheme"
+      >
+        <!-- sun icon (亮色时显示, 点击切到暗色) -->
+        <svg v-if="theme === 'light'" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <line x1="12" y1="2" x2="12" y2="4"/>
+          <line x1="12" y1="20" x2="12" y2="22"/>
+          <line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/>
+          <line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/>
+          <line x1="2" y1="12" x2="4" y2="12"/>
+          <line x1="20" y1="12" x2="22" y2="12"/>
+          <line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/>
+          <line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>
+        </svg>
+        <!-- moon icon (暗色时显示, 点击切到亮色) -->
+        <svg v-else class="theme-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
     </div>
   </nav>
 </template>
 
 <script setup>
-// 无状态
+import { ref, onMounted } from 'vue'
+
+// 2026-07-20 暗色模式管理
+// 优先级: 1) localStorage 用户选择 2) 系统 prefers-color-scheme 3) 亮色默认
+const theme = ref('light')
+const THEME_KEY = 'pengfit_theme'
+
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t
+  theme.value = t
+}
+
+function toggleTheme() {
+  applyTheme(theme.value === 'dark' ? 'light' : 'dark')
+  try { localStorage.setItem(THEME_KEY, theme.value) } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  let saved = ''
+  try { saved = localStorage.getItem(THEME_KEY) || '' } catch { /* ignore */ }
+  if (saved === 'dark' || saved === 'light') {
+    applyTheme(saved)
+  } else {
+    // 跟系统偏好
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    applyTheme(prefersDark ? 'dark' : 'light')
+  }
+})
 </script>
 
 <style scoped>
@@ -115,5 +168,39 @@
 @media (max-width: 640px) {
   .s-brand-text { display: none; }
   .s-nav-inner { padding: 0 20px; }
+}
+
+/* 2026-07-20 暗色模式切换按钮 */
+.s-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 12px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.s-theme-toggle:hover {
+  background: var(--surface-2);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.s-theme-toggle:active {
+  transform: scale(0.92);
+}
+.s-theme-toggle.is-dark {
+  color: var(--primary);
+  background: var(--primary-dim);
+  border-color: var(--primary);
+}
+.theme-icon {
+  display: block;
+  flex-shrink: 0;
 }
 </style>

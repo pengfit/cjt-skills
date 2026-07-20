@@ -25,9 +25,16 @@ axios.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401) {
+      // 2026-07-20 BUG 修: 401 时先清 token (防止后续请求重蹈覆辙)
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
-      if (!location.pathname.startsWith('/login')) {
+      // 公开页 (meta.public=true) 不应该被 401 拦截器跳登录
+      // 公开页: /showcase (公开 landing) + /login (本身就在登录页) + / (根路径, 跳 /showcase)
+      const PUBLIC_PATHS = ['/showcase', '/login', '/']
+      const isPublicPath = PUBLIC_PATHS.some(p =>
+        location.pathname === p || location.pathname.startsWith(p + '/')
+      )
+      if (!isPublicPath && !location.pathname.startsWith('/login')) {
         const next = encodeURIComponent(location.pathname + location.search)
         location.href = `/login?next=${next}`
       }
@@ -54,7 +61,11 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
-      if (!location.pathname.startsWith('/login')) {
+      const PUBLIC_PATHS = ['/showcase', '/login', '/']
+      const isPublicPath = PUBLIC_PATHS.some(p =>
+        location.pathname === p || location.pathname.startsWith(p + '/')
+      )
+      if (!isPublicPath && !location.pathname.startsWith('/login')) {
         const next = encodeURIComponent(location.pathname + location.search)
         location.href = `/login?next=${next}`
       }

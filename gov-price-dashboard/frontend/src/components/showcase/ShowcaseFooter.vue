@@ -9,7 +9,7 @@
     <div class="s-footer-inner">
       <div class="s-footer-row">
         <div class="s-footer-brand">
-          <svg class="opc-icon" viewBox="0 0 32 32" width="18" height="18" aria-label="OPC" role="img">
+          <svg class="opc-icon" viewBox="0 0 32 32" width="18" height="18" aria-label="Pengfit" role="img">
             <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" stroke-dasharray="2 2"/>
             <circle cx="16" cy="12" r="3" fill="currentColor"/>
             <path d="M 10 22 Q 10 17 16 17 Q 22 17 22 22 Z" fill="currentColor"/>
@@ -20,7 +20,7 @@
             <circle cx="25.5" cy="8.5" r="2" fill="currentColor"/>
             <circle cx="16" cy="27.5" r="2" fill="currentColor"/>
           </svg>
-          <span class="s-footer-tag">One Person Company</span>
+          <span class="s-footer-tag">Pengfit</span>
         </div>
         <div class="s-footer-meta">
           © 2026 · 运行于一台电脑 · 0 人工值班

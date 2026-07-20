@@ -1,8 +1,8 @@
 <!--
   ShowcaseView.vue (2026-07-20 OPC 主题重构 - One Person Company)
 
-  /index 首页 - 5 个 section · OPC 一人公司叙事
-  路径:/index (公开访问,不鉴权)
+  /showcase 首页 - 5 个 section · Pengfit OPC 一人公司叙事
+  路径:/showcase (公开访问,不鉴权; 旧 /index 自动 301)
 
   2026-07-20 改造(主题级重构):
     1. Nav/Hero/Footer 品牌 → "One Person Company"
@@ -12,6 +12,8 @@
 -->
 <template>
   <div class="showcase">
+    <!-- 2026-07-20 #21 阅读进度条 (顶部 2px 蓝, 滚动宽度变化) -->
+    <div class="read-progress" :style="{ width: readProgress + '%' }"></div>
     <ShowcaseNav />
     <main class="showcase-main">
       <ShowcaseHero />
@@ -24,7 +26,7 @@
 </template>
 
 <script setup>
-import { provide } from 'vue'
+import { ref, onMounted, onUnmounted, provide } from 'vue'
 import ShowcaseNav from './showcase/ShowcaseNav.vue'
 import ShowcaseHero from './showcase/ShowcaseHero.vue'
 import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
@@ -78,6 +80,24 @@ const stats = {
 
 // 给 Hero(用 inject)提供数据
 provide('stats', stats)
+
+// 2026-07-20 #21 阅读进度条
+const readProgress = ref(0)
+
+function onScroll() {
+  const h = document.documentElement
+  const max = h.scrollHeight - h.clientHeight
+  readProgress.value = max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()  // 初始化
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
+})
 </script>
 
 <style scoped>
@@ -96,5 +116,18 @@ provide('stats', stats)
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 32px;
+}
+
+/* 2026-07-20 #21 阅读进度条: 顶部 2px 蓝条 */
+.read-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--primary);
+  z-index: 1000;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 6px rgba(30, 64, 175, 0.4);
+  pointer-events: none;
 }
 </style>

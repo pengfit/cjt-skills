@@ -2115,9 +2115,25 @@ if _os.path.isdir(_STATIC_DIR):
         # 静态文件（favicon.ico 等）直接返回
         file_path = _os.path.join(_STATIC_DIR, full_path)
         if _os.path.isfile(file_path):
-            return _FileResponse(file_path)
+            # /assets/* 走永久缓存（vite 自带 hash 文件名, 文件名变了才重新下载）
+            # 其他静态文件 (favicon.ico, geo/, img/) 用 1h 缓存
+            if full_path.startswith("assets/"):
+                return _FileResponse(file_path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+            return _FileResponse(file_path, headers={"Cache-Control": "public, max-age=3600"})
 
-        # 其余返回 index.html
+        # SPA fallback: index.html 永远 no-cache, 浏览器每次重新校验
+        # 配合 vite hash 文件名, 部署新版本用户立即看到
+        index_path = _os.path.join(_STATIC_DIR, "index.html")
+        if _os.path.isfile(index_path):
+            return _FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            )
+        raise _HTTPException(status_code=404, detail="index.html not found")
         index_path = _os.path.join(_STATIC_DIR, "index.html")
         if _os.path.isfile(index_path):
             return _FileResponse(index_path)

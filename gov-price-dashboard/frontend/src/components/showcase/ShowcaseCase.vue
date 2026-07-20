@@ -16,7 +16,9 @@
 <template>
   <section class="case" id="case">
     <header class="section-head">
-      <h2 class="section-title">案例：材价通平台</h2>
+      <h2 class="section-title">
+        案例：材价通
+      </h2>
       <p class="section-sub">
         17 城住建局/造价站官方价格 · 凌晨 cron 自跑 0 干预
       </p>
@@ -177,7 +179,7 @@ const steps = [
   },
   {
     time: '第四步',
-    title: '材价通平台汇总和展示',
+    title: '材价通汇总和展示',
     desc: 'ES 聚合查询 + Vue Dashboard 渲染 · 公开数据无需登录',
     label: 'DASHBOARD',
     snippet: '聚合接口 · 9 个驾驶舱 Tab · 20 城 / 78.9 万条 / 9,931 品种',
@@ -325,7 +327,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .case {
-  padding: 80px 0 48px;
+  padding: 96px 0 56px;  /* 2026-07-20 #3 间距统一 */
   border-top: 1px solid var(--border-light);
 }
 
@@ -339,6 +341,14 @@ onBeforeUnmount(() => {
   color: var(--text);
   letter-spacing: -0.02em;
   margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title .opc-icon-inline {
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .section-sub {
@@ -584,6 +594,7 @@ onBeforeUnmount(() => {
 }
 
 .case-step-dot {
+  position: relative;  /* 2026-07-20 #13 脉冲环 anchor */
   width: 10px;
   height: 10px;
   background: var(--surface);
@@ -591,6 +602,29 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   z-index: 1;
   flex-shrink: 0;
+}
+
+/* 2026-07-20 #13: 脉冲呼吸圈 (外环 scale 1→2.2, 透明度 0.7→0, 1.8s 循环) */
+.case-step-dot::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  opacity: 0.7;
+  animation: case-pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes case-pulse-ring {
+  0% { transform: scale(1); opacity: 0.7; }
+  80% { opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* hover 暂停, 视觉反馈 "读这条" */
+.case-step:hover .case-step-dot::after {
+  animation-play-state: paused;
 }
 
 .case-step-line {

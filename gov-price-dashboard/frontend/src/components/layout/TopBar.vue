@@ -2,7 +2,7 @@
   <header class="top-bar">
     <div class="top-bar-left">
       <!-- 2026-07-19 对外展示首页入口(从 dashboard 内部返回 /index) -->
-      <router-link to="/index" class="showcase-link" title="返回对外展示首页 /index">
+      <router-link to="/showcase" class="showcase-link" title="返回对外展示首页 /showcase">
         <span class="showcase-link-icon">←</span>
         <span class="showcase-link-text">首页</span>
       </router-link>

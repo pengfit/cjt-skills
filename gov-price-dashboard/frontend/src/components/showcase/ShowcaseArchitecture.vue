@@ -160,7 +160,7 @@ const layers = [
 
 <style scoped>
 .arch {
-  padding: 80px 0 48px;
+  padding: 96px 0 56px;  /* 2026-07-20 #3 间距统一 */
 }
 
 .section-head {
