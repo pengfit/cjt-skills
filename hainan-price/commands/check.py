@@ -1,3 +1,7 @@
+import os
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
+SUMMARY_DIR = os.environ.get("GOV_PRICE_SUMMARY_DIR", "/tmp/gov-price-summary")
+
 """海南 - 增量检测：对比 ES 最新 update_date vs 源站最新发布日期
 
 v0.8.1（2026-07-03）：在 main() 末尾写 /tmp/gov-check-status/hainan.json，
@@ -17,7 +21,7 @@ from utils import load_config, get_es_client
 from parser import fetch_all_periods
 
 # ─── check_status 落盘（dashboard /sync 复用） ────────────────────────
-CHECK_STATUS_DIR = "/tmp/gov-check-status"
+CHECK_STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
 CHECK_STATUS_FILE = os.path.join(CHECK_STATUS_DIR, "hainan.json")
 
 

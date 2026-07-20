@@ -112,8 +112,8 @@
       </div>
 
       <!-- ============ Row 2: 12 栅格 — 地图 8 + 管道 4（地图突出，加高） ============ -->
+            <!-- 2026-07-20 修改 13: 删除"数据处理管道 · 20 城"块（接口不共用），地理分布满宽 -->
       <div class="grid-row grid-row-main">
-        <!-- 地理分布 8 列，加高到 660 -->
         <section class="grid-cell grid-geo">
           <div class="section-title">
             <span class="section-icon">🗺️</span>
@@ -122,63 +122,7 @@
           </div>
           <GeoMapView :hide-header="true" />
         </section>
-        <!-- 数据处理管道 4 列 -->
-        <section class="grid-cell grid-pipe">
-          <div class="section-title">
-            <span class="section-dot"></span>
-            数据处理管道 · {{ cityCount }} 城
-            <span class="section-sub">最后更新 {{ kpi.lastUpdate || '—' }}</span>
-          </div>
-          <div class="city-table">
-            <div class="city-thead">
-              <div class="city-th city-th-name">城市</div>
-              <div class="city-th city-th-data">ODS › DWD › DWS</div>
-              <div class="city-th city-th-attr">属性</div>
-              <div class="city-th city-th-spark">7 日趋势</div>
-            </div>
-            <div class="city-tbody">
-              <div v-for="(pipe, key) in data.all_cities" :key="key" class="city-tr">
-                <div class="city-td city-td-name">
-                  <span class="city-dot" :class="attrRate(pipe) >= 80 ? 'ok' : 'warn'"></span>
-                  <span class="city-name">{{ pipe.city_label }}</span>
-                </div>
-                <div class="city-td city-td-data">
-                  <span class="stage-num mono" :title="fmt.int(pipe.ods?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.ods?.count) }}</span>
-                  <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="fmt.int(pipe.dwd?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.dwd?.count) }}</span>
-                  <span class="arrow">›</span>
-                  <span class="stage-num mono" :title="fmt.int(pipe.dws?.count || 0) + ' 条 (精确值)'">{{ fmt.compact(pipe.dws?.count) }}</span>
-                </div>
-                <div class="city-td city-td-attr">
-                  <div class="attr-track">
-                    <div class="attr-fill" :style="{ width: attrRate(pipe) + '%' }"></div>
-                  </div>
-                  <span class="attr-pct mono">{{ fmt.pct(attrRate(pipe)) }}</span>
-                </div>
-                <div class="city-td city-td-spark">
-                  <svg v-if="pipe.sparkline_7d && pipe.sparkline_7d.length"
-                       class="city-sparkline" viewBox="0 0 60 16" preserveAspectRatio="none">
-                    <polyline
-                      :points="sparklinePointsCompact(pipe.sparkline_7d)"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.2"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                  <span v-else class="city-spark-empty">—</span>
-                  <span v-if="pipe.sparkline_7d && pipe.sparkline_7d.length"
-                        class="spark-trend" :class="sparklineTrendCls(pipe.sparkline_7d)">
-                    {{ sparklineTrendShort(pipe.sparkline_7d) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
-
-      <!-- ============ Row 3: Skill 更新记录（12 列） ============ -->
 
       <!-- ============ Row 3: Skill 更新记录（12 列） ============ -->
       <section class="skill-updates-section grid-row grid-row-skill">
@@ -1064,7 +1008,6 @@ onUnmounted(() => {
 }
 .grid-row-main {
   align-items: stretch;
-  column-gap: 16px;  /* 地图 + 管道 之间间距加大（原 .grid-row 默认 8px 偏紧） */
 }
 .grid-row-skill {
   display: block;
@@ -1091,24 +1034,9 @@ onUnmounted(() => {
 
 /* 地图 8 列 + 管道 4 列：两者高度跟 grid-row 一致（取 max(geo aspect-ratio, pipe 内容)） */
 .grid-geo {
-  grid-column: span 8;
-  aspect-ratio: 1.23 / 1;  /* 兜底：管道内容短时地图还是 1.23:1 */
+  grid-column: span 12;
+  aspect-ratio: 1.85 / 1;  /* 满宽后更扁平 */
   min-height: 0;
-}
-.grid-pipe {
-  grid-column: span 4;
-  height: 100%;  /* 跟 grid-row 高度一致 */
-  align-self: stretch;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.grid-pipe .city-table {
-  flex: 1;
-  min-height: 0;
-}
-.grid-pipe .city-tbody {
-  overflow-y: auto;
 }
 .grid-geo .geo-map-view {
   flex: 1;
@@ -1287,11 +1215,6 @@ onUnmounted(() => {
     grid-column: span 1;
     aspect-ratio: auto;
     min-height: 420px;
-  }
-  .grid-pipe {
-    grid-column: span 1;
-    height: auto;
-    max-height: 480px;
   }
 }
 </style>

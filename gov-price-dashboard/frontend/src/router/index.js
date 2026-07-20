@@ -37,8 +37,8 @@ const routes = [
   // /breed-detail?breed=X&l3=Y&province=Z&city=W[&from=list|taxonomy|spec-rules]
   // 用「直接挂组件」而非 TabsLayout,以免 router-view 二级路由丢渲染
   { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
-  { path: '/', redirect: '/cockpit' },
-  { path: '/:pathMatch(.*)*', redirect: '/cockpit' },
+  { path: '/', redirect: '/index' },
+  { path: '/:pathMatch(.*)*', redirect: '/index' },
 ] 
 
 const router = createRouter({

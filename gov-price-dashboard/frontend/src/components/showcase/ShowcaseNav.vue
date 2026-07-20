@@ -1,15 +1,29 @@
 <!--
   ShowcaseNav.vue - 顶部极简 nav
   公开访客用,只放 logo(2026-07-19 删除"进入 Dashboard"入口,道友要求)
+  2026-07-20: OPC 文字 mark 替换成 OPC Icon (修改 9)
 -->
 <template>
   <nav class="s-nav">
     <div class="s-nav-inner">
       <router-link to="/index" class="s-brand">
-        <span class="s-brand-mark">OPC</span>
+        <svg class="opc-icon" viewBox="0 0 32 32" width="22" height="22" aria-label="OPC · One Person Company" role="img">
+          <!-- 外圈: 公司边界 -->
+          <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" stroke-dasharray="2 2"/>
+          <!-- 中央 1 人 (头 + 肩) -->
+          <circle cx="16" cy="12" r="3" fill="currentColor"/>
+          <path d="M 10 22 Q 10 17 16 17 Q 22 17 22 22 Z" fill="currentColor"/>
+          <!-- 周围 3 个 AI 节点 + 连接线 -->
+          <line x1="13" y1="13.5" x2="7.5" y2="9" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+          <line x1="19" y1="13.5" x2="24.5" y2="9" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+          <line x1="16" y1="19" x2="16" y2="26" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+          <circle cx="6.5" cy="8.5" r="2" fill="currentColor"/>
+          <circle cx="25.5" cy="8.5" r="2" fill="currentColor"/>
+          <circle cx="16" cy="27.5" r="2" fill="currentColor"/>
+        </svg>
         <span class="s-brand-text">One Person Company</span>
       </router-link>
-      <span class="s-case-chip">案例 · 材料价格中台</span>
+      <span class="s-case-chip">案例 · 材价通平台</span>
     </div>
   </nav>
 </template>
@@ -41,18 +55,17 @@
 
 .s-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   text-decoration: none;
   color: var(--text);
 }
 
-.s-brand-mark {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* OPC Icon (修改 9) */
+.opc-icon {
   color: var(--primary);
-  font-family: var(--font-mono-num);
+  flex-shrink: 0;
+  display: block;
 }
 
 .s-brand-text {

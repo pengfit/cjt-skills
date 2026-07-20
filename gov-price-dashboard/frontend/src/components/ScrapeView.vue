@@ -45,11 +45,11 @@
               {{ (pipe.scrape_fresh ?? pipe.sync_ok) ? '✓ 已同步' : '⚠ 待同步' }}
             </span>
           </div>
-          <div class="scrape-card-pct">{{ scrapePct(pipe.scrape) }}%</div>
+          <div class="scrape-card-pct">{{ scrapePct(pipe.scrape) }}</div>  <!-- scrapePct 内部 fmt.pct 已带 % -->
         </div>
 
         <div class="scrape-card-progress">
-          <div class="scrape-progress-bar" :style="{ width: scrapePct(pipe.scrape) + '%' }"></div>
+          <div class="scrape-progress-bar" :style="{ width: scrapePct(pipe.scrape) }"></div>  <!-- scrapePct 已带 %, 直接当 width -->
         </div>
 
         <div class="scrape-card-meta">
@@ -65,6 +65,42 @@
           <div class="scrape-card-meta-item">
             <span class="meta-label">最后更新</span>
             <span class="meta-value mono">{{ pipe.scrape?.last_updated ? pipe.scrape.last_updated.slice(0,16) : '—' }}</span>
+          </div>
+        </div>
+
+        <!-- ODS → DWD → DWS 关键信息 (道友反馈: 重排版, 去 % 更清爽) -->
+        <div class="scrape-pipeline">
+          <div class="pipe-stages">
+            <div class="pipe-stage stage-ods">
+              <span class="pipe-stage-tag">ODS</span>
+              <span class="pipe-stage-num">{{ fmt.compact(pipe.ods?.count) }}</span>
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-stage stage-dwd" :class="{ disabled: !pipe.dwd?.count }">
+              <span class="pipe-stage-tag">DWD</span>
+              <span class="pipe-stage-num">{{ fmt.compact(pipe.dwd?.count) }}</span>
+              <span v-if="pipe.ods?.count" class="pipe-stage-cov" :class="dwdSyncRate(pipe) >= 80 ? 'cov-good' : dwdSyncRate(pipe) >= 30 ? 'cov-warn' : 'cov-bad'" :title="`DWD/ODS 覆盖率`">
+                {{ dwdSyncRate(pipe) }}
+              </span>
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-stage stage-dws" :class="{ disabled: !pipe.dws?.count }">
+              <span class="pipe-stage-tag">DWS</span>
+              <span class="pipe-stage-num">{{ fmt.compact(pipe.dws?.count) }}</span>
+              <span v-if="pipe.dwd?.count" class="pipe-stage-cov" :class="dwsSyncRate(pipe) >= 80 ? 'cov-good' : dwsSyncRate(pipe) >= 30 ? 'cov-warn' : 'cov-bad'" :title="`DWS/DWD 覆盖率`">
+                {{ dwsSyncRate(pipe) }}
+              </span>
+            </div>
+          </div>
+          <div class="pipe-foot" v-if="pipe.dwd?.last_etl">
+            <span class="pipe-foot-label">ETL</span>
+            <span class="pipe-foot-time mono">{{ pipe.dwd.last_etl }}</span>
+            <span v-if="pipe.ods?.count && pipe.dwd?.count" class="pipe-foot-delta" :class="deltaClass(pipe.ods?.count, pipe.dwd?.count)" :title="`ODS→DWD 损耗 = ODS − DWD`">
+              ODS→DWD {{ deltaFmt(pipe.ods?.count, pipe.dwd?.count) }}
+            </span>
+            <span v-if="pipe.dwd?.count && pipe.dws?.count" class="pipe-foot-delta" :class="deltaClass(pipe.dwd?.count, pipe.dws?.count)" :title="`DWD→DWS 损耗 = DWD − DWS`">
+              DWD→DWS {{ deltaFmt(pipe.dwd?.count, pipe.dws?.count) }}
+            </span>
           </div>
         </div>
 
@@ -176,6 +212,30 @@ function groupedScrapeCounties(pipe) {
 
 function toggleScrapeCounties(city, pipe) {
   scrapeExpandedCity.value = (scrapeExpandedCity.value === city) ? '' : city
+}
+
+// ── ODS→DWD→DWS 关键信息 (道友反馈: 城市卡要加链路关键信息) ──
+function dwdSyncRate(pipe) {
+  if (!pipe.ods?.count) return 0
+  return Number(((pipe.dwd?.count || 0) / pipe.ods.count * 100).toFixed(1))
+}
+function dwsSyncRate(pipe) {
+  if (!pipe.dwd?.count) return 0
+  return Number(((pipe.dws?.count || 0) / pipe.dwd.count * 100).toFixed(1))
+}
+function deltaFmt(src, dst) {
+  const s = Number(src || 0); const d = Number(dst || 0)
+  if (!s) return ''
+  const diff = s - d
+  if (diff === 0) return '±0'
+  return (diff > 0 ? '−' : '+') + fmt.int(Math.abs(diff))
+}
+function deltaClass(src, dst) {
+  const s = Number(src || 0); const d = Number(dst || 0)
+  if (!s) return ''
+  const diff = s - d
+  if (diff === 0) return ''
+  return Math.abs(diff) / s > 0.05 ? 'delta-warn' : 'delta-ok'
 }
 
 // 拓展按钮文案从 /api/skill-registry 动态拉（每个 skill 在 skill.yml 声明 expand_label）
@@ -509,6 +569,95 @@ onMounted(() => {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* === ODS → DWD → DWS 关键信息 (道友反馈 2026-07-20 v2: 舒展重排, 去 %) === */
+.scrape-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 6px;
+  border-top: 1px solid rgba(15,23,42,0.04);
+}
+.pipe-stages {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.pipe-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 6px;
+  background: rgba(37,99,235,0.04);
+  min-width: 0;
+}
+.pipe-stage.stage-ods { background: rgba(99,102,241,0.10); }
+.pipe-stage.stage-dwd { background: rgba(37,99,235,0.10); }
+.pipe-stage.stage-dws { background: rgba(16,185,129,0.10); }
+.pipe-stage.disabled { opacity: 0.4; }
+.pipe-stage-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-family: var(--font-mono-num);
+}
+.pipe-stage-num {
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono-num);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.pipe-stage-cov {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono-num);
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+}
+.pipe-stage-cov.cov-good { background: rgba(16,185,129,0.18); color: #059669; }
+.pipe-stage-cov.cov-warn { background: rgba(245,158,11,0.18); color: #d97706; }
+.pipe-stage-cov.cov-bad  { background: rgba(239,68,68,0.18);  color: #dc2626; }
+.pipe-arrow {
+  font-size: 16px;
+  color: var(--border-strong);
+  font-weight: 300;
+  user-select: none;
+}
+.pipe-foot {
+  font-size: 10px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pipe-foot-label {
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  font-size: 9px;
+}
+.pipe-foot-time {
+  color: var(--text-2);
+  font-size: 10px;
+}
+.pipe-foot-delta {
+  font-family: var(--font-mono-num);
+  font-weight: 600;
+  font-size: 9px;
+}
+.pipe-foot-delta.delta-ok   { color: var(--text-3); }
+.pipe-foot-delta.delta-warn { color: #d97706; }
 
 /* === Loading / error === */
 .prov-loading {

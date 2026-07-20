@@ -3231,7 +3231,7 @@ def category_v2_l3_detail(l3: str = Query(...)):
 
 # ── 定时检查任务状态 ────────────────────────────────────────────────────
 
-STATUS_DIR = "/tmp/gov-check-status"
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
 
 
 @router.get("/api/stats/check-status")

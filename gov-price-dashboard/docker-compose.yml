@@ -17,6 +17,9 @@ services:
       - ES_INDEX=dws_xian_price
       # 所有 db / ETL 路径从 SKILLS_ROOT 推导（详见 api/paths.py）
       - SKILLS_ROOT=/app/skills
+      # cron 状态目录 (2026-07-20 16:14 归总): 宿主机 cron 写 + 容器内 API 读, 共用命名卷
+      - GOV_CHECK_STATUS_DIR=/var/lib/openclaw/gov-check-status
+      - GOV_PRICE_SUMMARY_DIR=/var/lib/openclaw/gov-price-summary
     # 鉴权(2026-07-19)：从 .env.auth.docker 注入($$ 转义,避免 docker compose 把 $2b 当变量)
     env_file:
       - .env.auth.docker
@@ -30,8 +33,19 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    # AI 洞察数据(2026-07-20):host cron 写的 insight.md 挂载进容器,
+    # 不然容器里 API 走 fallback,只看到“洞察正在生成中”。
+    volumes:
+      - ../../data/showcase:/data/showcase:ro
+      # cron 状态目录持久卷 (宿主机 cron + 容器 API 共享)
+      # 卷内结构: /var/lib/openclaw/{gov-check-status, gov-price-summary, showcase-insight, ...}
+      - gov-data:/var/lib/openclaw
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+# ── 顶级命名卷声明 (cron 状态 + 跨容器持久数据) ──
+volumes:
+  gov-data:

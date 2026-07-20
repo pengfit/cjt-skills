@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+import os
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
+SUMMARY_DIR = os.environ.get("GOV_PRICE_SUMMARY_DIR", "/tmp/gov-price-summary")
+
+import os
 """重庆 - 增量检测：对比 ES 最新入库日期 vs 源站最新月份
 
 前置条件：browser 已打开目标页面
@@ -155,7 +160,7 @@ def parse_month_to_period(year: str, month_str: str) -> str:
 # 字段：city / label / status / output / time / has_update
 # status 枚举：ok（无新数据）/ update（有更新）/ error（异常）/ pending（无记录）
 
-CHECK_STATUS_DIR = "/tmp/gov-check-status"
+CHECK_STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
 CHECK_STATUS_FILE = os.path.join(CHECK_STATUS_DIR, "chongqing.json")
 
 

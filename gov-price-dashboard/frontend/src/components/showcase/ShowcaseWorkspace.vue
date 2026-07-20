@@ -13,9 +13,9 @@
 <template>
   <section class="workspace" id="workspace">
     <header class="section-head">
-      <h2 class="section-title">OPC 一人公司 · 怎么运作</h2>
+      <h2 class="section-title">OPC · 怎么运作</h2>
       <p class="section-sub">
-        1 人 + AI · 撑起 6 大部门 · 飞书说一声就开干
+        6 大部门 · 飞书说一声就开干
       </p>
     </header>
 
@@ -47,7 +47,7 @@
             <div class="ws-compare-label">OPC 一人公司</div>
             <div class="ws-compare-flow ws-compare-flow-new">
               <span>1 人</span><span>+</span>
-              <span>Maxmin</span><span>+</span>
+              <span>一台电脑</span><span>+</span>
               <span>OpenClaw</span><span>+</span>
               <span>大模型</span>
             </div>

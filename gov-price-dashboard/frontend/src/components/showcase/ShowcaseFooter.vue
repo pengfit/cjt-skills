@@ -2,17 +2,28 @@
   ShowcaseFooter.vue - 底部
   技术栈 + 数据来源 + 版权
   2026-07-19:删除 cjt 标记
+  2026-07-20: OPC 文字 mark 替换成 OPC Icon (修改 9)
 -->
 <template>
   <footer class="s-footer">
     <div class="s-footer-inner">
       <div class="s-footer-row">
         <div class="s-footer-brand">
-          <span class="s-footer-mark">OPC</span>
+          <svg class="opc-icon" viewBox="0 0 32 32" width="18" height="18" aria-label="OPC" role="img">
+            <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" stroke-dasharray="2 2"/>
+            <circle cx="16" cy="12" r="3" fill="currentColor"/>
+            <path d="M 10 22 Q 10 17 16 17 Q 22 17 22 22 Z" fill="currentColor"/>
+            <line x1="13" y1="13.5" x2="7.5" y2="9" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+            <line x1="19" y1="13.5" x2="24.5" y2="9" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+            <line x1="16" y1="19" x2="16" y2="26" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+            <circle cx="6.5" cy="8.5" r="2" fill="currentColor"/>
+            <circle cx="25.5" cy="8.5" r="2" fill="currentColor"/>
+            <circle cx="16" cy="27.5" r="2" fill="currentColor"/>
+          </svg>
           <span class="s-footer-tag">One Person Company</span>
         </div>
         <div class="s-footer-meta">
-          © 2026 · 运行于 Mac mini · 7×24 自跑
+          © 2026 · 运行于一台电脑 · 0 人工值班
           · <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="s-footer-link">源码 ↗</a>
         </div>
       </div>
@@ -63,16 +74,14 @@
 
 .s-footer-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 
-.s-footer-mark {
-  font-size: 14px;
-  font-weight: 700;
+.opc-icon {
   color: var(--primary);
-  font-family: var(--font-mono-num);
-  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  display: block;
 }
 
 .s-footer-tag {

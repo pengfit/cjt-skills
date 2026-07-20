@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
+import os
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
+SUMMARY_DIR = os.environ.get("GOV_PRICE_SUMMARY_DIR", "/tmp/gov-price-summary")
+
 """吉林增量检测（v0.2, 2026-07-08）：扫描源站 + 比对本地进度，输出待同步清单（不写 ES）。
 
 v0.2 改动：
 - 行前缀 [吉林]（与 17 城 check.py 风格一致，供 gov_price_etl.check_status 解析）
 - 末行基于"源站 page=1 有数据 vs 本地 progress.done"判定 ok / update
-- 写到 /tmp/gov-check-status/jilin.json，供 dashboard /sync 顶部 chip 复用
+- 写到 STATUS_DIR/jilin.json，供 dashboard /sync 顶部 chip 复用
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -100,7 +104,7 @@ def main():
 
 
 # === dashboard status 同步（v0.2, 2026-07-08）===
-# 捕获 main() 的 stdout，按末行 [吉林] 状态写到 /tmp/gov-check-status/jilin.json
+# 捕获 main() 的 stdout，按末行 [吉林] 状态写到 STATUS_DIR/jilin.json
 # 供 dashboard /sync 顶部 chip 复用。已存在则覆盖。
 if __name__ == "__main__":
     import sys as _sys, io as _io

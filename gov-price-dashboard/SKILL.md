@@ -361,6 +361,51 @@ GET /api/search?keyword=&province=&city=&county=&category=
 
 **默认查询索引**：`dws_xian_price`（可通过 `ES_INDEX` 环境变量切换）
 
+## cron 状态目录（docker 部署 · 2026-07-20 归总）
+
+所有 cron 任务产生的 status / summary 文件路径全部走环境变量，docker 镜像无需改动代码即可通过 ENV + VOLUME 切换。
+
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `GOV_CHECK_STATUS_DIR` | `/tmp/gov-check-status` | 19 城 + 规则增量检测的 status json 写入路径（cron 写、API 读） |
+| `GOV_PRICE_SUMMARY_DIR` | `/tmp/gov-price-summary` | 每日汇总的 markdown + 飞书 card JSON 输出路径 |
+
+**所有引用方（24 个 Python 文件）已统一：**
+
+- `scripts/check_rules.py` / `scripts/daily_price_check_summary.py` / `scripts/write_showcase_insight.py`
+- `skills/gov-price-etl/gov_price_etl/check_status.py`（17 城 check.py 走它写 status）
+- `skills/gov-price-dashboard/api/routes/provenance.py`（`/api/stats/check-status` 读 status）
+- `skills/*/commands/check.py` × 19（19 个城市增量检测入口）
+
+### docker-compose 部署示例
+
+```yaml
+services:
+  dashboard:
+    image: registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
+    environment:
+      - GOV_CHECK_STATUS_DIR=/var/lib/openclaw/gov-check-status
+      - GOV_PRICE_SUMMARY_DIR=/var/lib/openclaw/gov-price-summary
+    volumes:
+      - gov-data:/var/lib/openclaw
+volumes:
+  gov-data:    # 持久化卷, 容器重启 status / summary 不丢
+```
+
+### 裸 docker run 等价
+
+```bash
+docker run -d --name dashboard \
+  -e GOV_CHECK_STATUS_DIR=/var/lib/openclaw/gov-check-status \
+  -e GOV_PRICE_SUMMARY_DIR=/var/lib/openclaw/gov-price-summary \
+  -v gov-data:/var/lib/openclaw \
+  registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
+```
+
+### 默认行为（开发机 / 本地）
+
+不设 ENV 时，所有 cron / API 仍走 `/tmp/gov-*`，向后兼容，零行为变化。
+
 ## 新增 skill 接入规范（v1）
 
 Dashboard 采用"声明式配置 + 自动发现"架构。加新 skill **零 dashboard 代码改动**，只需两步：

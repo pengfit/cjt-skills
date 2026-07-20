@@ -22,7 +22,7 @@ import os
 import time
 from typing import Optional
 
-STATUS_DIR = "/tmp/gov-check-status"
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
 
 
 def _now_str() -> str:

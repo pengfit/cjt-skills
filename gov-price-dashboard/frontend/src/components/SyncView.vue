@@ -26,27 +26,16 @@
       ]"
     ><template #icon>🔄</template></PageHeader>
 
+    <!-- 2026-07-20 修改: 数据处理链路已并入 ScrapeView 城市卡, 此处只保留抓取视图 -->
     <div class="sync-subtabs">
-      <button class="sync-subtab" :class="{ active: subTab === 'clean' }" @click="subTab = 'clean'">
+      <button class="sync-subtab" :class="{ active: subTab === 'etl' }" @click="subTab = 'etl'">
         <span class="sync-subtab-dot"></span>
-        数据清洗
-        <span class="sync-subtab-hint">ODS → DWD → DWS 链路</span>
-      </button>
-      <button class="sync-subtab" :class="{ active: subTab === 'scrape' }" @click="subTab = 'scrape'">
-        <span class="sync-subtab-dot"></span>
-        抓取任务
-        <span class="sync-subtab-hint">各城市 ODS 抓取进度</span>
-      </button>
-      <button class="sync-subtab" :class="{ active: subTab === 'cleandim' }" @click="subTab = 'cleandim'">
-        <span class="sync-subtab-dot"></span>
-        维度清洗
-        <span class="sync-subtab-hint">一级分类 × 规格型号 × 城市覆盖</span>
+        ETL 清洗
+        <span class="sync-subtab-hint">各城市 ODS 抓取进度 · 链路口径进卡</span>
       </button>
     </div>
 
-    <ScrapeView v-if="subTab === 'scrape'" />
-    <DataProvenanceView v-else-if="subTab === 'clean'" />
-    <CleanDimView v-else-if="subTab === 'cleandim'" />
+    <ScrapeView v-if="subTab === 'etl'" />
   </div>
 </template>
 
@@ -54,13 +43,11 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import ScrapeView from './ScrapeView.vue'
-import DataProvenanceView from './DataProvenanceView.vue'
-import CleanDimView from './CleanDimView.vue'
 import PageHeader from './PageHeader.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
-const subTab = ref('clean')
+const subTab = ref('etl')
 // D.2026-07-12 统一数字格式化
 const fmt = useFormatNumber()
 
@@ -197,4 +184,6 @@ onMounted(loadStats)
 .sync-subtab.active .sync-subtab-hint {
   color: var(--primary-light, var(--primary));
 }
+
+
 </style>

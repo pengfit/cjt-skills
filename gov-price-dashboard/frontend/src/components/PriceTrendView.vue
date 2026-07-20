@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="`基于 DWS 索引的 ${cityLabel} 工程造价材料价格时序曲线，按 period_start（业务期）聚合 · 按规格(spec)拆分`"
+      :subtitle="`${cityLabel} · 工程造价材料价格时序曲线，按业务期聚合 · 按规格拆分`"
       :stats="topStats"
     >
       <template #icon>📈</template>
@@ -41,7 +41,7 @@
           v-model="materialSearch"
           type="text"
           class="material-search-input"
-          placeholder="搜索材料（例：商品砼、HRB400、C20 · 跨城 NORM）"
+          placeholder="搜索 {{ cityLabel }} 材料（例：商品砼、HRB400、C20）"
           @focus="normDropdownOpen = true"
           @blur="setTimeout(() => normDropdownOpen = false, 200)"
           @keydown.down.prevent="normMoveFocus(1)"
@@ -55,7 +55,7 @@
           <div v-if="normLoading" class="norm-dropdown-loading">⏳ 查询 NORM 索引…</div>
           <template v-else>
             <div v-if="normCandidates.length" class="norm-dropdown-section-title">
-              🌐 跨城归一品种（{{ normCandidates.length }}）
+              🌐 {{ cityLabel }} NORM 归一品种（{{ normCandidates.length }}）
             </div>
             <div
               v-for="(c, idx) in normCandidates"
@@ -91,7 +91,7 @@
         class="material-search-hint"
         :title="`本地材料 = 当前选中城市能搜到的品种\nNORM 跨城 = 全国统一归一品类（跨多城同品种）`"
       >
-        {{ searchableMaterials.length }} 本地 · {{ normCandidates.length }} NORM 跨城
+        {{ searchableMaterials.length }} 本地 · {{ normCandidates.length }} {{ cityLabel }} NORM
         <span class="norm-info-icon">ⓘ</span>
       </span>
       <!-- 0 NORM 时提示申请归一（fix 2026-07-12） -->
@@ -458,10 +458,16 @@ async function searchNormBreeds(keyword) {
   }
   normLoading.value = true
   try {
+    // 2026-07-20 修改 16: NORM 搜索按当前城市过滤 (推荐 = 该城市的跨城归一候选)
     const { data: d } = await axios.get(`${API}/norm/breeds/search`, {
-      params: { keyword: kw, limit: 12 },
+      params: { keyword: kw, city: city.value, limit: 12 },
     })
-    normCandidates.value = d.ok ? (d.results || []) : []
+    let results = d.ok ? (d.results || []) : []
+    // 后端若忽略 city, 客户端按 c.cities 兜底过滤一次
+    if (city.value) {
+      results = results.filter(c => (c.cities || []).some(x => x.key === city.value))
+    }
+    normCandidates.value = results
     normFocusedIdx.value = 0
   } catch (e) {
     normCandidates.value = []
@@ -798,6 +804,15 @@ async function renderChart() {
 
 onMounted(async () => {
   await loadCityOptions()
+})
+
+// 2026-07-20 修改 16: 城市切换时, 若有搜索关键字, 重跑 NORM 搜索保持候选一致
+watch(city, () => {
+  if (materialSearch.value.trim()) {
+    normCandidates.value = []
+    normFocusedIdx.value = 0
+    searchNormBreeds(materialSearch.value)
+  }
 })
 
 watch(city, (newCity) => {

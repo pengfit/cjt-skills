@@ -16,11 +16,41 @@
 <template>
   <section class="case" id="case">
     <header class="section-head">
-      <h2 class="section-title">案例：1 人公司 · AI 跑通 17 城数据中台</h2>
+      <h2 class="section-title">案例：材价通平台</h2>
       <p class="section-sub">
-        1 人 + AI · 撑起完整数据业务 · 凌晨 cron 自跑 0 干预
+        17 城住建局/造价站官方价格 · 凌晨 cron 自跑 0 干预
       </p>
     </header>
+
+    <!-- 项目业务描述 (道友反馈 2026-07-20 15:39) -->
+    <div class="case-business">
+      <p class="case-business-lead">
+        <strong>材价通</strong>是为工程造价行业打造的材料价格数据中台。它对接各地住建局/造价站官方发布的材料价格信息，凌晨自动归集、清洗、跨城归一，覆盖 17 城 9,931 个跨城统一品类。
+      </p>
+      <div class="case-business-grid">
+        <div class="case-business-cell">
+          <span class="case-business-icon">👥</span>
+          <div class="case-business-body">
+            <div class="case-business-label">谁在用</div>
+            <div class="case-business-text">工程造价公司 · 造价咨询 · 施工单位 · 政府审计 · 建材厂商</div>
+          </div>
+        </div>
+        <div class="case-business-cell">
+          <span class="case-business-icon">⚡</span>
+          <div class="case-business-body">
+            <div class="case-business-label">解决什么</div>
+            <div class="case-business-text">人工汇总 17 城价格 · 跨城口径不一 · 期刊滞后查询 · 历史趋势缺失</div>
+          </div>
+        </div>
+        <div class="case-business-cell">
+          <span class="case-business-icon">📈</span>
+          <div class="case-business-body">
+            <div class="case-business-label">带来什么</div>
+            <div class="case-business-text">秒级跨城检索 · 时序趋势 · 规格自动归一 · 公开数据无需登录 · 鉴权 API 可对接</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- AI 洞察:从顶层独立 section 移入案例顶部,作为"案例的活状态" -->
     <ShowcaseInsight />
@@ -56,18 +86,24 @@
       </div>
     </div>
 
-    <!-- 5 步端到端时间线(横排卡片) -->
+    <!-- 5 步端到端时间线(纵向 · 三列 grid: 时间 | 圆点+虚线 | 卡片) -->
     <div class="case-timeline">
       <div class="case-timeline-head">
-        <h3>端到端 5 步时间线</h3>
-        <span class="case-timeline-meta">凌晨 cron → 用户消费 · 全程 0 干预</span>
+        <h3>数据处理步骤</h3>
+        <span class="case-timeline-meta">凌晨 cron → 中台展示 · 全程 0 干预</span>
       </div>
       <div class="case-timeline-flow">
         <article v-for="(s, i) in steps" :key="i" class="case-step">
           <div class="case-step-time">{{ s.time }}</div>
+          <div class="case-step-rail">
+            <span class="case-step-dot"></span>
+            <span class="case-step-line" v-if="i < steps.length - 1"></span>
+          </div>
           <div class="case-step-body">
-            <div class="case-step-num">0{{ i + 1 }}</div>
-            <h4 class="case-step-title">{{ s.title }}</h4>
+            <div class="case-step-head">
+              <span class="case-step-num">0{{ i + 1 }}</span>
+              <h4 class="case-step-title">{{ s.title }}</h4>
+            </div>
             <p class="case-step-desc">{{ s.desc }}</p>
             <div class="case-step-snippet">
               <span class="case-step-label">{{ s.label }}</span>
@@ -111,13 +147,12 @@ const results = [
   { num: '17', unit: '城', label: '数据采集' },
   { num: '9,931', unit: '品种', label: '跨城归一' },
   { num: '788,525', unit: '条', label: '服务交付' },   // norm_index 文档总量
-  { num: '全', unit: '链路', label: 'AI 协作' },
   { num: '7×24', unit: '自跑', label: '部署运维' },
 ]
 
 const steps = [
   {
-    time: '01:00',
+    time: '第一步',
     title: 'Agent 触发 cron',
     desc: 'OpenClaw + cron 自动调度 · 17 城住建局/造价站凌晨抓取',
     label: 'CRON',
@@ -125,7 +160,7 @@ const steps = [
     output: '飞书实时告警，异常不阻塞下一城',
   },
   {
-    time: '01:15',
+    time: '第二步',
     title: 'HTML + PDF 解析入仓',
     desc: 'Excel + PDF（OCR） + Html + API · 解析入 ODS 原始层',
     label: '入仓',
@@ -133,7 +168,7 @@ const steps = [
     output: '可追溯、可回放、可重跑',
   },
   {
-    time: '02:30',
+    time: '第三步',
     title: 'ETL 三层转换',
     desc: '清洗 + 跨城映射 · 9,931 品种跨城口径统一',
     label: '归一',
@@ -141,20 +176,12 @@ const steps = [
     output: '1.2 万品种跨城口径统一',
   },
   {
-    time: '02:35',
-    title: 'AI 洞察生成',
-    desc: 'Agent 读当日汇总 → 模板生成 · 写静态文件，前端只读',
-    label: 'WRITE',
-    snippet: 'Agent 写静态文件 · 前端只读',
-    output: '零耦合，模型调用不阻塞 UI',
-  },
-  {
-    time: '08:00',
-    title: '用户消费',
-    desc: 'Vue SPA + 公开聚合接口 · 9 个驾驶舱 Tab 即开即用',
-    label: 'GET',
-    snippet: '聚合接口 · 20 城 · 78.9 万条 · 9,931 品种',
-    output: '9 个驾驶舱 Tab · 公开 / 鉴权分流',
+    time: '第四步',
+    title: '材价通平台汇总和展示',
+    desc: 'ES 聚合查询 + Vue Dashboard 渲染 · 公开数据无需登录',
+    label: 'DASHBOARD',
+    snippet: '聚合接口 · 9 个驾驶舱 Tab · 20 城 / 78.9 万条 / 9,931 品种',
+    output: '公开 / 鉴权分流 · 1 人 = 1 家公司',
   },
 ]
 
@@ -320,10 +347,73 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+/* ── 业务描述块 (道友反馈 2026-07-20) ── */
+.case-business {
+  margin-bottom: 32px;
+  padding: 20px 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+}
+
+.case-business-lead {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-2);
+  margin: 0 0 16px;
+}
+
+.case-business-lead strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.case-business-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.case-business-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+.case-business-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.case-business-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.case-business-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+}
+
+.case-business-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
 /* ── 顶部 5 列工作成果 ── */
 .case-results {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   margin-bottom: 48px;
 }
@@ -428,7 +518,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-/* ── 5 步时间线(纵向 · 每步一行) ── */
+/* ── 5 步时间线 (道友反馈 2026-07-20 v2: 三列 grid, 圆点独立 rail) ── */
 .case-timeline {
   margin-bottom: 48px;
 }
@@ -459,33 +549,15 @@ onBeforeUnmount(() => {
 .case-timeline-flow {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  position: relative;
+  gap: 12px;
 }
 
-/* 左侧虚线时间轴 */
-.case-timeline-flow::before {
-  content: '';
-  position: absolute;
-  left: 70px;
-  top: 8px;
-  bottom: 8px;
-  width: 1px;
-  background-image: linear-gradient(
-    to bottom,
-    var(--border) 0,
-    var(--border) 4px,
-    transparent 4px,
-    transparent 8px
-  );
-  background-size: 1px 8px;
-}
-
+/* 三列 grid: 时间列 | 圆点+虚线 rail | 卡片 */
 .case-step {
   display: grid;
-  grid-template-columns: 70px 1fr;
-  gap: 20px;
-  padding: 12px 0;
+  grid-template-columns: 64px 20px 1fr;
+  align-items: stretch;
+  gap: 0;
   position: relative;
 }
 
@@ -494,25 +566,56 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--primary);
   font-family: var(--font-mono-num);
-  padding-top: 6px;
+  padding-top: 12px;
+  padding-right: 20px;  /* 2026-07-20 16:04 圆点-时间列间隙 = 圆点-卡片间隙 (body padding-left) */
+  line-height: 1.3;
   text-align: right;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
-  background: transparent;
-  border-radius: 0;
+}
+
+/* 中间 rail 列: 圆点 + 虚线 */
+.case-step-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+}
+
+.case-step-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.case-step-line {
+  flex: 1;
+  width: 1px;
+  margin-top: 4px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--border) 0,
+    var(--border) 4px,
+    transparent 4px,
+    transparent 14px
+  );
+  background-size: 1px 14px;
 }
 
 .case-step-body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
-  flex: 1;
+  padding: 14px 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   transition: all 0.2s ease;
-  position: relative;
 }
 
 .case-step-body:hover {
@@ -520,28 +623,23 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.03));
 }
 
-/* 时间轴上的小圆点 */
-.case-step-body::before {
-  content: '';
-  position: absolute;
-  left: -27px;
-  top: 22px;
-  width: 8px;
-  height: 8px;
-  background: var(--surface);
-  border: 2px solid var(--primary);
-  border-radius: 50%;
-  z-index: 1;
+/* num 跟 title 横排, 不再垂直堆叠 */
+.case-step-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .case-step-num {
-  display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--primary);
   font-family: var(--font-mono-num);
   letter-spacing: 0.04em;
-  align-self: flex-start;
+  background: var(--primary-dim, rgba(37, 99, 235, 0.08));
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .case-step-title {
@@ -555,7 +653,7 @@ onBeforeUnmount(() => {
 
 .case-step-desc {
   font-size: 12px;
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--text-2);
   margin: 0;
 }
@@ -657,16 +755,15 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1024px) {
   .case-results { grid-template-columns: repeat(3, 1fr); }
+  .case-business-grid { grid-template-columns: 1fr; }
   .case-map-chart { height: 520px; }
 }
 
 @media (max-width: 640px) {
   .case-results { grid-template-columns: 1fr; }
   .case-map-chart { height: 400px; }
-  .case-timeline-flow::before { left: 50px; }
-  .case-step { grid-template-columns: 50px 1fr; gap: 14px; }
-  .case-step-body::before { left: -19px; }
-  .case-step-time { font-size: 11px; }
+  .case-step { grid-template-columns: 48px 16px 1fr; }
+  .case-step-time { font-size: 11px; padding-right: 8px; }
   .case-step-title { font-size: 14px; }
 }
 </style>

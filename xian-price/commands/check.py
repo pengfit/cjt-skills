@@ -1,3 +1,7 @@
+import os
+STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
+SUMMARY_DIR = os.environ.get("GOV_PRICE_SUMMARY_DIR", "/tmp/gov-price-summary")
+
 """西安 - 增量检测: 对比 ES 各 county 最新 month vs 源站各 county 最新 period
 
 修复记录(v0.2): 
@@ -157,7 +161,7 @@ def main():
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===
-# 捕获 main() 的 stdout，按末行 [城市] 状态写到 /tmp/gov-check-status/<key>.json
+# 捕获 main() 的 stdout，按末行 [城市] 状态写到 STATUS_DIR/<key>.json
 # 供 dashboard /sync 顶部 chip 复用。已存在则覆盖。
 if __name__ == '__main__':
     import sys as _sys, io as _io
