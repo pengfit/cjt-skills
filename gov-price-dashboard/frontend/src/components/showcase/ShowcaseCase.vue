@@ -16,11 +16,14 @@
 <template>
   <section class="case" id="case">
     <header class="section-head">
-      <h2 class="section-title">案例：建筑材料造价数据 · 端到端整合</h2>
+      <h2 class="section-title">案例：1 人公司 · AI 跑通 17 城数据中台</h2>
       <p class="section-sub">
-        17 城住建局 / 造价站官方价格 · 1 人 + AI · 凌晨 cron 自跑
+        1 人 + AI · 撑起完整数据业务 · 凌晨 cron 自跑 0 干预
       </p>
     </header>
+
+    <!-- AI 洞察:从顶层独立 section 移入案例顶部,作为"案例的活状态" -->
+    <ShowcaseInsight />
 
     <!-- 顶部:5 列工作成果数字看板 -->
     <div class="case-results">
@@ -86,10 +89,10 @@
         <span class="case-tech-chip" v-for="t in tech" :key="t">{{ t }}</span>
       </div>
       <div class="case-summary">
-        <strong>这个案例展示 OPC 工作站的完整运行形态：</strong>
+        <strong>这个案例展示 OPC 一人公司怎么用 AI 跑通一个完整业务：</strong>
         17 城政府源站 → 凌晨 cron 自动抓取 → ETL 三层入仓 →
-        AI 协作归一 → Vue Dashboard 可视化 → 飞书告警通知。
-        1 人 + AI 全程无需干预，覆盖工程造价数据全生命周期。
+        AI 协作归一 → Vue Dashboard 服务客户 → 飞书告警通知。
+        1 人公司 + AI 全程无需干预，覆盖数据业务全生命周期。
       </div>
     </div>
   </section>
@@ -97,6 +100,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import ShowcaseInsight from './ShowcaseInsight.vue'
 import { useEcharts } from '../../composables/useEcharts'
 import { registerGovPriceTheme } from '../../composables/useEchartsTheme'
 

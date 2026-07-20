@@ -1,23 +1,22 @@
 <!--
-  ShowcaseView.vue (2026-07-20 整合重构)
+  ShowcaseView.vue (2026-07-20 OPC 主题重构 - One Person Company)
 
-  /index 首页 - 4 个 section 简洁结构
+  /index 首页 - 5 个 section · OPC 一人公司叙事
   路径:/index (公开访问,不鉴权)
 
-  2026-07-20 改造:
-    - 删除:独立 Metrics block / ShowcaseArchitecture / ShowcaseMap / ShowcaseGallery
-      (原 3 个 section 讲的都是"建筑材料造价数据端到端案例",整合到 ShowcaseCase)
-    - 保留:Nav / Hero / Insight / Workspace / Footer
-    - 新增:ShowcaseCase(综合案例 section)
-    - 引入:ShowcaseWorkspace(AI 协作叙事,跟案例互不重复)
+  2026-07-20 改造(主题级重构):
+    1. Nav/Hero/Footer 品牌 → "One Person Company"
+    2. Workspace 对比 → 传统公司 vs OPC 一人公司
+    3. Case 视角 → 1 人公司跑通 17 城数据业务
+    4. 新增 ShowcaseBusiness · 6 大能力全景 + 成本对比
 -->
 <template>
   <div class="showcase">
     <ShowcaseNav />
     <main class="showcase-main">
       <ShowcaseHero />
-      <ShowcaseInsight />
       <ShowcaseWorkspace />
+      <ShowcaseBusiness />
       <ShowcaseCase />
     </main>
     <ShowcaseFooter />
@@ -28,10 +27,12 @@
 import { provide } from 'vue'
 import ShowcaseNav from './showcase/ShowcaseNav.vue'
 import ShowcaseHero from './showcase/ShowcaseHero.vue'
-import ShowcaseInsight from './showcase/ShowcaseInsight.vue'
 import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
+import ShowcaseBusiness from './showcase/ShowcaseBusiness.vue'
 import ShowcaseCase from './showcase/ShowcaseCase.vue'
 import ShowcaseFooter from './showcase/ShowcaseFooter.vue'
+
+// 注意:ShowcaseInsight 已并入 ShowcaseCase 顶部(从顶层独立 section 移入案例内容)
 
 // 静态数据(写死) - 数据时间:2026-07-19,来源 /api/showcase/stats 最后一次快照
 // /index 不再调用 API(已是静态页面),stats 保留用于潜在引用

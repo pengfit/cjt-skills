@@ -9,7 +9,7 @@
       <div class="s-footer-row">
         <div class="s-footer-brand">
           <span class="s-footer-mark">OPC</span>
-          <span class="s-footer-tag">个人 AI 工作站</span>
+          <span class="s-footer-tag">One Person Company</span>
         </div>
         <div class="s-footer-meta">
           © 2026 · 运行于 Mac mini · 7×24 自跑

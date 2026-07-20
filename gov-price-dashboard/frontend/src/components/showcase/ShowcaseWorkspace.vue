@@ -13,9 +13,9 @@
 <template>
   <section class="workspace" id="workspace">
     <header class="section-head">
-      <h2 class="section-title">OPC 工作站空间</h2>
+      <h2 class="section-title">OPC 一人公司 · 怎么运作</h2>
       <p class="section-sub">
-        一个人 + AI · 撑起整套软件工程 · 飞书说一声就开干
+        1 人 + AI · 撑起 6 大部门 · 飞书说一声就开干
       </p>
     </header>
 
@@ -31,26 +31,27 @@
         <!-- 传统 vs OPC 对比 -->
         <div class="ws-compare">
           <div class="ws-compare-old">
-            <div class="ws-compare-label">传统软件工程</div>
+            <div class="ws-compare-label">传统公司</div>
             <div class="ws-compare-flow">
-              <span>需求</span><span>→</span>
-              <span>设计</span><span>→</span>
-              <span>开发</span><span>→</span>
-              <span>测试</span><span>→</span>
-              <span>运维</span>
+              <span>产品</span><span>·</span>
+              <span>技术</span><span>·</span>
+              <span>销售</span><span>·</span>
+              <span>运营</span><span>·</span>
+              <span>客户</span><span>·</span>
+              <span>财务</span>
             </div>
-            <div class="ws-compare-meta">产品 + 设计 + 开发 + 测试 + 运维 + DBA · 多人多周</div>
+            <div class="ws-compare-meta">6 部门 · 6 人 · 多年磨合</div>
           </div>
           <div class="ws-compare-arrow">→</div>
           <div class="ws-compare-new">
-            <div class="ws-compare-label">OPC 工作站</div>
+            <div class="ws-compare-label">OPC 一人公司</div>
             <div class="ws-compare-flow ws-compare-flow-new">
-              <span>人</span><span>+</span>
+              <span>1 人</span><span>+</span>
               <span>Maxmin</span><span>+</span>
               <span>OpenClaw</span><span>+</span>
               <span>大模型</span>
             </div>
-            <div class="ws-compare-meta">一人 · 一天 · AI 协作全程</div>
+            <div class="ws-compare-meta">1 人公司 · 6 部门 AI 协作</div>
           </div>
         </div>
 

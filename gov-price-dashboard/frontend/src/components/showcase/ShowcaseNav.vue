@@ -7,7 +7,7 @@
     <div class="s-nav-inner">
       <router-link to="/index" class="s-brand">
         <span class="s-brand-mark">OPC</span>
-        <span class="s-brand-text">个人 AI 工作站</span>
+        <span class="s-brand-text">One Person Company</span>
       </router-link>
       <span class="s-case-chip">案例 · 材料价格中台</span>
     </div>

@@ -9,7 +9,7 @@
     文件不存在时显示引导文案,不破坏对外展示。
 -->
 <template>
-  <section class="insight" id="insight">
+  <div class="insight" id="insight">
     <div class="insight-card">
       <div class="insight-head">
         <span class="insight-dot" :class="{ live: hasContent }"></span>
@@ -26,7 +26,7 @@
         </p>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup>
@@ -111,6 +111,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .insight {
   padding: 24px 0 0;
+  margin: 0 0 48px 0;
 }
 
 .insight-card {

@@ -12,11 +12,11 @@
 <template>
   <section class="hero">
     <div class="hero-inner">
-      <span class="hero-tag">OPC · Open Personal Computing</span>
-      <h1 class="hero-title">一台 Mac mini,<br/>撑起的 AI 工作站</h1>
-      <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是产品宣传,是一个工作范式与每日自跑的系统</p>
-      <a href="#case" class="hero-cta">
-        看跑通的案例 <span class="arrow">↓</span>
+      <span class="hero-tag">OPC · One Person Company</span>
+      <h1 class="hero-title">1 个人 + 一套 AI =<br/>一家完整公司</h1>
+      <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是个人工具，是 OPC 一人公司的工作范式</p>
+      <a href="#business" class="hero-cta">
+        看怎么运作 <span class="arrow">↓</span>
       </a>
     </div>
   </section>
@@ -28,7 +28,7 @@
 
 <style scoped>
 .hero {
-  padding: 120px 0 80px;
+  padding: 120px 0 40px;
 }
 
 .hero-inner {
