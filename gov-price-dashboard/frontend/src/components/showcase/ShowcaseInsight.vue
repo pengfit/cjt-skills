@@ -30,14 +30,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 
 const markdown = ref('')
 const updatedAt = ref('')
+let refreshHandle = null
 
 const hasContent = computed(() => {
   if (!markdown.value) return false
-  // 兜底文案里带"暂未生成",判定为空
+  // 兑底文案里带"暂未生成",判定为空
   return !markdown.value.includes('暂未生成')
 })
 
@@ -62,8 +63,16 @@ function escape(s) {
 
 function formatTime(iso) {
   // 2026-07-20T07:07:58Z → 07-20 07:07
+  // 显示「X 分钟前」相对时间,文件不刷新也能看出新鲜度
   try {
     const d = new Date(iso)
+    const now = new Date()
+    const diffMs = now - d
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return '刚刚'
+    if (diffMin < 60) return `${diffMin} 分钟前`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr} 小时前`
     const mm = String(d.getMonth() + 1).padStart(2, '0')
     const dd = String(d.getDate()).padStart(2, '0')
     const hh = String(d.getHours()).padStart(2, '0')
@@ -74,7 +83,7 @@ function formatTime(iso) {
   }
 }
 
-onMounted(async () => {
+async function refreshInsight() {
   try {
     const r = await fetch('/api/showcase/insight')
     if (!r.ok) return
@@ -85,6 +94,17 @@ onMounted(async () => {
     // 网络失败静默,fallback 到"暂未生成"文案
     console.warn('[showcase-insight] fetch failed:', e)
   }
+}
+
+onMounted(() => {
+  refreshInsight()
+  // 每 60s 自动 refresh,让 updated_at 保持新鲜
+  refreshHandle = setInterval(refreshInsight, 60_000)
+})
+
+onBeforeUnmount(() => {
+  // 清理 interval,避免 HMR 累积
+  if (refreshHandle) clearInterval(refreshHandle)
 })
 </script>
 

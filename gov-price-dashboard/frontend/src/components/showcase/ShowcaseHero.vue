@@ -15,8 +15,8 @@
       <span class="hero-tag">OPC · Open Personal Computing</span>
       <h1 class="hero-title">一台 Mac mini,<br/>撑起的 AI 工作站</h1>
       <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是产品宣传,是一个工作范式与每日自跑的系统</p>
-      <a href="#arch" class="hero-cta">
-        看怎么搭 <span class="arrow">↓</span>
+      <a href="#case" class="hero-cta">
+        看跑通的案例 <span class="arrow">↓</span>
       </a>
     </div>
   </section>

@@ -13,19 +13,22 @@
         </div>
         <div class="s-footer-meta">
           © 2026 · 运行于 Mac mini · 7×24 自跑
+          · <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="s-footer-link">源码 ↗</a>
         </div>
       </div>
-      <div class="s-footer-stack">
-        <span class="stack-label">技术栈</span>
-        <span class="stack-item">Python 3</span>
+      <div class="s-footer-stack s-footer-stack-ai">
+        <span class="stack-label">AI 协作栈</span>
+        <span class="stack-item">OpenClaw</span>
         <span class="stack-sep">·</span>
-        <span class="stack-item">Elasticsearch</span>
+        <span class="stack-item">Docker</span>
         <span class="stack-sep">·</span>
-        <span class="stack-item">FastAPI</span>
+        <span class="stack-item">Dify</span>
         <span class="stack-sep">·</span>
-        <span class="stack-item">Vue 3</span>
+        <span class="stack-item">DeepSeek</span>
         <span class="stack-sep">·</span>
-        <span class="stack-item">ECharts</span>
+        <span class="stack-item">Claude</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-item">MiniMax</span>
       </div>
     </div>
   </footer>
@@ -83,6 +86,19 @@
   color: var(--text-3);
 }
 
+.s-footer-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: 4px;
+  transition: opacity 0.2s ease;
+}
+
+.s-footer-link:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
 .s-footer-stack {
   display: flex;
   align-items: center;
@@ -90,6 +106,21 @@
   gap: 8px;
   font-size: 12px;
   color: var(--text-3);
+}
+
+.s-footer-stack-ai {
+  /* AI 协作栈与 Case 完整栈互补:这里只显示 OPC 独有的 AI 能力 */
+}
+
+.s-footer-stack-ai .stack-label {
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+}
+
+.s-footer-stack-ai .stack-item {
+  font-family: var(--font-mono-num);
+  color: var(--text-2);
 }
 
 .stack-label {

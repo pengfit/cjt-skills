@@ -1,16 +1,15 @@
 <!--
-  ShowcaseView.vue (2026-07-19 改造)
+  ShowcaseView.vue (2026-07-20 整合重构)
 
-  对外展示首页 - 数据可视化风
+  /index 首页 - 4 个 section 简洁结构
   路径:/index (公开访问,不鉴权)
 
-  2026-07-19 改造为**静态页面**(道友要求):
-    - 删除 fetch /api/showcase/stats,数据全部硬编码
-    - 删除 loading / error 状态机(数据写死,不存在加载过程)
-    - 不再调用 useApi / useAuth 等 composable
-
-  数据来源:2026-07-19 19 时最后一次真实拉取,定稿。
-  若数据过期,直接改下面的 STATS 对象即可,无需重启后端。
+  2026-07-20 改造:
+    - 删除:独立 Metrics block / ShowcaseArchitecture / ShowcaseMap / ShowcaseGallery
+      (原 3 个 section 讲的都是"建筑材料造价数据端到端案例",整合到 ShowcaseCase)
+    - 保留:Nav / Hero / Insight / Workspace / Footer
+    - 新增:ShowcaseCase(综合案例 section)
+    - 引入:ShowcaseWorkspace(AI 协作叙事,跟案例互不重复)
 -->
 <template>
   <div class="showcase">
@@ -19,9 +18,7 @@
       <ShowcaseHero />
       <ShowcaseInsight />
       <ShowcaseWorkspace />
-      <ShowcaseArchitecture />
-      <ShowcaseMap :grouped="stats.provinces_grouped" />
-      <ShowcaseGallery />
+      <ShowcaseCase />
     </main>
     <ShowcaseFooter />
   </div>
@@ -32,17 +29,12 @@ import { provide } from 'vue'
 import ShowcaseNav from './showcase/ShowcaseNav.vue'
 import ShowcaseHero from './showcase/ShowcaseHero.vue'
 import ShowcaseInsight from './showcase/ShowcaseInsight.vue'
-import ShowcaseMetrics from './showcase/ShowcaseMetrics.vue'
 import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
-import ShowcaseArchitecture from './showcase/ShowcaseArchitecture.vue'
-import ShowcaseGallery from './showcase/ShowcaseGallery.vue'
+import ShowcaseCase from './showcase/ShowcaseCase.vue'
 import ShowcaseFooter from './showcase/ShowcaseFooter.vue'
-import ShowcaseMap from './showcase/ShowcaseMap.vue'
 
-// ── 静态数据(写死)──
-// 数据时间:2026-07-19,来源 /api/showcase/stats 最后一次快照
-// breeds_count 改为从 breed_canonical.db 统计 normalized_breed 去重数(2026-07-19)
-// 改这里就改首页,不动后端、不动容器
+// 静态数据(写死) - 数据时间:2026-07-19,来源 /api/showcase/stats 最后一次快照
+// /index 不再调用 API(已是静态页面),stats 保留用于潜在引用
 const stats = {
   cities_count: 20,
   provinces_count: 15,
@@ -56,60 +48,34 @@ const stats = {
   storage_mb: 573.1,
   latest_update: '2026-07-31',
   provinces_grouped: [
-    { name: '内蒙古', cities: [
-      { key: 'huhehaote', label: '呼和浩特', latest: '2026-02-28', count: 1803 },
-    ]},
-    { name: '吉林', cities: [
-      { key: 'jilin', label: '吉林', latest: '2026-07-31', count: 5124 },
-    ]},
-    { name: '四川', cities: [
-      { key: 'sichuan', label: '四川', latest: '2026-05-31', count: 421345 },
-    ]},
-    { name: '宁夏', cities: [
-      { key: 'ningxia', label: '宁夏', latest: '2026-06-30', count: 7747 },
-    ]},
+    { name: '内蒙古', cities: [{ key: 'huhehaote', label: '呼和浩特', latest: '2026-02-28', count: 1803 }] },
+    { name: '吉林', cities: [{ key: 'jilin', label: '吉林', latest: '2026-07-31', count: 5124 }] },
+    { name: '四川', cities: [{ key: 'sichuan', label: '四川', latest: '2026-05-31', count: 421345 }] },
+    { name: '宁夏', cities: [{ key: 'ningxia', label: '宁夏', latest: '2026-06-30', count: 7747 }] },
     { name: '山东', cities: [
       { key: 'weihai', label: '威海', latest: '2026-03-31', count: 818 },
       { key: 'rizhao', label: '日照', latest: '2026-05-31', count: 4973 },
       { key: 'jinan', label: '济南', latest: '2026-05-31', count: 24487 },
       { key: 'heze', label: '菏泽', latest: '2026-01-31', count: 868 },
       { key: 'qingdao', label: '青岛', latest: '2026-06-30', count: 1307 },
-    ]},
-    { name: '山西', cities: [
-      { key: 'shanxi', label: '山西', latest: '2026-04-30', count: 11436 },
-    ]},
-    { name: '新疆', cities: [
-      { key: 'xinjiang', label: '新疆', latest: '2026-05-31', count: 100990 },
-    ]},
-    { name: '江西', cities: [
-      { key: 'jiangxi', label: '江西', latest: '2026-07-31', count: 45579 },
-    ]},
-    { name: '河南', cities: [
-      { key: 'henan', label: '河南', latest: '2026-04-30', count: 8234 },
-    ]},
-    { name: '海南', cities: [
-      { key: 'hainan', label: '海南', latest: '2026-04-30', count: 12278 },
-    ]},
-    { name: '湖南', cities: [
-      { key: 'hunan', label: '湖南', latest: '2026-04-30', count: 2282 },
-    ]},
-    { name: '贵州', cities: [
-      { key: 'guizhou', label: '贵州', latest: '2026-06-30', count: 17072 },
-    ]},
-    { name: '重庆', cities: [
-      { key: 'chongqing', label: '重庆', latest: '2026-05-31', count: 8578 },
-    ]},
+    ] },
+    { name: '山西', cities: [{ key: 'shanxi', label: '山西', latest: '2026-04-30', count: 11436 }] },
+    { name: '新疆', cities: [{ key: 'xinjiang', label: '新疆', latest: '2026-05-31', count: 100990 }] },
+    { name: '江西', cities: [{ key: 'jiangxi', label: '江西', latest: '2026-07-31', count: 45579 }] },
+    { name: '河南', cities: [{ key: 'henan', label: '河南', latest: '2026-04-30', count: 8234 }] },
+    { name: '海南', cities: [{ key: 'hainan', label: '海南', latest: '2026-04-30', count: 12278 }] },
+    { name: '湖南', cities: [{ key: 'hunan', label: '湖南', latest: '2026-04-30', count: 2282 }] },
+    { name: '贵州', cities: [{ key: 'guizhou', label: '贵州', latest: '2026-06-30', count: 17072 }] },
+    { name: '重庆', cities: [{ key: 'chongqing', label: '重庆', latest: '2026-05-31', count: 8578 }] },
     { name: '陕西', cities: [
       { key: 'xian', label: '西安', latest: '2026-06-30', count: 69654 },
       { key: 'shaanxi', label: '陕西', latest: '2026-06-30', count: 33475 },
-    ]},
-    { name: '青海', cities: [
-      { key: 'qinghai', label: '青海', latest: '2026-06-30', count: 10475 },
-    ]},
+    ] },
+    { name: '青海', cities: [{ key: 'qinghai', label: '青海', latest: '2026-06-30', count: 10475 }] },
   ],
 }
 
-// 给 Hero 提供数据(它用 inject,而不是 props)
+// 给 Hero(用 inject)提供数据
 provide('stats', stats)
 </script>
 
