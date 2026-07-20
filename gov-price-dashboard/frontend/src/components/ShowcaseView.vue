@@ -17,9 +17,10 @@
     <ShowcaseNav />
     <main class="showcase-main">
       <ShowcaseHero />
-      <ShowcaseMetrics :stats="stats" />
+      <ShowcaseInsight />
+      <ShowcaseWorkspace />
+      <ShowcaseArchitecture />
       <ShowcaseMap :grouped="stats.provinces_grouped" />
-      <ShowcaseCapabilities />
       <ShowcaseGallery />
     </main>
     <ShowcaseFooter />
@@ -30,8 +31,10 @@
 import { provide } from 'vue'
 import ShowcaseNav from './showcase/ShowcaseNav.vue'
 import ShowcaseHero from './showcase/ShowcaseHero.vue'
+import ShowcaseInsight from './showcase/ShowcaseInsight.vue'
 import ShowcaseMetrics from './showcase/ShowcaseMetrics.vue'
-import ShowcaseCapabilities from './showcase/ShowcaseCapabilities.vue'
+import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
+import ShowcaseArchitecture from './showcase/ShowcaseArchitecture.vue'
 import ShowcaseGallery from './showcase/ShowcaseGallery.vue'
 import ShowcaseFooter from './showcase/ShowcaseFooter.vue'
 import ShowcaseMap from './showcase/ShowcaseMap.vue'
@@ -48,7 +51,7 @@ const stats = {
   ods_total: 907316,
   norm_total: 788525,
   total_records: 788525,
-  breeds_count: 12286,
+  breeds_count: 9931,
   categories_count: 9,
   storage_mb: 573.1,
   latest_update: '2026-07-31',

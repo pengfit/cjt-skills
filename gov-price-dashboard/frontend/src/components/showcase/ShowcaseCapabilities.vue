@@ -18,8 +18,8 @@
 <template>
   <section class="cap" id="capabilities">
     <header class="section-head">
-      <h2 class="section-title">核心能力</h2>
-      <p class="section-sub">从「数据全」到「口径齐」再到「决策有据」,覆盖工程造价数据的全生命周期</p>
+      <h2 class="section-title">OPC 三层架构</h2>
+      <p class="section-sub">Agent 自动调度 → 多模型协作 → 容器编排,三件套一个都不能少</p>
     </header>
     <div class="timeline">
       <div class="tl-line">
@@ -47,40 +47,43 @@
 <script setup>
 const items = [
   {
-    title: '数据采集',
-    tagline: '让数据「全」',
-    layers: [{ name: 'ODS · 原始价' }],
-    desc: '全国 20 个城市住建局、造价站官方价格信息,凌晨自动同步,数据可追溯到原始来源。',
-    points: [
-      'Excel (.xlsx) · PDF · HTML 网页解析',
-      '凌晨 01:00–02:25 自动同步',
-      '失败重试 + 飞书汇总告警',
-    ],
-  },
-  {
-    title: '跨城统一',
-    tagline: '让数据「可比」',
+    title: 'Agent 调度层',
+    tagline: '让系统「自己跑」',
     layers: [
-      { name: 'DWD · 清洗' },
-      { name: 'DWS · 标准', accent: true },
-      { name: 'norm · 跨城' },
+      { name: 'OpenClaw Agent' },
+      { name: 'cron · SKILL', accent: true },
     ],
-    desc: '消除「同物异名」(如 C30 混凝土 = 商品混凝土 C30),1.2 万品种跨城口径归一,可直接对比。',
+    desc: 'OpenClaw Agent 读 SKILL.md、自己调度 cron、自己写状态文件、自己汇总告警。凌晨 01:00–02:25 你可以睡觉,系统在跑。',
     points: [
-      '12,286 个跨城统一官方品种',
-      'GB 章节 4 层分类(8 / 42 / 145)',
-      'AI 攒批 + 正则规则库双轨归一',
+      '18 个城市检测 cron,isolated 隔离',
+      '02:30 汇总推送飞书 DM',
+      '状态文件写 /tmp,前端只读,零耦合',
     ],
   },
   {
-    title: '价格洞察',
-    tagline: '让数据「可用」',
-    layers: [{ name: '驾驶舱 · 决策视图' }],
-    desc: '9 个驾驶舱 Tab,地图看分布、走势看趋势、规格审计看来源,辅助造价估算、采购决策、预算编制。',
+    title: '模型协作层',
+    tagline: '让系统「会思考」',
+    layers: [
+      { name: 'DeepSeek · 归一' },
+      { name: 'MiniMax · 分类', accent: true },
+      { name: 'Claude · 复核' },
+    ],
+    desc: '不锁定单一模型,按任务选。DeepSeek-chat 处理大批量归一、MiniMax-M3 处理分类推断、Claude 复核边缘 case,走 Dify workflow 可观测。',
     points: [
-      '中国地图热力看价格分布',
-      '时间走势辅助采购时机',
-      '规格解析审计可追溯到源头',
+      'Dify chatflow 封装 AI 调用',
+      'AI 攒批 + 正则规则库双轨',
+      '同类任务并发拉满,差异化走不同模型',
+    ],
+  },
+  {
+    title: '容器编排层',
+    tagline: '让系统「可复制」',
+    layers: [{ name: 'Docker · multi-stage' }],
+    desc: '前端 Node 20 构建 + Python 3.11 运行时,镜像 325 MB 自包含,一条 ./deploy.sh release 完成 build → tag → push → restart。',
+    points: [
+      'docker-compose 一键起 ES + Dify + Dashboard',
+      '阿里云 ACR 托管,一连接发多机器',
+      '失败 rollback 到上一个 tag',
     ],
   },
 ]

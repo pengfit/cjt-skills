@@ -28,18 +28,24 @@ const props = defineProps({
 })
 
 function fmt(n) {
-  if (!n) return '—'
+  // 简化只在 >=1万 走「万」,<1万 走千分位(避免「9.9」无单位歧义)
+  if (n === null || n === undefined) return '—'
   if (n >= 1e4) return (n / 1e4).toFixed(1)
-  if (n >= 1e3) return (n / 1e3).toFixed(1)
-  return String(n)
+  return n.toLocaleString('zh-CN')
+}
+
+function unit(n, base) {
+  if (n === null || n === undefined) return ''
+  if (n >= 1e4) return '万' + base  // 万条 / 万个
+  return base                       // 条 / 个
 }
 
 const items = computed(() => {
   const s = props.stats || {}
   return [
-    { label: '城市', value: s.cities_count || '—', unit: '城' },
-    { label: '价格记录', value: fmt(s.total_records), unit: s.total_records >= 1e4 ? '万' : '' },
-    { label: '归一品种', value: fmt(s.breeds_count), unit: s.breeds_count >= 1e4 ? '万' : '' },
+    { label: 'Agent 凌晨巡检', value: fmt(s.cities_count), unit: '城' },
+    { label: 'ETL 入仓记录', value: fmt(s.total_records), unit: unit(s.total_records, '条') },
+    { label: '模型归一品种', value: fmt(s.breeds_count), unit: unit(s.breeds_count, '个') },
   ]
 })
 </script>

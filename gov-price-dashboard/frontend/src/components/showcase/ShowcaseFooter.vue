@@ -8,10 +8,11 @@
     <div class="s-footer-inner">
       <div class="s-footer-row">
         <div class="s-footer-brand">
-          <span class="s-footer-tag">材料价格数据中台</span>
+          <span class="s-footer-mark">OPC</span>
+          <span class="s-footer-tag">个人 AI 工作站</span>
         </div>
         <div class="s-footer-meta">
-          © 2026 · 数据来源各地住建局 / 造价站
+          © 2026 · 运行于 Mac mini · 7×24 自跑
         </div>
       </div>
       <div class="s-footer-stack">
@@ -61,6 +62,14 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
+}
+
+.s-footer-mark {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--font-mono-num);
+  letter-spacing: -0.02em;
 }
 
 .s-footer-tag {

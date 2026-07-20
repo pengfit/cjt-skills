@@ -12,10 +12,11 @@
 <template>
   <section class="hero">
     <div class="hero-inner">
-      <h1 class="hero-title">材料价格中台</h1>
-      <p class="hero-sub">自动采集 · 智能归一 · 可视化分析</p>
-      <a href="#capabilities" class="hero-cta">
-        了解更多 <span class="arrow">↓</span>
+      <span class="hero-tag">OPC · Open Personal Computing</span>
+      <h1 class="hero-title">一台 Mac mini,<br/>撑起的 AI 工作站</h1>
+      <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是产品宣传,是一个工作范式与每日自跑的系统</p>
+      <a href="#arch" class="hero-cta">
+        看怎么搭 <span class="arrow">↓</span>
       </a>
     </div>
   </section>
@@ -34,6 +35,20 @@
   max-width: 880px;
 }
 
+.hero-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  padding: 4px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  margin-bottom: 24px;
+  font-family: var(--font-mono-num);
+  background: var(--primary-dim, rgba(37, 99, 235, 0.06));
+}
+
 .hero-title {
   font-size: clamp(40px, 5vw, 60px);
   font-weight: 700;
@@ -45,7 +60,7 @@
 
 .hero-sub {
   font-size: 17px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text-2);
   margin: 0 0 32px;
   font-weight: 400;

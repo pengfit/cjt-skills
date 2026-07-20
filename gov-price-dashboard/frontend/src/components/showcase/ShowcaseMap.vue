@@ -9,9 +9,9 @@
 <template>
   <section class="map-coverage" id="coverage">
     <header class="section-head">
-      <h2 class="section-title">数据覆盖</h2>
+      <h2 class="section-title">Agent 触达范围</h2>
       <p class="section-sub">
-        {{ totalCities }} 城 · {{ provinces.length }} 省 · 颜色深浅表示价格记录数
+        {{ totalCities }} 城 · {{ provinces.length }} 省 · 凌晨 01:00–02:25 自动巡检,颜色深浅 = 昨日入库量
       </p>
     </header>
     <div ref="chartEl" class="map-chart"></div>

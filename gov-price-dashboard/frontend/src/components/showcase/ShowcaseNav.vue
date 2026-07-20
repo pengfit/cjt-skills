@@ -1,16 +1,15 @@
 <!--
   ShowcaseNav.vue - 顶部极简 nav
-  公开访客用,只放 logo + "进入 Dashboard" CTA
+  公开访客用,只放 logo(2026-07-19 删除"进入 Dashboard"入口,道友要求)
 -->
 <template>
   <nav class="s-nav">
     <div class="s-nav-inner">
       <router-link to="/index" class="s-brand">
-        <span class="s-brand-text">材料价格数据中台</span>
+        <span class="s-brand-mark">OPC</span>
+        <span class="s-brand-text">个人 AI 工作站</span>
       </router-link>
-      <a href="/cockpit" class="s-cta">
-        进入 Dashboard <span class="arrow">→</span>
-      </a>
+      <span class="s-case-chip">案例 · 材料价格中台</span>
     </div>
   </nav>
 </template>
@@ -43,7 +42,7 @@
 .s-brand {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   color: var(--text);
 }
@@ -53,11 +52,22 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--primary);
+  font-family: var(--font-mono-num);
 }
 
 .s-brand-text {
   font-size: 14px;
   color: var(--text-2);
+}
+
+.s-case-chip {
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
 .s-cta {
