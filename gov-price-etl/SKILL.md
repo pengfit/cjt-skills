@@ -33,24 +33,24 @@ v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06
 │                                                                       │
 │  ┌─ 阶段 1: 本地 breed_category_rules.db 精确查表 ────────┐        │
 │  │  SQL: SELECT category WHERE breed = ?                       │     │
-│  │  命中 → category_source='db_exact', category_stage='1'      │     │
+│  │  命中 → category_v2_source='db_exact_v3'                    │     │
 │  └───────────────────────────────────────────────────────┘        │
 │                                    ↓ 未命中                          │
 │  ┌─ 阶段 2: 本地 DB + Jaccard 模糊召回 ─────────────────┐        │
 │  │  倒排精确包含 / Dice + 加权 Jaccard (阈值 0.45)         │     │
-│  │  命中 → category_source='db_fuzzy', category_stage='2'  │     │
+│  │  命中 → category_v2_source='db_fuzzy_v3'                  │     │
 │  └───────────────────────────────────────────────────────┘        │
 │                                    ↓ 未命中                          │
 │  ┌─ 阶段 3: AI classify_breed_batch 串行批次分类 ──────┐          │
 │  │  攒批 20 条/批 → 逐批调 AI → 回写 DWD                   │       │
-│  │  命中 → category_source='ai', category_stage='3'        │      │
-│  │  失败兜底 '其他' → category_source='ai_fallback'        │      │
+│  │  命中 → category_v2_source='ai'                         │       │
+│  │  失败兜底 '其他' → category_v2_source='ai_fallback'      │      │
 │  └───────────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  DWD 层（带 category_source / category_stage 字段）                 │
+│  DWD 层（带 category_v2_source 字段，无 category_stage）             │
 │  dwd_xian_price / dwd_sichuan_price / ...                            │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
@@ -86,7 +86,7 @@ v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06
 ```
 
 **关键约定**：
-- ODS→DWD 阶段：每条 DWD 文档带 `category_source`（`db_exact` / `db_fuzzy` / `ai` / `ai_fallback`）和 `category_stage`（`1` / `2` / `3` / 空）
+- ODS→DWD 阶段：每条 DWD 文档带 `category_v2_source`（`db_exact_v3` / `db_fuzzy_v3` / `ai` / `ai_fallback`）。**当前实现不写 stage 字段**——`category_stage` 在 SKILL.md 早期版本里描述过，但代码未落地，命中阶段只能从 `category_v2_source` 的后缀推断（`db_*_v3` = DB 阶段 1/2，剩余归 AI 阶段 3）
 - DWD→DWS 阶段：每条 DWS 文档带 `attr_source`（`etl` / `local_db` / `ai` / `ai_fallback`）
 - AI 调用严格**串行**（默认 20 条/批，逐批调用，批间 sleep 0.5s 限速），不并发
 
@@ -345,15 +345,15 @@ etl_city(es_host, city, cfg)
   ├─ 滚动拉 ODS（按 update_date asc）
   │
   ├─ 每条 → transform_doc() 内部调 classify_breed_with_stages(breed, use_ai=False)
-  │    ├─ 阶段 1: classify_breed_db_exact(breed)     → 'db_exact' / ''
-  │    ├─ 阶段 2: classify_breed_db_fuzzy(breed)     → 'db_fuzzy' / ''
+  │    ├─ 阶段 1: classify_breed_db_exact(breed)     → 'db_exact_v3' / ''
+  │    ├─ 阶段 2: classify_breed_db_fuzzy(breed)     → 'db_fuzzy_v3' / ''
   │    └─ 兜底: 返回 ('其他', '', '') → 标记待 AI
   │
-  ├─ 阶段 1+2 命中 → 写入 DWD（带 category_source）
+  ├─ 阶段 1+2 命中 → 写入 DWD（带 category_v2_source）
   │
   └─ 阶段 1+2 都未命中 → 攒批 → _ai_classify_pending()
        ├─ 阶段 3: classify_breed_ai(breed, city) 串行批次（20条/批）
-       └─ 回写 DWD category / category_source='ai'/'ai_fallback'
+       └─ 回写 DWD category / category_v2_source='ai'/'ai_fallback'
 ```
 
 ### DWD→DWS 三段式（pipeline/dws_sync.py）
@@ -383,8 +383,8 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 | `breed_clean` | keyword | 清洗后品种名 |
 | `spec` | text+keyword | 原始规格 |
 | `category` | keyword | 分类名称 |
-| **`category_source`** | **keyword** | **分类来源：`db_exact`/`db_fuzzy`/`ai`/`ai_fallback`** |
-| **`category_stage`** | **keyword** | **命中阶段：`1`/`2`/`3`/空** |
+| **`category_v2_source`** | **keyword** | **分类来源：`db_exact_v3`/`db_fuzzy_v3`/`ai`/`ai_fallback`** |
+| `category_stage` | — | **当前未实现**（SKILL.md 早期版本描述过，代码未落地） |
 | `attr` | nested | 解析后的规格属性（list of {k, v}） |
 | `etl_time` | date | ETL 时间戳 |
 | `source_index` | keyword | ODS 索引名 |
@@ -441,7 +441,7 @@ v1 大类字典（28 类）+ v2 4 层 64 节点已于 2026-06 废止。
 |---|---|---|
 | **v0.1** | 2026-04 | 单文件 1107 行上帝模块 `etl.py` |
 | **v0.2** | 2026-05 | 拆分为 gov_price_etl 包（7 个模块，每个 < 250 行）；拍平 src/ 层级；DWS sync 三合一（quick/plain/ai） |
-| **v0.3** | 2026-06 初 | ODS→DWD 引入 v1 显式三段式（db_exact / db_fuzzy / ai），DWD→DWS 保持三段式（attr / local_db / ai） |
+| **v0.3** | 2026-06 初 | ODS→DWD 引入 v1 显式三段式（db_exact_v3 / db_fuzzy_v3 / ai），DWD→DWS 保持三段式（attr / local_db / ai） |
 | **v0.4** | 2026-06-17 | v1 大类字典废，分类重写为 5 段式；DWD 走"先 DB 后 AI"两轮 |
 | **v0.5** | 2026-06-18 | AI 切到 Dify workflow API；prompts.yml 外部化；mappings 集中维护 |
 | **v0.6** | 2026-06-19 | v2 → v3 GB 章节 4 层体系重建；collectors 抽象基类 v0.8+ 提供 SyncRunner / SignalHandler / LocalProgressStore 供城市采集 skill 复用 |

@@ -1,14 +1,10 @@
 <!--
-  ShowcaseView.vue (2026-07-20 OPC 主题重构 - One Person Company)
+  HomeView.vue (2026-07-21 由 ShowcaseView 改名)
+  /home 公开 landing — 12 个 section,延续原 OPC 主题叙事
+  ·  原 6 个保留:Nav / Hero / Workspace / Business / Case / Footer
+  ·  新增 6 个:Manifesto / Process / Numbers / Pricing / Faq / Contact (2026-07-21)
 
-  /showcase 首页 - 5 个 section · Pengfit OPC 一人公司叙事
-  路径:/showcase (公开访问,不鉴权; 旧 /index 自动 301)
-
-  2026-07-20 改造(主题级重构):
-    1. Nav/Hero/Footer 品牌 → "One Person Company"
-    2. Workspace 对比 → 传统公司 vs OPC 一人公司
-    3. Case 视角 → 1 人公司跑通 17 城数据业务
-    4. 新增 ShowcaseBusiness · 6 大能力全景 + 成本对比
+  路径:/home (公开访问,不鉴权; 旧 /showcase 301 → /home; 旧 /index 跳 /cockpit)
 -->
 <template>
   <div class="showcase">
@@ -17,9 +13,15 @@
     <ShowcaseNav />
     <main class="showcase-main">
       <ShowcaseHero />
+      <ManifestoSection />
       <ShowcaseWorkspace />
       <ShowcaseBusiness />
+      <ProcessSection />
       <ShowcaseCase />
+      <NumbersSection />
+      <PricingSection />
+      <FaqSection />
+      <ContactSection />
     </main>
     <ShowcaseFooter />
   </div>
@@ -33,8 +35,13 @@ import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
 import ShowcaseBusiness from './showcase/ShowcaseBusiness.vue'
 import ShowcaseCase from './showcase/ShowcaseCase.vue'
 import ShowcaseFooter from './showcase/ShowcaseFooter.vue'
-
-// 注意:ShowcaseInsight 已并入 ShowcaseCase 顶部(从顶层独立 section 移入案例内容)
+// 2026-07-21 /home 增强
+import ManifestoSection from './showcase/ManifestoSection.vue'
+import ProcessSection from './showcase/ProcessSection.vue'
+import NumbersSection from './showcase/NumbersSection.vue'
+import PricingSection from './showcase/PricingSection.vue'
+import FaqSection from './showcase/FaqSection.vue'
+import ContactSection from './showcase/ContactSection.vue'
 
 // 静态数据(写死) - 数据时间:2026-07-19,来源 /api/showcase/stats 最后一次快照
 // /index 不再调用 API(已是静态页面),stats 保留用于潜在引用
@@ -78,7 +85,7 @@ const stats = {
   ],
 }
 
-// 给 Hero(用 inject)提供数据
+// 给 Hero(用 inject)提供数据;NumbersSection 2026-07-21 新增也消费
 provide('stats', stats)
 
 // 2026-07-20 #21 阅读进度条

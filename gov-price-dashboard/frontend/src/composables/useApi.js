@@ -61,7 +61,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
-      const PUBLIC_PATHS = ['/showcase', '/login', '/']
+      const PUBLIC_PATHS = ['/home', '/login', '/'] 
       const isPublicPath = PUBLIC_PATHS.some(p =>
         location.pathname === p || location.pathname.startsWith(p + '/')
       )

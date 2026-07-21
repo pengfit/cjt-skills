@@ -1,8 +1,8 @@
 <template>
   <header class="top-bar">
     <div class="top-bar-left">
-      <!-- 2026-07-19 对外展示首页入口(从 dashboard 内部返回 /index) -->
-      <router-link to="/showcase" class="showcase-link" title="返回对外展示首页 /showcase">
+      <!-- 2026-07-21 /showcase 改名为 /home -->
+      <router-link to="/home" class="showcase-link" title="返回对外展示首页 /home">
         <span class="showcase-link-icon">←</span>
         <span class="showcase-link-text">首页</span>
       </router-link>

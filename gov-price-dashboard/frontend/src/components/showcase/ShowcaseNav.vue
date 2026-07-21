@@ -6,7 +6,7 @@
 <template>
   <nav class="s-nav">
     <div class="s-nav-inner">
-      <router-link to="/showcase" class="s-brand">
+      <router-link to="/home" class="s-brand">
         <svg class="opc-icon" viewBox="0 0 32 32" width="22" height="22" aria-label="Pengfit" role="img">
           <!-- 外圈: 公司边界 -->
           <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" stroke-dasharray="2 2"/>

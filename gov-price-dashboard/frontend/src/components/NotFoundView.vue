@@ -19,7 +19,7 @@
         <br />可能是链接拼错,或者页面已迁移。
       </p>
       <div class="not-found-actions">
-        <router-link to="/showcase" class="nf-btn nf-btn-primary">
+        <router-link to="/home" class="nf-btn nf-btn-primary">
           ← 返回 Pengfit 落地页
         </router-link>
         <a href="javascript:history.back()" class="nf-btn nf-btn-ghost">

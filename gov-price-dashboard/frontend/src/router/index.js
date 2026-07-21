@@ -25,9 +25,11 @@ const TabsLayout = { name: 'TabsLayout', template: '<router-view />' }
 const routes = [
   // 2026-07-19 鉴权:登录页放在最前,公开
   { path: '/login', name: 'login', component: () => import('../components/LoginView.vue'), meta: { public: true } },
-  // 2026-07-20 17:15 拆分: /showcase=ShowcaseView (公开 landing), /index → /cockpit (主应用)
-  { path: '/showcase', name: 'showcase', component: () => import('../components/ShowcaseView.vue'), meta: { public: true } },
-  // 2026-07-20 17:15 拆分: /showcase 是公开 landing, /index 跳到主应用 dashboard
+  // 2026-07-21: /showcase 改名为 /home; HomeView.vue (公开 landing), /index → /cockpit (主应用)
+  { path: '/home', name: 'home', component: () => import('../components/HomeView.vue'), meta: { public: true } },
+  // 2026-07-21: /showcase 301 跳 /home (旧链接兼容)
+  { path: '/showcase', redirect: '/home' },
+  // 2026-07-21: /home 是公开 landing, /index 跳到主应用 dashboard
   { path: '/index', redirect: '/cockpit' },
   // 2026-07-20 #19 友好 404 页: 拼错 URL 渲染此组件, 而不是 redirect
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../components/NotFoundView.vue') },
@@ -41,7 +43,7 @@ const routes = [
   // /breed-detail?breed=X&l3=Y&province=Z&city=W[&from=list|taxonomy|spec-rules]
   // 用「直接挂组件」而非 TabsLayout,以免 router-view 二级路由丢渲染
   { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
-  { path: '/', redirect: '/showcase' },
+  { path: '/', redirect: '/home' },
   // 2026-07-20 #19 友好 404 页: catch-all 渲染 NotFoundView 组件 (替代原 redirect)
   // 注: NotFoundView 路由已在前面 /showcase 路由旁注册
 ] 
@@ -57,7 +59,7 @@ const router = createRouter({
 
 // 守卫拦截:
 //   1) 兼容旧 ?tab=xxx URL → 重定向到新路径, 丢弃 tab 参数
-//   2) /showcase 公开首页: 清理 date_from / date_to (不属于这个页面) + 自动加 v=时间戳 cache buster
+//   2) /home 公开首页: 清理 date_from / date_to (不属于这个页面) + 自动加 v=时间戳 cache buster
 //      - 防止分享链接把 ListView/CockpitView/Rules 的筛选参数串到 /showcase
 //      - v=时间戳让浏览器/CDN 视为新 URL, 强制拉取最新内容, 避免旧缓存
 //   3) 其它路由 (含 /list /cockpit /rules /breed-detail): 保留 date_from / date_to 不动
@@ -72,8 +74,8 @@ router.beforeEach((to) => {
     return { path: target.path, query: rest }
   }
 
-  // 2) /showcase 路由清理 + cache buster (2026-07-20 19:16 BUG 修: 已有 v= 则放行, 避免死循环)
-  if (to.name === 'showcase') {
+  // 2) /home 路由清理 + cache buster (2026-07-20 19:16 BUG 修: 已有 v= 则放行, 避免死循环)
+  if (to.name === 'home') {
     // 已有 v= 时间戳 → 直接放行, 不再 return (return 会触发新导航 → 守卫重跑 → 死循环)
     if (to.query.v) return
 
