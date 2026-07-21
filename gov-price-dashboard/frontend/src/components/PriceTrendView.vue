@@ -221,10 +221,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount, defineAsyncComponent } from 'vue'
-// 三个子 tab 视图都 async 化（首屏只加载 PageHeader 架子，切 tab 才拉对应代码；2026-07-09 优化）
-
-// 顶部 tab 状态：'single'（默认）| 'category' | 'compare'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
 import PageHeader from './PageHeader.vue'
@@ -236,9 +234,11 @@ import EmptyState from './EmptyState.vue'
 import { exportChartAsPng, exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+// 2026-07-21 案例轮播图: URL ?city=xxx 锁定单城（否则默认 alphabetical 首位）
+const route = useRoute()
 
 // ── 状态 ──
-const city = ref('')
+const city = ref((route.query.city || '').toString())
 const cityOptions = ref([])
 const allMaterials = ref([])         // API 返回的该城市所有材料
 const materialSamples = ref([])      // chip 栏随机抽样的样本（默认 10 个,2026-07-10 调整）
@@ -804,6 +804,9 @@ async function renderChart() {
 
 onMounted(async () => {
   await loadCityOptions()
+  // 2026-07-21 案例轮播: URL ?city= 直接设的 city 不会触发 watch,
+  // 这里手动补一次 loadData(),否则 canvas 不渲染
+  if (city.value) loadData()
 })
 
 // 2026-07-20 修改 16: 城市切换时, 若有搜索关键字, 重跑 NORM 搜索保持候选一致

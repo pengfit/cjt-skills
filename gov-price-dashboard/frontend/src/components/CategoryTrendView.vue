@@ -163,6 +163,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useEcharts } from '../composables/useEcharts'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
@@ -174,6 +175,8 @@ import EmptyState from './EmptyState.vue'
 import { exportCsvAsFile, withTimestamp } from '../composables/useExport.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+// 2026-07-21 案例轮播图: URL ?city=xxx 让单城模式生效（默认仍走全国跨城）
+const route = useRoute()
 const fmt = useFormatNumber()
 
 // ── 基础选项（去城市化后仅保留期数与热力图规格数；2026-07-09） ──
@@ -272,8 +275,9 @@ async function loadData() {
   try {
     const { data: d } = await axios.get(`${API}/stats/category-trend`, {
       params: {
-        // 2026-07-09 起：不传 city，默认全国跨城归一
         normalized_breed: catInput.value.trim(),
+        // 2026-07-21 案例轮播: URL ?city= 可单城查询,不传走全国跨城归一
+        city: (route.query.city || '').trim(),
         periods: parseInt(periodsLimit.value, 10),
         top_specs: parseInt(topSpecs.value, 10),
       },
@@ -304,7 +308,12 @@ async function loadPeers(l3_code) {
   try {
     // 2026-07-09 起：不传 city，默认全国跨城归一
     const { data: d } = await axios.get(`${API}/stats/category-l3-peers`, {
-      params: { l3_code, min_count: 3, limit: 30 },
+      params: {
+        l3_code,
+        city: (route.query.city || '').trim(),
+        min_count: 3,
+        limit: 30,
+      },
     })
     if (d.ok && d.peers) {
       // 排除当前品类
@@ -502,6 +511,13 @@ function exportBandCsv() {
 
 // ── 生命周期（2026-07-09 去城市化：loadCities 移除，无需加载城市列表） ──
 onMounted(() => {
+  // 2026-07-21 案例轮播: URL ?breed= 自动填充并加载（无需手动点击）
+  // 配合 ?city=xxx 做单城截屏
+  const urlBreed = (route.query.breed || '').toString().trim()
+  if (urlBreed) {
+    catInput.value = urlBreed
+    loadData()
+  }
   window.addEventListener('resize', handleResize)
 })
 onBeforeUnmount(() => {
