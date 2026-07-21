@@ -131,7 +131,20 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from api.auth import JWT_SECRET, JWT_ALG, decode_token
 from jose import JWTError
-_PUBLIC_PATHS = {"/api/auth/login", "/api/", "/api", "/api/showcase/stats", "/api/showcase/insight"}
+_PUBLIC_PATHS = {
+    "/api/auth/login",
+    "/api/",
+    "/api",
+    "/api/showcase/stats",
+    "/api/showcase/insight",
+    # 2026-07-21: /market 公开页(涨跌幅/热门品类/热力图),不需 JWT
+    "/api/market/overview",
+    "/api/market/movers",
+    "/api/market/hot-categories",
+    "/api/market/change-heatmap",
+    "/api/market/spec-fingerprints",
+    "/api/market/attr-keys",
+}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -192,6 +205,11 @@ app.include_router(category_trend_router, **_PROTECTED)
 # 只读 ES 聚合 + skill registry,无原始数据泄露
 from api.routes.showcase import router as showcase_router
 app.include_router(showcase_router)
+
+# 2026-07-21：/market 市场行情公开 API（涨跌幅/热门品类/热力图）
+# 同样只读 ES 聚合,返回的字段已脱敏(无原始 spec/attr,只有均价)
+from api.routes.market import router as market_router
+app.include_router(market_router)
 
 es = Elasticsearch([ES_HOST])
 

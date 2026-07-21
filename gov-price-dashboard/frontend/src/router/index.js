@@ -27,6 +27,8 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('../components/LoginView.vue'), meta: { public: true } },
   // 2026-07-21: /showcase 改名为 /home; HomeView.vue (公开 landing), /index → /cockpit (主应用)
   { path: '/home', name: 'home', component: () => import('../components/HomeView.vue'), meta: { public: true } },
+  // 2026-07-21: /market 市场行情公开页 (涨跌幅 / 热门品类 / 热力图), 不鉴权
+  { path: '/market', name: 'market', component: () => import('../components/MarketView.vue'), meta: { public: true } },
   // 2026-07-21: /showcase 301 跳 /home (旧链接兼容)
   { path: '/showcase', redirect: '/home' },
   // 2026-07-21: /home 是公开 landing, /index 跳到主应用 dashboard
