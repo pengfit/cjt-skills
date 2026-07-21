@@ -253,19 +253,31 @@ class ChongqingCollector(SyncRunner):
         return True
 
     def _extract_all_pages(self, source: str) -> Optional[list]:
-        """抓所有分页数据（AJAX 等待 + 翻页累加），失败返回 None。
+        """抓所有分页数据（AJAX 等待 + 翻页累加）。
 
-        与原 _run_sync_source 的 _extract_page 循环等价。
+        Returns:
+            list: 抓到的 rows。**可能为空**，意味着该分类下原站没发布数据，应被
+                  上层 collector 当作 skipped（不是 error）。
+            None: AJAX 未响应 / tbody 没渲染 / 点击失败等真错误。
+
+        与原 _run_sync_source 的 _extract_page 循环等价，但区分了：
+          * 原站「未发布」→ tbody 存在但 0 行 → 返回 []
+          * 抓取层「未响应」→ {err: 'no tbody' / 'no tab'} → 返回 None
         """
         # 等 AJAX 响应
+        last_data: Optional[dict] = None
         for _ in range(15):
             data = _w._extract_page(source)
+            last_data = data
             rows = data.get("rows", [])
             if rows:
                 break
             time.sleep(1)
         else:
-            return None  # 15 秒没数据 = 失败
+            # 15s 还没 rows：分两种情况
+            if last_data and last_data.get("err"):
+                return None  # AJAX 没响应（真错误）
+            return []  # tbody 渲染了但站点下没数据（合法 skipped）
 
         all_rows = []
         page = 1

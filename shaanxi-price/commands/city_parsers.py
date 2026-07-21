@@ -259,7 +259,17 @@ def _parse_type_B(text):
         if not parsed:
             continue
         code, breed, spec, unit = parsed
-        nums = re.findall(r'\d+\.?\d*', line)
+        # v2 (2026-07-21 修复)：
+        #   spec 常含尺寸数字（如 '240*115*90'、'600×240×80~120mm'、'1200mm×350mm×H=0.36m→360mm'）。
+        #   旧逻辑 `nums = re.findall(r'\d+\.?\d*', line)` 把 spec 数字也收进 nums，
+        #   致 `nums[-2]/nums[-1]` 拿到尺寸数字当作价格（如 NORM 中看到的 41,327,301 / 36,070,3311）。
+        #   解法：先从 line 里抹掉 spec 字段里的所有数字段，再 re.findall，最后剔除 code。
+        spec_digits = sorted(set(re.findall(r'\d+\.?\d*', spec)), key=lambda x: -len(x))
+        line_clean = line
+        for d in spec_digits:
+            # 长数字先替换（避免 '240' 把 '2400' 截断成 '0'）
+            line_clean = line_clean.replace(d, ' ', 1)
+        nums = [n for n in re.findall(r'\d+\.?\d*', line_clean) if n != code]
         if len(nums) >= 2:
             tax_p = _parse_number(nums[-1])
             no_tax = _parse_number(nums[-2])
@@ -393,7 +403,12 @@ def _parse_type_C(text):
         if not parsed:
             continue
         code, breed, spec, unit = parsed
-        nums = re.findall(r'\d+\.?\d*', line)
+        # v2 (2026-07-21 修复)：spec 字段含尺寸数字会污染 nums[-3/-2]
+        spec_digits = sorted(set(re.findall(r'\d+\.?\d*', spec)), key=lambda x: -len(x))
+        line_clean = line
+        for d in spec_digits:
+            line_clean = line_clean.replace(d, ' ', 1)
+        nums = [n for n in re.findall(r'\d+\.?\d*', line_clean) if n != code]
         # 顺序：含税价格 除税价格 税率%
         if len(nums) >= 3:
             tax_p = _parse_number(nums[-3])

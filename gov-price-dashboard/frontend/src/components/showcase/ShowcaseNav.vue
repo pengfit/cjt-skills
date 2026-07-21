@@ -23,8 +23,7 @@
         </svg>
         <span class="s-brand-text">Pengfit</span>
       </router-link>
-      <span class="s-case-chip">案例 · 材价通</span>
-
+   
       <!-- 2026-07-20: 暗色模式手动切换按钮 (sun/moon) -->
       <button
         class="s-theme-toggle"

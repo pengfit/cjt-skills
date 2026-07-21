@@ -4,12 +4,16 @@
 本模块统一从 sync_v3_legacy 导出，供 ningxia_collector.py 复用：
     import sync_legacy as _legacy
     _legacy.fetch_all_periods(...)
+
+v0.9 (2026-07-21)：fetch_all_periods / fetch_detail_pdf 改走浏览器版
+  源站 jst.nx.gov.cn 启用 CT2-WAAP（知道创宇）拦截 HTTP requests（412 + 滑块挑战）。
+  通过 ningxia_browser_fetch 用 openclaw browser 替代 requests，
+  collector / preview 不用改——通过本模块 import 即可拿到浏览器版 fetch。
+  PDF 解析 / 索引 / 进度等仍走原 sync_v3_legacy。
 """
 from sync_v3_legacy import (
-    # 列表/详情页
+    # 列表 HTML 解析（仍由 v3 提供，浏览器版在 JS 里现抽，不再依赖 HTML 字符串）
     parse_list_page,
-    fetch_all_periods,
-    fetch_detail_pdf,
     pdf_basename,
     # PDF 解析
     parse_pdf,
@@ -23,6 +27,11 @@ from sync_v3_legacy import (
     load_progress,
     save_progress,
     PROGRESS_FILE,
+)
+# v0.9 (2026-07-21) 网络抓取改走浏览器（绕开 CT2-WAAP）
+from ningxia_browser_fetch import (
+    fetch_all_periods,
+    fetch_detail_pdf,
 )
 
 __all__ = [
