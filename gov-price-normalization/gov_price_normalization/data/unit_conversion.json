@@ -2,7 +2,9 @@
   "_meta": {
     "version": "0.1.1",
     "updated": "2026-07-19",
-    "note": "P6 补: 株/丛/张/组/扇等 piece, kwh/度 energy, m4-m20 螺纹规格"
+    "note": "P6 补: 株/丛/张/组/扇等 piece, kwh/度 energy, m4-m20 螺纹规格",
+    "last_updated": "2026-07-21",
+    "last_update_note": "补充升/毫升（共 2 条）"
   },
   "units": {
     "kg": {
@@ -339,6 +341,56 @@
       "dim": "length",
       "to_base": 1.0,
       "base": "mm"
+    },
+    "千块": {
+      "dim": "piece",
+      "to_base": 1000.0,
+      "base": "个"
+    },
+    "百根": {
+      "dim": "piece",
+      "to_base": 100.0,
+      "base": "根"
+    },
+    "千根": {
+      "dim": "piece",
+      "to_base": 1000.0,
+      "base": "根"
+    },
+    "百只": {
+      "dim": "piece",
+      "to_base": 100.0,
+      "base": "只"
+    },
+    "千只": {
+      "dim": "piece",
+      "to_base": 1000.0,
+      "base": "只"
+    },
+    "百个": {
+      "dim": "piece",
+      "to_base": 100.0,
+      "base": "个"
+    },
+    "千个": {
+      "dim": "piece",
+      "to_base": 1000.0,
+      "base": "个"
+    },
+    "百块": {
+      "dim": "piece",
+      "to_base": 100.0,
+      "base": "块"
+    },
+    "升": {
+      "dim": "volume",
+      "to_base": 1000000.0,
+      "base": "mm³"
+    },
+    "毫升": {
+      "dim": "volume",
+      "to_base": 1000.0,
+      "base": "mm³"
     }
   },
   "l3_default_unit": {

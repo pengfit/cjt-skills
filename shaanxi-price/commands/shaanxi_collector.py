@@ -251,9 +251,32 @@ def _doc_id(period, breed, spec, city, county, code="", unit=""):
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
+def _is_valid_price(price):
+    """防御式校验：材料价格需在 (0, 1_000_000) 区间内。None 视为合法（占位）。
+
+    2026-07-21：曾因 _parse_type_B 的 code 腐蚀 bug 产生 price=360703310、802103301 等
+    8 亿级错误数据。在写入前最后一道防线卡住异常值。
+    """
+    if price is None:
+        return True
+    try:
+        v = float(price)
+    except (TypeError, ValueError):
+        return False
+    return 0 < v < 1_000_000
+
+
 def bulk_index_ods(es, index, docs):
     if not docs:
         return 0, 0
+    # v2 (2026-07-21): 防御式过滤 — 剔除明显异常的 price
+    filtered = [d for d in docs if _is_valid_price(d.get("price"))]
+    skipped = len(docs) - len(filtered)
+    if skipped:
+        print(f"  [bulk_index_ods] 防御式过滤跳过 {skipped} 条 price 异常记录（不在 0<p<1_000_000）")
+    docs = filtered
+    if not docs:
+        return 0, skipped
     body = ""
     for d in docs:
         _id = _doc_id(

@@ -133,7 +133,14 @@ def _join_wrapped_lines(lines):
 
 
 def _split_breed_spec_unit(line, code_end):
-    """从 material 行（去掉 code 部分）切出 (breed, spec, unit)。"""
+    """从 material 行（去掉 code 部分）切出 (breed, spec, unit)。
+
+    v2 (2026-07-21 修复): unit 后允许跟 `/` 或 `／` 分隔符（咸阳多 county 表格式：
+    `010101302 抗渗混凝土 C30 P10 m³ / / 400.00 452.00 375.00 423.75`）。
+    旧版只看 `\s+\d|\s*$`，遇到 `m³ /` 这种格式时漏掉 unit，导致 spec 字段
+    吞掉整行价格，后续 `_parse_type_B` 把 spec 里的尺寸数字 replace 到 code 上
+    腐蚀 code，最终把残留数字当成价格（如 price=360703310、802103301）。
+    """
     rest = line[code_end:].strip()
     if not rest:
         return ('', '', '')
@@ -141,7 +148,7 @@ def _split_breed_spec_unit(line, code_end):
         r'\s+((?:台班|㎡·天|m2·天|m·天|m³·天|张·天|'
         r'千块|百元|千克|kg|Kg|KG|'
         r'm3|m³|m2|㎡|m²|台班|月|天|'
-        r't|T|m|个|只|块|张|套|把|片|根|箱|袋|桶|卷|本|册|组|份|座|盏|台|辆|樘|件|米|千米|Km|km|次|工日|元))(?=\s+\d|\s*$)',
+        r't|T|m|个|只|块|张|套|把|片|根|箱|袋|桶|卷|本|册|组|份|座|盏|台|辆|樘|件|米|千米|Km|km|次|工日|元))(?=\s+[/／]|\s+\d|\s*$)',
         rest
     )
     if m:
@@ -259,17 +266,28 @@ def _parse_type_B(text):
         if not parsed:
             continue
         code, breed, spec, unit = parsed
-        # v2 (2026-07-21 修复)：
-        #   spec 常含尺寸数字（如 '240*115*90'、'600×240×80~120mm'、'1200mm×350mm×H=0.36m→360mm'）。
-        #   旧逻辑 `nums = re.findall(r'\d+\.?\d*', line)` 把 spec 数字也收进 nums，
-        #   致 `nums[-2]/nums[-1]` 拿到尺寸数字当作价格（如 NORM 中看到的 41,327,301 / 36,070,3311）。
-        #   解法：先从 line 里抹掉 spec 字段里的所有数字段，再 re.findall，最后剔除 code。
-        spec_digits = sorted(set(re.findall(r'\d+\.?\d*', spec)), key=lambda x: -len(x))
-        line_clean = line
-        for d in spec_digits:
-            # 长数字先替换（避免 '240' 把 '2400' 截断成 '0'）
-            line_clean = line_clean.replace(d, ' ', 1)
-        nums = [n for n in re.findall(r'\d+\.?\d*', line_clean) if n != code]
+        # v3 (2026-07-21 修复 v2 残留 bug):
+        #   v2 用 `line_clean.replace(d, ' ', 1)` 把整行清洗，
+        #   当 spec 尺寸数字（如 30、10）作为 code 子串时（如 802103302 含 "30"），
+        #   code 被腐蚀，残留数字穿透 `n != code` 过滤被当成价格（曾产生 360703310、802103301 等脏数据）。
+        #   解法：从 line 抽所有数字 → 排除 code 与 spec 中明确出现的数字 →
+        #   防御式剔除异常值（≥ 100 万）。
+        all_nums = re.findall(r'\d+\.?\d*', line)
+        spec_num_set = set(re.findall(r'\d+\.?\d*', spec))
+        nums = []
+        for n in all_nums:
+            if n == code:
+                continue
+            val = _parse_number(n)
+            if val is None or val <= 0:
+                continue
+            # 防御：材料价格超过 100 万视为脏数据（v2 bug 产物如 360703310、802103301 都被此过滤）
+            if val >= 1000000:
+                continue
+            # spec 中明确出现的数字（尺寸/型号）剔除，避免尺寸数字干扰价格识别
+            if n in spec_num_set:
+                continue
+            nums.append(n)
         if len(nums) >= 2:
             tax_p = _parse_number(nums[-1])
             no_tax = _parse_number(nums[-2])
@@ -403,12 +421,24 @@ def _parse_type_C(text):
         if not parsed:
             continue
         code, breed, spec, unit = parsed
-        # v2 (2026-07-21 修复)：spec 字段含尺寸数字会污染 nums[-3/-2]
-        spec_digits = sorted(set(re.findall(r'\d+\.?\d*', spec)), key=lambda x: -len(x))
-        line_clean = line
-        for d in spec_digits:
-            line_clean = line_clean.replace(d, ' ', 1)
-        nums = [n for n in re.findall(r'\d+\.?\d*', line_clean) if n != code]
+        # v3 (2026-07-21 修复 v2 残留 bug): 与 _parse_type_B 同源问题
+        #   用 `line_clean.replace(spec_digit, ' ')` 会腐蚀 code，残留数字被当成价格。
+        #   改用 set 过滤 + 防御式异常值剔除。
+        all_nums = re.findall(r'\d+\.?\d*', line)
+        spec_num_set = set(re.findall(r'\d+\.?\d*', spec))
+        nums = []
+        for n in all_nums:
+            if n == code:
+                continue
+            val = _parse_number(n)
+            if val is None or val <= 0:
+                continue
+            # 防御：材料价格超过 100 万视为脏数据
+            if val >= 1000000:
+                continue
+            if n in spec_num_set:
+                continue
+            nums.append(n)
         # 顺序：含税价格 除税价格 税率%
         if len(nums) >= 3:
             tax_p = _parse_number(nums[-3])
