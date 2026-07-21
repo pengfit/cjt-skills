@@ -13,8 +13,8 @@
   <section class="hero">
     <div class="hero-inner">
       <span class="hero-tag">Pengfit</span>
-      <h1 class="hero-title">1 个人 + AI<br/><span class="hero-gt">=</span> N 个团队</h1>
-      <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是个人工具，是 OPC 一人公司的工作范式</p>
+      <h1 class="hero-title">"龙虾"饲养员</h1>
+      <p class="hero-sub">OpenClaw · 多模型协作 · Dify Workflow · Docker<br/>不是个人工具，是 饲养员场地 的工作范式</p>
       <a href="#case" class="hero-cta">
         查看案例 <span class="arrow">↓</span>
       </a>

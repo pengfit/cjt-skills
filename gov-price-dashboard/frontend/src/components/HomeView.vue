@@ -15,11 +15,8 @@
       <ShowcaseHero />
       <ManifestoSection />
       <ShowcaseWorkspace />
-      <ShowcaseBusiness />
-      <ProcessSection />
-      <ShowcaseCase />
-      <NumbersSection />
       <PricingSection />
+      <ShowcaseCase />
       <FaqSection />
       <ContactSection />
     </main>
@@ -32,13 +29,10 @@ import { ref, onMounted, onUnmounted, provide } from 'vue'
 import ShowcaseNav from './showcase/ShowcaseNav.vue'
 import ShowcaseHero from './showcase/ShowcaseHero.vue'
 import ShowcaseWorkspace from './showcase/ShowcaseWorkspace.vue'
-import ShowcaseBusiness from './showcase/ShowcaseBusiness.vue'
 import ShowcaseCase from './showcase/ShowcaseCase.vue'
 import ShowcaseFooter from './showcase/ShowcaseFooter.vue'
 // 2026-07-21 /home 增强
 import ManifestoSection from './showcase/ManifestoSection.vue'
-import ProcessSection from './showcase/ProcessSection.vue'
-import NumbersSection from './showcase/NumbersSection.vue'
 import PricingSection from './showcase/PricingSection.vue'
 import FaqSection from './showcase/FaqSection.vue'
 import ContactSection from './showcase/ContactSection.vue'
@@ -85,7 +79,7 @@ const stats = {
   ],
 }
 
-// 给 Hero(用 inject)提供数据;NumbersSection 2026-07-21 新增也消费
+// 给 Hero(用 inject)提供数据
 provide('stats', stats)
 
 // 2026-07-20 #21 阅读进度条

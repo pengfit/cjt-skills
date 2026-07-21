@@ -27,20 +27,7 @@
           · <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="s-footer-link">源码 ↗</a>
         </div>
       </div>
-      <div class="s-footer-stack s-footer-stack-ai">
-        <span class="stack-label">AI 协作栈</span>
-        <span class="stack-item">OpenClaw</span>
-        <span class="stack-sep">·</span>
-        <span class="stack-item">Docker</span>
-        <span class="stack-sep">·</span>
-        <span class="stack-item">Dify</span>
-        <span class="stack-sep">·</span>
-        <span class="stack-item">DeepSeek</span>
-        <span class="stack-sep">·</span>
-        <span class="stack-item">Claude</span>
-        <span class="stack-sep">·</span>
-        <span class="stack-item">MiniMax</span>
-      </div>
+      <!-- 2026-07-21 移除 AI 协作栈 -->
     </div>
   </footer>
 </template>

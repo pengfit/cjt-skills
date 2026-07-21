@@ -9,6 +9,8 @@ const { target, inView } = useInView()
 
 const form = ref({ email: '', body: '', wechat: '' })
 const sent = ref(false)
+// 2026-07-21 道友要求: 联系入口先禁用,后续开放
+const disabled = ref(true)
 
 const submit = (e) => {
   // mailto 兜底:Phase A 仅唤起本机邮件客户端
@@ -63,11 +65,15 @@ const submit = (e) => {
           />
         </label>
         <div class="contact-actions">
-          <button type="submit" class="contact-submit" :disabled="sent">
-            {{ sent ? '已唤起邮件客户端' : '发送' }}
+          <button type="submit" class="contact-submit" :disabled="disabled || sent">
+            {{ sent ? '已唤起邮件客户端' : '暂未开放' }}
           </button>
           <span v-if="sent" class="contact-hint contact-hint-ok">
             已唤起本机邮件；如未弹出,请直发 hello@pengfit.cn
+          </span>
+          <span v-else-if="disabled" class="contact-hint">
+            <!-- 2026-07-21 道友要求暂禁止联系功能 -->
+            邮件联系功能暂未开放
           </span>
           <span v-else class="contact-hint">
             点击后唤起本机邮件客户端

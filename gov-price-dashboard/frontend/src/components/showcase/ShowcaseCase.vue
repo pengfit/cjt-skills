@@ -7,7 +7,7 @@
   - OPC 跑通的工作流(讲 5 步时间线)
 
   这 3 个讲的是同一个事: 建筑材料造价数据从政府源站 → 入仓 → 服务 → 用户的端到端整合案例。
-  合并后: 顶部 5 列工作成果 + 中部 5 步时间线 + 17 城地图 + 底部技术栈,讲清"OPC 怎么用"。
+  合并后: 顶部 5 列工作成果 + 中部 5 步时间线 + 20 数据源覆盖,讲清"OPC 怎么用"。
 
   分工:
   - Workspace: 怎么工作(AI 协作范式)
@@ -20,14 +20,14 @@
         案例：材价通
       </h2>
       <p class="section-sub">
-        17 城住建局/造价站官方价格 · 凌晨 cron 自跑 0 干预
+        20 数据源串行 · 凌晨 cron 自跑 0 干预
       </p>
     </header>
 
     <!-- 项目业务描述 (道友反馈 2026-07-20 15:39) -->
     <div class="case-business">
       <p class="case-business-lead">
-        <strong>材价通</strong>是为工程造价行业打造的材料价格数据中台。它对接各地住建局/造价站官方发布的材料价格信息，凌晨自动归集、清洗、跨城归一，覆盖 17 城 9,931 个跨城统一品类。
+        <strong>材价通</strong>是为工程造价行业打造的材料价格数据中台。它对接各地住建局/造价站官方发布的材料价格信息，凌晨自动归集、清洗、跨城归一，覆盖 20 数据源 9,931 个跨城统一品类。
       </p>
       <div class="case-business-grid">
         <div class="case-business-cell">
@@ -41,7 +41,7 @@
           <span class="case-business-icon">⚡</span>
           <div class="case-business-body">
             <div class="case-business-label">解决什么</div>
-            <div class="case-business-text">人工汇总 17 城价格 · 跨城口径不一 · 期刊滞后查询 · 历史趋势缺失</div>
+            <div class="case-business-text">人工汇总 20 数据源 · 跨口径不一 · 期刊滞后查询 · 历史趋势缺失</div>
           </div>
         </div>
         <div class="case-business-cell">
@@ -54,9 +54,6 @@
       </div>
     </div>
 
-    <!-- AI 洞察:从顶层独立 section 移入案例顶部,作为"案例的活状态" -->
-    <ShowcaseInsight />
-
     <!-- 顶部:5 列工作成果数字看板 -->
     <div class="case-results">
       <article class="case-result" v-for="(r, i) in results" :key="i">
@@ -66,7 +63,7 @@
       </article>
     </div>
 
-    <!-- 中部:17 城覆盖地图 -->
+    <!-- 中部:20 数据源覆盖 -->
     <div class="case-map">
       <div ref="mapEl" class="case-map-chart"></div>
       <div class="case-map-legend">
@@ -120,15 +117,11 @@
       </div>
     </div>
 
-    <!-- 底部:技术栈 + 案例总结 -->
+    <!-- 底部:案例总结(技术栈 2026-07-21 移除) -->
     <div class="case-footer">
-      <div class="case-tech">
-        <span class="case-tech-label">技术栈</span>
-        <span class="case-tech-chip" v-for="t in tech" :key="t">{{ t }}</span>
-      </div>
       <div class="case-summary">
-        <strong>这个案例展示 OPC 一人公司怎么用 AI 跑通一个完整业务：</strong>
-        17 城政府源站 → 凌晨 cron 自动抓取 → ETL 三层入仓 →
+        <strong>这个案例展示 饲养员场地怎么用 AI 跑通一个完整业务：</strong>
+        20 数据源串行 → 凌晨 cron 自动抓取 → ETL 三层入仓 →
         AI 协作归一 → Vue Dashboard 服务客户 → 飞书告警通知。
         1 人公司 + AI 全程无需干预，覆盖数据业务全生命周期。
       </div>
@@ -138,7 +131,6 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import ShowcaseInsight from './ShowcaseInsight.vue'
 import { useEcharts } from '../../composables/useEcharts'
 import { registerGovPriceTheme } from '../../composables/useEchartsTheme'
 
@@ -146,9 +138,9 @@ const mapEl = ref(null)
 let chart = null
 
 const results = [
-  { num: '17', unit: '城', label: '数据采集' },
+  { num: '20', unit: '源', label: '数据采集' },
   { num: '9,931', unit: '品种', label: '跨城归一' },
-  { num: '788,525', unit: '条', label: '服务交付' },   // norm_index 文档总量
+  { num: '788,525', unit: '条', label: '服务交付' },
   { num: '7×24', unit: '自跑', label: '部署运维' },
 ]
 
@@ -156,9 +148,9 @@ const steps = [
   {
     time: '第一步',
     title: 'Agent 触发 cron',
-    desc: 'OpenClaw + cron 自动调度 · 17 城住建局/造价站凌晨抓取',
+    desc: 'OpenClaw + cron 自动调度 · 20 数据源凌晨抓取',
     label: 'CRON',
-    snippet: 'Agent 调度 · 35 区县串行 · 失败重试 3 次',
+    snippet: 'Agent 调度 · 20 数据源串行 · 失败重试 3 次',
     output: '飞书实时告警，异常不阻塞下一城',
   },
   {
@@ -187,12 +179,7 @@ const steps = [
   },
 ]
 
-const tech = [
-  'Python 3', 'Elasticsearch', 'FastAPI', 'Vue 3', 'ECharts',
-  'Docker', 'OpenClaw', 'Dify', 'DeepSeek', 'Claude', 'MiniMax',
-]
-
-// 中国地图(17 城覆盖)
+// 中国地图(20 数据源覆盖)
 const PROVINCE_FULL_NAME = {
   '内蒙古': '内蒙古自治区', '吉林': '吉林省', '四川': '四川省',
   '宁夏': '宁夏回族自治区', '山东': '山东省', '山西': '山西省',
@@ -201,7 +188,7 @@ const PROVINCE_FULL_NAME = {
   '重庆': '重庆市', '陕西': '陕西省', '青海': '青海省',
 }
 
-// 17 城数据
+// 20 数据源数据
 const provincesGrouped = [
   { name: '内蒙古', cities: [{ key: 'huhehaote', label: '呼和浩特', count: 1803 }] },
   { name: '吉林', cities: [{ key: 'jilin', label: '吉林', count: 5124 }] },
@@ -467,7 +454,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.02em;
 }
 
-/* ── 中部 17 城地图(无卡背景,融入页面) ── */
+/* ── 中部 20 数据源地图(无卡背景,融入页面) ── */
 .case-map {
   margin-bottom: 48px;
   padding: 0;
@@ -744,35 +731,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, var(--primary-dim, rgba(37, 99, 235, 0.06)) 0%, var(--surface) 100%);
   border: 1px solid var(--primary);
   border-radius: var(--radius-lg);
-}
-
-.case-tech {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.case-tech-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-2);
-  letter-spacing: 0.04em;
-  margin-right: 4px;
-}
-
-.case-tech-chip {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text);
-  padding: 3px 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-family: var(--font-mono-num);
 }
 
 .case-summary {
