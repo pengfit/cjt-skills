@@ -1,0 +1,567 @@
+{
+  "_meta": {
+    "version": "0.1.0",
+    "updated": "2026-07-22",
+    "note": "v3 L3 类目级 attr 白名单。L1 sanitize_attr 接收 l3_code, 白名单生效逻辑: allow 内的 attr 直接放行; deny 内的 attr 拒; 都不在 → 走 catch-all 正常解析(避免过度收紧导致新字段进不来)。覆盖 top 25 高频 L3 (含 ~6400 个品种, 占总数 53%)。其余 120 个 L3 暂不配白名单, 走 hard_reject 通用规则兜底。 | v0.2: 加 07.01.02 道路砂石 + 加 HARD_REJECT 通用 (material 不许负值/m³/价格文本). 砾石碎石 136 条 db 修正."
+  },
+  "by_l3": {
+    "01.01.01": {
+      "name": "钢筋",
+      "allow": [
+        "diameter",
+        "length",
+        "material",
+        "grade",
+        "thickness",
+        "weight"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "fire_rating"
+      ]
+    },
+    "01.01.04": {
+      "name": "型钢",
+      "allow": [
+        "height",
+        "width",
+        "thickness",
+        "length",
+        "material",
+        "grade",
+        "flange_thickness",
+        "web_thickness"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "fire_rating",
+        "diameter"
+      ]
+    },
+    "01.01.05": {
+      "name": "钢板/钢带",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "material",
+        "grade",
+        "weight"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "fire_rating"
+      ]
+    },
+    "01.02.01": {
+      "name": "焊接钢管",
+      "allow": [
+        "diameter",
+        "thickness",
+        "length",
+        "material",
+        "grade",
+        "pressure"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width"
+      ]
+    },
+    "01.02.02": {
+      "name": "无缝钢管",
+      "allow": [
+        "diameter",
+        "thickness",
+        "length",
+        "material",
+        "grade",
+        "pressure"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width"
+      ]
+    },
+    "01.03.01": {
+      "name": "钢丝",
+      "allow": [
+        "diameter",
+        "material",
+        "grade",
+        "strength"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width",
+        "thickness",
+        "length"
+      ]
+    },
+    "01.03.02": {
+      "name": "钢丝绳/钢绞线",
+      "allow": [
+        "diameter",
+        "material",
+        "grade",
+        "structure",
+        "strength"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count"
+      ]
+    },
+    "01.04.01": {
+      "name": "不锈钢",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "diameter",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "fire_rating"
+      ]
+    },
+    "01.04.02": {
+      "name": "铝材",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "diameter",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count"
+      ]
+    },
+    "01.04.03": {
+      "name": "铜材",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "diameter",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count"
+      ]
+    },
+    "01.05.15": {
+      "name": "金属网/篾网",
+      "allow": [
+        "mesh_size",
+        "diameter",
+        "thickness",
+        "width",
+        "length",
+        "material"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count"
+      ]
+    },
+    "01.06.06": {
+      "name": "铸铁件",
+      "allow": [
+        "diameter",
+        "thickness",
+        "length",
+        "material",
+        "grade",
+        "pressure"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width"
+      ]
+    },
+    "01.08.02": {
+      "name": "焊条/焊丝",
+      "allow": [
+        "diameter",
+        "material",
+        "grade",
+        "model"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "length",
+        "width"
+      ]
+    },
+    "01.09.01": {
+      "name": "金属紧固件",
+      "allow": [
+        "diameter",
+        "length",
+        "material",
+        "grade",
+        "spec",
+        "model"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "thickness",
+        "height",
+        "width"
+      ]
+    },
+    "02.02.04": {
+      "name": "水泥",
+      "allow": [
+        "grade",
+        "material",
+        "strength",
+        "type"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter",
+        "length"
+      ]
+    },
+    "02.05.06": {
+      "name": "混凝土/砂浆",
+      "allow": [
+        "grade",
+        "strength",
+        "material",
+        "slump",
+        "type"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter",
+        "model"
+      ]
+    },
+    "03.01.01": {
+      "name": "墙体砖",
+      "allow": [
+        "width",
+        "height",
+        "thickness",
+        "material",
+        "grade",
+        "strength"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter"
+      ]
+    },
+    "03.01.02": {
+      "name": "砌块",
+      "allow": [
+        "width",
+        "height",
+        "thickness",
+        "material",
+        "grade",
+        "strength"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter"
+      ]
+    },
+    "03.01.04": {
+      "name": "板材",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter"
+      ]
+    },
+    "03.02.02": {
+      "name": "瓦",
+      "allow": [
+        "width",
+        "height",
+        "thickness",
+        "length",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter"
+      ]
+    },
+    "03.05.01": {
+      "name": "管材",
+      "allow": [
+        "diameter",
+        "thickness",
+        "length",
+        "material",
+        "grade",
+        "pressure"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width"
+      ]
+    },
+    "04.04.02": {
+      "name": "门窗",
+      "allow": [
+        "width",
+        "height",
+        "thickness",
+        "material",
+        "grade",
+        "type",
+        "glass_thickness"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter"
+      ]
+    },
+    "04.05.07": {
+      "name": "电缆",
+      "allow": [
+        "type",
+        "voltage",
+        "core_count",
+        "cross_section",
+        "fire_rating",
+        "armor_type",
+        "material",
+        "grade",
+        "model",
+        "canonical_type"
+      ],
+      "deny": [
+        "price",
+        "weight",
+        "height",
+        "width",
+        "volume",
+        "package_type"
+      ]
+    },
+    "04.06.01": {
+      "name": "管件/接头",
+      "allow": [
+        "diameter",
+        "thickness",
+        "material",
+        "grade",
+        "pressure",
+        "spec",
+        "model"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "height",
+        "width"
+      ]
+    },
+    "04.07.01": {
+      "name": "防水卷材/无纺布",
+      "allow": [
+        "thickness",
+        "width",
+        "length",
+        "weight",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter",
+        "height"
+      ]
+    },
+    "04.09.01": {
+      "name": "涂料/油漆",
+      "allow": [
+        "material",
+        "grade",
+        "color",
+        "spec"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter",
+        "length",
+        "weight"
+      ]
+    },
+    "07.03.02": {
+      "name": "苗木/景观植物",
+      "allow": [
+        "trunk_diameter",
+        "crown_width",
+        "height",
+        "branch_count",
+        "age",
+        "chest_diameter",
+        "ground_diameter"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "thickness",
+        "width",
+        "material"
+      ]
+    },
+    "08.01.01": {
+      "name": "电气设备",
+      "allow": [
+        "voltage",
+        "current",
+        "power",
+        "frequency",
+        "model",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "diameter",
+        "length",
+        "height",
+        "width"
+      ]
+    },
+    "08.01.03": {
+      "name": "灯具",
+      "allow": [
+        "power",
+        "voltage",
+        "lifetime",
+        "color",
+        "material",
+        "model"
+      ],
+      "deny": [
+        "price",
+        "diameter",
+        "thickness",
+        "height",
+        "width"
+      ]
+    },
+    "08.01.04": {
+      "name": "开关/插座",
+      "allow": [
+        "voltage",
+        "current",
+        "model",
+        "material",
+        "grade"
+      ],
+      "deny": [
+        "price",
+        "diameter",
+        "length",
+        "thickness",
+        "height",
+        "width"
+      ]
+    },
+    "09.99.01": {
+      "name": "其他",
+      "allow": [],
+      "deny": [
+        "price"
+      ]
+    },
+    "07.01.02": {
+      "name": "道路/路面材料(砂石/碎石/沥青混合料)",
+      "allow": [
+        "particle_size",
+        "particle_size_range",
+        "thickness",
+        "grade",
+        "material",
+        "type"
+      ],
+      "deny": [
+        "price",
+        "voltage",
+        "core_count",
+        "diameter",
+        "pressure",
+        "model",
+        "length",
+        "width",
+        "height"
+      ]
+    }
+  }
+}

@@ -78,6 +78,27 @@ except Exception:
 # 拦截策略：catch-all 类 attr 键 + value 与 spec 相同 → 不写入（兜底规则不算解析成功）。
 _CATCH_ALL_KEYS = frozenset({"material", "type", "grade", "spec", "note", "feature", "usage"})
 
+# catch-all 禁填清单 (2026-07-22 v0.10): 任何 catch-all 路径都不许写这些 key。
+# 例子: spec='板厚0.5mm' 的 0.5 被强制套 'm³' 填入 volume;
+#       spec='0.5~1.5cm' 的 0.5 被填入 thickness_min/package_type。
+# 从 monorepo data/attr_filters.json 加载 (forbidden_keys), 失败则用 fallback 默认集。
+try:
+    import json as _json_forbidden
+    from gov_price_etl.paths import DATA_DIR as _DATA_DIR_FBN, ETL_PROJECT_ROOT as _ETL_ROOT_FBN
+    _forbidden_keys_fallback = frozenset({"volume", "package_type", "height_min", "thickness_min", "cross_section_area"})
+    _forbidden_loaded = None
+    for _p in (_DATA_DIR_FBN / "attr_filters.json", _ETL_ROOT_FBN / "data" / "attr_filters.json"):
+        if _p.exists():
+            try:
+                with open(_p, encoding="utf-8") as _f:
+                    _forbidden_loaded = frozenset(_json_forbidden.load(_f).get("forbidden_keys", []))
+                    break
+            except Exception:
+                continue
+    _CATCH_ALL_FORBIDDEN_KEYS = _forbidden_loaded or _forbidden_keys_fallback
+except Exception:
+    _CATCH_ALL_FORBIDDEN_KEYS = frozenset({"volume", "package_type", "height_min", "thickness_min", "cross_section_area"})
+
 # ─── RAG 召回（向量库检索，替代线性遍历）─────────────────────
 
 # 2026-07-05 性能优化：预编译 pattern，避免每次 re.search 重复编译。
@@ -211,6 +232,9 @@ class BaseParseSpec:
                 for k, v in exec_result.items():
                     # 规范命名：去掉 attr_ 前缀，统一为"干净"名称
                     norm_k = k[5:] if k.startswith("attr_") else k
+                    # 2026-07-22 catch-all 禁填：这些 key 任何 catch-all 路径都不许写
+                    if norm_k in _CATCH_ALL_FORBIDDEN_KEYS:
+                        continue
                     # 2026-07-18 catch-all 拦截：catch-all 类 attr 键 + value == spec → 跳过
                     # 防止 material='240*115*53' 这种 spec 原值回流污染
                     if norm_k in _CATCH_ALL_KEYS and str(v).strip() == spec.strip():
@@ -223,6 +247,9 @@ class BaseParseSpec:
                 groups = m.groups()
                 val = groups[0] if len(groups) >= 1 else m.group(0)
                 norm_attr = attr_name[5:] if attr_name.startswith("attr_") else attr_name
+                # 2026-07-22 catch-all 禁填（纯正则路径）
+                if norm_attr in _CATCH_ALL_FORBIDDEN_KEYS:
+                    continue
                 # 2026-07-18 catch-all 拦截（纯正则路径）
                 if norm_attr in _CATCH_ALL_KEYS and str(val).strip() == spec.strip():
                     continue

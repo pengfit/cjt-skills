@@ -91,7 +91,7 @@
             <button class="m-spec-link" @click="clearAttrFilters">清空所有</button>
           </div>
           <div v-for="k in attrKeys" :key="k.key" class="m-attr-row">
-            <span class="m-attr-key-label">{{ k.key }}</span>
+            <span class="m-attr-key-label" :title="k.key">{{ k.label || k.key }}</span>
             <div class="m-attr-values">
               <div
                 v-for="v in k.values"
@@ -192,7 +192,7 @@ const heatmap = ref({ breeds: [], cities: [], matrix: [], spec_fingerprint: null
 
 // 热力图选择器状态
 const selectedBreed = ref('')
-const attrKeys = ref([])              // [{key, values: [{value, docs}], total_docs}, ...]
+const attrKeys = ref([])              // [{key, label, values: [{value, docs}], total_docs}, ...]  v0.2 (2026-07-22) 加 label
 const attrFilters = ref({})          // {key: [values]} — 各 k 独立多选
 const breedOptions = ref([])
 const loadingAttrKeys = ref(false)

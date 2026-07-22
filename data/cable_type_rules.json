@@ -1,0 +1,70 @@
+{
+  "_meta": {
+    "version": "0.1.0",
+    "updated": "2026-07-22",
+    "note": "电力/控制电缆型号命名规则 (GB/T 12706 + GB/T 19666 阻燃耐火等级 + 铠装代码)。L1 normalize_cable_type() 用此规则从 spec 原文重新解析,覆盖错 type。命名结构: [阻燃/耐火前缀]-[主体型号]-[铠装代码]-[电压]-[芯数×截面]。"
+  },
+
+  "cable_breed_keywords": [
+    "电力电缆", "控制电缆", "通信电缆", "耐火电缆", "阻燃电缆",
+    "铜芯电缆", "铝芯电缆", "高压电缆", "低压电缆", "矿物电缆",
+    "信号电缆", "电缆", "电线"
+  ],
+
+  "fire_codes": {
+    "WDZN": "低烟无卤阻燃耐火",
+    "WDZN-YJY": "低烟无卤阻燃耐火",
+    "WDZ": "低烟无卤阻燃",
+    "WDZ-YJY": "低烟无卤阻燃",
+    "WDZN-YJE": "低烟无卤阻燃耐火",
+    "NH": "耐火",
+    "NH-YJV": "耐火",
+    "ZR": "阻燃",
+    "ZA": "A级阻燃",
+    "ZB": "B级阻燃",
+    "ZC": "C级阻燃",
+    "ZRA": "A级阻燃",
+    "ZRB": "B级阻燃",
+    "ZRC": "C级阻燃"
+  },
+
+  "armor_codes": {
+    "22": "钢带铠装",
+    "23": "细钢丝铠装",
+    "32": "细钢丝铠装",
+    "33": "细钢丝铠装",
+    "42": "粗钢丝铠装",
+    "43": "粗钢丝铠装",
+    "62": "不锈钢带铠装",
+    "63": "不锈钢丝铠装"
+  },
+
+  "body_codes": {
+    "YJV":  "交联PE绝缘PVC护套",
+    "YJY":  "交联PE绝缘PE护套",
+    "YJE":  "交联PE绝缘聚烯烃护套",
+    "YJ(F)E": "辐照交联PE绝缘聚烯烃护套",
+    "VV":   "PVC绝缘PVC护套",
+    "VLV":  "PVC绝缘铝芯PVC护套",
+    "YJLV": "交联PE绝缘铝芯PVC护套",
+    "YJLY": "交联PE绝缘铝芯PE护套",
+    "KVV":  "PVC绝缘PVC护套控制电缆",
+    "KVVR": "PVC绝缘PVC护套控制软电缆",
+    "KVVP": "PVC绝缘PVC护套屏蔽控制电缆",
+    "BV":   "单芯铜芯PVC绝缘",
+    "BVR":  "铜芯软线PVC绝缘",
+    "RVV":  "PVC绝缘PVC护套软电缆",
+    "RVS":  "PVC绝缘双绞软线",
+    "YCW":  "重型橡套软电缆",
+    "YZ":   "中型橡套软电缆",
+    "YQW":  "轻型橡套软电缆",
+    "BTLY": "矿物绝缘柔性电缆",
+    "BBTRZ": "矿物绝缘柔性防火电缆",
+    "BTTRZ": "矿物绝缘柔性防火电缆",
+    "NG-A": "额定电压0.6/1kV隔离型柔性矿物绝缘防火电缆"
+  },
+
+  "spec_pattern": "^(?:(?P<fire>(?:WDZ[NY]?|WDZN|NH[\\-]?YJV|ZR|ZRA|ZRB|ZRC|ZA|ZB|ZC))\\-?)?(?P<body>YJV|YJY|YJE|YJ\\(F\\)E|VV|VLV|YJLV|YJLY|KVV|KVVR|KVVP|BV|BVR|RVV|RVS|YCW|YZ|YQW|BTLY|BBTRZ|BTTRZ|NG\\-A)(?P<armor>22|23|32|33|42|43|62|63)?(?:\\-?(?P<voltage>\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?[kK]?[vV]?))?\\-(?P<core>\\d+)\\*(?P<section>\\d+(?:\\.\\d+)?)(?:mm2|mm²)?$",
+
+  "core_to_section_regex": "^(?P<core>\\d+)\\*(?P<section>\\d+(?:\\.\\d+)?)(?:mm2|mm²)?$"
+}

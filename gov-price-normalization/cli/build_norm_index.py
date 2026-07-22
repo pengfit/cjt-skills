@@ -102,16 +102,6 @@ def _scan_dws(es, city: str, since: Optional[str] = None, size: int = 1000):
 def _normalize_doc(dws_doc: dict, city: str) -> dict:
     """包装 normalize_doc：把标准化结果 + 原 DWS doc 合并成 NORM doc。"""
     src = dws_doc.get("_source", {})
-    # 调 pipeline（不带 l3_code，Phase A 暂不算 price_norm 的归一；unit_norm + period_norm 会算）
-    normed = normalize_batch([src], city, l3_code=None)[0]
-    # 把 _id 保留下来作 _dws_id 追溯
-    normed["_dws_id"] = dws_doc.get("_id")
-    # 加 build 元信息
-    normed.setdefault("_norm", {})
-    normed["_norm"]["built_at"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    # 顶层冗余字段（便于 dashboard 直接 filter）
-    normed["canonical_period"] = normed.get("canonical_period")
-    normed["canonical_unit"] = (normed.get("unit_norm") or {}).get("normalized")
     # normalized_breed：跨城 join 用的归一化名（dashboard trend/compare 的 should OR 优先匹配这个字段）
     #   查表顺序：breed_clean → breed
     #     命中 → 拿表里的 normalized_breed（可能与原始不同，多对一合并）+ 写 _canonical_source
@@ -120,16 +110,27 @@ def _normalize_doc(dws_doc: dict, city: str) -> dict:
     _key = (src.get("breed_clean") or src.get("breed") or "").strip()
     _hit = get_canonical(_key) if _key else None
     if _hit:
+        normed = normalize_batch([src], city, l3_code=_hit.get("l3_code"))[0]
         normed["normalized_breed"] = _hit["normalized_breed"]
         normed["_l3_code"] = _hit.get("l3_code")
         normed["_canonical_source"] = _hit["source"]
         normed["_canonical_confidence"] = _hit.get("confidence", 0.0)
     else:
-        normed["normalized_breed"] = _key  # 野生品种，兜底用 raw
+        # 野生品种：l3_code=None → L1 走 hard_reject 兑底, 不走 L3 白名单
+        normed = normalize_batch([src], city, l3_code=None)[0]
+        normed["normalized_breed"] = _key
         normed["_l3_code"] = None
         normed["_canonical_source"] = "raw_fallback"
         normed["_canonical_confidence"] = 0.0
-    # 注意：l3_code 没传 → price_norm 不会被设置
+    # 把 _id 保留下来作 _dws_id 追溯
+    normed["_dws_id"] = dws_doc.get("_id")
+    # 加 build 元信息
+    normed.setdefault("_norm", {})
+    normed["_norm"]["built_at"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    # 顶层冗余字段（便于 dashboard 直接 filter）
+    normed["canonical_period"] = normed.get("canonical_period")
+    normed["canonical_unit"] = (normed.get("unit_norm") or {}).get("normalized")
+    # 注意：l3_code 现在从 breed_canonical 查到了 → L1 attr 净化会走 L3 白名单收紧
     return normed
 
 

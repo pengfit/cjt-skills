@@ -14,6 +14,7 @@ v0.9（2026-07-05）：在写入 DWS 前做 v 字段质量校验（sanitize_attr
 
 color/material/grade 等自由文本字段保持原状，不受清洗影响。
 """
+import os as _os
 import re as _re
 
 # 顶层扁平字段（出现在这些 key 名下时认为是 attr）
@@ -168,8 +169,90 @@ def _is_valid_value(k: str, v: str) -> bool:
 
 
 def sanitize_attr(flat: dict) -> dict:
-    """过滤不合规的 (k, v) 条目，返回清洗后的 dict。供复用 + 单测。"""
-    return {k: v for k, v in flat.items() if _is_valid_value(k, v)}
+    """过滤不合规的 (k, v) 条目，返回清洗后的 dict。供复用 + 单测。
+
+    v0.10 (2026-07-22)：加载 monorepo data/attr_filters.json（与 gov-price-normalization 共享），
+    应用三道新增加固：
+      - forbidden_keys (volume/package_type)  一律拒
+      - forbidden_pairs (brand=DN/FN/PC/PE/PP/PVC)  一律拒
+      - desc_words_for_material (material=厚/长/高/直径/...)  一律拒
+    """
+    rules = _load_attr_filters()
+    forbidden_keys = set(rules.get("forbidden_keys", []))
+    forbidden_pairs = {(k, v) for k, v in rules.get("forbidden_pairs", [])}
+    desc_words = set(rules.get("desc_words_for_material", []))
+
+    out = {}
+    for k, v in flat.items():
+        # 新增: forbidden_keys
+        if k in forbidden_keys:
+            continue
+        # 新增: forbidden_pairs
+        if (k, v) in forbidden_pairs:
+            continue
+        # 新增: material 描述词污染
+        if k == "material" and v in desc_words:
+            continue
+        # 原有效逻辑 (volume 单位校验 / 数值字段 / 自由文本)
+        if _is_valid_value(k, v):
+            out[k] = v
+    return out
+
+
+# ── v0.10 attr_filters 加载 ────────────────────────────────────
+_ATTR_FILTERS_CACHE: dict = {}
+_ATTR_FILTERS_PATH_CACHE: dict = {}
+
+
+def clear_cache() -> None:
+    """测试用: 清空 attr_filters 缓存, 下次 _load_attr_filters() 重新读盘。"""
+    global _ATTR_FILTERS_CACHE, _ATTR_FILTERS_PATH_CACHE
+    _ATTR_FILTERS_CACHE.clear()
+    _ATTR_FILTERS_PATH_CACHE.clear()
+
+
+def _load_attr_filters() -> dict:
+    """加载 attr_filters.json（与 gov-price-normalization 共享，monorepo data/）。
+
+    避免 ETL 与 NORM 两边规则撕裂。优先级：
+      1. 环境变量 GOV_PRICE_ATTR_FILTERS_FILE
+      2. <monorepo>/data/attr_filters.json
+      3. <etl_project>/data/attr_filters.json（fallback）
+    """
+    import json
+    from pathlib import Path
+    from gov_price_etl.paths import DATA_DIR, ETL_PROJECT_ROOT
+
+    candidates = []
+    env_path = _os.environ.get("GOV_PRICE_ATTR_FILTERS_FILE")
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates.append(DATA_DIR / "attr_filters.json")  # monorepo 共享
+    candidates.append(ETL_PROJECT_ROOT / "data" / "attr_filters.json")  # etl 私有 fallback
+
+    chosen = None
+    for c in candidates:
+        if c.exists():
+            chosen = c
+            break
+    if chosen is None:
+        return {}
+
+    mtime = chosen.stat().st_mtime
+    if (_ATTR_FILTERS_PATH_CACHE.get("path") == chosen
+            and _ATTR_FILTERS_PATH_CACHE.get("mtime") == mtime):
+        return _ATTR_FILTERS_CACHE
+
+    try:
+        with open(chosen, encoding="utf-8") as f:
+            data = json.load(f)
+        _ATTR_FILTERS_CACHE.clear()
+        _ATTR_FILTERS_CACHE.update(data)
+        _ATTR_FILTERS_PATH_CACHE["path"] = chosen
+        _ATTR_FILTERS_PATH_CACHE["mtime"] = mtime
+        return data
+    except Exception:
+        return {}
 
 
 def flat_attr_to_nested(flat: dict) -> list:

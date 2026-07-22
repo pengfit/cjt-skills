@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "version": "0.1.0",
-    "updated": "2026-07-08",
-    "note": "NORM 索引 settings + mapping。Normalizer ETL 创建 norm_{city}_price 索引时使用。所有字段尽量按 ES 默认 dynamic mapping 不冲突时保留；这里只声明需要特殊处理的字段。"
+    "version": "0.2.0",
+    "updated": "2026-07-22",
+    "note": "v0.2.0: 加 attr_norm (nested) + cable_canonical (object) + dropped_attrs 追溯字段。L1 attr 净化 + 电缆型号归一数据需要 nested query 支持。"
   },
   "settings": {
     "number_of_shards": 1,
@@ -71,6 +71,37 @@
           "unit_canonical":  { "type": "keyword" },
           "converted":       { "type": "boolean" },
           "factor":          { "type": "double" }
+        }
+      },
+      "attr_norm": {
+        "type": "nested",
+        "properties": {
+          "k": { "type": "keyword" },
+          "v": { "type": "keyword" }
+        }
+      },
+      "cable_canonical": {
+        "properties": {
+          "applied":        { "type": "boolean" },
+          "canonical_type": { "type": "keyword" },
+          "voltage":        { "type": "keyword" },
+          "core_count":     { "type": "integer" },
+          "cross_section":  { "type": "keyword" },
+          "fire_rating":    { "type": "keyword" },
+          "armor_type":     { "type": "keyword" },
+          "drop_keys":      { "type": "keyword" },
+          "source_spec":    { "type": "keyword" }
+        }
+      },
+      "_norm": {
+        "properties": {
+          "version":        { "type": "keyword" },
+          "city":           { "type": "keyword" },
+          "l3_code":        { "type": "keyword" },
+          "built_at":       { "type": "date" },
+          "status":         { "type": "object", "enabled": false },
+          "dropped_attrs":  { "type": "object", "enabled": false },
+          "promoted_attrs": { "type": "object", "enabled": false }
         }
       }
     }

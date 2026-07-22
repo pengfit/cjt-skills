@@ -23,6 +23,216 @@ from api.skill_registry import get_all as _registry_get_all
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
+# ── attr.k 中英映射（2026-07-22 从 trend.py 复用，给 /market 属性自由组合展示中文标签）
+#   加载源：1) gov-price-etl/parse_spec/rules/_attrs.py  2) alias 兼容  3) DWS 实际数据补全
+#   调用方：/attr-keys 返回中追加 label = _label_k(k)
+def _load_attr_label_cn() -> dict:
+    import re
+    from pathlib import Path
+    labels = {}
+    try:
+        skills_root = os.environ.get("SKILLS_ROOT")
+        if skills_root:
+            attrs_path = Path(skills_root) / "gov-price-etl" / "gov_price_etl" / "parse_spec" / "rules" / "_attrs.py"
+        else:
+            attrs_path = (
+                Path(__file__).resolve().parent.parent.parent.parent
+                / "gov-price-etl" / "gov_price_etl" / "parse_spec" / "rules" / "_attrs.py"
+            )
+        if attrs_path.exists():
+            content = attrs_path.read_text(encoding="utf-8")
+            arrow = chr(0x2192)
+            for raw in content.split("\n"):
+                line = raw.strip()
+                if not line or line.startswith("#") or arrow not in line:
+                    continue
+                left, right = line.split(arrow, 1)
+                keys = re.findall(r'"(\w+)"', left)
+                cns = re.findall(r'"([^"]+)"', right)
+                if keys and cns:
+                    labels.setdefault(keys[0], cns[0])
+    except Exception:
+        pass
+
+    aliases = {
+        "core_count": "芯数",
+        "cross_section_area": "截面面积",
+        "pe_core_count": "PE 芯数",
+        "pe_cross_section": "PE 截面",
+        "sn_grade": "环刚度",
+        "strength": "强度",
+        "mix_grade": "强度等级",
+        "grade": "强度/标号",
+        "trunk_diameter": "干径",
+        "crown_diameter": "冠径",
+        "branch_height": "分枝高",
+    }
+    for k, v in aliases.items():
+        labels.setdefault(k, v)
+
+    hainan_extras = {
+        "trunk_diameter_range": "干径范围",
+        "crown_width_range": "冠幅范围",
+        "branch_diameter_range": "分枝径范围",
+        "palm_height": "株高",
+        "glass_thickness": "玻璃厚度",
+        "glass_thickness_left": "玻璃厚度(左)",
+        "glass_thickness_right": "玻璃厚度(右)",
+        "interlayer_thickness": "夹层厚度",
+        "tempering": "钢化",
+        "fabric_type": "织物类型",
+        "thickness_range": "厚度范围",
+        "width_range": "宽度范围",
+        "diameter_range": "直径范围",
+        "grade_range": "强度范围",
+        "area_range": "面积范围",
+        "depth_range": "深度范围",
+        "wall_thickness_range": "壁厚范围",
+        "container_size": "容器规格",
+        "container_type": "容器类型",
+        "surface": "表面处理",
+        "reinforcement_content": "含筋量",
+        "density": "密度",
+        "usage": "用途",
+        "quantity": "数量",
+        "spacing": "间距",
+        "feature": "特性",
+        "type": "类型",
+        "spec": "规格",
+        "unit_weight": "单重",
+        "natural": "天然",
+        "packaging": "包装",
+        "accessory": "配件",
+        "breed": "品种",
+        "unit": "单位",
+    }
+    for k, v in hainan_extras.items():
+        labels.setdefault(k, v)
+
+    dws_extras = {
+        "outer_diameter": "外径",
+        "inner_thickness": "内厚",
+        "short_leg_width": "短边宽",
+        "long_leg_width": "长边宽",
+        "web_thickness": "腹板厚度",
+        "flange_thickness": "翼缘厚度",
+        "flange_type": "翼缘形式",
+        "small_diameter": "小径",
+        "volume": "体积",
+        "distance": "距离",
+        "angle": "角度",
+        "cut_angle": "切口角度",
+        "particle_size": "粒径",
+        "particle_size_max": "最大粒径",
+        "particle_size_min": "最小粒径",
+        "particle_size_range": "粒径范围",
+        "mesh_size": "筛孔尺寸",
+        "mix_ratio": "配合比",
+        "concentration": "浓度",
+        "branch_diameter": "分枝径",
+        "branch_diameter_max": "最大分枝径",
+        "branch_diameter_min": "最小分枝径",
+        "branch_count": "分枝数",
+        "branch_count_range": "分枝数范围",
+        "single_branch_length": "单枝长",
+        "trunk_count": "主干数",
+        "pot_diameter": "盆径",
+        "crown_width": "冠幅",
+        "growth_period": "生长周期",
+        "bud_count": "芽数",
+        "leaf_count": "叶数",
+        "power": "功率",
+        "power_range": "功率范围",
+        "output_voltage": "输出电压",
+        "frequency": "频率",
+        "backup_time": "备用时间",
+        "light_source": "光源",
+        "voltage_range": "电压范围",
+        "voltage_rating": "电压等级",
+        "temperature_rating": "温度等级",
+        "fire_resistance": "耐火极限",
+        "surface_type": "表面类型",
+        "coating": "涂层",
+        "socket_type": "套接形式",
+        "outlet_count": "出水口数",
+        "sleeve_count": "套筒数",
+        "layer_count": "层数",
+        "flow_coefficient": "流量系数",
+        "interlayer_material": "夹层材质",
+        "glass_type": "玻璃类型",
+        "model": "型号",
+        "brand": "品牌",
+        "standard": "标准",
+        "code": "编号",
+        "origin": "产地",
+        "plant_spec": "苗木规格",
+        "process": "工艺",
+        "structure": "结构",
+        "capacity": "容量",
+        "air_volume": "风量",
+        "humidity": "湿度",
+        "duration_max": "最长时间",
+        "duration_min": "最短时间",
+        "base_type": "基层类型",
+        "material_type": "材质类型",
+        "pole_count": "杆数",
+        "glass": "玻璃",
+        "washing_method": "洗涤方式",
+        "water_absorption": "吸水率",
+        "water_repellency": "防水性",
+        "softening_rate": "软化率",
+        "price_range": "价格区间",
+        "cross_section_range": "截面范围",
+        "age": "树龄",
+        "chest_diameter": "胸径",
+        "ground_diameter": "地径",
+        "ground_diameter_max": "最大地径",
+        "ground_diameter_min": "最小地径",
+        "alloy": "合金",
+        "area": "面积",
+        "depth": "深度",
+        "diameter_max": "最大直径",
+        "diameter_min": "最小直径",
+        "height_max": "最大高度",
+        "height_min": "最小高度",
+        "thickness_max": "最大厚度",
+        "weight": "重量",
+        "air_flow": "风量",
+        "aux_power": "辅助功率",
+        "lifting_height": "起升高度",
+        "pixel": "像素",
+        "port_count": "端口数",
+        "content_percent": "含量",
+        "fire_rating": "防火等级",
+        "package_type": "包装方式",
+        "reinforcement_code": "含筋代号",
+        "surface_material": "表面材质",
+        "surface_treatment": "表面处理工艺",
+        "temper": "调质",
+        "duration": "持续时间",
+        "modifier": "修饰词",
+        "note": "备注",
+        "price": "价格",
+    }
+    for k, v in dws_extras.items():
+        labels.setdefault(k, v)
+    return labels
+
+
+K_LABEL_CN = _load_attr_label_cn()
+
+_ATTR_KEY_SPECIAL = {
+    "__spec__": "原文规格",
+    "__general__": "通用规格",
+}
+
+
+def _label_k(k: str) -> str:
+    """取 attr.k 的中文标签，未识别返回原文 key。"""
+    if k in _ATTR_KEY_SPECIAL:
+        return _ATTR_KEY_SPECIAL[k]
+    return K_LABEL_CN.get(k, k)
+
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:59200")
 es = Elasticsearch([ES_HOST], request_timeout=30)
 
@@ -204,8 +414,8 @@ def _spec_fingerprint_mapping() -> dict:
                     "lang": "painless",
                     "source": (
                         "def parts = new ArrayList();"
-                        "if (params._source.attr != null) {"
-                        "  for (def a : params._source.attr) {"
+                        "if (params._source.attr_norm != null) {"
+                        "  for (def a : params._source.attr_norm) {"
                         "    if (a.k != null && a.v != null) { parts.add(a.k + '=' + a.v); }"
                         "  }"
                         "}"
@@ -261,7 +471,7 @@ def _period_norm_prices_by_attr(
                 "type": "keyword",
                 "script": {
                     "lang": "painless",
-                    "source": "if (params._source.attr != null) { for (def a : params._source.attr) { if (a.k != null && a.v != null) { emit(a.k + '||' + a.v); } } }",
+                    "source": "if (params._source.attr_norm != null) { for (def a : params._source.attr_norm) { if (a.k != null && a.v != null) { emit(a.k + '||' + a.v); } } }",
                 }
             }
         },
@@ -607,8 +817,9 @@ def change_heatmap(
     # 1) 选行
     if breed and filters:
         # 过滤模式:1 行(filter 表达式作为标签)
+        # v0.2 (2026-07-22): attr key 翻译为中文,跟 /trend 拆分维度字段一致
         filter_label = " + ".join(
-            f"{f['key']}={'/'.join(f['values'])}" for f in filters
+            f"{_label_k(f['key'])}={'/'.join(f['values'])}" for f in filters
         )
         breeds = [{
             "breed": breed,
@@ -708,6 +919,8 @@ def change_heatmap(
         "cities": cities,
         "matrix": matrix,
         "attr_filters": filters,
+        # v0.2 (2026-07-22): 输出 spec_label alias = filter_label (兼容前端 spec_label 字段名)
+        "spec_label": next((b.get("filter_label", "") for b in breeds if b.get("filter_label")), ""),
     }
 
 
@@ -734,7 +947,7 @@ def attr_keys(
                 "type": "keyword",
                 "script": {
                     "lang": "painless",
-                    "source": "if (params._source.attr != null) { for (def a : params._source.attr) { if (a.k != null && a.v != null) { emit(a.k + '||' + a.v); } } }",
+                    "source": "if (params._source.attr_norm != null) { for (def a : params._source.attr_norm) { if (a.k != null && a.v != null) { emit(a.k + '||' + a.v); } } }",
                 },
             }
         },
@@ -767,7 +980,8 @@ def attr_keys(
     for k, vs in key_agg.items():
         values = [{"value": v, "docs": docs} for v, docs in sorted(vs.items(), key=lambda x: x[1], reverse=True)]
         total = sum(vs.values())
-        result.append({"key": k, "values": values, "total_docs": total})
+        # v0.2 (2026-07-22): 加 label 中文字段（与 trend 页 /拆分维度 保持一致）
+        result.append({"key": k, "label": _label_k(k), "values": values, "total_docs": total})
     result.sort(key=lambda x: x["total_docs"], reverse=True)
     return {"data": result}
 

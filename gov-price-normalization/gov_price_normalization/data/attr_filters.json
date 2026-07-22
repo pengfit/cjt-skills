@@ -1,0 +1,215 @@
+{
+  "_meta": {
+    "version": "0.2.0",
+    "updated": "2026-07-22",
+    "note": "v0.2.0: 加 hard_reject 通用规则（跨品种无差拒）。L1 attr 净化规则（数据驱动）。DWS → NORM 时对每条 doc 的 attr[] 应用本规则，删脏/修错位/补字段。规则来源：2026-07-22 全量脏数据审计（798,924 条 DWS 文档，脏数据率约 26%）+ PVC-U 排水管人工筛查（15 条 catch-all 污染）。 | v0.2.1: +hard_reject material 负值/m³/价格文本, type 数字范围; +desc_words 类综合等"
+  },
+  "hard_reject": [
+    {
+      "key": "type",
+      "min_len": 2,
+      "reason": "type 字段值过短(单字母如 'm' 是 mm/m²/m³ 误填)"
+    },
+    {
+      "key": "price",
+      "reason": "price 是业务顶层字段, 不应出现在 attr"
+    },
+    {
+      "key": "weight",
+      "value_contains": "g/m²",
+      "reason": "g/m² 是面积密度单位(防水卷材类), 不应作为重量"
+    },
+    {
+      "key": "diameter",
+      "value_contains": [
+        "mm²",
+        "cm²",
+        "m²"
+      ],
+      "reason": "mm²/cm²/m² 是面积单位, 不是直径"
+    },
+    {
+      "key": "outer_diameter",
+      "value_contains": [
+        "mm²",
+        "cm²",
+        "m²"
+      ],
+      "reason": "mm²/cm²/m² 是面积单位"
+    },
+    {
+      "key": "inner_diameter",
+      "value_contains": [
+        "mm²",
+        "cm²",
+        "m²"
+      ],
+      "reason": "mm²/cm²/m² 是面积单位"
+    },
+    {
+      "key": "core_count",
+      "value_regex": "^\\d{4,}$",
+      "reason": "core_count >999 不合理, 可能是错位(截面积等)"
+    },
+    {
+      "key": "material",
+      "value_regex": "^-",
+      "reason": "material 不该是负值 (catch-all 把数字段当材质)"
+    },
+    {
+      "key": "material",
+      "value_contains": "m³",
+      "reason": "m³ 是体积单位, 不该出现在 material 值里"
+    },
+    {
+      "key": "material",
+      "value_contains": [
+        "/  /",
+        " / / "
+      ],
+      "reason": "material 出现 '/ / ' 是价格文本污染 (如 'm³ / / 155.00 159.65')"
+    },
+    {
+      "key": "type",
+      "value_regex": "^[0-9]+[-/][0-9]+$",
+      "reason": "type 字段是数字范围 (如 '5-20') 是粒径范围, catch-all 误填"
+    }
+  ],
+  "forbidden_keys": [
+    "volume",
+    "package_type"
+  ],
+  "forbidden_pairs": [
+    [
+      "brand",
+      "DN"
+    ],
+    [
+      "brand",
+      "Dn"
+    ],
+    [
+      "brand",
+      "dn"
+    ],
+    [
+      "brand",
+      "FN"
+    ],
+    [
+      "brand",
+      "DE"
+    ],
+    [
+      "brand",
+      "PN"
+    ],
+    [
+      "brand",
+      "PC"
+    ],
+    [
+      "brand",
+      "PE"
+    ],
+    [
+      "brand",
+      "PP"
+    ],
+    [
+      "brand",
+      "PVC"
+    ],
+    [
+      "brand",
+      "POM"
+    ],
+    [
+      "brand",
+      "ABS"
+    ],
+    [
+      "brand",
+      "PA6"
+    ]
+  ],
+  "desc_words_for_material": [
+    "厚",
+    "板材厚度",
+    "强度等级",
+    "长",
+    "高",
+    "供电",
+    "流体管",
+    "型号",
+    "直径",
+    "板厚",
+    "石",
+    "壁厚",
+    "冷拔低碳钢",
+    "管",
+    "冷拔",
+    "长度",
+    "板材",
+    "宽",
+    "宽厚",
+    "高度",
+    "粒径",
+    "排水",
+    "给水",
+    "电气",
+    "管道",
+    "板材",
+    "电线",
+    "电缆",
+    "钢材",
+    "钢筋",
+    "圆钢",
+    "扁钢",
+    "角钢",
+    "类综合",
+    "综合",
+    "类",
+    "等级综合",
+    "范围",
+    "系列",
+    "型号综合"
+  ],
+  "promote": {
+    "mix_grade": "mix_grade",
+    "particle_size": "particle_size",
+    "height_min": "height_range",
+    "thickness_min": "thickness_range",
+    "cross_section_area": "cross_section"
+  },
+  "forbidden_breed_keyword_for_type": [
+    "塑料",
+    "塑胶"
+  ],
+  "numeric_required_digit": [
+    "wall_thickness",
+    "core_count",
+    "thickness",
+    "diameter",
+    "outer_diameter",
+    "inner_diameter",
+    "length",
+    "width",
+    "height",
+    "voltage",
+    "pressure",
+    "cross_section",
+    "ring_stiffness",
+    "fiber_core",
+    "channels",
+    "doors",
+    "current",
+    "temperature",
+    "output",
+    "spec_volume",
+    "weight",
+    "density",
+    "power",
+    "flange_thickness"
+  ]
+}
