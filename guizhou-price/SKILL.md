@@ -11,14 +11,21 @@ description: "贵州工程造价材料信息采集,从 `http://www.gzszj.com/Hom
 
 ```
 源站: http://www.gzszj.com/Home/Policies/c2a45b5e-fb3e-43c6-a77c-000000000046
-       ↑ sub-tab "工程造价信息" guid: ...000000004601
-       ↓ POST /Home/GetPoliciesListBy (form-encoded, AJAX 翻页)
+   ↑ sub-tab "工程造价信息" guid: ...000000004601
+   ↓ (commands/sync.py, POST /Home/GetPoliciesListBy form-encoded AJAX 翻页)
 ods_material_guizhou_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city guizhou)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city guizhou)
 dwd_guizhou_price
    ↓ (cli/sync_dws.py --city guizhou --mode quick)
 dws_guizhou_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_guizhou_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

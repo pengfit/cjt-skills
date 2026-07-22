@@ -13,11 +13,18 @@ description: "四川工程造价材料信息采集,从 `http://202.61.90.35:8032
 源站: http://202.61.90.35:8032/pubpages/pricelist.aspx
    ↓ (commands/sync.py)
 ods_material_sichuan_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city sichuan)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city sichuan)
 dwd_sichuan_price
    ↓ (cli/sync_dws.py --city sichuan --mode quick)
 dws_sichuan_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_sichuan_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

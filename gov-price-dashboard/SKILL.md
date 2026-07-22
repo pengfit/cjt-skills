@@ -1,6 +1,6 @@
 ---
 name: gov-price-dashboard
-description: "政府材料价格数据可视化看板（材价通），基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。"
+description: "政府材料价格数据可视化看板（材价通），基于 FastAPI + Vue3 + ECharts 6.x。公开页 /home（landing）+ /market（跨城市场行情，走 NORM 索引）；鉴权 单 admin JWT（/api/* 全部 Bearer）；数据源优先级 NORM > DWS；声明式 skill 注册。"
 ---
 
 # 材价通
@@ -24,16 +24,75 @@ cd skills/gov-price-dashboard
 ## 架构
 
 ```
-ods_material_{city}_price    (ODS 原始层)
+ods_material_{city}_price    (ODS 原始层 · 17 城采集)
          ↓
-dwd_{city}_price             (DWD 清洗层)
+dwd_{city}_price             (DWD 清洗层 · ETL 三段式)
          ↓
-dws_{city}_price             (DWS 聚合层，API 查询)
+dws_{city}_price             (DWS 聚合层)
+         ↓
+norm_{city}_price            (NORM 标准层 · 默认数据源)
          ↓
 gov-price-dashboard API (FastAPI :5200)
          ↓
 gov-price-dashboard 前端 (Vue3 :5300)
 ```
+
+## 公开页
+
+### `/home` — Landing（pengfit-redesign 深色赛博朋克风）
+
+公开访问（`/`、`/home`、`/index`），不鉴权。Vue 组件：`HomeView.vue`（自包含 560 行，6 个 section）：
+
+| Section | 内容 |
+|---------|------|
+| **Hero** | 大标题"龙虾"（青→珊瑚渐变文字）+ "饲养员"（圆润点缀字体）+ CTA + GitHub 源码链接 + 信任标签排 |
+| **Workflow** | 怎么养（3 步流程，中间高亮） |
+| **Case** | 材价通案例 + 以前 vs 现在对比表 + `/market` 跳转 |
+| **Pricing** | 3 档卡片（中档 `⭐ 推荐` + scale(1.05)） |
+| **FAQ** | 6 条手风琴，默认展开第一条 |
+| **Contact** | mailto 链接（disabled） |
+
+数字动画用 `requestAnimationFrame` + ease-out cubic；段间分隔标记 `01/06 WORKFLOW` 渐变细线。
+
+### `/market` — 市场行情（跨城归一走 NORM）
+
+公开访问，不鉴权。Vue 组件：`MarketView.vue` + `api/routes/market.py`：
+
+- **数据源**：跨城 `norm_*_price` 索引（20 城），通过 `_norm_indices()` 运行时扫盘获取
+- **核心 API**：`/api/market/*`（`/api/market/attrs` / `/api/market/changes` / `/api/market/heatmap` 等）
+- **属性中英映射**：`api/routes/market.py::attr_k_zh` 复用 trend.py 的翻译，给属性自由组合展示中文标签
+- 响应缺 NORM 索引的城市会自动降级到 DWS（不报错）
+
+## 鉴权（JWT 单 admin）
+
+所有 `/api/*` 强制 Bearer token，仅 `/api/auth/login` 公开：
+
+```
+请求: Authorization: Bearer <jwt>
+      ↓
+中间件 (api/main.py) 验证 JWT
+      ↓
+      ├─ 有效 → 继续
+      └─ 失效 → 401 Unauthorized (WWW-Authenticate: Bearer)
+```
+
+**关键实现**：
+
+- **JWT secret**：从 `.env.auth` 读 `JWT_SECRET`（开发机）或 `.env.auth.docker`（容器）
+- **算法**：HS256（`JWT_ALG`）
+- **登录端点**：`POST /api/auth/login`，body = `{username, password}`，返回 `{access_token, token_type: "bearer"}`
+- **浏览器**：默认填 admin 用户名关闭（防密码管理器自动填充）
+
+## 数据源优先级（NORM > DWS）
+
+Dashboard 默认查 NORM 索引，缺失时自动降级到 DWS：
+
+| 数据源 | 索引模式 | 适用场景 |
+|--------|---------|---------|
+| **NORM**（默认）| `norm_{city}_price` | `/market` 公开页 + `/trend` 全国聚合 + attr 净化后数据 |
+| **DWS**（fallback）| `dws_{city}_price` | NORM 索引缺失时降级；老 ETL 文档（无 `_norm` 字段）|
+
+**降级逻辑**：API 内部 `try norm → except → try dws`，前端无感知。
 
 ## 侧栏导航
 

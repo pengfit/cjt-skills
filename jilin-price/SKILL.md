@@ -13,11 +13,18 @@ description: "吉林工程造价材料信息采集,从 `http://www.jlszjw.com/ci
 源站: http://www.jlszjw.com/city/price_list.php?city=140
    ↓ (commands/jilin_collector.py, JilinCollector v0.1, 2026-07-07)
 ods_material_jilin_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city jilin)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city jilin)
 dwd_jilin_price
    ↓ (cli/sync_dws.py --city jilin --mode quick)
 dws_jilin_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_jilin_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

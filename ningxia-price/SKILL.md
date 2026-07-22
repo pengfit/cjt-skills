@@ -13,11 +13,18 @@ description: "宁夏工程造价材料信息采集,从 `https://jst.nx.gov.cn/zt
 源站: https://jst.nx.gov.cn/ztzl/gczj/zjtt/index.html
    ↓ (commands/sync.py)
 ods_material_ningxia_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city ningxia)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city ningxia)
 dwd_ningxia_price
    ↓ (cli/sync_dws.py --city ningxia --mode quick)
 dws_ningxia_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_ningxia_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

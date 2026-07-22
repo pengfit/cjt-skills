@@ -13,11 +13,18 @@ description: "山西工程造价材料信息采集,从 `https://zjt.shanxi.gov.c
 源站: https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/
    ↓ (commands/sync.py → ShanxiCollector)
 ods_material_shanxi_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city shanxi)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city shanxi)
 dwd_shanxi_price
    ↓ (cli/sync_dws.py --city shanxi --mode quick)
 dws_shanxi_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_shanxi_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

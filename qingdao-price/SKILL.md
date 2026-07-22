@@ -13,11 +13,18 @@ description: "青岛工程造价材料信息采集,从 `https://sjw.qingdao.gov.
 源站: https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/
    ↓ (commands/sync.py)
 ods_material_qingdao_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city qingdao)
-dwd_qingdao-price_price
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city qingdao)
+dwd_qingdao_price
    ↓ (cli/sync_dws.py --city qingdao --mode quick)
 dws_qingdao_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_qingdao_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

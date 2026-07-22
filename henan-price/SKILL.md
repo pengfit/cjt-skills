@@ -13,11 +13,18 @@ description: "河南工程造价材料信息采集,从 `http://www.hncost.com/jc
 源站: http://www.hncost.com/jcxx/004001/subpage2.html
    ↓ (commands/sync.py)
 ods_material_henan_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city henan)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city henan)
 dwd_henan_price
    ↓ (cli/sync_dws.py --city henan --mode quick)
 dws_henan_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_henan_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 

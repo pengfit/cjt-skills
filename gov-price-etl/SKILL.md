@@ -1,6 +1,6 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL（v0.6，2026-06-19）：17 个城市 ODS→DWD 三段式（DB 5 段式 + AI 攒批）+ DWD→DWS 三段式（attr / 本地规则库 / AI 串行），v3 GB 章节 4 层分类体系（8 L1 / 42 L2 / 145 L3），AI 调用走 Dify workflow。"
+description: "政府材料价格数据入仓 ETL（v0.9，2026-07-22）：17 个城市 ODS→DWD 三段式（DB 5 段式 + AI 攒批）+ DWD→DWS 三段式（attr / 本地规则库 / AI 串行），v3 GB 章节 4 层分类体系（8 L1 / 42 L2 / 145 L3），AI 调用走 Dify workflow。attr 治本闭环 L2 封堵层（与 NORM L1 净化组合）。"
 ---
 
 # gov-price-etl
@@ -420,6 +420,31 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 
 ---
 
+## attr 治本 L2 封堵（v0.9）
+
+ETL 层是 attr 脏数据治本闭环的**第二道防线**（治标），与 NORM 层 L1 净化（治本上游）组合形成"上游净化 + 中游封堵"双保险。
+
+**关键实现位置**：
+
+| 机制 | 文件 | 作用 |
+|------|------|------|
+| 写入前 attr 质量校验 | `transform/attr_utils.py::sanitize_attr()` | 丢弃非数值/无单位/纯描述污染值（例：wall_thickness='不分规格' / 'δ4'）|
+| volume/brand 黑名单 | `transform/attr_utils.py` | 拒绝量纲不匹配和 brand=DN 错位 |
+| material 描述词拒 | `transform/attr_utils.py` | 拒绝纯描述性材质词被误当 attr |
+| CATCH_ALL 关键字禁 | `parse_spec/base.py::_CATCH_ALL_FORBIDDEN_KEYS` | `{volume, package_type, height_min, thickness_min, cross_section_area}` 一律不进 catch-all |
+| 电缆命名标准化 | `parse_spec/cable.py` + `parse_spec/__init__.py::_CableAwareParseSpec` | GB/T 12706 电缆命名（cross_section / cores / voltage 互斥规则）|
+
+**关键不变量**：
+
+- L1 NORM 净化在 ETL 之后跑（数据先入 DWS，DWS 读出来再净化入 NORM）
+- L2 ETL 封堵在 DWS 写入前跑（attr_utils.sanitize_attr 在 DWD→DWS 阶段被调）
+- 两层独立运行、互不依赖；任一层失败不阻断另一层
+- 治本核心是 L1（治标只补刀），但双层防御保证 attr 干净率 32.66% → 0%
+
+详见 [`gov-price-normalization/SKILL.md`](../gov-price-normalization/SKILL.md) 的「L1 attr 治本」章节。
+
+---
+
 ## v3 分类体系（4 层 GB 章节）
 
 **结构**（按 GB 50854-2013 / GB/T 50856-2024 / GB 50857-2013 / GB 50858-2013 重建）：
@@ -435,13 +460,7 @@ v1 大类字典（28 类）+ v2 4 层 64 节点已于 2026-06 废止。
 
 ---
 
-## 重构历史（v0.1 → v0.6）
+## 版本
 
-| 版本 | 日期 | 重点 |
-|---|---|---|
-| **v0.1** | 2026-04 | 单文件 1107 行上帝模块 `etl.py` |
-| **v0.2** | 2026-05 | 拆分为 gov_price_etl 包（7 个模块，每个 < 250 行）；拍平 src/ 层级；DWS sync 三合一（quick/plain/ai） |
-| **v0.3** | 2026-06 初 | ODS→DWD 引入 v1 显式三段式（db_exact_v3 / db_fuzzy_v3 / ai），DWD→DWS 保持三段式（attr / local_db / ai） |
-| **v0.4** | 2026-06-17 | v1 大类字典废，分类重写为 5 段式；DWD 走"先 DB 后 AI"两轮 |
-| **v0.5** | 2026-06-18 | AI 切到 Dify workflow API；prompts.yml 外部化；mappings 集中维护 |
-| **v0.6** | 2026-06-19 | v2 → v3 GB 章节 4 层体系重建；collectors 抽象基类 v0.8+ 提供 SyncRunner / SignalHandler / LocalProgressStore 供城市采集 skill 复用 |
+- **v0.9**（2026-07-22）attr 治本 L2 封堵（transform/attr_utils.py + parse_spec/base.py + cable.py）
+- v0.6（2026-06-19）v2 → v3 GB 章节 4 层分类体系重建；collectors 抽象基类 v0.8+

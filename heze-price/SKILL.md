@@ -13,11 +13,18 @@ description: "菏泽工程造价材料信息采集,从 `http://hzszjj.heze.gov.c
 源站: http://hzszjj.heze.gov.cn
    ↓ (commands/sync.py)
 ods_material_heze_price
-   ↓ (<skills>/gov-price-etl cli/etl.py --city heze)
+   ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city heze)
 dwd_heze_price
    ↓ (cli/sync_dws.py --city heze --mode quick)
 dws_heze_price
+   ↓ ([gov-price-normalization](../../gov-price-normalization/) · Normalizer worker)
+norm_heze_price                          ← Dashboard 默认查 NORM，DWS 作 fallback
 ```
+
+下游框架:
+- ETL 三段式清洗 + attr 治本 L2 封堵 — [gov-price-etl](../../gov-price-etl/)
+- NORM 标准化 + attr 治本 L1 净化 — [gov-price-normalization](../../gov-price-normalization/)
+- 可视化(默认查 NORM) — [gov-price-dashboard](../../gov-price-dashboard/)
 
 ## 快速开始
 
