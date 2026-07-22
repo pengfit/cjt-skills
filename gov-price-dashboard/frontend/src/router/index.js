@@ -54,6 +54,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, saved) {
+    // 2026-07-22: /home 永远回顶,不恢复 saved(避免浏览器/路由双层恢复造成的滚动)
+    if (to.name === 'home') return { top: 0 }
     if (saved) return saved
     return { top: 0 }
   },
@@ -95,7 +97,8 @@ router.beforeEach((to) => {
       changed = true
     }
     if (changed) {
-      return { path: to.path, query: cleaned }
+      // replace: true 避免 history 多一条中间记录,防止 saved 干扰下次回 /home
+      return { path: to.path, query: cleaned, replace: true }
     }
   }
 })
