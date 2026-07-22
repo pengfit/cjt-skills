@@ -146,6 +146,7 @@ def sanitize_attr(doc: dict, l3_code: Optional[str] = None) -> dict:
         2. 缺 k 或 v → 删
         3. forbidden_keys (volume / package_type) → 删
         4. forbidden_pairs (brand=DN/FN/PC/PE/PP/PVC) → 删
+        4.5 (v0.2) type 字段值含 forbidden_type_phrases → 删（防跨品种型写入，例 碎石+消防串料事件）
         5. material ∈ desc_words → 删（catch-all 把 spec 前缀当材质）
         6. promote (height_min→height_range, cross_section_area→cross_section 等)
         7. 数值字段 (numeric_required_digit) 无数字 → 删
@@ -163,6 +164,7 @@ def sanitize_attr(doc: dict, l3_code: Optional[str] = None) -> dict:
     rules = _get_rules()
     forbidden_keys = set(rules.get("forbidden_keys", []))
     forbidden_pairs = {(k, v) for k, v in rules.get("forbidden_pairs", [])}
+    forbidden_type_phrases = list(rules.get("forbidden_type_phrases", []))  # v0.2 治本
     desc_words = set(rules.get("desc_words_for_material", []))
     promote_map = dict(rules.get("promote", {}))
     numeric_required = set(rules.get("numeric_required_digit", []))
@@ -192,6 +194,15 @@ def sanitize_attr(doc: dict, l3_code: Optional[str] = None) -> dict:
         if (k, v) in forbidden_pairs:
             out["dropped"].append((k, v, f"forbidden_pair:{k}={v}"))
             continue
+
+        # 规则 4.5 (v0.2 治本): type 字段短语黑名单
+        # 石材/钢/材类品种 (碎石/焊锡丝/沥青/...) type 出现'消防智能应急照明'等跨品种值 → 拒。
+        if k == "type" and forbidden_type_phrases:
+            sv = str(v)
+            hit_phrase = next((p for p in forbidden_type_phrases if p in sv), None)
+            if hit_phrase:
+                out["dropped"].append((k, v, f"forbidden_type_phrase:{hit_phrase}"))
+                continue
 
         # 规则 5: material 描述词污染
         if k == "material" and v in desc_words:

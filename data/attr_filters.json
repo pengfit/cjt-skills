@@ -1,37 +1,90 @@
 {
   "_meta": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "updated": "2026-07-22",
-    "note": "L1 attr 净化规则（数据驱动）。DWS → NORM 时对每条 doc 的 attr[] 应用本规则，删脏/修错位/补字段。规则来源：2026-07-22 全量脏数据审计（798,924 条 DWS 文档，脏数据率约 26%）。"
+    "note": "L1 attr 净化规则（数据驱动）。DWS → NORM 时对每条 doc 的 attr[] 应用本规则，删脏/修错位/补字段。规则来源：2026-07-22 全量脏数据审计（798,924 条 DWS 文档，脏数据率约 26%）。 v0.2 增 forbidden_type_phrases：(治本) 防跨品种 type 字符串串入石材/钢/材类品种（详 2026-07-22 碎石+消防串料事件）"
   },
-
   "forbidden_keys": [
     "volume",
     "package_type"
   ],
-
   "forbidden_pairs": [
-    ["brand", "DN"],
-    ["brand", "Dn"],
-    ["brand", "dn"],
-    ["brand", "FN"],
-    ["brand", "DE"],
-    ["brand", "PN"],
-    ["brand", "PC"],
-    ["brand", "PE"],
-    ["brand", "PP"],
-    ["brand", "PVC"],
-    ["brand", "POM"],
-    ["brand", "ABS"],
-    ["brand", "PA6"]
+    [
+      "brand",
+      "DN"
+    ],
+    [
+      "brand",
+      "Dn"
+    ],
+    [
+      "brand",
+      "dn"
+    ],
+    [
+      "brand",
+      "FN"
+    ],
+    [
+      "brand",
+      "DE"
+    ],
+    [
+      "brand",
+      "PN"
+    ],
+    [
+      "brand",
+      "PC"
+    ],
+    [
+      "brand",
+      "PE"
+    ],
+    [
+      "brand",
+      "PP"
+    ],
+    [
+      "brand",
+      "PVC"
+    ],
+    [
+      "brand",
+      "POM"
+    ],
+    [
+      "brand",
+      "ABS"
+    ],
+    [
+      "brand",
+      "PA6"
+    ]
   ],
-
   "desc_words_for_material": [
-    "厚", "板材厚度", "强度等级", "长", "高", "供电", "流体管",
-    "型号", "直径", "板厚", "石", "壁厚", "冷拔低碳钢", "管",
-    "冷拔", "长度", "板材", "宽", "宽厚", "高度", "粒径"
+    "厚",
+    "板材厚度",
+    "强度等级",
+    "长",
+    "高",
+    "供电",
+    "流体管",
+    "型号",
+    "直径",
+    "板厚",
+    "石",
+    "壁厚",
+    "冷拔低碳钢",
+    "管",
+    "冷拔",
+    "长度",
+    "板材",
+    "宽",
+    "宽厚",
+    "高度",
+    "粒径"
   ],
-
   "promote": {
     "mix_grade": "mix_grade",
     "particle_size": "particle_size",
@@ -39,18 +92,45 @@
     "thickness_min": "thickness_range",
     "cross_section_area": "cross_section"
   },
-
   "forbidden_breed_keyword_for_type": [
-    "塑料", "塑胶"
+    "塑料",
+    "塑胶"
   ],
-
+  "forbidden_type_phrases": [
+    "消防智能应急照明",
+    "应急照明",
+    "疏散指示",
+    "配电箱",
+    "桥架",
+    "水泵",
+    "钢绞线",
+    "喷淋",
+    "感烟"
+  ],
   "numeric_required_digit": [
-    "wall_thickness", "core_count", "thickness",
-    "diameter", "outer_diameter", "inner_diameter",
-    "length", "width", "height", "voltage", "pressure",
-    "cross_section", "ring_stiffness", "fiber_core",
-    "channels", "doors", "current", "temperature", "output",
-    "spec_volume", "weight", "density", "power",
+    "wall_thickness",
+    "core_count",
+    "thickness",
+    "diameter",
+    "outer_diameter",
+    "inner_diameter",
+    "length",
+    "width",
+    "height",
+    "voltage",
+    "pressure",
+    "cross_section",
+    "ring_stiffness",
+    "fiber_core",
+    "channels",
+    "doors",
+    "current",
+    "temperature",
+    "output",
+    "spec_volume",
+    "weight",
+    "density",
+    "power",
     "flange_thickness"
   ]
 }

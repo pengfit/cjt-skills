@@ -73,14 +73,30 @@ def reload_prompts() -> Dict[str, Dict[str, str]]:
 
 # ── 纯文本内置 fallback（prompts.yml 不存在 / key 缺失时用）───────────
 # 简化版 prompt：不含复杂示例，str.format() 安全。
+
+
+def _load_text(name: str) -> str:
+    """从 gov_price_etl/data/prompts/<name>.txt 加载 prompt 文本。文件不在则返空。"""
+    try:
+        from pathlib import Path
+        p = Path(__file__).resolve().parent.parent / "data" / "prompts" / f"{name}.txt"
+        if p.exists():
+            return p.read_text(encoding="utf-8")
+    except Exception:
+        pass
+    return ""
+
+
 BUILTIN_FALLBACK: Dict[str, Dict[str, str]] = {
     "classify_v2_batch": {
         "system": "你是一名建筑工程造价专家与 BIM 工程师。",
         "template": "以下材料品种列表（每行 品种 | 规格 | 单位），输出 4 层 v2 分类：\n{items}\n\n输出 JSON: {{\"results\": {{\"breed1\": {{\"l1\": \"01\", \"l2\": \"01.04\", \"l3\": \"01.04.01\", \"name_l3\": \"钢构件\", \"gb_50500\": \"010601\"}}}}}}",
     },
     "batch_spec_parse": {
-        "system": "你是一个建材规格解析规则生成专家。",
-        "template": "你是一个建材规格解析专家。以下是一批规格文本：\n{specs_str}\n\n属性名参考：{ref_names}\n\n输出 JSON 数组，每个元素包含 spec, ok, suggestions（list of {{attr, pattern, code_block}}）。",
+        # v0.4 (2026-07-22): 从 data/prompts/<name>.txt 加载详细 prompt。
+        # 优势: Python 字符串转义不介入，能保留全部 \\d / \\w / {{ref_names}} / 等正则细节
+        "system": _load_text("batch_spec_parse_system"),
+        "template": _load_text("batch_spec_parse_template"),
     },
 }
 

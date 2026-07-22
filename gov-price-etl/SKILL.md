@@ -1,6 +1,6 @@
 ---
 name: gov-price-etl
-description: "政府材料价格数据入仓 ETL（v0.9，2026-07-22）：17 个城市 ODS→DWD 三段式（DB 5 段式 + AI 攒批）+ DWD→DWS 三段式（attr / 本地规则库 / AI 串行），v3 GB 章节 4 层分类体系（8 L1 / 42 L2 / 145 L3），AI 调用走 Dify workflow。attr 治本闭环 L2 封堵层（与 NORM L1 净化组合）。"
+description: "政府材料价格数据入仓 ETL（v0.10，2026-07-22）：17 个城市 ODS→DWD 三段式（DB 5 段式 + AI 攒批）+ DWD→DWS 三段式（attr / 本地规则库 / AI 串行），v3 GB 章节 4 层分类体系（8 L1 / 42 L2 / 145 L3），AI 调用走 Dify workflow。attr 治本闭环 L2 封堵层（与 NORM L1 净化组合）；v0.10 起 DWD→DWS 阶段 3 AI ok=false 也入 DWS，标 ai_ok/ai_failed_reason 双 audit 字段。"
 ---
 
 # gov-price-etl
@@ -72,9 +72,12 @@ v1 大类字典（breed_category_rules.db）+ v1 26 类分类法已废（2026-06
 │                                    ↓ 未命中                          │
 │  ┌─ 阶段 3: AI batch_spec_parse 串行解析 ─────────────┐           │
 │  │  按 (breed, spec) 去重，20 条/批串行调 AI              │        │
-│  │  命中 → 回写 DWD attr + 同步 DWS                       │         │
-│  │  → attr_source='ai'                                    │         │
-│  │  失败兜底空 attr → attr_source='ai_fallback'           │        │
+│  │  命中 → 回写 DWD attr（ai_ok=true）+ 同步 DWS          │         │
+│  │  → attr_source='ai' / ai_ok=true                       │         │
+│  │  失败/Dify 拒解析 → 入 DWS（不回写 DWD），标 audit     │        │
+│  │  → attr_source='ai_fallback' / ai_ok=false            │        │
+│  │    + ai_failed_reason（详 2026-07-22 道友需求：         │        │
+│  │    ok=false 也入库，便于运营按 ai_ok=false 巡检）      │        │
 │  └───────────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
@@ -395,6 +398,8 @@ _dwd_to_dws_three_stages(es_host, city, cfg)
 |------|------|------|
 | (DWD 全部字段) | | |
 | **`attr_source`** | **keyword** | **attr 来源：`etl`/`local_db`/`ai`/`ai_fallback`** |
+| **`ai_ok`** | **boolean** | **AI 阶段 3 整体调用是否成功（true=拿到有效 suggestions；false=Dify 业务失败/JSON 解析失败/AI 显式拒解析）。v0.10+：ok=false 也入 DWS，加此字段供运营按 `ai_ok=false` 巡检** |
+| **`ai_failed_reason`** | **text+keyword** | **AI 失败原因摘要（截 500 字符）；`ai_ok=false` 时填。v0.10+ 加** |
 
 ### 城市配置
 
@@ -462,5 +467,11 @@ v1 大类字典（28 类）+ v2 4 层 64 节点已于 2026-06 废止。
 
 ## 版本
 
+- **v0.10**（2026-07-22）DWD→DWS 阶段 3 AI ok=false 也入 DWS：
+  - `_ai_parse_specs_serial` 返回值从 2 元组扩展到 4 元组 `(attrs, src, ok, failed_reason)`
+  - `_flush_ai_batch_to_dws` 移除两处拦截：`if src=="ai_fallback": continue`（AI 拒解析）+ `if not attrs: continue`（attrs 空），统计入 DWS
+  - DWS mapping 新增 `ai_ok` (boolean) + `ai_failed_reason` (text+keyword) 双 audit 字段，供运营按 `ai_ok=false` 巡检拒解析文档
+  - AI fallback 时仍不写 DWD attr（保持源头干净），但 DWS doc 写入以保留价格文档可检索
+  - 起因：2026-07-22 道友需求，背景是 DWD 文档价格有效但 AI 拒解析时，原逻辑不进 DWS，DWS 只能看到 DWD 70% 数据，丢去很多价格 document
 - **v0.9**（2026-07-22）attr 治本 L2 封堵（transform/attr_utils.py + parse_spec/base.py + cable.py）
 - v0.6（2026-06-19）v2 → v3 GB 章节 4 层分类体系重建；collectors 抽象基类 v0.8+

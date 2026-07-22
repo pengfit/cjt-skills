@@ -325,6 +325,13 @@ def build_dws_mapping() -> dict:
         # 导致 terms aggregation 报 fielddata is disabled。显式声明 keyword 解决,
         # 同时保证后续新增城市也走同一规范。
         "attr_source":        {"type": "keyword"},  # etl / local_db / ai / ai_fallback
+        # ── AI 审计字段（2026-07-22 加，dwd→dws 阶段 3）──
+        # 背景:ok=false 也入库 DWS 后,需要保留 audit 信息,运营可按 ai_ok=false 过滤看哪些文档
+        # Dify 没解出来(空 attr)。source=ai_fallback + ai_ok=false 双标记,与"成功但 attrs 空"区分。
+        # - ai_ok: AI 调用是否整体成功(true=拿到有效 suggestions;false=Dify 业务失败/JSON 解析失败/AI 显式拒解析)
+        # - ai_failed_reason: 失败原因摘要(截 500 字符,供巡检定位)
+        "ai_ok":              {"type": "boolean"},
+        "ai_failed_reason":   {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 512}}},
     }
     return {
         "mappings": {"properties": base},

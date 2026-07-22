@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "version": "0.2.0",
+    "version": "0.3.4",
     "updated": "2026-07-22",
-    "note": "v0.2.0: 加 hard_reject 通用规则（跨品种无差拒）。L1 attr 净化规则（数据驱动）。DWS → NORM 时对每条 doc 的 attr[] 应用本规则，删脏/修错位/补字段。规则来源：2026-07-22 全量脏数据审计（798,924 条 DWS 文档，脏数据率约 26%）+ PVC-U 排水管人工筛查（15 条 catch-all 污染）。 | v0.2.1: +hard_reject material 负值/m³/价格文本, type 数字范围; +desc_words 类综合等"
+    "note": "v0.3.0: 扩 desc_v 系列规则 — material/color 字段加括号/标点开头结尾拒绝、多维尺寸拒绝、描述词拒绝、超长拒绝;grade/series 多维拒绝。覆盖 2026-07-22 norm 抽样审计发现的 3.27% 真实脏数据。 v0.3.1 增 forbidden_type_phrases：(治本) 防跨品种 type 字符串串入石材/钢/材类品种（详 2026-07-22 碎石+消防串料事件） v0.3.2 增 forbidden_type_phrases: 西朗/标线漆/防水涂料/DC12V (治本:detector v0.14 标真 bug 3 类) v0.3.3 增 forbidden_type_phrases: 厂家/厂 (jilin 规格+品牌串到 type 治本) v0.3.4 增 hard_reject type: 多属性 ;/，/: 分隔超长、末尾右括号截断（DWS 串入 fix）"
   },
   "hard_reject": [
     {
@@ -73,6 +73,80 @@
       "key": "type",
       "value_regex": "^[0-9]+[-/][0-9]+$",
       "reason": "type 字段是数字范围 (如 '5-20') 是粒径范围, catch-all 误填"
+    },
+    {
+      "key": "material",
+      "value_regex": "^[（(，,、]",
+      "reason": "material 字段以标点开头 — 规格描述截尾污染"
+    },
+    {
+      "key": "material",
+      "value_regex": "[）)\\}]$",
+      "reason": "material 字段以右括号结尾 — 规格描述截头污染"
+    },
+    {
+      "key": "material",
+      "value_regex": "\\d+\\s*[×*xX]\\s*\\d+",
+      "reason": "material 含多维尺寸(如 200*200*40)— catch-all 把规格段塞到 material"
+    },
+    {
+      "key": "material",
+      "value_regex": "(厚度|板厚|壁厚|粒径|强度等级|管道|电线|电缆|钢筋|圆钢|扁钢|角钢|钢材|板材|成活价|详见|参见)",
+      "reason": "material 含尺寸/材质描述词 — 是规格描述污染"
+    },
+    {
+      "key": "material",
+      "max_len": 25,
+      "reason": "material 字段超长(>25字符), 大概率是规格描述污染"
+    },
+    {
+      "key": "color",
+      "value_regex": "^[（(，,、]",
+      "reason": "color 字段以标点开头 — 规格描述截尾污染"
+    },
+    {
+      "key": "color",
+      "value_regex": "[）)\\}]$",
+      "reason": "color 字段以右括号结尾 — 规格描述截头污染"
+    },
+    {
+      "key": "color",
+      "value_regex": "\\d+\\s*[×*xX]\\s*\\d+",
+      "reason": "color 含多维尺寸 — catch-all 把规格段塞到 color"
+    },
+    {
+      "key": "color",
+      "max_len": 25,
+      "reason": "color 字段超长(>25字符), 大概率是规格描述污染"
+    },
+    {
+      "key": "grade",
+      "value_regex": "\\d+\\s*[×*xX]\\s*\\d+",
+      "reason": "grade 含多维尺寸 — 是规格污染"
+    },
+    {
+      "key": "series",
+      "value_regex": "\\d+\\s*[×*xX]\\s*\\d+",
+      "reason": "series 含多维尺寸 — 是规格污染"
+    },
+    {
+      "key": "type",
+      "value_contains": [
+        ";",
+        "，",
+        "："
+      ],
+      "reason": "type 字段疑似 spec 多属性串入(长度>25 或 含全角分隔符)"
+    },
+    {
+      "key": "type",
+      "value_regex": ".+[)）]$",
+      "reason": "type 字段末尾是右括号 — 疑似 DWS 字段截断/串入"
+    },
+    {
+      "key": "type",
+      "value_regex": "^[^;]{1,40};[^;]{1,40};",
+      "reason": "type 字段多属性用 ; 分隔 — DWS 应拆分到 thickness/series/coating 等字段"
     }
   ],
   "forbidden_keys": [
@@ -175,6 +249,27 @@
     "系列",
     "型号综合"
   ],
+  "forbidden_type_phrases": [
+    "消防智能应急照明",
+    "应急照明",
+    "疏散指示",
+    "配电箱",
+    "桥架",
+    "水泵",
+    "钢绞线",
+    "喷淋",
+    "感烟",
+    "西朗",
+    "标线漆",
+    "防水涂料",
+    "DC12V",
+    "厂家",
+    "厂"
+  ],
+  "forbidden_breed_keyword_for_type": [
+    "塑料",
+    "塑胶"
+  ],
   "promote": {
     "mix_grade": "mix_grade",
     "particle_size": "particle_size",
@@ -182,10 +277,6 @@
     "thickness_min": "thickness_range",
     "cross_section_area": "cross_section"
   },
-  "forbidden_breed_keyword_for_type": [
-    "塑料",
-    "塑胶"
-  ],
   "numeric_required_digit": [
     "wall_thickness",
     "core_count",

@@ -742,18 +742,23 @@ def _ai_parse_specs_serial(items: list, city: str) -> dict:
     print(f"    [STG3 AI] 阶段 3 AI 解析总耗时 {time.time()-t_stage3:.1f}s")
 
     # 把 AI 建议执行 code_block 提取 attr
-    results_map: dict = {}  # spec → suggestions
+    # v0.14 (2026-07-22):保留每条 result 的 ok / failed_reason,供下游 _flush_ai_batch_to_dws
+    # 给 DWS 文档打 ai_ok / ai_failed_reason audit 标签。
+    results_map: dict = {}  # spec → 完整 result {ok, suggestions, failed_reason, ...}
     for r in all_results:
-        results_map[r.get("spec", "")] = r.get("suggestions", [])
+        results_map[r.get("spec", "")] = r
 
     out: dict = {}
     for it in items:
-        suggestions = results_map.get(it["spec"], [])
+        r = results_map.get(it["spec"], {}) or {}
+        ok = bool(r.get("ok", False))
+        suggestions = r.get("suggestions", []) or []
+        failed_reason = r.get("failed_reason", "") or ""
         attrs = _execute_suggestions(suggestions, it["spec"])
         if attrs:
-            out[it["doc_id"]] = (attrs, "ai")
+            out[it["doc_id"]] = (attrs, "ai", ok, failed_reason)
         else:
-            out[it["doc_id"]] = ({}, "ai_fallback")
+            out[it["doc_id"]] = ({}, "ai_fallback", ok, failed_reason)
     return out
 
 
@@ -1013,13 +1018,22 @@ def _flush_ai_batch_to_dws(
     dwd_update_body = ""
     for it in ai_batch:
         doc_id = it["doc_id"]
-        attrs, src = ai_results.get(doc_id, ({}, "ai_fallback"))
+        # v0.14 (2026-07-22): 4 元组 (attrs, src, ai_ok, failed_reason)
+        result = ai_results.get(doc_id)
+        if result is None:
+            attrs, src, ai_ok, reason = {}, "ai_fallback", False, "no_result_from_ai"
+        else:
+            attrs, src, ai_ok, reason = result
         h = hits_by_id.get(doc_id)
         if not h:
             continue
         # 价格过滤：price 和 tax_price 都为空/0 → 跳过（2026-06-24 道友需求）
         if not _is_price_valid(dict(h["_source"])):
             continue
+        # v0.14 (2026-07-22) 调整（道友需求）：
+        #   ok=false 也入 DWS。改前：AI 显式返失败 (src=="ai_fallback") 不入 DWS；现移除该 continue。
+        #   改前：attrs 空也不入 DWS；现移除该 continue（DWD 已有 attr 也要保留入 DWS）。
+        #   副作用：DWS 会有 attr=[] 但 ai_ok=false 的 doc，运营可按 ai_ok=false 过滤。
         src_doc = dict(h["_source"])
         # 合并 src nested attr（如已有顶层 attr_*）
         if not attrs:
@@ -1042,22 +1056,24 @@ def _flush_ai_batch_to_dws(
         attrs = _dedup_attr_by_spec_value(attrs, src_doc.get("spec", ""))
 
         nested = flat_attr_to_nested(attrs)
-        # 回写 DWD
-        if attrs and not dry_run:
+        # 回写 DWD：只在 AI 成功 (ai_ok=true) 且 attrs 非空时回写。
+        # 避免 ai_fallback 把空 attr 写回 DWD 污染源头。
+        if attrs and ai_ok and not dry_run:
             dwd_update_body += (
                 json.dumps({"update": {"_id": doc_id}}, ensure_ascii=False) + "\n" +
                 json.dumps({"doc": {"attr": attrs}}, ensure_ascii=False) + "\n"
             )
 
-        # 同步 DWS - 阶段 3 必须在 attrs 非空时才入 DWS
-        # 背景：AI 未命中时 attrs 是空 dict；如果不挡，attr=[] 文档会进 DWS 制造孤儿
-        # （菏泽 2026-06-15 发现 87 条 DWS > DWD 的 _id 都是 attr=[]）
-        # 阶段 1/2 不会到这里（line 280/294 已有 if existing_attr/if local_attrs 短路）
-        if not attrs:
-            # AI 未命中且 DWD 也没 attr → 不进 DWS
-            continue
+        # 同步 DWS —— ai_fallback 也入，标 audit 字段供运营巡检
+        # v0.13 (2026-07-22 之前) 拦截：attr=[] 会制造 DWS 孤儿；
+        # v0.14 放开：attr 可能空（DWD 也没 attr 且 AI 也拒解析时），但 ai_ok=false 让其
+        # 仍可见，避免"价格有效但 attr 解析失败的 doc"在 DWS 之外（dashboard 等下游读不到）。
         src_doc["attr"] = nested
         src_doc["attr_source"] = src
+        src_doc["ai_ok"] = bool(ai_ok)
+        if not ai_ok:
+            # 限长 500 字符，防 LLM 长 msg 撑爆 ES storage
+            src_doc["ai_failed_reason"] = (reason or "no_reason")[:500]
         for f in ("date", "publish_time"):
             if not src_doc.get(f):
                 src_doc.pop(f, None)

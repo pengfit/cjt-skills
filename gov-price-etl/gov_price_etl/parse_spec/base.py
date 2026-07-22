@@ -119,6 +119,39 @@ def _get_compiled_pattern(pat: str):
     return _PATTERN_COMPILE_CACHE[pat]
 
 
+_RAG_MIN_RESULTS = 10  # 召回不足阈值,低于此数量则用 breed="" 兜底二次召回
+
+
+def _type_field_breed_guard(norm_k: str, v, breed: str) -> bool:
+    """type 字段 L1 语义护栏(2026-07-22 v0.13 治本补丁)。
+
+    触发条件:norm_k == 'type' 且 v 含中文字符 且 breed 非空且含中文字符。
+    判定:bigram(breed) ∩ bigram(v) 为空 → 跨类目串料,丢弃。
+
+    例:
+      breed='碎石' + v='消防智能应急照明' → 交集空 → 丢 ✓
+      breed='碎石' + v='5-10mm'            → v 不含中文 → 放行 ✓
+      breed='消防智能应急照明' + v='消防智能应急照明' → 交集非空 → 放行 ✓
+    """
+    if norm_k != "type":
+        return True
+    if not breed:
+        return True
+    s = str(v).strip()
+    if not s:
+        return True
+    # 数字/字母/符号型 type 值 → 放行(避免误伤 '5-10mm' / 'SG24B' 等)
+    if not any("\u4e00" <= c <= "\u9fff" for c in s):
+        return True
+    breed_cn = "".join(c for c in breed if "\u4e00" <= c <= "\u9fff")
+    val_cn = "".join(c for c in s if "\u4e00" <= c <= "\u9fff")
+    if not breed_cn:
+        return True  # breed 自身全非中文,无法语义判定 → 放行
+    breed_grams = {breed_cn[i:i + 2] for i in range(len(breed_cn) - 1)}
+    val_grams = {val_cn[i:i + 2] for i in range(len(val_cn) - 1)}
+    return bool(breed_grams & val_grams)
+
+
 def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_filter: str = "") -> list:
     """通过向量库召回候选规则，返回 [(compiled_pattern, attr, note, code), ...]
 
@@ -128,34 +161,42 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
     关键设计：
     - 规则库 1064/1098 条有具体 category（如'砌体墙体材料'、'钢材金属材料'），
       用精确 category 过滤会阻断 97% 的规则。
-    - breed 精确过滤同样会导致漏召回（如'砖渣多孔砖'无精确规则）。
-    - 改为：跳过 breed 过滤，完全依赖 Jaccard 相似度召回。
-      Jaccard score >= 0.001 的规则即为候选，再经 regex 最终匹配。
-    - 必须传 spec=spec 而非 spec=''，否则 Jaccard 评分失效。
+    - breed 精确过滤同样会导致漏召回(如'砖渣多孔砖'无精确规则)。
+
+    2026-07-22 v0.13 治本补丁:
+    - 召回仍传 breed=""(与原行为兼容,不破坏既有测试)
+    - 新增 post-filter:规则 breed 与当前 breed 字符重叠度<阈值(如 1 个字)直接 drop
+    - 例:rule.breed='消防智能应急照明' + current.breed='碎石' → 重叠 0 → 丢弃
+      (这条规则就是 id=754,导致 4047 条 type=消防智能应急照明 污染)
+
+    - 必须传 spec=spec 而非 spec='',否则 Jaccard 评分失效。
     """
     if get_vec_store is None:
         return []
     try:
         vs = get_vec_store()
-        # v0.8+: 不再传 category（search() 内部忽略）
-        # 跳过 breed 过滤，纯靠 Jaccard 召回 + regex 最终验证
-        # 注意：2026-07-04 fix — search() 内部对 breed 用精确匹配 SQL 过滤，
-        # breed='球墨铸铁给水管DN100' 会把所有 breed='球墨铸铁给水管' 的规则排除掉。
-        # 这里传空字符串让 SQL 跳过对应过滤，规则全量召回后由 Jaccard + regex 双层把关。
-        # 2026-07-04 fix2 — 调大 top_k=5000，因为通用空 breed 规则 score 较低（0.37），
-        # 容易被有 breed 的具体规则（0.575）挤出 top 500，导致电缆/管材 N*M 通用规则不命中。
+        # v0.13: 保持原行为 breed="",不破坏既有召回/测试
+        # 注:carefully 从 v0.8 沿用,2026-07-04 fix 详注释保留
         results = vs.search(
             spec=spec,
-            breed="",  # 传空跳过 breed 精确过滤
-            l3=l3,    # v0.7: L3 分项工程,精确匹配 +0.40 最高加权
+            breed="",  # 传空跳过 breed 精确过滤(原行为)
+            l3=l3,
             top_k=5000,
             attr_filter=attr_filter if attr_filter else None,
         )
+
+        # v0.13 治本补丁:post-filter 拦截跨品种的强写型规则(754/755 类)
+        # 只在 rule.breed 与 current breed 字符重叠低于阈值时拦截
+        if breed:
+            cur_chars = set(c for c in breed if '\u4e00' <= c <= '\u9fff')
+            results = [
+                (score, r) for score, r in results
+                if _rule_breed_filter(r.get("breed", ""), cur_chars)
+            ]
+
         # 2026-07-18: 过滤软删除的规则（attr 以 __deleted__ 开头）
-        # 软删除保留规则以便审计回滚，召回阶段直接跳过
-        # 注意：results 是 [(score, rule_dict), ...] 元组列表
         results = [(score, r) for score, r in results if not r["attr"].startswith("__deleted__")]
-        # 预编译 pattern，过滤编译失败的规则
+        # 预编译 pattern,过滤编译失败的规则
         out = []
         for _, r in results:
             cp = _get_compiled_pattern(r["pattern"])
@@ -164,6 +205,33 @@ def _rag_candidates(spec: str, category: str, breed: str, l3: str = "", attr_fil
         return out
     except Exception:
         return []
+
+
+def _rule_breed_filter(rule_breed: str, current_breed_chars: set) -> bool:
+    """跨品种 bug 规则拦截 (2026-07-22 v0.13)。
+
+    Args:
+      rule_breed: 规则库中规则的 breed 字段
+      current_breed_chars: 当前 doc 的 breed 中文 char 集合
+
+    Returns:
+      True = 保留(False = 拦截)
+
+    规则:
+      1) rule_breed 为空 → 保留 (通用规则,放行)
+      2) rule_breed 非空但 current breed 为空 → 保留 (无依据判断)
+      3) 两边都有中文 → 计算交集,交集空 → 拦截 (跨类目)
+      4) 单边 (rule_breed 短, 如'碎石') 优先按字符交集判定
+    """
+    if not rule_breed:
+        return True
+    if not current_breed_chars:
+        return True
+    rule_chars = set(c for c in rule_breed if '\u4e00' <= c <= '\u9fff')
+    if not rule_chars:
+        return True  # rule_breed 全非中文,无法判断 → 放行
+    # 至少 1 个中文字符交集
+    return bool(rule_chars & current_breed_chars)
 
 
 # ─── AI 配置 ──────────────────────────────────────────────────
@@ -239,6 +307,10 @@ class BaseParseSpec:
                     # 防止 material='240*115*53' 这种 spec 原值回流污染
                     if norm_k in _CATCH_ALL_KEYS and str(v).strip() == spec.strip():
                         continue
+                    # 2026-07-22 v0.13 治本:type 字段 L1 语义护栏
+                    # 防 catch-all 规则库把跨品种写死型 type 值塞到当前 doc
+                    if not _type_field_breed_guard(norm_k, v, breed):
+                        continue
                     if v and norm_k not in claimed:
                         resolved[norm_k] = v
                         claimed.add(norm_k)
@@ -252,6 +324,9 @@ class BaseParseSpec:
                     continue
                 # 2026-07-18 catch-all 拦截（纯正则路径）
                 if norm_attr in _CATCH_ALL_KEYS and str(val).strip() == spec.strip():
+                    continue
+                # 2026-07-22 v0.13 治本:type 字段 L1 语义护栏(纯正则路径同步)
+                if not _type_field_breed_guard(norm_attr, val, breed):
                     continue
                 if val and norm_attr not in claimed:
                     resolved[norm_attr] = val

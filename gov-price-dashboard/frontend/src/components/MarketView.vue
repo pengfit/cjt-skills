@@ -128,37 +128,46 @@
 
         <div
           v-if="heatmap.breeds.length && heatmap.cities.length"
-          class="m-heatmap-scroll"
+          class="m-heatmap-chunks"
         >
           <div
-            class="m-heatmap-grid"
-            :style="heatmapGridStyle"
+            v-for="chunk in heatmapChunks"
+            :key="chunk.key"
+            class="m-heatmap-block"
           >
-            <!-- 表头 -->
-            <div class="m-heatmap-cell m-heatmap-corner">品种 \ 城市</div>
-            <div
-              v-for="city in heatmap.cities"
-              :key="'h' + city.key"
-              class="m-heatmap-cell m-heatmap-th"
-            >
-              {{ city.label }}
-            </div>
-            <!-- 数据行 -->
-            <template v-for="(breed, bi) in heatmap.breeds" :key="breed.breed + (breed.spec_fingerprint || '')">
-              <div class="m-heatmap-cell m-heatmap-row-label">
-                <div class="m-row-name">{{ breed.breed }}</div>
-                <div class="m-row-meta">{{ breed.spec_label || breed.category_name_l3 || '—' }}</div>
-              </div>
+            <div v-if="chunk.title" class="m-heatmap-chunk-title">{{ chunk.title }}</div>
+            <div class="m-heatmap-scroll">
               <div
-                v-for="(city, ci) in heatmap.cities"
-                :key="breed.breed + '-' + city.key"
-                class="m-heatmap-cell"
-                :style="cellStyle(heatmap.matrix[bi]?.[ci])"
-                :title="cellTitle(breed, city, heatmap.matrix[bi]?.[ci])"
+                class="m-heatmap-grid"
+                :style="chunkGridStyle(chunk.cities.length)"
               >
-                {{ formatCell(heatmap.matrix[bi]?.[ci]) }}
+                <!-- 表头 -->
+                <div class="m-heatmap-cell m-heatmap-corner">品种 \ 城市</div>
+                <div
+                  v-for="city in chunk.cities"
+                  :key="'h' + city.key"
+                  class="m-heatmap-cell m-heatmap-th"
+                >
+                  {{ city.label }}
+                </div>
+                <!-- 数据行 -->
+                <template v-for="(breed, bi) in heatmap.breeds" :key="chunk.key + '-' + breed.breed + (breed.spec_fingerprint || '')">
+                  <div class="m-heatmap-cell m-heatmap-row-label">
+                    <div class="m-row-name">{{ breed.breed }}</div>
+                    <div class="m-row-meta">{{ breed.spec_label || breed.category_name_l3 || '—' }}</div>
+                  </div>
+                  <div
+                    v-for="(city, ci) in chunk.cities"
+                    :key="chunk.key + '-' + breed.breed + '-' + city.key"
+                    class="m-heatmap-cell"
+                    :style="cellStyle(chunk.matrix[bi]?.[ci])"
+                    :title="cellTitle(breed, city, chunk.matrix[bi]?.[ci])"
+                  >
+                    {{ formatCell(chunk.matrix[bi]?.[ci]) }}
+                  </div>
+                </template>
               </div>
-            </template>
+            </div>
           </div>
         </div>
         <div v-else class="m-empty">暂无热力图数据(可能数据尚未聚合)</div>
@@ -239,9 +248,39 @@ const fillRate = computed(() => {
 const loading = ref(true)
 const loadError = ref('')
 
-const heatmapGridStyle = computed(() => ({
-  gridTemplateColumns: `180px repeat(${heatmap.value.cities?.length || 1}, minmax(64px, 1fr))`,
-}))
+// 热力图分块:每张表最多 HEATMAP_CHUNK_SIZE 个城市(默认 10,18 城拆 10+8=2 张)
+// 后续如果城市数变多导致单张挤,可调小
+const HEATMAP_CHUNK_SIZE = 10
+
+// 单一热力图 grid 样式(给每块用):行标签 140px + N 列城市,min 48px,1fr 自动分摊
+function chunkGridStyle(n) {
+  return { gridTemplateColumns: `140px repeat(${n}, minmax(48px, 1fr))` }
+}
+
+// 把 breeds + cities + matrix 按城市切片成多张表
+const heatmapChunks = computed(() => {
+  const cities = heatmap.value.cities || []
+  const breeds = heatmap.value.breeds || []
+  const matrix = heatmap.value.matrix || []
+  if (!cities.length) return []
+
+  const size = HEATMAP_CHUNK_SIZE
+  const chunks = []
+  for (let i = 0; i < cities.length; i += size) {
+    const end = Math.min(i + size, cities.length)
+    const sliceCities = cities.slice(i, end)
+    const sliceMatrix = matrix.map((row) => row.slice(i, end))
+    chunks.push({
+      key: `chunk-${i}`,
+      cities: sliceCities,
+      matrix: sliceMatrix,
+      title: cities.length > size
+        ? `城市 ${i + 1}–${end}（共 ${cities.length} 城 · 第 ${Math.floor(i / size) + 1} / ${Math.ceil(cities.length / size)} 张）`
+        : null,
+    })
+  }
+  return chunks
+})
 
 async function fetchJson(path) {
   const r = await fetch(path, { headers: { Accept: 'application/json' } })
@@ -777,9 +816,9 @@ function cellTitle(breed, city, v) {
   margin-left: 2px;
 }
 
-/* ── 热力图 ── */
+/* ── 热力图(2026-07-22:取消横向滚动,grid 自动收缩) ── */
 .m-heatmap-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;          /* 不再产生横向滚动条 */
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
@@ -787,19 +826,36 @@ function cellTitle(breed, city, v) {
   display: grid;
   gap: 2px;
   background: #f3f4f6;
-  min-width: 100%;
+  width: 100%;                 /* 占满容器,不再强制 min-width: 100% */
   font-size: 11px;
+}
+.m-heatmap-chunks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;                   /* 多张表之间留 14px 间距 */
+}
+.m-heatmap-block { width: 100%; }
+.m-heatmap-chunk-title {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 6px;
+  font-family: -apple-system, "PingFang SC", sans-serif;
 }
 .m-heatmap-cell {
   background: #fff;
-  padding: 6px 8px;
+  padding: 4px 6px;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
+  min-height: 32px;
   font-weight: 600;
+  font-size: 10px;             /* chunk 内每张表 ≤8 城,固定 10px 不需再缩 */
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .m-heatmap-corner {
   font-weight: 700;
@@ -826,7 +882,7 @@ function cellTitle(breed, city, v) {
   font-weight: 600;
   font-size: 12px;
   color: #111827;
-  max-width: 160px;
+  max-width: 120px;             /* 同步收窄,与 grid 140px 行标签适配 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

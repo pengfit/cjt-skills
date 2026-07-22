@@ -344,7 +344,7 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
                 "query": query,
                 "sort": sort,
                 "pit": {"id": pit, "keep_alive": "2m"},
-                "_source": ["period_start", "spec", "attr", "unit", "price"],
+                "_source": ["period_start", "spec", "attr_norm", "unit", "price"],
             }
             r = es.search(body=body, ignore_unavailable=True)
             hits = r.get("hits", {}).get("hits", [])
@@ -369,7 +369,7 @@ def _fetch_all_hits_for_breed(index: str, breed: str, period_starts: list, max_p
                     "size": min(max_per_breed, 10000),
                     "query": query,
                     "sort": sort,
-                    "_source": ["period_start", "spec", "attr", "unit", "price"],
+                    "_source": ["period_start", "spec", "attr_norm", "unit", "price"],
                 },
                 ignore_unavailable=True,
             )
@@ -417,7 +417,7 @@ def _aggregate_hits_by_attr(hits, selected_periods):
         if price is None:
             continue
         unit = src.get("unit") or ""
-        attrs = src.get("attr") or []
+        attrs = src.get("attr_norm") or []
         if attrs:
             for a in attrs:
                 k = (a.get("k") or "").strip()
@@ -732,7 +732,7 @@ def _align_spec(rec: dict) -> tuple:
     - 优先级：attr-based → spec 归一化
     - spec_label 优先中文 attr 标签（如「直径=20」），后是 spec 原文
     """
-    attrs = rec.get("attr") or []
+    attrs = rec.get("attr_norm") or []
     attr_key = _build_attr_spec_key(attrs)
     if attr_key:
         # 用 _label_k 把 attr key 转中文标签供展示用
@@ -908,7 +908,7 @@ def price_trend_compare(
                     "size": 10000,
                     "query": q_with_date,
                     "sort": [{"period_start": "asc"}],
-                    "_source": ["period_start", "spec", "attr", "unit", "price"],
+                    "_source": ["period_start", "spec", "attr_norm", "unit", "price"],
                 },
                 ignore_unavailable=True,
                 allow_no_indices=True,
@@ -958,7 +958,7 @@ def price_trend_compare(
             u = (src.get("unit") or "").strip()
 
             # spec_filter 过滤（attr 维度）
-            attrs = src.get("attr") or []
+            attrs = src.get("attr_norm") or []
             if spec_filter_pairs:
                 attr_kv = {(a.get("k") or "").strip(): (a.get("v") or "").strip()
                            for a in attrs if a.get("k") and a.get("v")}

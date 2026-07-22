@@ -22,3 +22,5 @@ venv/
 # 备份文件
 *.bak.*
 *.bak
+.logs
+gov-price-normalization/logs
