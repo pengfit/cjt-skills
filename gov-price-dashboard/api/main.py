@@ -129,7 +129,9 @@ app.include_router(category_trend_router, **_PROTECTED)
 # 2026-07-19：对外展示页聚合数据（公开，不需要 JWT）
 # 只读 ES 聚合 + skill registry,无原始数据泄露
 from api.routes.showcase import router as showcase_router
-app.include_router(showcase_router)
+# v0.18+ (2026-07-23): 收口 — 非 /market 接口一律验证登录
+# 原公开理由是"对外展示页"/home,但 /home 现改走 isAuthed 门控(showcase 数据需登录)
+app.include_router(showcase_router, **_PROTECTED)
 
 # 2026-07-21：/market 市场行情公开 API（涨跌幅/热门品类/热力图）
 # 同样只读 ES 聚合,返回的字段已脱敏(无原始 spec/attr,只有均价)

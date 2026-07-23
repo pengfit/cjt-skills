@@ -52,7 +52,7 @@
         <div class="m-kpi-item">
           <div class="m-kpi-label">价格数据条数</div>
           <div class="m-kpi-value">{{ (overview.total_records || 0).toLocaleString() }}</div>
-          <div class="m-kpi-sub">DWS 消费层</div>
+          <div class="m-kpi-sub">跨城聚合</div>
         </div>
       </section>
 
@@ -193,8 +193,23 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import CustomSelect from './CustomSelect.vue'
 import SectionHeader from './SectionHeader.vue'
+
+// 2026-07-23: /market 只接 v=timestamp URL 参数(作 cache buster 拼到 API 请求后)
+// 其他参数 (date_from/date_to 等) 均忽略
+const route = useRoute()
+const cacheVersion = computed(() => {
+  const v = route.query.v
+  return v && String(v).trim() ? String(v).trim() : ''
+})
+
+function withCacheBuster(path) {
+  if (!cacheVersion.value) return path
+  // 如果路径已有 query,追加 &v=,否则加 ?v=
+  return path.includes('?') ? `${path}&v=${cacheVersion.value}` : `${path}?v=${cacheVersion.value}`
+}
 
 const overview = ref({})
 const heatmap = ref({ breeds: [], cities: [], matrix: [], spec_fingerprint: null })
@@ -283,8 +298,18 @@ const heatmapChunks = computed(() => {
 })
 
 async function fetchJson(path) {
-  const r = await fetch(path, { headers: { Accept: 'application/json' } })
-  if (!r.ok) throw new Error(`${path} → HTTP ${r.status}`)
+  // 页面级守卫: /market 页面只能调 /api/market/* 公开接口
+  // 与 main.js 的 window.fetch 拦截器双保险(拦截器在前,这里在调用点最贴近报错位置)
+  if (!path.startsWith('/api/market/')) {
+    throw new Error(
+      `[market-view-guard] /market 页面禁止调用 ${path}\n` +
+      `  允许范围: /api/market/*`
+    )
+  }
+  // 拼上 v=timestamp cache buster(如果 URL 有 v=)
+  const finalPath = withCacheBuster(path)
+  const r = await fetch(finalPath, { headers: { Accept: 'application/json' } })
+  if (!r.ok) throw new Error(`${finalPath} → HTTP ${r.status}`)
   return r.json()
 }
 
