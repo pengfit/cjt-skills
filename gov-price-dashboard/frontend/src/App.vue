@@ -6,10 +6,10 @@
 <template>
   <!-- 2026-07-21: /market 市场行情公开页 — 不受鉴权门控制，访客可直访 -->
   <MarketView v-if="route.name === 'market'" />
-  <!-- 2026-07-23: /home 也走鉴权门（showcase 数据需登录） -->
+  <!-- 2026-07-23 v2: /home 恢复公开(友反馈 — 首页作为落地页必须访客直访) -->
+  <HomeView v-else-if="route.name === 'home'" />
   <NotFoundView v-else-if="route.name === 'not-found'" />
   <LoginView v-else-if="!isAuthed" />
-  <DashboardView v-else-if="route.name === 'home'" />
   <DashboardView v-else />
 </template>
 
