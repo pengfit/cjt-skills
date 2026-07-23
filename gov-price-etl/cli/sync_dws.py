@@ -36,6 +36,8 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=None,
                         help="批量大小（默认：quick=1000, plain=500, ai=500）")
     parser.add_argument("--category", default="", help="只同步指定分类（plain 模式有效）")
+    parser.add_argument("--exclude-city", action="append", default=[],
+                        help="排除城市（可多次传: --exclude-city shaanxi --exclude-city xinjiang）")
     parser.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     args = parser.parse_args()
 
@@ -49,6 +51,15 @@ def main() -> int:
             return 1
     else:
         cities = list(CITY_CONFIGS.keys())
+
+    # 排除城市
+    if args.exclude_city:
+        before = len(cities)
+        unknown = [c for c in args.exclude_city if c not in CITY_CONFIGS]
+        if unknown:
+            print(f"[DWS] 警告: 未知城市（已忽略）: {unknown}")
+        cities = [c for c in cities if c not in args.exclude_city]
+        print(f"[DWS] 排除: {args.exclude_city} (剩余 {len(cities)}/{before} 城)")
 
     print(f"[DWS] ES: {es_host}")
     print(f"[DWS] 城市: {', '.join(cities)}")

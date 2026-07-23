@@ -8,25 +8,7 @@
       </router-link>
     </div>
     <div class="top-bar-meta">
-      <!-- P1-5 KPI 可点击 chip:加右侧 → 暗示 -->
-      <button
-        class="meta-item meta-item-btn kpi-chip"
-        :title="`跳到「全部数据」按 ${overview.total_provinces} 个省份筛选`"
-        @click="$emit('go-list', { scope: 'province' })"
-      >
-        <span class="meta-label">省份</span>
-        <span class="meta-value">{{ overview.total_provinces }}</span>
-        <span class="kpi-arrow">→</span>
-      </button>
-      <button
-        class="meta-item meta-item-btn kpi-chip"
-        :title="`跳到「全部数据」按 ${overview.total_cities} 个城市筛选`"
-        @click="$emit('go-list', { scope: 'city' })"
-      >
-        <span class="meta-label">城市</span>
-        <span class="meta-value">{{ overview.total_cities }}</span>
-        <span class="kpi-arrow">→</span>
-      </button>
+      <!-- 2026-07-23:省份/城市 KPI chip 已下架(/api/stats/overview 整接口删除) -->
       <!-- 数据新鲜度告警（fix 2026-07-12 P1-4）：stale/very_stale 城市数,点击跳数据健康 -->
       <button
         v-if="alerts.count > 0"
@@ -138,12 +120,12 @@ import { useAuth } from '../../composables/useAuth'
 import { useRouter } from 'vue-router'
 /**
  * 顶栏(统一组件)
- * 由父级传入数据(overview / alerts / lastRefresh / lastRefreshAgo),
+ * 由父级传入数据(alerts / lastRefresh / lastRefreshAgo),
  * 内部只负责渲染 + 触发交互(emit),数据拉取/定时器在父级。
+ * 2026-07-23 移除 overview prop(/api/stats/overview 整接口下架)
  *
  * @example
  *   <TopBar
- *     :overview="overview"
  *     :alerts="alerts"
  *     :last-refresh="lastRefresh"
  *     :last-refresh-ago="lastRefreshAgo"
@@ -154,7 +136,6 @@ import { useRouter } from 'vue-router'
  *   />
  */
 defineProps({
-  overview:         { type: Object, required: true },  // { total_provinces, total_cities, ... }
   alerts:           { type: Object, required: true },  // { count, veryStaleCount, updates }
   lastRefresh:      { type: String, default: '' },       // 接口响应 ISO 时间,用于 tooltip
   lastRefreshAgo:   { type: String, default: '' },       // "更新于 3 分钟前" 等动态文案

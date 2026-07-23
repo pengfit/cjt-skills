@@ -20,7 +20,6 @@
 
     <!-- ========== TOP BAR(统一 TopBar.vue) ========== -->
     <TopBar
-      :overview="overview"
       :alerts="alerts"
       :last-refresh="lastRefresh"
       :last-refresh-ago="lastRefreshAgo"
@@ -53,7 +52,6 @@
         <template v-if="currentTab === 'list'">
           <ListView
             :bundle="listSearch"
-            :overview="overview"
             :category-panel-collapsed="categoryPanelCollapsed"
           />
         </template>
@@ -227,24 +225,12 @@ const cmdItems = computed(() => {
       action: () => { if (currentTab.value === 'list') listSearch.showDrawer.value = true },
     },
   ]
-  const queryItems = overview.value && overview.value.by_province
-    ? overview.value.by_province.slice(0, 5).map(p => ({
-        id: 'prov:' + p.province,
-        group: '数据查询',
-        label: '查看 ' + p.province + '价格',
-        icon: '🔎',
-        hint: `${p.province} · ${fmt.count(p.count, '条记录')}`,
-        action: () => router.push({ path: legacyTabPath('list'), query: { province: p.province } }),
-      }))
-    : []
-  return [...navItems, ...actionItems, ...queryItems]
+  return [...navItems, ...actionItems]
 })
 
 function onCmdSelect(item) {
   // 由组件内部调用 action
 }
-const overview = ref({ total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, max_price: 0, min_price: 0, by_province: [] })
-
 const alerts = ref({ count: 0, veryStaleCount: 0, updates: [] })
 const lastRefresh = ref('')
 const lastRefreshAgo = ref('')
@@ -312,51 +298,11 @@ async function loadAPI(url) {
   try { return (await axios.get(url)).data } catch { return {} }
 }
 
-let _overviewCache = null
-let _overviewCacheAt = 0
-let _filterOptionsCache = null
-let _filterOptionsCacheAt = 0
-const CACHE_TTL = 30 * 1000
-
-async function loadOverview() {
-  if (_overviewCache && Date.now() - _overviewCacheAt < CACHE_TTL) {
-    overview.value = _overviewCache
-    return _overviewCache
-  }
-  const d = await loadAPI(`${API}/stats/overview`)
-  _overviewCache = d || { total_docs: 0, total_provinces: 0, total_cities: 0, avg_price: 0, by_province: [] }
-  _overviewCacheAt = Date.now()
-  overview.value = _overviewCache
-  return _overviewCache
-}
-
-async function loadCityOptions() {
-  if (_filterOptionsCache && Date.now() - _filterOptionsCacheAt < CACHE_TTL) {
-    cityOptions.value = _filterOptionsCache.cities || []
-    countyOptions.value = _filterOptionsCache.counties || []
-    provinceCityMap.value = _filterOptionsCache.provinceCityMap || {}
-    return _filterOptionsCache
-  }
-  const d = await loadAPI(`${API}/filter-options`)
-  _filterOptionsCache = d || {}
-  _filterOptionsCacheAt = Date.now()
-  if (_filterOptionsCache) {
-    cityOptions.value = _filterOptionsCache.cities || []
-    countyOptions.value = _filterOptionsCache.counties || []
-    provinceCityMap.value = _filterOptionsCache.provinceCityMap || {}
-  }
-  return _filterOptionsCache
-}
-
-const cityOptions = ref([])
-const countyOptions = ref([])
-const provinceCityMap = ref({})
-
-const listSearch = useListSearch({ router, loadOverview })
+const listSearch = useListSearch({ router })
 const { searchKeyword, searchProvince, searchCity } = listSearch
 
 onMounted(async () => {
-  await Promise.all([loadOverview(), loadCityOptions()])
+  // /api/stats/overview 2026-07-23 整接口下架,无外部数据需预加载
 })
 
 // P0-2 全局轮询

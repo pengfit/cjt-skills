@@ -568,7 +568,8 @@ async function loadData(opts = {}) {
       materials = Array.isArray(opts.materials) ? opts.materials.join(',') : String(opts.materials)
     }
     // 单品种调用时 max_breeds 不起作用，调小防 top_specs 误算（API 自己处理）
-    const url = `${API}/stats/price-trend?city=${encodeURIComponent(city.value)}&materials=${encodeURIComponent(materials)}&periods=${parseInt(periodsLimit.value, 10)}&top_specs=8&max_breeds=30`
+    // 2026-07-23: /trend 页改走 NORM 专属路径 /api/norm/price-trend,与其他页分层
+    const url = `${API}/norm/price-trend?city=${encodeURIComponent(city.value)}&materials=${encodeURIComponent(materials)}&periods=${parseInt(periodsLimit.value, 10)}&top_specs=8&max_breeds=30`
     const { data: d } = await axios.get(url)
     if (!d.ok) throw new Error(d.error || 'API 返回错误')
     data.value = d

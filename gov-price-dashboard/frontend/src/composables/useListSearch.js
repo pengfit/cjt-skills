@@ -4,9 +4,8 @@
  * App.vue 原本 1391 行,list 视图占 ~600 行模板 + ~600 行脚本。
  * 抽到 composable 后,ListView.vue 仅负责模板渲染,业务逻辑全在 useListSearch。
  *
- * 共享外部依赖(参数注入,避免 composable 互相耦合):
- *   - router: vue-router 路由实例(syncToQuery / restoreFromQuery 用)
- *   - loadOverview: 跨 tab 副作用——筛选条件变化时刷新顶栏 HUD 概览
+ * 共享外部依赖（参数注入,避免 composable 互相耦合):
+ *   - router: vue-router 路由实例（syncToQuery / restoreFromQuery 用）
  *
  * 返回值是一个 bundle 对象(ref + computed + actions + DOM ref),
  * ListView 模板直接 `v-model="bundle.searchKeyword"` / `@click="bundle.doSearch"`。
@@ -18,7 +17,7 @@ import { exportCsvAsFile, withTimestamp } from './useExport.js'
 import { useSearchHistory } from './useSearchHistory.js'
 import { useFormatNumber } from './useFormatNumber.js'
 
-export function useListSearch({ router, loadOverview }) {
+export function useListSearch({ router }) {
   const fmt = useFormatNumber()
   const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -64,7 +63,9 @@ export function useListSearch({ router, loadOverview }) {
   const searchError = ref(false)
   const debounceTimer = ref(null)
 
-  // 筛选选项(省份/城市/区县) — 由 App.vue loadCityOptions 共享注入
+  // 筛选选项(省份/城市/区县) — 2026-07-23 由 useListSearch 自己从 /api/list/filter-options 拉
+  // (该端点走 LIST_INDICES / DWS 层,与其他页面的 /api/filter-options 隔离)
+  const provinceOptions = ref([])
   const cityOptions = ref([])
   const countyOptions = ref([])
   const provinceCityMap = ref({})
@@ -335,7 +336,7 @@ export function useListSearch({ router, loadOverview }) {
       params.page_size = Number(pageSize.value)
       if (isNaN(params.page) || params.page < 1) params.page = 1
 
-      const { data: res } = await axios.get(`${API}/search`, { params })
+      const { data: res } = await axios.get(`${API}/list/search`, { params })
       searchResult.value = res || {}
 
       syncToQuery()
@@ -551,7 +552,7 @@ export function useListSearch({ router, loadOverview }) {
       return
     }
     try {
-      const d = (await axios.get(`${API}/stats/categories?size=500`)).data
+      const d = (await axios.get(`${API}/list/categories?size=500`)).data
       const list = (d?.data || []).map(c => ({ key: c.key, count: c.count, label: c.key }))
         .sort((a, b) => a.key.localeCompare(b.key, 'zh-CN'))
       _categoryCache = list
@@ -563,22 +564,44 @@ export function useListSearch({ router, loadOverview }) {
   }
 
   // ============================================================
-  // LIFECYCLE — 跨 tab 副作用 + 事件绑定 + list tab 初始化
+  // API — 省份/城市/区县下拉选项 (2026-07-23)
+  // 走 /api/list/filter-options → LIST_INDICES (DWS 层),与其他页面解耦
   // ============================================================
-  // 筛选条件变化 → 刷顶栏 HUD 概览(跨 tab)
-  watch(
-    [searchKeyword, searchProvince, searchCity, priceMin, priceMax],
-    async () => {
-      if (Object.keys(searchResult.value).length) {
-        await loadOverview()
-      }
+  let _filterOptsCache = null
+  let _filterOptsCacheAt = 0
+  async function loadFilterOptions() {
+    const FILTER_TTL = 60 * 1000
+    if (_filterOptsCache && Date.now() - _filterOptsCacheAt < FILTER_TTL) {
+      _applyFilterOptions(_filterOptsCache)
+      return
     }
-  )
+    try {
+      const d = (await axios.get(`${API}/list/filter-options`)).data
+      _filterOptsCache = d || { provinces: [], cities: [], counties: [], provinceCityMap: {} }
+      _filterOptsCacheAt = Date.now()
+      _applyFilterOptions(_filterOptsCache)
+    } catch {
+      // 静默失败:下拉采用空数组维持骨架
+      _applyFilterOptions({ provinces: [], cities: [], counties: [], provinceCityMap: {} })
+    }
+  }
+  function _applyFilterOptions(d) {
+    provinceOptions.value = (d.provinces || []).map(p => ({ key: p.key, count: p.count }))
+    cityOptions.value = (d.cities || []).map(c => ({ key: c.key, count: c.count, province: c.province }))
+    countyOptions.value = (d.counties || []).map(c => ({ key: c.key, count: c.count, province: c.province, city: c.city }))
+    provinceCityMap.value = d.provinceCityMap || {}
+  }
 
-  // list tab 挂载时初始化：从 URL 恢复筛选 → 加载分类选项 → 首查
+  // ============================================================
+  // LIFECYCLE — 事件绑定 + list tab 初始化
+  // ============================================================
+  // 2026-07-23 /api/stats/overview 整接口下架,跨 tab loadOverview 副作用随之移除
+
+  // list tab 挂载时初始化：从 URL 恢复筛选 → 加载省份/城市/区县（DWS）→ 加载分类选项 → 首查
   // loadCityOptions 是 App 层共享的（页脚下拉依赖），不在这里重复调用。
   onMounted(async () => {
     restoreFromQuery()
+    await loadFilterOptions()
     await loadCategoryOptions()
     await doSearch()
     document.addEventListener('click', handleDocClick)
@@ -599,7 +622,7 @@ export function useListSearch({ router, loadOverview }) {
     pricePresets, categoryBreadcrumb,
     searchResult, searchPage, jumpPage, pageSize, pageSizeOptions,
     loading, searchError, debounceTimer,
-    cityOptions, countyOptions, provinceCityMap,
+    cityOptions, countyOptions, provinceCityMap, provinceOptions,
     sortKey, sortDir, expandedRow,
     searchHistory, allColumns, showColConfig, showDrawer, colConfigRef,
     toast,

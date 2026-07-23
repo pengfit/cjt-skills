@@ -1805,7 +1805,7 @@ def _category_coverage(city="xian", date_from="", date_to=""):
         "query": base_query,
         "aggs": {
             "by_category": {
-                "terms": {"field": "category", "size": 60},
+                "terms": {"field": "category.keyword", "size": 60},
                 "aggs": {
                     # 待解析：spec 非空 且 attr 尚未解析
                     "needs_parse": {

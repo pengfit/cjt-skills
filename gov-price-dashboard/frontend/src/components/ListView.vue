@@ -19,7 +19,7 @@
           <label class="filter-label">省份</label>
           <CustomSelect
             v-model="searchProvince"
-            :options="(props.overview?.by_province || []).map(p => ({ key: p.province, count: p.count }))"
+            :options="provinceOptions.map(p => ({ key: p.key, count: p.count }))"
             placeholder="全部省份"
             :searchable="true"
             @change="onProvinceChange"
@@ -500,7 +500,6 @@ function openBreedDetail(item) {
 
 const props = defineProps({
   bundle: { type: Object, required: true },
-  overview: { type: Object, required: true },
   categoryPanelCollapsed: { type: Boolean, default: false },
 })
 
@@ -511,7 +510,7 @@ const {
   pricePresets, categoryBreadcrumb,
   searchResult, searchPage, jumpPage, pageSize, pageSizeOptions,
   loading, searchError,
-  cityOptions, countyOptions,
+  cityOptions, countyOptions, provinceOptions,
   sortKey, sortDir, expandedRow,
   searchHistory, allColumns, showColConfig, showDrawer, colConfigRef,
   toast,
@@ -533,7 +532,7 @@ const {
 // 顶部统计（与 taxonomy 页同样的 PageHeader.stats 形态）
 const stats = computed(() => ({
   total:     searchResult.value?.total ?? 0,
-  provinces: props.overview?.by_province?.length ?? 0,
+  provinces: provinceOptions.length,
   current:   sortedData.value?.length ?? 0,
 }))
 

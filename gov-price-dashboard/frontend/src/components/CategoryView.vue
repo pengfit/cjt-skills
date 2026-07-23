@@ -358,19 +358,11 @@ async function loadCategories() {
   loading.value = true
   error.value = ''
   try {
-    const [catRes, countRes] = await Promise.all([
-      axios.get(`${API}/stats/categories`, { params: { size: 100 } }),
-      axios.get(`${API}/stats/overview`),
-    ])
+    // 2026-07-23: /api/stats/overview 整接口下架,totalDocs 留 0,overview.value 留 null
+    const catRes = await axios.get(`${API}/stats/categories`, { params: { size: 100 } })
     categories.value = catRes.data?.data || []
-    totalDocs.value = countRes.data?.total_docs || 0
-    if (countRes.data) {
-      overview.value = {
-        total_provinces: countRes.data.total_provinces || 0,
-        total_cities: countRes.data.total_cities || 0,
-        avg_price: countRes.data.avg_price || 0,
-      }
-    }
+    totalDocs.value = 0
+    overview.value = null
 
     // Load top provinces for each category
     const provPromises = categories.value.map(cat =>

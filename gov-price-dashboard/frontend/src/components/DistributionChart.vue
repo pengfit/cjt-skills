@@ -7,30 +7,24 @@
       subtitle="价格区间分布 / 省份分布 / 主体区间占比，多维度看全国材料价格结构"
     ><template #icon>📈</template></PageHeader>
 
-    <!-- 统计概览 -->
+    <!-- 统计概览 (2026-07-23: /api/stats/overview 下架后不再读 overview.*，改从 rangeData 派生) -->
     <div class="dist-overview-stats">
       <StatCard
         icon="📊"
         label="条价格数据"
-        :value="overview.total_docs"
-      />
-      <StatCard
-        icon="🌍"
-        label="覆盖范围"
-        :value="`${overview.total_provinces} 省 / ${overview.total_cities} 城`"
-        :format="'raw'"
-      />
-      <StatCard
-        icon="💰"
-        label="平均价格"
-        :value="overview.avg_price"
-        unit="元"
+        :value="totalCount"
       />
       <StatCard
         icon="📐"
         label="主体区间 200-500元"
         :value="dominantPct + '%'"
         :format="'raw'"
+      />
+      <StatCard
+        icon="💰"
+        label="加权平均价格(从区间均价格合)"
+        :value="weightedAvgPrice"
+        unit="元"
       />
     </div>
 
@@ -126,6 +120,17 @@ const dominantPct = computed(() => {
   return total ? (dominant.count / total * 100).toFixed(0) : '0'
 })
 
+// 2026-07-23: /api/stats/overview 下架后,avg_price 改为从 rangeData 区间均价格合得到
+const weightedAvgPrice = computed(() => {
+  if (!rangeData.value.length) return 0
+  let totalCount = 0, weightedSum = 0
+  for (const r of rangeData.value) {
+    totalCount += r.count
+    weightedSum += r.count * (r.avg_price || 0)
+  }
+  return totalCount ? Math.round(weightedSum / totalCount) : 0
+})
+
 const provinceHeatIns = ref(null)
 const mountedRef = ref(true)
 
@@ -200,35 +205,25 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [distRes, provRes] = await Promise.all([
-      axios.get(`${API}/stats/price-distribution`),
-      axios.get(`${API}/stats/overview`),
-    ])
+    // 2026-07-23: /api/stats/overview 整接口下架,overviewData 来源不再走该路径;
+    // provinceData 留空,本页后续实际不再展示省份列表子表
+    // 2026-07-23: /distribution 页改走 NORM 专属路径(/api/norm/*),与其他页分层
+    const distRes = await axios.get(`${API}/norm/price-distribution`)
 
     rangeData.value = distRes.data?.data || []
     totalCount.value = rangeData.value.reduce((s, r) => s + r.count, 0) || 0
-
-    const overviewData = provRes.data
-    overview.value = overviewData
-    provinceData.value = (overviewData.by_province || [])
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 20)
-      .map(p => ({
-        province: p.province,
-        count: p.count,
-        avg_price: p.avg_price,
-        ranges: []
-      }))
-
-    // Load range breakdown for all provinces in ONE call
-    const provNames = provinceData.value.map(p => p.province)
-    const rangeRes = await axios.get(`${API}/stats/province-ranges`, {
-      params: { provinces: provNames.join(",") }
-    })
-    const rangeMap = rangeRes.data?.data || {}
-    provinceData.value.forEach(p => {
-      p.ranges = rangeMap[p.province] || []
-    })
+    provinceData.value = []
+    overview.value = null
+    if (provinceData.value.length) {
+      const provNames = provinceData.value.map(p => p.province)
+      const rangeRes = await axios.get(`${API}/norm/province-ranges`, {
+        params: { provinces: provNames.join(",") }
+      })
+      const rangeMap = rangeRes.data?.data || {}
+      provinceData.value.forEach(p => {
+        p.ranges = rangeMap[p.province] || []
+      })
+    }
 
     await nextTick()
     await new Promise(r => setTimeout(r, 50))

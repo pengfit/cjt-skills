@@ -24,3 +24,4 @@ venv/
 *.bak
 .logs
 gov-price-normalization/logs
+gov-price-etl/logs

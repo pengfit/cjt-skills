@@ -48,16 +48,19 @@ def _scroll_ods(
     新疆 ODS 的 update_date 是 keyword，改用 _period（date 类型）做正确时间排序。
     """
     session = get_es_client(es_host)
-    # v0.12+ (2026-07-18): 源头杜绝 — breed / spec 任一字段缺失或为空都不进 DWD。
-    # _base_must / must_not 三个路径（match_all / category / incremental）都加，
-    # 防 category/incremental 覆盖时丢失空值过滤。
+    # v0.12+ (2026-07-18): 源头杜绝 — breed 为空跳过。
+    # v0.15+ (2026-07-23): spec 为空不再过滤。
+    #   背景：原 must_not spec.keyword="" 会让 PDF 合并列 / 人工成本等
+    #   没有独立 spec 字段的源数据被整条丢弃；采集端为救活数据伪造 spec=name
+    #   把 breed 回填到 spec，导致 ES 里出现 spec==breed 的脏数据。
+    #   修法：query 层放空 spec，transform_doc 层对空 spec 标 attr_source='no_spec'，
+    #   数据保留但不参与 attr 解析。
     _base_must = [
-        {"exists": {"field": "breed"}},   # breed 字段必须存在
-        {"exists": {"field": "spec"}},    # spec 字段必须存在
+        {"exists": {"field": "breed"}},   # breed 字段必须存在（无 breed 必丢）
+        {"exists": {"field": "spec"}},    # spec 字段可以为空（v0.15+）
     ]
     must_not = [
         {"terms": {"breed.keyword": ["", "/"]}},  # breed 不能是 '' 或 '/'
-        {"term": {"spec.keyword": ""}},            # spec 不能是 ''
     ]
     if category and not (incremental and since_date):
         must = _base_must + [{"term": {"category": category}}]

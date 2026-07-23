@@ -281,6 +281,31 @@ def dws_indices_csv() -> str:
     return ",".join(all_dws_indices())
 
 
+def all_norm_indices() -> list[str]:
+    """返回所有 skill 的 norm_index（去重，过滤空值）
+
+    约定：norm_index = norm_{key}_price，未在 skill.yml 显式声明时按此推导。
+    这样即使老 skill.yml 没写，新索引也会被自动识别。
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for s in get_all():
+        idx = s.get("norm_index")
+        if not idx:
+            key = s.get("key", "")
+            if key:
+                idx = f"norm_{key}_price"
+        if idx and idx not in seen:
+            seen.add(idx)
+            out.append(idx)
+    return out
+
+
+def norm_indices_csv() -> str:
+    """逗号分隔形式，给 es.search(index=...) 用"""
+    return ",".join(all_norm_indices())
+
+
 def all_ods_indices() -> list[str]:
     """返回所有 skill 的 ods_index（去重，过滤空值）"""
     seen: set[str] = set()

@@ -1,0 +1,20 @@
+## 输入（{batch_size} 条规格）
+每行: [序号] 规格: <spec> | 产品: <breed> | 分类: <category>
+
+{specs_str}
+
+## 属性名参考（中文友好优先，由 Dify 渲染 {{ref_names}} 变量）
+{{ref_names}}
+
+## 输出（严格 JSON 数组，遵循 system 全部 12 条规则）
+输入几条输出几条，顺序一致；ok=false 时 suggestions 为空数组。
+
+### ⚠️ 输出前必做
+在落 JSON 前,逐条过 system 规则 #1-#12 自检:
+- #3 code_block 不写死 result['type']=字面量
+- #8 breed↔attr 语义一致(不出现碎石+消防应急)
+- #9 attr 值不含黑名单短语
+- #10 catch-all 禁用(占位符 spec → ok=false)
+- #12 confidence < 0.7 一律 ok=false
+
+违反任意一条 → 改写或 drop suggestions,而不是凑数输出。

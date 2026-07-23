@@ -325,12 +325,15 @@ def _parse_material_table(tbl, main_section, subsection, county, out):
             continue
 
         # PDF 表头为"材料名称及规格型号"（合并列），无法在解析阶段拆分；
-        # 将整段同时写入 breed 和 spec，确保下游 ETL 的 must_not (spec=["","/"])
-        # 不再过滤此类数据，attr 解析阶段会基于 spec 抽取规格属性。
+        # v0.15+ (2026-07-23): 不再把整段同时写入 breed 和 spec。
+        #   原逻辑是为了绕过 ETL 的 must_not spec.keyword="" 过滤。
+        #   现在 ETL 已放开 spec 为空过滤，这里直接留空 spec + 加 spec_origin 标记，
+        #   下游 attr 解析层通过 attr_source='no_spec' 区分此类文档。
         out.append({
             'no': code,
             'breed': name,
-            'spec': name,
+            'spec': '',  # 不回填（v0.15+）
+            'spec_origin': 'pdf_merged_column',  # 审计标记：源 PDF 表头为合并列
             'unit': unit,
             'price': price if price is not None else tax_price,
             'tax_price': tax_price if tax_price is not None else price,
@@ -358,12 +361,13 @@ def _parse_labor_table(tbl, subsection, out):
         remark = str(row[3] or '').strip() if row[3] else ''
         if price is None:
             continue
-        # 人工成本工种无规格字段，但 ETL must_not 会过滤 spec="" 的数据；
-        # 把工种名同步填入 spec 字段，避免被过滤（attr 解析阶段按 breed 处理）。
+        # 人工成本工种无规格字段；
+        # v0.15+ (2026-07-23): 直接留空 spec，不再伪造。
         out.append({
             'no': seq,
             'breed': name,
-            'spec': name,
+            'spec': '',  # 不回填（v0.15+）
+            'spec_origin': 'labor_no_spec',  # 审计标记：人工成本本无规格
             'unit': '日',
             'price': price,
             'tax_price': price,

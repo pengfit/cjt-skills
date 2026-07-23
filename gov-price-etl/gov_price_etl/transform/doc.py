@@ -64,9 +64,12 @@ def transform_doc(raw: dict, source_index: str, city: str, v2_override: dict = N
     # '/' 是 crawler 初始写入的空 spec，应规范为空
     if spec_clean == "/":
         spec_clean = ""
-    # spec 为空时回填为 breed（让 spec_parsed 能查到规则）
+    # v0.15+ (2026-07-23): 不再把 breed 回填到 spec。
+    #   原回填让 PDF 合并列 / 人工成本等源 spec 为空的文档看起来像 spec=breed，
+    #   下游 attr 解析必然失败（attr_source='ai_fallback'），污染统计。
+    #   现在 spec 为空就留空，下游 attr 解析层按 attr_source='no_spec' 处理。
     if not spec_clean:
-        spec_clean = breed_clean or breed_raw
+        spec_clean = ""  # 不回填 breed（原逻辑: breed_clean or breed_raw）
 
     # ── v2 4 层分类（唯一分类源）──
     # 走模块级单例 SQLite 连接，性能 ~0.05ms/次。
