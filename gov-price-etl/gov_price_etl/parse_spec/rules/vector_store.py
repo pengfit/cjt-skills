@@ -376,23 +376,32 @@ class VecStore:
 
         with self._lock:
             conn = self._get_conn()
-            # v0.8+: 移除 category SQL filter（category 已被 L3 蕴含）
-            # 通用规则也要召回（设计意图是降权而非排除），
-            # 用 OR breed='通用' 让通用规则参与召回，后续在打分环节乘 0.80 降权
-            # 注：v0.9 改用 '通用' 占位代替 v0.8 的空 breed（schema CHECK 不允许空）
+            # v0.17+ (2026-07-23): 严格 L3 + breed 匹配 —
+            #   query 有 l3 → 只召回 rule.l3 == query.l3 (严格相等,空 l3 不参与)
+            #   query 有 breed → 只召回 rule.breed == query.breed ('通用' 不参与)
+            #   其他 L3 / breed 的规则直接出局,不允许窜料或逃逸。
+            # 设计意图:
+            #   - L3 是分项工程(例 钢化玻璃 vs 瓷砖),L3 错配的规则不该参与召回
+            #   - 空 l3 / breed='通用' 不再作为通配,推动规则填写完整化
+            #   - query 没传 l3/breed 时,不做对应过滤(向后兼容)
+            # v0.8+: 移除 category SQL filter(category 已被 L3 蕴含)
+            clauses = []
+            params = []
             if attr_filter:
-                base = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE attr=?"
-                if breed:
-                    sql = base + " AND (breed=? OR breed='通用')"
-                    rows = conn.execute(sql, (attr_filter, breed)).fetchall()
-                else:
-                    rows = conn.execute(base, (attr_filter,)).fetchall()
-            else:
-                if breed:
-                    sql = "SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules WHERE (breed=? OR breed='通用')"
-                    rows = conn.execute(sql, (breed,)).fetchall()
-                else:
-                    rows = conn.execute("SELECT pattern, attr, note, code, breed, l3, tokens FROM breed_spec_rules").fetchall()
+                clauses.append("attr=?")
+                params.append(attr_filter)
+            if breed:
+                clauses.append("breed=?")
+                params.append(breed)
+            if l3:
+                clauses.append("l3=?")
+                params.append(l3)
+            where = " WHERE " + " AND ".join(clauses) if clauses else ""
+            sql = (
+                "SELECT pattern, attr, note, code, breed, l3, tokens "
+                "FROM breed_spec_rules" + where
+            )
+            rows = conn.execute(sql, params).fetchall()
 
         results = []
         for row in rows:

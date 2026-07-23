@@ -907,10 +907,13 @@ def parse_spec_batch(items: List[dict], write_rules: bool = False) -> List[dict]
             continue
         breed = item.get("breed", "")
         category = item.get("category", "")
+        # v0.16+ (2026-07-23): 透传 l3,让 VecStore.search() 走 L3 硬过滤,
+        #   防止不同 L3 的规则跨类窜料(如瓷砖规则窜到玻璃 query)
+        l3 = item.get("l3", "") or item.get("category_l3", "")
         # validate_spec: 对每个命中规则执行 code_block 校验，不产出结果的直接剔除
         # 解决向量相似度误匹配（如 '1.5厚' → 匹配到 '真石漆' 的规则）
-        rules = vs.search(spec=spec, category=category, breed=breed, top_k=8,
-                          validate_spec=spec)
+        rules = vs.search(spec=spec, category=category, breed=breed, l3=l3,
+                          top_k=8, validate_spec=spec)
         if rules:
             # DB 字段是 code，suggestions 规范用 code_block
             suggestions = [
