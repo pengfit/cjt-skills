@@ -837,7 +837,7 @@ def parse_hanzhong(text, page_obj=None):
 # ─── 安康 (A 布局: 11 county 表 + 顶 materials) ────────────────────────────
 def _parse_type_A(text, counties):
     """A 布局: 多县区表（除税价 + 含税价 各一行）。
-    
+
     结构：
       [可选 category 行] '01 黑色及有色金属'
       [county header] '编码 材料名称 规格及型号 单位 类别 汉滨区 ... 紫阳县 恒口'
@@ -845,10 +845,14 @@ def _parse_type_A(text, counties):
       [material 行] '010101303 热轧光圆钢筋 HPB300 Φ6~8 t'
       [price 行 1] '除税价 3371.68 3389.38 ...'
       [price 行 2] '含税价 3810.00 3830.00 ...'
+
+    2026-07-24 P1 OCR 容错：price 行先归一空白再匹配「除税价/含税价」
     """
     rows = []
     raw_lines = [l.strip() for l in text.split('\n') if l.strip()]
     lines = _join_wrapped_lines(raw_lines)
+    # OCR 容错：归一化每行的空白（OCR 可能输出「除 税 价」「含 税 价」）
+    lines_norm = [re.sub(r'\s+', '', l) for l in lines]
     i = 0
     n = len(counties)
     cur_category = ''
@@ -871,11 +875,12 @@ def _parse_type_A(text, counties):
             i += 1
             continue
         code, breed, spec, unit = parsed
-        if i + 2 >= len(lines) or '除税价' not in lines[i + 1] or '含税价' not in lines[i + 2]:
+        # OCR 容错：用归一化行检查「除税价/含税价」
+        if i + 2 >= len(lines) or '除税价' not in lines_norm[i + 1] or '含税价' not in lines_norm[i + 2]:
             i += 1
             continue
-        no_tax_prices = re.findall(r'\d+\.?\d*', lines[i + 1].replace('除税价', ''))
-        tax_prices = re.findall(r'\d+\.?\d*', lines[i + 2].replace('含税价', ''))
+        no_tax_prices = re.findall(r'\d+\.?\d*', lines_norm[i + 1].replace('除税价', ''))
+        tax_prices = re.findall(r'\d+\.?\d*', lines_norm[i + 2].replace('含税价', ''))
         if len(no_tax_prices) >= n:
             no_tax_prices = no_tax_prices[:n]
         else:
@@ -896,19 +901,36 @@ def _parse_type_A(text, counties):
 
 
 def parse_ankang(text, page_obj=None):
-    """安康《安康建设工程造价信息》— A 布局（11 county 表 + 数字 PDF）。
-    
-    注意：2026.1-4 期是扫描图像型 PDF，pypdf 提不到文本，OCR 跑通但解析器不识别
-    OCR 输出格式，sync 走 skipped_image_pdf 跳过。2026.5期是数字 PDF，可正常解析。
+    """安康《安康建设工程造价信息》— A 布局（11 county 表 + 数字/扫描型 PDF）。
+
+    2026-07-24 P1 OCR 容错（支持扫描型 PDF 经 OCR 后解析）：
+      - county 前 2 字匹配（OCR 输出「汉滨」也能匹配「汉滨区」）
+      - 价格标签去空白归一（「除 税 价」「含 税 价」都能匹配「除税价」）
+    数字 PDF 仍按原逻辑走，扫描型 PDF 由 parse_pdf_pages 调 OCR 后传入。
     """
     if _is_skip_page(text):
         return []
     counties = _extract_counties_from_text(text)
     # 安康 11 county：汉滨区/汉阴县/石泉县/宁陕县/平利县/白河县/紫阳县/岚皋县/镇坪县/旬阳市/恒口示范区
     ankang_keys = {'汉滨区', '汉阴县', '石泉县', '宁陕县', '平利县', '白河县', '紫阳县', '岚皋县', '镇坪县', '旬阳市', '恒口'}
-    if not counties or not any(c in ankang_keys for c in counties):
+
+    # OCR 容错：county 前 2 字模糊匹配
+    def _county_match(c):
+        if not c:
+            return False
+        for k in ankang_keys:
+            if c == k:
+                return True
+            # OCR 可能输出「汉滨」（漏掉区/县）或字符错位，前 2 字模糊匹配
+            if c.startswith(k[:2]) or k.startswith(c[:2]):
+                return True
+        return False
+
+    if not counties or not any(_county_match(c) for c in counties):
         return []
-    if '除税价' not in text or '含税价' not in text:
+    # OCR 容错：价格标签去所有空白（OCR 可能输出「除 税 价」）
+    text_norm = re.sub(r'\s+', '', text)
+    if '除税价' not in text_norm or '含税价' not in text_norm:
         return []
     return _parse_type_A(text, counties)
 

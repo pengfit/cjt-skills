@@ -420,8 +420,15 @@ def _aggregate_hits_by_attr(hits, selected_periods):
         attrs = src.get("attr_norm") or []
         if attrs:
             for a in attrs:
-                k = (a.get("k") or "").strip()
-                v = (a.get("v") or "").strip()
+                # 2026-07-24 bug fix: a.get("v") 是 int (如 core_count=5) 时,
+                #   `or ""` 在 v=0 (falsy) 会丢 0, 其他 int truthy 返回 int → .strip() 报 AttributeError
+                #   改为 None 单独判, 统一 str() 包裹保留 0 值
+                k_raw = a.get("k")
+                v_raw = a.get("v")
+                if k_raw is None or v_raw is None:
+                    continue
+                k = str(k_raw).strip()
+                v = str(v_raw).strip()
                 if not k or not v:
                     continue
                 grp[(k, v)][ps].append(price)
