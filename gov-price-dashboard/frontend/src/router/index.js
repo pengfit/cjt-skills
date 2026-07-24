@@ -66,8 +66,13 @@ const router = createRouter({
 //   2) /home 公开首页: 清理 date_from / date_to (不属于这个页面) + 自动加 v=时间戳 cache buster
 //      - 防止分享链接把 ListView/CockpitView/Rules 的筛选参数串到 /showcase
 //      - v=时间戳让浏览器/CDN 视为新 URL, 强制拉取最新内容, 避免旧缓存
-//   3) 其它路由 (含 /list /cockpit /rules /breed-detail): 保留 date_from / date_to 不动
+//   3) /cockpit 公开驾驶舱: 清理 date_from / date_to
+//      - 防止从 /list /spec-rules 跳转时筛选参数串到 /cockpit(2026-07-24 道友要求)
+//      - 不加 v=cache buster(/home 公开 landing 需要; /cockpit 鉴权主应用不需要)
+//   4) 其它路由 (含 /list /rules /breed-detail): 保留 date_from / date_to 不动
 const INDEX_ONLY_KEYS = new Set(['date_from', 'date_to', 'v'])
+// 2026-07-24 P2: /cockpit 只需清理 date_from / date_to,不动 v=
+const COCKPIT_ONLY_KEYS = new Set(['date_from', 'date_to'])
 
 router.beforeEach((to) => {
   // 1) 旧 ?tab=xxx 重定向
@@ -98,6 +103,23 @@ router.beforeEach((to) => {
     }
     if (changed) {
       // replace: true 避免 history 多一条中间记录,防止 saved 干扰下次回 /home
+      return { path: to.path, query: cleaned, replace: true }
+    }
+  }
+
+  // 3) /cockpit 路由清理 date_from / date_to (2026-07-24 P2)
+  //    保留其它参数 + 不加 v=cache buster(鉴权主应用,不需要)
+  if (to.name === 'cockpit') {
+    const cleaned = {}
+    let changed = false
+    for (const [k, v] of Object.entries(to.query)) {
+      if (COCKPIT_ONLY_KEYS.has(k)) {
+        changed = true
+      } else {
+        cleaned[k] = v
+      }
+    }
+    if (changed) {
       return { path: to.path, query: cleaned, replace: true }
     }
   }

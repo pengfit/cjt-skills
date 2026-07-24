@@ -3,7 +3,7 @@
     <!-- Page header -->
     <PageHeader
       title="产品类别分析"
-      :subtitle="`共 <strong>${fmt.int(totalDocs)}</strong> 条数据，<strong>${catCount}</strong> 个产品类别｜<strong>${topCategory?.key || '—'}</strong> 占比最高（<strong>${topCategoryPct}</strong>%）｜覆盖 <strong>${fmt.int(overview.total_provinces)}</strong> 省/<strong>${fmt.int(overview.total_cities)}</strong> 城`"
+      :subtitle="`共 <strong>${fmt.int(totalDocs)}</strong> 条数据，<strong>${catCount}</strong> 个产品类别｜<strong>${topCategory?.key || '—'}</strong> 占比最高（<strong>${topCategoryPct}</strong>%）｜覆盖 <strong>${fmt.int(overview?.total_provinces ?? 0)}</strong> 省/<strong>${fmt.int(overview?.total_cities ?? 0)}</strong> 城`"
     />
 
     <!-- Category grid -->

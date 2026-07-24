@@ -31,63 +31,10 @@
         <p v-if="overview.latest_period_end" class="m-hero-meta">
           本期截止 {{ overview.latest_period_end }} · 对比 {{ overview.prev_period_end || '上期' }}
         </p>
-        <!-- 2026-07-24 Hero CTA(锚点跳热力图 + 数据来源) -->
-        <div class="m-hero-ctas">
-          <a href="#heatmap" class="cta-button" @click.prevent="scrollTo('heatmap')">🌡️ 看热力图 ↓</a>
-          <a href="#source" class="cta-button cta-secondary" @click.prevent="scrollTo('source')">数据来源 →</a>
-        </div>
+        <!-- 2026-07-24 P1: 删除 Hero CTA 按钮(看热力图 / 数据来源)— 热力图即主体,直接展示 -->
       </section>
 
-      <!-- 01 OVERVIEW -->
-      <div class="section-marker">
-        <span class="section-num">01</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">OVERVIEW</span>
-      </div>
-
-      <!-- KPI -->
-      <section class="m-kpi" ref="kpiRef">
-        <div class="m-kpi-item">
-          <div class="m-kpi-label">已覆盖城市</div>
-          <div class="m-kpi-value">
-            <span class="kpi-number" :data-target="overview.cities_count || 0">{{ formatKpi(overview.cities_count, 0) }}</span>
-            <span class="m-kpi-suffix">城</span>
-          </div>
-          <div class="m-kpi-sub">住建局官方</div>
-        </div>
-        <div class="m-kpi-item">
-          <div class="m-kpi-label">跨城归一品类</div>
-          <div class="m-kpi-value">
-            <span class="kpi-number" :data-target="overview.breeds_count || 0">{{ formatKpi(overview.breeds_count, 0) }}</span>
-            <span class="m-kpi-suffix">个</span>
-          </div>
-          <div class="m-kpi-sub">统一口径对比</div>
-        </div>
-        <div class="m-kpi-item">
-          <div class="m-kpi-label">本期均价变动</div>
-          <div class="m-kpi-value" :class="changeClass(overview.overall_change_pct)">
-            {{ formatPct(overview.overall_change_pct) }}
-          </div>
-          <div class="m-kpi-sub">vs 上一期</div>
-        </div>
-        <div class="m-kpi-item">
-          <div class="m-kpi-label">价格数据条数</div>
-          <div class="m-kpi-value">
-            <span class="kpi-number" :data-target="overview.total_records || 0">{{ (overview.total_records || 0).toLocaleString() }}</span>
-            <span class="m-kpi-suffix">条</span>
-          </div>
-          <div class="m-kpi-sub">跨城聚合</div>
-        </div>
-      </section>
-
-      <!-- 02 HEATMAP -->
-      <div class="section-marker" id="heatmap">
-        <span class="section-num">02</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">HEATMAP</span>
-      </div>
-
-      <!-- 热力图 -->
+      <!-- 2026-07-24 P3: 全部 section-marker 删除(01/02/03 数字都不要) -->
 
       <!-- 加载 / 错误 -->
       <div v-if="loading" class="m-loading">加载中…</div>
@@ -95,13 +42,30 @@
 
       <!-- (2026-07-21 删除涨跌榜:产品规格不同名称跨城对比意义不大) -->
 
-      <!-- 热力图 -->
-      <section class="m-card">
-        <SectionHeader
-          title="🌡️ 品类 × 城市 热力图"
-          dot-color="blue"
-          :subtitle="`行:归一种 · 列:已覆盖城市 · 色深:本期 vs 上期涨跌幅 (锁定规格后跨城可比)`"
-        />
+      <!-- 热力图主体(2026-07-24 P1:重点突出,加渐变描边 + 更大 padding + 顶部 toolbar) -->
+      <section class="m-card m-card-heatmap">
+        <!-- 顶部 toolbar: 标题 + 副标题 + 🎲 换一批随机品种 按钮 -->
+        <header class="m-heatmap-toolbar">
+          <div class="m-heatmap-toolbar-info">
+            <h2 class="m-heatmap-title">🌡️ 品类 × 城市 热力图</h2>
+            <p class="m-heatmap-toolbar-sub">
+              行:归一种 · 列:已覆盖城市 · 色深:本期 vs 上期涨跌幅
+              <span class="m-heatmap-toolbar-meta-inline">· 当前 {{ selectedBreeds.length }} 个品种</span>
+            </p>
+          </div>
+          <div class="m-heatmap-toolbar-actions">
+            <button
+              class="m-heatmap-refresh-btn"
+              type="button"
+              :disabled="refreshingBreeds"
+              :title="refreshingBreeds ? '正在拉取新一批品种…' : '从全量品种中随机换一批'"
+              @click="refreshRandomBreeds"
+            >
+              <span class="m-heatmap-refresh-icon" :class="{ spinning: refreshingBreeds }">🎲</span>
+              <span class="m-heatmap-refresh-text">{{ refreshingBreeds ? '换一批中…' : '换一批随机品种' }}</span>
+            </button>
+          </div>
+        </header>
 
         <!-- 2026-07-24 删除: 搜索 / 默认推荐卡片 — 默认 12 品种 loadRandomBreeds 完成直接喂给热力图,
              下方属性筛选面板 (m-selection-panel) 仍保留用于精筛。-->
@@ -110,14 +74,11 @@
         <!-- v0.29: 改 checkbox 多选 toggle + 顶部"应用"按钮(避免每点 reload) + chips + reset 合一进折叠面板 -->
         <aside v-if="selectedBreeds.length || attrFilterTotal" class="m-selection-panel" :class="{ expanded: attrExpanded }">
           <header class="m-selection-panel-header">
-            <!-- 2026-07-24: header 改为纯标签(不可点)。点击展开换成下面 body 里的"展开属性筛选"按钮 — 更直观 -->
+            <!-- 2026-07-24 P1: 删除重置按钮。左侧只剩筛选标题(不可点);清空靠 × 单删 / 换一批随机品种 / 清空属性 -->
             <span class="m-selection-panel-title">
               <span class="m-panel-icon">🔎</span>
               <span class="m-panel-title-text">已应用筛选</span>
             </span>
-            <div class="m-selection-panel-actions">
-              <button class="m-link-btn m-link-btn-danger" type="button" title="清空所有品种 + 属性筛选" @click="resetSelection">↻ 重置</button>
-            </div>
           </header>
           <div class="m-selection-panel-body">
             <!-- v0.35: 已应用筛选摘要行(pill 从 header 移到 body 顶部,多筛选时不再挤兑 chevron) -->
@@ -244,16 +205,10 @@
                     <!-- v0.31 重构: 多源 fallback + 主+副结构,永不显示 — -->
                     <div class="m-row-meta">
                       <!-- 主标: spec_label > category_name_l3 > category_name_l1 > breed -->
-                      <span class="m-meta-pri" :class="{ 'm-meta-fallback': !breed.spec_label && !breed.category_name_l3 && !breed.category_name_l1 }">
+                      <span class="m-meta-pri" :class="{ 'm-meta-fallback': !breed.spec_label }">
                         <template v-if="breed.spec_label">{{ breed.spec_label }}</template>
                         <template v-else-if="breed.category_name_l3">{{ breed.category_name_l3 }}</template>
-                        <template v-else-if="breed.category_name_l1">{{ breed.category_name_l1 }}</template>
                         <template v-else>全规格聚合</template>
-                      </span>
-                      <!-- 副标: 有 unit/records 时显示 -->
-                      <span v-if="breed.unit || breed.records > 0" class="m-meta-sub">
-                        <template v-if="breed.unit">· {{ breed.unit }}</template>
-                        <template v-if="breed.records > 0">· {{ breed.records }} 城有数据</template>
                       </span>
                     </div>
                   </div>
@@ -274,12 +229,43 @@
         <div v-else class="m-empty">该品种暂无热力图数据</div>
       </section>
 
-      <!-- 04 SOURCE -->
-      <div class="section-marker" id="source">
-        <span class="section-num">04</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">SOURCE</span>
-      </div>
+      <!-- 2026-07-24 P3: KPI 直接跟在热力图后,不再需要 02 marker -->
+      <!-- KPI -->
+      <section class="m-kpi" ref="kpiRef">
+        <div class="m-kpi-item">
+          <div class="m-kpi-label">已覆盖城市</div>
+          <div class="m-kpi-value">
+            <span class="kpi-number" :data-target="overview.cities_count || 0">{{ formatKpi(overview.cities_count, 0) }}</span>
+            <span class="m-kpi-suffix">城</span>
+          </div>
+          <div class="m-kpi-sub">住建局官方</div>
+        </div>
+        <div class="m-kpi-item">
+          <div class="m-kpi-label">跨城归一品类</div>
+          <div class="m-kpi-value">
+            <span class="kpi-number" :data-target="overview.breeds_count || 0">{{ formatKpi(overview.breeds_count, 0) }}</span>
+            <span class="m-kpi-suffix">个</span>
+          </div>
+          <div class="m-kpi-sub">统一口径对比</div>
+        </div>
+        <div class="m-kpi-item">
+          <div class="m-kpi-label">本期均价变动</div>
+          <div class="m-kpi-value" :class="changeClass(overview.overall_change_pct)">
+            {{ formatPct(overview.overall_change_pct) }}
+          </div>
+          <div class="m-kpi-sub">vs 上一期</div>
+        </div>
+        <div class="m-kpi-item">
+          <div class="m-kpi-label">价格数据条数</div>
+          <div class="m-kpi-value">
+            <span class="kpi-number" :data-target="overview.total_records || 0">{{ (overview.total_records || 0).toLocaleString() }}</span>
+            <span class="m-kpi-suffix">条</span>
+          </div>
+          <div class="m-kpi-sub">跨城聚合</div>
+        </div>
+      </section>
+
+      <!-- 2026-07-24 P3: SOURCE marker 删除,直接进脚注 -->
 
       <!-- 2026-07-24 回到顶部(配合 read-progress 暗示) -->
       <div class="m-back-to-top-wrap">
@@ -313,7 +299,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import SectionHeader from './SectionHeader.vue'
+// 2026-07-24 P1: SectionHeader 已被自定义 m-heatmap-toolbar 代替(加 🎲 换一批按钮),不再使用
 
 // 2026-07-23: /market 只接 v=timestamp URL 参数(作 cache buster 拼到 API 请求后)
 // 其他参数 (date_from/date_to 等) 均忽略
@@ -427,12 +413,38 @@ const attrFilterSummary = computed(() => {
   return parts.join(' + ')
 })
 
+// 2026-07-24 P1: 换一批随机品种(顶 toolbar 主操作,代替原 ↻ 重置按钮)
+const refreshingBreeds = ref(false)
+async function refreshRandomBreeds() {
+  if (refreshingBreeds.value) return
+  refreshingBreeds.value = true
+  try {
+    const r = await fetchJson('/api/market/random-breeds')
+    const breeds = r.results || []
+    const names = breeds.map(b => b.breed).filter(Boolean)
+    if (names.length) {
+      selectedBreeds.value = names
+      // 品种变了 → 重置属性筛选(各 breed 独立 + 共用 都清),与原 loadAll 逻辑一致
+      attrFilters.value = {}
+      attrFiltersApplied.value = {}
+      attrFiltersByBreed.value = {}
+      attrFiltersByBreedApplied.value = {}
+      await loadAttrKeys()
+      await loadHeatmap()
+    }
+  } catch (e) {
+    console.error('[market] 换一批随机品种失败', e)
+  } finally {
+    refreshingBreeds.value = false
+  }
+}
+
 // 2026-07-24 删除: 全部搜索/推荐/扩展品种相关函数
 //   _searchDebounceTimer / onSearchInput / clearSearch / runBreedSearch /
-//   selectBreedFromSearch / refreshRandomBreeds / loadExtendBreeds /
+//   selectBreedFromSearch / loadExtendBreeds /
 //   loadRecommendBreeds / visibleDefaultCards / refreshExtendBreeds /
 //   addExtendToSelection
-// 全部不再需要 — 页面已无搜索 UI,默认 12 品种由 loadAll 自动喂给 selectedBreeds
+// 全部不再需要 — 页面已无搜索 UI,默认 12 品种由 refreshRandomBreeds 拉取
 // 2026-07-24 删除: startResearch / clearSelectedBreed — 唯一作用就是调 clearAllBreeds,后者已删
 
 const loading = ref(true)
@@ -492,32 +504,19 @@ async function loadAll() {
   loading.value = true
   loadError.value = ''
   try {
-    // 2026-07-24: 首屏拉 overview + 12 个默认随机品种 — 拉完直接喂给 selectedBreeds + 拉属性 + 渲染热力图
+    // 2026-07-24 P1: overview 与 random-breeds 并发。random-breeds 走 refreshRandomBreeds()
+    //   (复用首屏 + toolbar “换一批随机品种”逻辑)。
+    // refreshRandomBreeds 内部 catch 了所有错误不重拋 — 所以只检测 overview 是否 reject 来判定 loadError。
     const results = await Promise.allSettled([
       fetchJson('/api/market/overview'),
-      fetchJson('/api/market/random-breeds').then(r => {
-        const breeds = r.results || []
-        const names = breeds.map(b => b.breed).filter(Boolean)
-        if (names.length) {
-          selectedBreeds.value = names
-          // 品种变了 → 重置 attrs(同 toggleBreed 旧逻辑) + 拉属性键 + 渲染热力图
-          attrFilters.value = {}
-          attrFiltersApplied.value = {}
-          attrFiltersByBreed.value = {}
-          attrFiltersByBreedApplied.value = {}
-          loadAttrKeys()
-          loadHeatmap()
-        }
-      }),
+      refreshRandomBreeds(),
     ])
     const [ov] = results
-    if (ov.status === 'fulfilled') overview.value = ov.value
-
-    const failed = results.filter(r => r.status === 'rejected')
-    if (failed.length === results.length) {
-      loadError.value = '数据加载失败,请稍后重试'
-    } else if (failed.length > 0) {
-      console.warn('[market] 部分接口失败', failed)
+    if (ov.status === 'fulfilled') {
+      overview.value = ov.value
+    } else {
+      console.warn('[market] overview 加载失败', ov.reason)
+      loadError.value = '数据加载失败，请稍后重试'
     }
   } catch (e) {
     loadError.value = e?.message || '未知错误'
@@ -582,17 +581,10 @@ function clearAttrFilters() {
   loadHeatmap()
 }
 
-// 重置
-async function resetSelection() {
-  // 2026-07-24: 搜索相关 state 清零已删 — 重置仅剩品种 + 属性
-  selectedBreeds.value = []
-  attrFilters.value = {}
-  attrFiltersApplied.value = {}
-  attrFiltersByBreed.value = {}
-  attrFiltersByBreedApplied.value = {}
-  attrKeys.value = []
-  await loadHeatmap()
-}
+// 2026-07-24 P1: 删除 resetSelection — ↻ 重置按钮已删除,清空全靠:
+//   - × 逐个删品种 chip
+//   - 「清空属性」清属性筛选
+//   - 🎲 换一批随机品种 重置全部
 
 async function loadAttrKeys() {
   // 2026-07-24: 12 个默认品种属性不能遗漏 — 全部品种都进 breeds=A,B,C 聚合
@@ -718,11 +710,7 @@ function _setupKpiObserver() {
   _kpiObserver.observe(kpiRef.value)
 }
 
-// 锚点滚动 + 回到顶部(Hero CTA + 数据来源按钮)
-function scrollTo(id) {
-  const el = document.getElementById(id)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
+// 2026-07-24 P3: scrollTo(id) 删除 — Hero CTA 已删,锚点跳转无 caller,ID 全部 dead
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -733,6 +721,14 @@ function formatKpi(n) {
   if (kpiAnimated.value) return n.toLocaleString()
   return '0'
 }
+
+// 2026-07-24: 概览加载完后直接显示真值,不等滚动动画
+//   (原:依赖 IntersectionObserver + kpiAnimated = true 才走真实分支,若 KPI 不在视口则一直显 0)
+watch(
+  () => overview.value?.breeds_count,
+  (v) => { if (v != null && v > 0) kpiAnimated.value = true },
+  { immediate: true }
+)
 
 onMounted(() => {
   loadAll()
@@ -852,11 +848,12 @@ function cellTitle(breed, city, v) {
 }
 
 /* ── 主标题 ── */
-.m-hero { margin-bottom: 24px; }
+/* 2026-07-24 P1: hero 紧凑化,热力图是主体,hero 只作为简述上下文 */
+.m-hero { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px dashed #e5e7eb; }
 .m-hero h1 {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: #111827;
   letter-spacing: -0.5px;
 }
@@ -881,8 +878,8 @@ function cellTitle(breed, city, v) {
 .m-kpi-item {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: 8px;
+  padding: 14px 16px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .m-kpi-item:hover {
@@ -890,13 +887,13 @@ function cellTitle(breed, city, v) {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 .m-kpi-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 500;
 }
 .m-kpi-value {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: #111827;
   line-height: 1.2;
@@ -924,6 +921,109 @@ function cellTitle(breed, city, v) {
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 4px 0;
+}
+
+/* 2026-07-24 P1: 热力图主体卡 — 渐变描边 + 更大 padding + 柔和阴影,视觉上拉开与 KPI 的距离 */
+.m-card-heatmap {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 24px 28px 28px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 24px rgba(30, 64, 175, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+/* 热力图卡顶部装饰条(凸显「主体」身份) */
+.m-card-heatmap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #1e40af 50%, #3b82f6 100%);
+  border-radius: 14px 14px 0 0;
+}
+
+/* 2026-07-24 P1: 热力图顶部 toolbar */
+.m-heatmap-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.m-heatmap-toolbar-info {
+  flex: 1;
+  min-width: 0;
+}
+.m-heatmap-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+.m-heatmap-toolbar-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+.m-heatmap-toolbar-meta-inline {
+  color: #3b82f6;
+  font-weight: 600;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+.m-heatmap-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* 2026-07-24 P1: 🎲 换一批随机品种 按钮 — 主操作色,显眼 */
+.m-heatmap-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+.m-heatmap-refresh-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(30, 64, 175, 0.35);
+}
+.m-heatmap-refresh-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.m-heatmap-refresh-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.m-heatmap-refresh-icon {
+  font-size: 16px;
+  display: inline-block;
+  line-height: 1;
+}
+.m-heatmap-refresh-icon.spinning {
+  animation: m-refresh-spin 0.8s linear infinite;
+}
+@keyframes m-refresh-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 .m-subtitle {
   font-size: 12px;
@@ -1462,11 +1562,7 @@ function cellTitle(breed, city, v) {
   font-style: italic;
   font-weight: normal;
 }
-.m-meta-sub {
-  color: #9ca3af;
-  font-weight: 400;
-  white-space: nowrap;
-}
+
 .m-empty {
   padding: 60px 20px;
   text-align: center;
@@ -1573,12 +1669,7 @@ function cellTitle(breed, city, v) {
   font-size: 10px;
   margin-left: 4px;
 }
-.m-selection-panel-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-}
+/* 2026-07-24 P1: 删除 m-selection-panel-actions — ↻ 重置按钮已删,左侧只剩 title */
 .m-pill {
   display: inline-flex;
   align-items: center;
@@ -1620,12 +1711,7 @@ function cellTitle(breed, city, v) {
   border-color: #9ca3af;
   color: #111827;
 }
-.m-link-btn-danger { color: #6b7280; }
-.m-link-btn-danger:hover {
-  background: #fef2f2;
-  border-color: #ef4444;
-  color: #ef4444;
-}
+/* 2026-07-24 P1: 删除 m-link-btn-danger — 重置按钮已删,无需危险色变体 */
 .m-selection-panel-body {
   padding: 14px 16px 16px;
   display: flex;
@@ -1743,9 +1829,11 @@ function cellTitle(breed, city, v) {
   .m-nav { gap: 16px; }
   .m-kpi { grid-template-columns: 1fr; }
   .m-hero h1 { font-size: 22px; }
-  .section-marker { padding: 0 16px; margin: 32px auto 16px; }
-  .m-hero-ctas { gap: 8px; }
-  .cta-button { padding: 10px 20px; font-size: 0.9rem; }
+  /* 2026-07-24 P3: 响应式 .section-marker 已删 */
+  /* 2026-07-24 P1: 响应式下让 heatmap toolbar 换行 + refresh 按钮占满 */
+  .m-heatmap-toolbar { flex-direction: column; align-items: stretch; }
+  .m-heatmap-toolbar-actions { justify-content: stretch; }
+  .m-heatmap-refresh-btn { justify-content: center; flex: 1; }
 }
 
 /* === 2026-07-24 P0: 复用 /home 设计语言(read-progress / section-marker / cta / kpi 动画 / 回到顶部) === */
@@ -1798,76 +1886,11 @@ function cellTitle(breed, city, v) {
 
 /* Section marker(01 OVERVIEW / 02 HEATMAP / 03 RECOMMEND / 04 SOURCE) */
 /* 2026-07-24: 03 RECOMMEND 已删 — 默认 12 品种直接进热力图,不再需要推荐卡片 section */
-.section-marker {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: 1200px;
-  margin: 64px auto 24px;
-  padding: 0 24px;
-  scroll-margin-top: 80px;  /* 锚点跳转留 nav 空间 */
-}
-.section-num {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-  font-size: 14px;
-  font-weight: 700;
-  color: #3b82f6;
-  letter-spacing: 0.05em;
-}
-.section-divider {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.4) 0%, transparent 100%);
-}
-.section-tagline {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
+/* 2026-07-24 P2: 容器精简 — 只剩一个 num span,不再需要 flex/gap。
+   margin 调小让 “01/02/03” 只是低调小标签,不抢主体。 */
+/* 2026-07-24 P3: .section-marker / .section-num / .section-divider / .section-tagline / .section-marker-primary 全部删除 — 标记本身已删 */
 
-/* Hero CTA 按钮(浅底版 — 匹配 /market 白底设计,不用 /home 黑底霓虹) */
-.cta-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 28px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  cursor: pointer;
-  border: none;
-  font-family: inherit;
-  line-height: 1.2;
-}
-.cta-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
-}
-.cta-button.cta-secondary {
-  background: transparent;
-  color: #1e40af;
-  border: 1px solid #d1d5db;
-  box-shadow: none;
-}
-.cta-button.cta-secondary:hover {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.06);
-}
-
-/* Hero CTA 容器 */
-.m-hero-ctas {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 28px;
-}
+/* 2026-07-24 P1: 删除 cta-button / m-hero-ctas — Hero CTA 按钮已删除 */
 
 /* KPI 单位后缀(城 / 个 / 条) */
 .m-kpi-suffix {
