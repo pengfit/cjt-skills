@@ -284,8 +284,19 @@ const kpi = computed(() => {
   const ods = cities.reduce((s, c) => s + (c.ods?.count || 0), 0)
   const dwd = cities.reduce((s, c) => s + (c.dwd?.count || 0), 0)
   const dws = cities.reduce((s, c) => s + (c.dws?.count || 0), 0)
-  const attrRates = cities.map(c => attrRate(c)).filter(v => !isNaN(v))
-  const attrRateAvg = attrRates.length ? attrRates.reduce((s, v) => s + v, 0) / attrRates.length : 0
+  // v0.19+ (2026-07-23): 覆盖率优先用 API 加权率(global.rate),避免空城拉低均值。
+  // 退路:本地平均时过滤 total=0 的城,不要把没数据的城市算成 0。
+  const globalRate = data.global_coverage?.rate
+  let attrRateAvg
+  if (typeof globalRate === 'number' && globalRate > 0) {
+    attrRateAvg = globalRate
+  } else {
+    const attrRates = cities
+      .filter(c => (c.coverage?.total || 0) > 0)
+      .map(c => attrRate(c))
+      .filter(v => !isNaN(v) && v > 0)
+    attrRateAvg = attrRates.length ? attrRates.reduce((s, v) => s + v, 0) / attrRates.length : 0
+  }
   const lastUpdate = cities
     .map(c => c.dwd?.last_etl || c.dws?.last_etl)
     .filter(Boolean)

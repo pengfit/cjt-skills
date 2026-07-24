@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import math
+import random
 from datetime import datetime
 from typing import Optional
 
@@ -401,6 +402,23 @@ def _period_norm_prices(norm_index: str, period_end_ms: int, breed_size: int = 8
         return {}
 
 
+def _enrich_breed_meta(breed_meta: dict, latest_row: dict):
+    """v0.31: 把 _period_norm_prices* 返回的最新行里 l3_name / l1_name / unit 首次填进 breed_meta,
+    + 累加 records(有数据的城市数)。
+
+    只填当前为空的字段(首次非空胜出),不覆盖已有 filter_label 等 user-input 字段。
+    """
+    if not latest_row:
+        return
+    if not breed_meta.get("category_name_l3") and latest_row.get("l3_name"):
+        breed_meta["category_name_l3"] = latest_row["l3_name"]
+    if not breed_meta.get("category_name_l1") and latest_row.get("l1_name"):
+        breed_meta["category_name_l1"] = latest_row["l1_name"]
+    if not breed_meta.get("unit") and latest_row.get("unit"):
+        breed_meta["unit"] = latest_row["unit"]
+    breed_meta["records"] = (breed_meta.get("records") or 0) + 1
+
+
 def _spec_fingerprint_mapping() -> dict:
     """runtime_mappings 内层:attr (nested k/v) 拼成 canonical spec_fingerprint
     跨城同 (breed, fingerprint) 即"同规格",可比性大幅提升
@@ -611,24 +629,28 @@ def overview():
     except Exception:
         pass
 
-    # 每城最新两期
+    # 每城最新两期（2026-07-23 修：0/1/2 期都计入，不再要求必须两期
+    # 只要有 NORM 数据的城都进 cities_meta；不足两期时 prev_period_end
+    # 走 0，_ms_to_date(0) 返 "",不会出 1970）
     cities_active = 0
     cities_meta = []
     latest_end_global = 0
     prev_end_global = 0
     for idx in norm_list:
         periods = _city_latest_two_periods(idx)
+        cities_active += 1
         if periods:
-            cities_active += 1
             latest_end, prev_end = periods
-            latest_end_global = max(latest_end_global, latest_end)
-            prev_end_global = max(prev_end_global, prev_end)
-            cities_meta.append({
-                "key": idx.replace("norm_", "").replace("_price", ""),
-                "label": _city_label(idx),
-                "latest_period_end": _ms_to_date(latest_end),
-                "prev_period_end": _ms_to_date(prev_end),
-            })
+        else:
+            latest_end, prev_end = 0, 0
+        latest_end_global = max(latest_end_global, latest_end)
+        prev_end_global = max(prev_end_global, prev_end)
+        cities_meta.append({
+            "key": idx.replace("norm_", "").replace("_price", ""),
+            "label": _city_label(idx),
+            "latest_period_end": _ms_to_date(latest_end),
+            "prev_period_end": _ms_to_date(prev_end),
+        })
 
     # 整体均价变动:每城各自算本期/上期均价再取加权平均(按 common normalized_breed 数加权)
     overall_change_pct = 0.0
@@ -790,20 +812,29 @@ def hot_categories(limit: int = Query(20, ge=1, le=50)):
 
 @router.get("/change-heatmap")
 def change_heatmap(
-    top_n: int = Query(15, ge=1, le=30),
-    breed: Optional[str] = Query(None, description="指定归一种"),
-    attr_filters: Optional[str] = Query(None, description="按 k=v 过滤: 'k1:v1,v2;k2:v3'(AND 关系)"),
+    breeds: Optional[str] = Query(None, description="品种列表(逗号分隔,v0.28 支持多选热力图)"),
+    breed: Optional[str] = Query(None, description="(deprecated)单品种,兼容用,优先用 breeds"),
+    attr_filters: Optional[str] = Query(None, description="共用筛选 'k1:v1,v2;k2:v3'(AND,所有品种都用)"),
+    breed_filters: Optional[str] = Query(None, description="v0.37 per-breed 独立筛选 'breed1=k:v;k:v||breed2=k:v'(每个品种各自配置,优先于 attr_filters)"),
 ):
     """品类 × 城市 热力图。模式:
-    1) 无参数: top N 热门归一种 × 城市
-    2) ?breed=X: 单归一种 × 城市(混合,无规格对齐)
-    3) ?breed=X&attr_filters=k:v,k:v: 按 attr k=v 嵌套过滤,1 行结果
+    1) 无 breeds: 返回空(产品搜索走 /breed-search,选中后跳到模式 2/3)
+    2) ?breeds=A,B,C: 多品种 × 城市(每行一个品种,跨品种可比)
+    3) ?breeds=A,B&attr_filters=k:v,k:v: 共用筛选,所有品种都套同一组 attr filters
+    4) ?breeds=A,B&breed_filters=A=k:v;k:v||B=k:v: per-breed 独立筛选(v0.37,每个品种各自的 attr 配置)
     """
+    _ = random  # noqa: F401  # 预留 import 后续可能用(以前随机抽样)
+    # v0.28: 解析 breeds 列表(支持多选热力图);breed 单数兼容老调用
+    breed_list = []
+    if breeds:
+        breed_list = [b.strip() for b in breeds.split(",") if b.strip()]
+    elif breed:
+        breed_list = [breed]
     norm_list = _norm_indices()
     if not norm_list:
         return {"breeds": [], "cities": [], "matrix": []}
 
-    # 解析 attr_filters
+    # 解析共用 attr_filters(v0.37 兼容,作为 per-breed 的 fallback)
     filters = []
     if attr_filters:
         for kv in attr_filters.split(";"):
@@ -814,59 +845,64 @@ def change_heatmap(
             if k and values:
                 filters.append({"key": k, "values": values})
 
+    # v0.37: 解析 per-breed 独立筛选 'breed1=k:v;k:v||breed2=k:v'
+    # 格式:多个 breed 之间用 '||' 分隔(避免和 breed 名里可能的逗号冲突)
+    #       breed 名后 '=' 接 filters
+    #       filters 之间 ';' 分隔 k:v 单元(同 attr_filters 内部格式)
+    per_breed_filters = {}  # dict[breed, list[filter]]
+    if breed_filters:
+        for segment in breed_filters.split("||"):
+            if "=" not in segment:
+                continue
+            breed_part, filters_part = segment.split("=", 1)
+            breed_key = breed_part.strip()
+            breed_filter_list = []
+            for kv in filters_part.split(";"):
+                if ":" not in kv:
+                    continue
+                k, vs = kv.split(":", 1)
+                values = [v for v in vs.split(",") if v]
+                if k and values:
+                    breed_filter_list.append({"key": k, "values": values})
+            if breed_key and breed_filter_list:
+                per_breed_filters[breed_key] = breed_filter_list
+
     # 1) 选行
-    if breed and filters:
-        # 过滤模式:1 行(filter 表达式作为标签)
+    # v0.23 (2026-07-23): 删 top 15 随机模式(原 v0.21/v0.22 逻辑) — 改由 /breed-search
+    # 端点返回候选品种 + 规格信息,用户选中后才进热力图。未选品种时直接返空。
+    # v0.28: 多选 — breeds 列表生成 N 行
+    if not breed_list:
+        return {"breeds": [], "cities": [], "matrix": []}
+    if filters and breed_list:
+        # 过滤模式:N 行(filter 表达式作为标签,所有品种共用)
         # v0.2 (2026-07-22): attr key 翻译为中文,跟 /trend 拆分维度字段一致
         filter_label = " + ".join(
             f"{_label_k(f['key'])}={'/'.join(f['values'])}" for f in filters
         )
-        breeds = [{
-            "breed": breed,
-            "category_name_l3": "",
-            "category_name_l1": "",
-            "records": 0,
-            "filter_label": filter_label,
-        }]
-        row_keys = [breed]
-    elif breed:
-        breeds = [{"breed": breed, "category_name_l3": "", "category_name_l1": "", "records": 0}]
-        row_keys = [breed]
+        breeds = []
+        row_keys = []
+        for b in breed_list:
+            breeds.append({
+                "breed": b,
+                "category_name_l3": "",
+                "category_name_l1": "",
+                "unit": "",
+                "records": 0,
+                "filter_label": filter_label,
+            })
+            row_keys.append(b)
     else:
-        # Top N
-        try:
-            r = es.search(
-                index=",".join(norm_list),
-                body={
-                    "size": 0,
-                    "aggs": {
-                        "top_breeds": {
-                            "terms": {"field": "normalized_breed.keyword", "size": top_n * 3},
-                            "aggs": {
-                                "l3_name": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
-                                "l1_name": {"terms": {"field": "category_name_l1.keyword", "size": 1}},
-                            },
-                        }
-                    },
-                },
-                ignore_unavailable=True,
-                allow_no_indices=True,
-            )
-            top_breeds = r["aggregations"]["top_breeds"]["buckets"]
-            breeds = []
-            row_keys = []
-            for b in top_breeds[:top_n]:
-                l3_name = b["l3_name"]["buckets"][0]["key"] if b["l3_name"]["buckets"] else ""
-                l1_name = b["l1_name"]["buckets"][0]["key"] if b["l1_name"]["buckets"] else ""
-                breeds.append({
-                    "breed": b["key"],
-                    "category_name_l3": l3_name,
-                    "category_name_l1": l1_name,
-                    "records": b["doc_count"],
-                })
-                row_keys.append(b["key"])
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        breeds = []
+        row_keys = []
+        for b in breed_list:
+            breeds.append({
+                "breed": b,
+                "category_name_l3": "",
+                "category_name_l1": "",
+                "unit": "",
+                "records": 0,
+            })
+            row_keys.append(b)
 
     # 2) 城市列表
     cities = []
@@ -894,17 +930,25 @@ def change_heatmap(
             continue
         latest_end, prev_end = periods
 
-        if breed and filters:
-            # attr 过滤:一次 query 拿所有匹配 docs 的均价
-            latest = _period_norm_prices_by_attr(norm_idx, latest_end, breed, filters)
-            prev = _period_norm_prices_by_attr(norm_idx, prev_end, breed, filters)
-            if breed in latest and breed in prev:
-                curr_p = latest[breed]["price"]
-                prev_p = prev[breed]["price"]
-                if prev_p > 0:
-                    matrix[0][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
+        if filters or per_breed_filters:
+            # v0.28 + v0.37: 共用筛选 OR per-breed 独立筛选 — per-breed 优先
+            for bi, breed_key in enumerate(row_keys):
+                # v0.37: per-breed 独立筛选优先,fallback 到共用 attr_filters
+                breed_filters_to_use = per_breed_filters.get(breed_key, filters)
+                if not breed_filters_to_use:
+                    # 无任何筛选 → 跳过(没意义调 _period_norm_prices_by_attr)
+                    continue
+                latest = _period_norm_prices_by_attr(norm_idx, latest_end, breed_key, breed_filters_to_use)
+                prev = _period_norm_prices_by_attr(norm_idx, prev_end, breed_key, breed_filters_to_use)
+                if breed_key in latest and breed_key in prev:
+                    curr_p = latest[breed_key]["price"]
+                    prev_p = prev[breed_key]["price"]
+                    if prev_p > 0:
+                        matrix[bi][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
+                    # v0.31: 从 latest 首次填 breeds[bi] 元数据(不覆盖已有)
+                    _enrich_breed_meta(breeds[bi], latest[breed_key])
         else:
-            # Top N 或单 breed 模式(混合,无规格对齐)
+            # 多 breed 模式(混合,无规格对齐)
             latest = _period_norm_prices(norm_idx, latest_end, breed_size=1500)
             prev = _period_norm_prices(norm_idx, prev_end, breed_size=1500)
             for bi, breed_key in enumerate(row_keys):
@@ -913,6 +957,8 @@ def change_heatmap(
                     prev_p = prev[breed_key]["price"]
                     if prev_p > 0:
                         matrix[bi][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
+                    # v0.31: 同上 — 首次填元数据,累加 records
+                    _enrich_breed_meta(breeds[bi], latest[breed_key])
 
     return {
         "breeds": breeds,
@@ -924,24 +970,389 @@ def change_heatmap(
     }
 
 
+# 2026-07-23 v0.23: 产品名搜索端点 — /market 页面删 top 15 下拉后,
+# 搜索成为主入口。需要返回品种 + 规格信息让用户综合选择。
+#
+# ES nested agg 一次拿:
+#   filter(wildcard) > terms(normalized_breed) > nested(attr_norm) > terms(k) > terms(v)
+#
+# 例: 搜 "给水管" → results[i]:
+#   {breed: "PP-R给水管", category_name_l3: "塑料给水管",
+#    spec_attrs: {diameter: ["20mm","25mm","40mm"], thickness: ["2.8mm","3.7mm"]},
+#    spec_summary: "diameter: 20/25/40 · thickness: 2.8/3.7",
+#    records: 12}
+#
+# 设计决策:
+#   - wildcard on normalized_breed.keyword(同 v0.22 change-heatmap 的搜索方案)
+#   - attr_norm 是 nested 类型,直接对 k/v 聚合会污染,必须用 nested agg 包一层
+#   - 不需要装 IK/jieba(同 v0.22 论述)
+#   - 大小写敏感(ES 8.17 terms agg 不支持 case_insensitive)
+@router.get("/breed-search")
+def breed_search(
+    q: str = Query(..., min_length=1, max_length=50, description="产品名搜索词,wildcard 匹配 normalized_breed"),
+    limit: int = Query(30, ge=1, le=100, description="返回品种数上限"),
+):
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q}
+
+    import re
+    body = {
+        "size": 0,
+        "aggs": {
+            "matched_breeds": {
+                "filter": {
+                    "wildcard": {
+                        # ES wildcard query 语法是 *  (regexp query 才是 .*)
+                        # 实测: *PP-R* 返 34 命中, .*PP-R.* 返 0
+                        # 用 *q* + re.escape 防用户输入的正则元字符被当通配符
+                        "normalized_breed.keyword": f"*{re.escape(q)}*"
+                    }
+                },
+                "aggs": {
+                    "breeds": {
+                        "terms": {"field": "normalized_breed.keyword", "size": limit},
+                        "aggs": {
+                            "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
+                            "all_specs": {
+                                "nested": {"path": "attr_norm"},
+                                "aggs": {
+                                    "by_k": {
+                                        # attr_norm.k / .v 是 text 字段,不是 .keyword
+                                        # (mapping 里 nested attr_norm: ['k', 'v'] 无 keyword 子字段)
+                                        # text 字段 terms agg 需 fielddata,本地 ES 8.17 默认开(已验返 1140 buckets)
+                                        "terms": {"field": "attr_norm.k", "size": 10},
+                                        "aggs": {
+                                            "values": {
+                                                "terms": {"field": "attr_norm.v", "size": 30}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    try:
+        r = es.search(
+            index=",".join(norm_list),
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        matched = r["aggregations"]["matched_breeds"]
+        results = []
+        for breed_bucket in matched["breeds"]["buckets"]:
+            breed = breed_bucket["key"]
+            l3 = breed_bucket["l3"]["buckets"][0]["key"] if breed_bucket["l3"]["buckets"] else ""
+            spec_attrs = {}
+            for k_bucket in breed_bucket["all_specs"]["by_k"]["buckets"]:
+                spec_attrs[k_bucket["key"]] = [v["key"] for v in k_bucket["values"]["buckets"]]
+            spec_summary = _summarize_specs(spec_attrs)
+            results.append({
+                "breed": breed,
+                "category_name_l3": l3,
+                "spec_attrs": spec_attrs,
+                "spec_summary": spec_summary,
+                "records": breed_bucket["doc_count"],
+            })
+        return {
+            "results": results,
+            "total_breeds": len(results),
+            "matched_docs": matched["doc_count"],
+            "query": q,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _summarize_specs(spec_attrs: dict, max_keys: int = 3, max_values_per_key: int = 3) -> str:
+    """spec_attrs 拼成简短可读摘要
+    {'diameter': ['20mm','25mm','40mm'], 'thickness': ['2.8mm','3.7mm']}
+    → 'diameter: 20/25/40 · thickness: 2.8/3.7'
+    """
+    if not spec_attrs:
+        return ""
+    parts = []
+    for k, vs in list(spec_attrs.items())[:max_keys]:
+        v_str = "/".join(vs[:max_values_per_key])
+        if len(vs) > max_values_per_key:
+            v_str += f"/+{len(vs) - max_values_per_key}"
+        parts.append(f"{k}: {v_str}")
+    return " · ".join(parts)
+
+
+# 2026-07-23 v0.25: /market 页面默认随机展示 — 让首屏有内容
+# 2026-07-23 v0.26: HARDCODE count=12, 不接参数 — 防滥用 + 池大小也固化
+# 复用 nested agg 拿规格信息(同 /breed-search),样本来源是 terms agg 大桶 + random.sample
+RANDOM_BREEDS_COUNT = 12  # 前端调 /api/market/random-breeds 不带参,服务端固定 12
+RANDOM_BREEDS_POOL_SIZE = max(RANDOM_BREEDS_COUNT * 20, 200)  # 池子大点保多样性
+
+RELATED_BREEDS_DEFAULT_LIMIT = 12  # v0.33: /related-breeds 默认返回数
+RELATED_BREEDS_POOL_SIZE = 60     # ES terms agg 取的多一些(60),Python 端排序后截 limit
+
+@router.get("/related-breeds")
+def related_breeds(
+    q: Optional[str] = Query(None, max_length=50, description="搜索词(可选),wildcard 匹配 normalized_breed"),
+    breeds: Optional[str] = Query(None, description="已选品种(逗号分隔,可选),作为相邻参考 — 抽它们的 l1/l2/l3"),
+    limit: int = Query(RELATED_BREEDS_DEFAULT_LIMIT, ge=1, le=50, description="返回品种数上限"),
+):
+    """v0.33: 推荐相邻品种 — 搜索词 + 已选品种的"同 l3 不同规格 / 同 l2 不同 l3"排序。
+
+    三种 mode 互斥:
+      1. breeds 非空 → 抽已选品种的 l1/l2/l3,排除已选,返回同 l3/l2/l1 的其他品种
+      2. q 非空 + breeds 空 → 全池里 wildcard 匹配 q,按 records 排
+      3. 都没 → fallback:全池 records 最高的(同 random-breeds 但更稳定)
+
+    Python 端打分:同 l3 +100,同 l2 +50,同 l1 +20,名称含 q +30,records 加权 0.5×
+    """
+    import re  # wildcard 字符 escape
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"results": [], "mode": "empty", "q": q or "", "selected": breeds or "", "total_matched": 0}
+
+    selected = []
+    if breeds:
+        selected = [b.strip() for b in breeds.split(",") if b.strip()]
+
+    # 1. 拿已选 breeds 的 l1/l2/l3 分布
+    l3_set: list = []
+    l2_set: list = []
+    l1_set: list = []
+    if selected:
+        try:
+            r_meta = es.search(
+                index=",".join(norm_list),
+                body={
+                    "size": 0,
+                    "query": {"terms": {"normalized_breed.keyword": selected}},
+                    "aggs": {
+                        "by_l3": {"terms": {"field": "category_name_l3.keyword", "size": 30}},
+                        "by_l2": {"terms": {"field": "category_name_l2.keyword", "size": 30}},
+                        "by_l1": {"terms": {"field": "category_name_l1.keyword", "size": 10}},
+                    },
+                },
+                ignore_unavailable=True, allow_no_indices=True,
+            )
+            l3_set = [b["key"] for b in r_meta["aggregations"]["by_l3"]["buckets"] if b["key"]]
+            l2_set = [b["key"] for b in r_meta["aggregations"]["by_l2"]["buckets"] if b["key"]]
+            l1_set = [b["key"] for b in r_meta["aggregations"]["by_l1"]["buckets"] if b["key"]]
+        except Exception as e:
+            print(f"[related-breeds] meta agg error: {e}", flush=True)
+
+    # 2. 构建 bool query
+    should_filters: list = []
+    if l3_set:
+        should_filters.append({"terms": {"category_name_l3.keyword": l3_set}})
+    if l2_set:
+        should_filters.append({"terms": {"category_name_l2.keyword": l2_set}})
+    if l1_set:
+        should_filters.append({"terms": {"category_name_l1.keyword": l1_set}})
+
+    must_not_filters: list = []
+    if selected:
+        must_not_filters.append({"terms": {"normalized_breed.keyword": selected}})
+
+    bool_q: dict = {"bool": {}}
+    if should_filters:
+        bool_q["bool"]["should"] = should_filters
+        bool_q["bool"]["minimum_should_match"] = 1
+    if must_not_filters:
+        bool_q["bool"]["must_not"] = must_not_filters
+    if q:
+        bool_q["bool"]["must"] = [{"wildcard": {"normalized_breed.keyword": f"*{re.escape(q)}*"}}]
+
+    # 3. 决定 mode + query
+    if not should_filters and not q:
+        query = {"match_all": {}}
+        mode = "popular"          # 全池 records 最高的(冷启动兜底)
+    elif not should_filters and q:
+        query = bool_q
+        mode = "search-only"      # 无已选,纯搜索词匹配
+    else:
+        query = bool_q
+        mode = "related-to-selected"  # 主要场景:基于已选找相邻
+
+    pool_size = RELATED_BREEDS_POOL_SIZE
+    body = {
+        "size": 0,
+        "query": query,
+        "aggs": {
+            "by_norm": {
+                "terms": {"field": "normalized_breed.keyword", "size": pool_size},
+                "aggs": {
+                    "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
+                    "l2": {"terms": {"field": "category_name_l2.keyword", "size": 1}},
+                    "l1": {"terms": {"field": "category_name_l1.keyword", "size": 1}},
+                    "all_specs": {
+                        "nested": {"path": "attr_norm"},
+                        "aggs": {
+                            "by_k": {
+                                "terms": {"field": "attr_norm.k", "size": 10},
+                                "aggs": {
+                                    "values": {
+                                        "terms": {"field": "attr_norm.v", "size": 30}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    try:
+        r = es.search(
+            index=",".join(norm_list),
+            body=body,
+            ignore_unavailable=True, allow_no_indices=True,
+        )
+        results = []
+        for b in r["aggregations"]["by_norm"]["buckets"]:
+            breed = b["key"]
+            l3 = b["l3"]["buckets"][0]["key"] if b["l3"]["buckets"] else ""
+            l2 = b["l2"]["buckets"][0]["key"] if b["l2"]["buckets"] else ""
+            l1 = b["l1"]["buckets"][0]["key"] if b["l1"]["buckets"] else ""
+
+            # v0.33: Python 端打分(l3 优先 > records 加权)
+            score = 0
+            if l3_set and l3 in l3_set:
+                score += 100
+            if l2_set and l2 in l2_set:
+                score += 50
+            if l1_set and l1 in l1_set:
+                score += 20
+            if q and q.lower() in breed.lower():
+                score += 30
+            score += b["doc_count"] * 0.5
+
+            spec_attrs = {}
+            for k_bucket in b["all_specs"]["by_k"]["buckets"]:
+                spec_attrs[k_bucket["key"]] = [v["key"] for v in k_bucket["values"]["buckets"]]
+            spec_summary = _summarize_specs(spec_attrs)
+            results.append({
+                "breed": breed,
+                "category_name_l3": l3,
+                "spec_attrs": spec_attrs,
+                "spec_summary": spec_summary,
+                "records": b["doc_count"],
+                "relevance": round(score, 1),
+            })
+        results.sort(key=lambda x: x["relevance"], reverse=True)
+        return {
+            "results": results[:limit],
+            "mode": mode,
+            "q": q or "",
+            "selected": breeds or "",
+            "total_matched": len(results),
+        }
+    except Exception as e:
+        print(f"[related-breeds] search error: {e}", flush=True)
+        return {"results": [], "mode": "error", "q": q or "", "selected": breeds or "", "error": str(e)}
+
+
+@router.get("/random-breeds")
+def random_breeds():
+    """默认随机 12 个产品。count 硬编码防滥用 — 不接受参数。"""
+    count = RANDOM_BREEDS_COUNT
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"results": [], "total": 0, "count": count}
+
+    pool_size = RANDOM_BREEDS_POOL_SIZE
+    body = {
+        "size": 0,
+        "aggs": {
+            "all_breeds": {
+                "terms": {"field": "normalized_breed.keyword", "size": pool_size},
+                "aggs": {
+                    "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
+                    "all_specs": {
+                        "nested": {"path": "attr_norm"},
+                        "aggs": {
+                            "by_k": {
+                                "terms": {"field": "attr_norm.k", "size": 10},
+                                "aggs": {
+                                    "values": {
+                                        "terms": {"field": "attr_norm.v", "size": 30}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    try:
+        r = es.search(
+            index=",".join(norm_list),
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        all_buckets = r["aggregations"]["all_breeds"]["buckets"]
+        n_pick = min(len(all_buckets), count)
+        sampled = random.sample(all_buckets, n_pick) if n_pick > 0 else []
+        sampled.sort(key=lambda b: b["doc_count"], reverse=True)
+        results = []
+        for breed_bucket in sampled:
+            breed = breed_bucket["key"]
+            l3 = breed_bucket["l3"]["buckets"][0]["key"] if breed_bucket["l3"]["buckets"] else ""
+            spec_attrs = {}
+            for k_bucket in breed_bucket["all_specs"]["by_k"]["buckets"]:
+                spec_attrs[k_bucket["key"]] = [v["key"] for v in k_bucket["values"]["buckets"]]
+            spec_summary = _summarize_specs(spec_attrs)
+            results.append({
+                "breed": breed,
+                "category_name_l3": l3,
+                "spec_attrs": spec_attrs,
+                "spec_summary": spec_summary,
+                "records": breed_bucket["doc_count"],
+            })
+        return {"results": results, "total": len(results), "count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/attr-keys")
 def attr_keys(
-    breed: str = Query(..., description="归一品种名"),
+    breed: str = Query(None, description="单品种名(向后兼容,优先 breeds)"),
+    breeds: str = Query(None, description="多品种名,逗号分隔(2026-07-24: 12 个默认品种属性不能遗漏)"),
     limit_per_value: int = Query(30, ge=1, le=100),
 ):
     """列出某归一种下所有 (k, [v1, v2, ...]) 组合 + 文档数
     用于前端 k=v 自由组合选择。attr 在 norm 索引中不是 nested,是普通 object 配 k/v 平行数组。
     用 runtime_mappings 虚拟字段 attr_kv = 'k||v' 做聚合。
+    2026-07-24: 支持 breeds=A,B,C 逗号分隔 — /market 默认 12 个品种不漏属性
     """
     from collections import defaultdict
     norm_list = _norm_indices()
     if not norm_list:
         return {"data": []}
 
+    # 解析品种列表(优先 breeds,其次单 breed)
+    breed_list = []
+    if breeds:
+        breed_list = [b.strip() for b in breeds.split(",") if b.strip()]
+    elif breed:
+        breed_list = [breed.strip()]
+    if not breed_list:
+        return {"data": []}
+
     # 跨索引聚合(runtime_mappings 解决了 mapping 不一致问题)
+    # 单品种 → term; 多品种 → terms (任一匹配)
+    if len(breed_list) == 1:
+        breed_query = {"term": {"normalized_breed.keyword": breed_list[0]}}
+    else:
+        breed_query = {"terms": {"normalized_breed.keyword": breed_list}}
+
     body = {
         "size": 0,
-        "query": {"term": {"normalized_breed.keyword": breed}},
+        "query": breed_query,
         "runtime_mappings": {
             "attr_kv": {
                 "type": "keyword",

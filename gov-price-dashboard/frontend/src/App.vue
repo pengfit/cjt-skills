@@ -14,13 +14,20 @@
 </template>
 
 <script setup>
+import { defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
-import LoginView from './components/LoginView.vue'
-import DashboardView from './components/DashboardView.vue'
 import HomeView from './components/HomeView.vue'
 import MarketView from './components/MarketView.vue'
 import NotFoundView from './components/NotFoundView.vue'
 import { useAuth } from './composables/useAuth.js'
+
+// 2026-07-24 架构修复: DashboardView / LoginView 改为异步加载
+//   背景: App.vue 之前静态 import DashboardView,把 useListSearch.js(含 /api/list/* 调用)全压进首屏 bundle。
+//         /market 公开页加载时,这部分代码会被 evaluate,axios 模块被提前初始化 → 下次改一行顶层 fetch 就可能误触发 list 接口。
+//         架构上不对 —— /market /home 公开页不需要 ListView 的代码。
+//   修复: defineAsyncComponent 拆分,只有路由需要时才下载。首屏 bundle 不含 ListView / SearchHistory / Export 等代码。
+const DashboardView = defineAsyncComponent(() => import('./components/DashboardView.vue'))
+const LoginView = defineAsyncComponent(() => import('./components/LoginView.vue'))
 
 const route = useRoute()
 const { isAuthed } = useAuth()

@@ -29,8 +29,9 @@ axios.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       // 公开页 (meta.public=true) 不应该被 401 拦截器跳登录
-      // 公开页: /showcase (公开 landing) + /login (本身就在登录页) + / (根路径, 跳 /showcase)
-      const PUBLIC_PATHS = ['/showcase', '/login', '/']
+      // 公开页: /home (公开 landing) + /market (公开市场行情) + /login (本身就在登录页) + / (根路径, 跳 /home)
+      // 2026-07-24 BUG 修: 原列表 '/showcase' 已于 7-21 重命名为 '/home'; '/market' 7-23 新增时漏加
+      const PUBLIC_PATHS = ['/home', '/market', '/login', '/']
       const isPublicPath = PUBLIC_PATHS.some(p =>
         location.pathname === p || location.pathname.startsWith(p + '/')
       )
@@ -61,7 +62,8 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
-      const PUBLIC_PATHS = ['/home', '/login', '/'] 
+      // 2026-07-24 BUG 修: 补 /market (公开市场行情页)
+      const PUBLIC_PATHS = ['/home', '/market', '/login', '/'] 
       const isPublicPath = PUBLIC_PATHS.some(p =>
         location.pathname === p || location.pathname.startsWith(p + '/')
       )

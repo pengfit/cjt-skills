@@ -226,16 +226,20 @@ def _clear_time_field_cache() -> None:
 # 不再需要改 provenance.py。
 
 def _city_indexes() -> dict:
-    """city key → {dws, ods, dwd, label, progress_index, progress_mode, skill_dir}"""
+    """city key → {dws, ods, dwd, norm, label, progress_index, progress_mode, skill_dir}"""
     out = {}
     for s in _registry_get_all():
         dws = s.get("dws_index")
         if not dws:
             continue  # ETL 还没起就跳过
+        # norm 索引推导约定: norm_{key}_price
+        # 优先用 registry 显式声明的 norm_index,否则从 dws_index 推导
+        norm = s.get("norm_index") or dws.replace("dws_", "norm_", 1)
         out[s["key"]] = {
             "dws": dws,
             "ods": s.get("ods_index"),
             "dwd": s.get("dwd_index"),
+            "norm": norm,
             "label": s.get("label", s["key"]),
             "progress_index": s.get("progress_index"),
             "progress_mode": s.get("progress_mode", "period"),
@@ -1768,16 +1772,23 @@ def _sample_dwd_specs(city="xian", sample_size=50, category=""):
 
 
 def _category_coverage(city="xian", date_from="", date_to=""):
-    """各分类的 spec 解析覆盖率（基于 DWS 终态，按 update_date 日期过滤）
+    """各分类的 spec 解析覆盖率（基于 norm 跨城归一层）
 
     返回 dict：
       - coverage: 按 category 分桶（按 rate 降序）
       - attr_source_breakdown: 按 attr_source 分桶（含 share 占比）
       - total_docs: 总文档数
-      - date_range: 实际应用的日期过滤
+
+    v0.19+ (2026-07-23): 切换数据源从 DWS 到 norm + 删除日期过滤
+      - 原因 1: DWS 各城 mapping 不一致（attr_source.keyword 不存在导致聚合 0 buckets），
+        而 norm_* 索引 mapping 统一（text + keyword multi-field）,attr_norm nested path 可用
+      - 原因 2: coverage 是全量数据质量指标,跟 URL 日期范围无关
+      - 原因 3: norm 是消费层,直接反映"对外展示"的真实数据质量
+
+    date_from / date_to 参数保留(向后兼容),但内部忽略。
     """
-    # DWS 索引从 registry 拿，覆盖全 18 城（DWD 是中间态，不能用于数据质量指标）
-    idx = CITY_INDEXES().get(city, {}).get("dws")
+    # norm 索引从 registry 拿
+    idx = CITY_INDEXES().get(city, {}).get("norm")
     if not idx:
         return {
             "coverage": [],
@@ -1787,17 +1798,8 @@ def _category_coverage(city="xian", date_from="", date_to=""):
             "index": "",
         }
 
-    # 日期过滤：DWS 文档中只有 etl_time 是 date 类型（update_date 是 keyword，无法 range）
-    # 与 Cockpit 现有的“7日趋势” sparkline 口径一致：按 ETL 处理时间
-    date_filter = []
-    if date_from:
-        date_filter.append({"range": {"etl_time": {"gte": date_from}}})
-    if date_to:
-        date_filter.append({"range": {"etl_time": {"lte": date_to + "T23:59:59"}}})
-
-    base_query = (
-        {"bool": {"must": date_filter}} if date_filter else {"match_all": {}}
-    )
+    # coverage 是全量指标,不应用日期过滤
+    base_query = {"match_all": {}}
 
     aggs_body = {
         "size": 0,
@@ -1807,37 +1809,37 @@ def _category_coverage(city="xian", date_from="", date_to=""):
             "by_category": {
                 "terms": {"field": "category.keyword", "size": 60},
                 "aggs": {
-                    # 待解析：spec 非空 且 attr 尚未解析
+                    # 待解析：spec 非空 且 attr_norm 尚未解析
                     "needs_parse": {
                         "filter": {"bool": {
                             "must_not": [
-                                {"term": {"spec.keyword": "/"}},
-                                {"term": {"spec.keyword": ""}},
-                                {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}},
+                                {"term": {"spec": "/"}},
+                                {"term": {"spec": ""}},
+                                {"nested": {"path": "attr_norm", "query": {"exists": {"field": "attr_norm.k"}}}},
                             ]
                         }}
                     },
-                    # 已解析：spec 非空 且 attr 已有字段
+                    # 已解析：spec 非空 且 attr_norm 已有字段
                     "parsed_ok": {
                         "filter": {"bool": {
                             "must_not": [
-                                {"term": {"spec.keyword": "/"}},
-                                {"term": {"spec.keyword": ""}}
+                                {"term": {"spec": "/"}},
+                                {"term": {"spec": ""}}
                             ],
                             "must": [
-                                {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}}
+                                {"nested": {"path": "attr_norm", "query": {"exists": {"field": "attr_norm.k"}}}}
                             ]
                         }}
                     }
                 }
             },
-            # 数据质量诊断：attr_source 分布（DWS 三段式最终态）
-            # 注：DWS mappings 里 attr_source 是 text + keyword 多字段（text 不支持 fielddata 聚合）
+            # 数据质量诊断：attr_source 分布（norm 三段式最终态）
+            # norm mappings: attr_source = text + .keyword multi-field，可直接聚合
             "by_attr_source": {
                 "terms": {"field": "attr_source.keyword", "size": 10},
                 "aggs": {
                     "with_attr": {
-                        "filter": {"nested": {"path": "attr", "query": {"exists": {"field": "attr.k"}}}}
+                        "filter": {"nested": {"path": "attr_norm", "query": {"exists": {"field": "attr_norm.k"}}}}
                     }
                 }
             }

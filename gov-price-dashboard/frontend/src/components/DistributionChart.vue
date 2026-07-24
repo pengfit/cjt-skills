@@ -205,26 +205,29 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    // 2026-07-23: /api/stats/overview 整接口下架,overviewData 来源不再走该路径;
-    // provinceData 留空,本页后续实际不再展示省份列表子表
     // 2026-07-23: /distribution 页改走 NORM 专属路径(/api/norm/*),与其他页分层
-    const distRes = await axios.get(`${API}/norm/price-distribution`)
+    // /api/norm/province-ranges 一次返回所有省 + 区间分布(自带 ranges 桶),无需二次聚合
+    const [distRes, provRes] = await Promise.all([
+      axios.get(`${API}/norm/price-distribution`),
+      axios.get(`${API}/norm/province-ranges`),
+    ])
 
     rangeData.value = distRes.data?.data || []
     totalCount.value = rangeData.value.reduce((s, r) => s + r.count, 0) || 0
-    provinceData.value = []
-    overview.value = null
-    if (provinceData.value.length) {
-      const provNames = provinceData.value.map(p => p.province)
-      const rangeRes = await axios.get(`${API}/norm/province-ranges`, {
-        params: { provinces: provNames.join(",") }
-      })
-      const rangeMap = rangeRes.data?.data || {}
-      provinceData.value.forEach(p => {
-        p.ranges = rangeMap[p.province] || []
-      })
-    }
 
+    const rangeMap = provRes.data?.data || {}
+    provinceData.value = Object.entries(rangeMap)
+      .map(([province, ranges]) => {
+        const count = (ranges || []).reduce((s, r) => s + (r.count || 0), 0)
+        const weightedSum = (ranges || []).reduce((s, r) => s + (r.count || 0) * (r.avg_price || 0), 0)
+        const avg_price = count ? Math.round(weightedSum / count) : 0
+        return { province, count, avg_price, ranges: ranges || [] }
+      })
+      .filter(p => p.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20)
+
+    overview.value = null
     await nextTick()
     await new Promise(r => setTimeout(r, 50))
     renderRangeBar()

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import Optional
 import os, sys, sqlite3
 import yaml
@@ -69,6 +71,12 @@ _PUBLIC_PATHS = {
     "/api/market/change-heatmap",
     "/api/market/spec-fingerprints",
     "/api/market/attr-keys",
+    # 2026-07-23 v0.23: /market 搜索端点(返回品种+规格信息供用户选)
+    "/api/market/breed-search",
+    # 2026-07-23 v0.25: /market 默认随机展示(12 个产品)
+    "/api/market/random-breeds",
+    # 2026-07-23 v0.33: 相邻品种推荐(按 l1/l2/l3 + spec_attrs 排序,用于搜索时更新推荐区)
+    "/api/market/related-breeds",
 }
 
 
@@ -174,5 +182,54 @@ app.include_router(skill_router, **_PROTECTED)
 @app.get("/api/", include_in_schema=False)
 def api_info():
     return {"message": "材价通 API", "version": "1.0.0", "docs": "/healthz"}
+
+
+# 2026-07-23: 补回 /healthz 公开探针。Phase 7 把 main.py 收到 171 行时把
+# 原 /api/health 改迁到 /healthz 的迁移丢了,deploy.sh wait_for_health 的兜底
+# 探测一直 404。AuthMiddleware 在 line ~80 已自动放过非 /api/ 路径,
+# 此处不需要 Depends(get_current_user)。
+# 用途: deploy.sh health 探测 + 外部 LB 健康检查。
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    return {"status": "ok"}
+
+
+# 2026-07-23: SPA fallback 回归修复。Phase 4 把 main.py 砍到 171 行时把
+# StaticFiles 挂载 + catch-all 一起带走了,导致 /home /cockpit /dist 等 SPA 路由
+# 与 /assets/*.js 等静态资源全部 404。AuthMiddleware line ~80 已自动放过
+# 非 /api/ 路径,这里不需要 Depends。
+#
+# vite.config.js 无 base 字段 → 默认 /,所以 dist/index.html 引用:
+#   /assets/index-XXX.js  (打包后的 JS/CSS)
+#   /avatar-*.png /favicon.svg  (散落的静态资源)
+#   /geo/ /img/ /screenshots/ /showcase/  (子目录)
+#
+# 模式:
+#   - /assets 走 StaticFiles 直送(高效,大文件走 sendfile)
+#   - catch-all: 文件存在直送(avatar/favicon/geo/img 等),否则返回 index.html
+#     让 vue-router 接管 — 这是 Vue SPA 的标准做法
+# 2026-07-23: 路径双模式兼容
+# - docker 模式: WORKDIR=/app + Dockerfile 把 frontend/dist 拷为 ./static,走 _DOCKER_STATIC
+# - dev 模式: 项目根有 frontend/dist/ 但没有 static/,走 _DEV_STATIC
+# 运行时二选一,两条路径都能找到 dist/
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_DASHBOARD_ROOT = os.path.dirname(_HERE)
+_DOCKER_STATIC = os.path.join(_DASHBOARD_ROOT, "static")
+_DEV_STATIC = os.path.join(_DASHBOARD_ROOT, "frontend", "dist")
+STATIC_DIR = _DOCKER_STATIC if os.path.isdir(_DOCKER_STATIC) else _DEV_STATIC
+app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_catch_all(full_path: str):
+    # 安全兜底:不要拦 /api/* 路径(虽然 AuthMiddleware 不挡 /api/,但 include_router
+    # 已在 catch-all 之前注册,/api/* 会先匹配到 router 不会到这里)
+    if full_path.startswith("api/") or full_path.startswith("assets/"):
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    # 真实存在的静态文件 → 直送(avatar / favicon / 子目录等)
+    potential = os.path.join(STATIC_DIR, full_path)
+    if os.path.isfile(potential):
+        return FileResponse(potential)
+    # SPA 路由(/home /cockpit /dist ... 等) → 返回 index.html
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
