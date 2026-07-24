@@ -933,6 +933,7 @@ h3 {
 }
 
 /* === 响应式 === */
+/* 2026-07-24 P2: 三档断点 — 768(平板) / 640(手机) / 480(小屏) */
 @media (max-width: 768px) {
   .hero h1 {
     flex-direction: column;
@@ -944,12 +945,13 @@ h3 {
   .hero-title-sub {
     font-size: clamp(14px, 4vw, 20px);
   }
-  .hero .subtitle {
-    font-size: 1.2rem;
-  }
-  h2 {
-    font-size: 2rem;
-  }
+  .hero .subtitle { font-size: 1.2rem; }
+  .container { padding: 0 18px; }
+  section { padding: 60px 0; }
+  .section-marker { padding: 0 18px; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.6rem; }
+  .section-subtitle { font-size: 1.05rem; margin-bottom: 32px; }
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
@@ -959,18 +961,99 @@ h3 {
   .pricing-grid {
     grid-template-columns: 1fr;
   }
-  .pricing-card.featured {
-    transform: scale(1);
-  }
-  /* 案例 CTA 移动端更紧凑 */
+  .pricing-card.featured { transform: scale(1); }
+  .pricing-card.featured:hover { transform: scale(1) translateY(-8px); }
+  .pricing-card { padding: 28px 24px; }
   .case-cta {
     padding: 12px 24px;
     font-size: 0.95rem;
   }
-  /* 联系邮箱移动端缩小 */
   .contact-email {
     font-size: 1.1rem;
     padding: 12px 20px;
   }
+  .workflow-diagram { padding: 32px 24px; }
+  .workflow-step { padding: 20px 24px; }
+}
+
+/* 2026-07-24 P2: 手机端(< 640) — 全面紧凑 */
+@media (max-width: 640px) {
+  .container { padding: 0 14px; }
+  section { padding: 48px 0; scroll-margin-top: 64px; }
+  .section-marker { padding: 0 14px; margin-bottom: 18px; gap: 12px; }
+  .section-num { font-size: 12px; }
+
+  /* Hero — 主标题更紧凑 */
+  .hero { min-height: 90vh; }
+  .hero h1 { gap: 6px; margin-bottom: 18px; }
+  .hero-title-main { font-size: clamp(40px, 14vw, 56px); }
+  .hero-title-sub { font-size: clamp(12px, 3.5vw, 16px); letter-spacing: 0.15em; }
+  .hero .subtitle { font-size: 1.05rem; margin-bottom: 22px; }
+  .hero .tagline { font-size: 1rem; margin-bottom: 32px; }
+  .cta-button { padding: 13px 28px; font-size: 1rem; border-radius: 7px; }
+  .hero-footer { margin-top: 36px; font-size: 0.8rem; padding: 0 8px; }
+  .hero-tags { gap: 8px; margin-top: 28px; }
+  .hero-tag-chip { padding: 6px 12px; font-size: 12px; }
+
+  /* KPI / stats — 2 列维持,但紧凑 */
+  .stats-grid { gap: 12px; margin: 32px 0; }
+  .stat-card { padding: 20px 12px; }
+  .stat-number { font-size: 1.9rem; }
+  .stat-label { font-size: 0.85rem; }
+
+  /* 案例 — 表格加横向滚动 */
+  .comparison-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 32px 0; border-radius: 8px; }
+  .comparison-table { min-width: 360px; margin: 0; font-size: 0.88rem; }
+  .comparison-table th,
+  .comparison-table td { padding: 10px 12px; }
+
+  /* 工作流 — 紧凑 */
+  .workflow-diagram { padding: 24px 16px; margin: 28px 0; border-radius: 12px; }
+  .workflow-steps { gap: 16px; }
+  .workflow-step { padding: 16px 18px; }
+  .workflow-step h4 { font-size: 1.05rem; margin-bottom: 6px; }
+  .workflow-step p { font-size: 0.88rem; line-height: 1.5; }
+  .workflow-arrow { font-size: 1.4rem; }
+  .workflow-bottom { margin-top: 28px; line-height: 1.7; font-size: 0.92rem; }
+
+  /* Pricing — 更紧凑 */
+  .pricing-grid { gap: 20px; margin: 28px 0; }
+  .pricing-card { padding: 24px 18px; border-radius: 12px; }
+  .pricing-card.featured::before { font-size: 0.8rem; padding: 3px 12px; }
+  .pricing-card ul { margin: 18px 0; }
+  .pricing-card ul li { padding: 6px 0 6px 20px; font-size: 0.88rem; }
+  .pricing-card .cta-button { padding: 12px 20px; font-size: 0.95rem; }
+
+  /* FAQ — 紧凑 + 可点击区域加大 */
+  .faq-list { margin: 0 -4px; }
+  .faq-item { margin-bottom: 12px; border-radius: 10px; }
+  .faq-question { padding: 16px 18px; font-size: 0.95rem; }
+  .faq-item.active .faq-answer { padding: 0 18px 18px; font-size: 0.88rem; line-height: 1.7; }
+
+  /* Contact — 紧凑 */
+  .contact-email { font-size: 0.95rem; padding: 12px 16px; border-radius: 10px; word-break: break-all; }
+  .case-cta-wrap { margin-top: 20px; }
+}
+
+/* 2026-07-24 P2: 小屏(< 480, iPhone SE) — 极紧凑 */
+@media (max-width: 480px) {
+  .container { padding: 0 10px; }
+  section { padding: 36px 0; }
+  .section-marker { padding: 0 10px; margin-bottom: 14px; }
+  .hero { min-height: 85vh; }
+  .hero-title-main { font-size: 36px; }
+  .hero .subtitle { font-size: 0.95rem; }
+  .hero .tagline { font-size: 0.9rem; margin-bottom: 24px; }
+  .cta-button { padding: 11px 22px; font-size: 0.92rem; }
+  .hero-tag-chip { padding: 5px 10px; font-size: 11px; }
+  h2 { font-size: 1.6rem; }
+  h3 { font-size: 1.3rem; }
+  .stat-number { font-size: 1.6rem; }
+  .stat-card { padding: 16px 10px; }
+  .workflow-diagram { padding: 18px 12px; }
+  .pricing-card { padding: 20px 14px; }
+  .faq-question { padding: 14px 14px; font-size: 0.88rem; }
+  .faq-item.active .faq-answer { padding: 0 14px 14px; font-size: 0.82rem; }
+  .contact-email { font-size: 0.85rem; padding: 10px 12px; }
 }
 </style>

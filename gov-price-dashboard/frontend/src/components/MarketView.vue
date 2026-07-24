@@ -1820,20 +1820,107 @@ function cellTitle(breed, city, v) {
 .m-apply-hint { font-size: 11px; color: #6b7280; }
 
 /* ── 响应式 ── */
+/* 2026-07-24 P2: 三档断点 — 980(平板)/768(中屏)/600(手机)/400(小屏) */
 @media (max-width: 980px) {
   .m-kpi { grid-template-columns: repeat(2, 1fr); }
+  .m-heatmap-toolbar { gap: 14px; }
 }
+
+/* 2026-07-24 P2: 平板中等屏(<768) */
+@media (max-width: 768px) {
+  .m-topbar { padding: 12px 20px; }
+  .m-nav { gap: 18px; }
+  .m-brand { font-size: 15px; }
+  .m-main { padding: 24px 18px; }
+  .m-hero h1 { font-size: 23px; }
+  .m-card-heatmap { padding: 20px 22px; }
+}
+
+/* 2026-07-24 P2: 手机端(<600) — 主体优化 */
 @media (max-width: 600px) {
-  .m-main { padding: 20px 16px; }
-  .m-topbar { padding: 12px 16px; }
-  .m-nav { gap: 16px; }
-  .m-kpi { grid-template-columns: 1fr; }
-  .m-hero h1 { font-size: 22px; }
-  /* 2026-07-24 P3: 响应式 .section-marker 已删 */
-  /* 2026-07-24 P1: 响应式下让 heatmap toolbar 换行 + refresh 按钮占满 */
-  .m-heatmap-toolbar { flex-direction: column; align-items: stretch; }
+  .m-main { padding: 16px 14px; }
+  .m-topbar { padding: 10px 14px; }
+  .m-nav { gap: 14px; }
+  .m-nav a { font-size: 13px; }
+  .m-brand { font-size: 14px; letter-spacing: 0.2px; }
+  .m-kpi { grid-template-columns: 1fr; gap: 10px; margin-bottom: 18px; }
+
+  /* hero 紧凑 */
+  .m-hero { margin-bottom: 18px; padding-bottom: 12px; }
+  .m-hero h1 { font-size: 20px; letter-spacing: -0.3px; margin-bottom: 4px; }
+  .m-hero-sub { font-size: 13px; line-height: 1.5; }
+  .m-hero-meta { font-size: 11px; }
+
+  /* KPI 紧凑 */
+  .m-kpi-item { padding: 12px 14px; }
+  .m-kpi-label { font-size: 11px; margin-bottom: 4px; }
+  .m-kpi-value { font-size: 20px; }
+  .m-kpi-suffix { font-size: 0.55em; }
+
+  /* 热力图主体卡 — 缩 padding */
+  .m-card-heatmap { padding: 14px 12px; border-radius: 12px; margin-bottom: 20px; }
+  .m-card-heatmap::before { height: 2px; }
+
+  /* Toolbar — 竖排 + refresh 全宽 */
+  .m-heatmap-toolbar { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 14px; }
+  .m-heatmap-toolbar-info { text-align: left; }
+  .m-heatmap-title { font-size: 17px; margin-bottom: 4px; }
+  .m-heatmap-toolbar-sub { font-size: 12px; line-height: 1.5; }
   .m-heatmap-toolbar-actions { justify-content: stretch; }
-  .m-heatmap-refresh-btn { justify-content: center; flex: 1; }
+  .m-heatmap-refresh-btn { justify-content: center; flex: 1; padding: 11px 14px; font-size: 13px; }
+
+  /* 热力图 grid — 横向滚动(18 城塞不下 375px 屏) */
+  .m-heatmap-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; }
+  .m-heatmap-scroll::-webkit-scrollbar { height: 4px; }
+  .m-heatmap-scroll::-webkit-scrollbar-thumb { background: #bfdbfe; border-radius: 2px; }
+  .m-heatmap-grid { min-width: 680px; font-size: 9px; }  /* 强制最小宽度触发横滚 */
+  .m-heatmap-cell { font-size: 9px; min-height: 24px; padding: 2px 4px; }
+  .m-heatmap-corner { font-size: 9px; padding-left: 6px; }
+  .m-heatmap-th { font-size: 9px; }
+  .m-heatmap-row-label { padding: 6px 8px; }
+  .m-row-name { font-size: 11px; max-width: 100px; }
+  .m-row-meta { font-size: 9px; }
+  .m-meta-pri { max-width: 100px; }
+  .m-heatmap-chunk-title { font-size: 11px; }
+
+  /* 属性筛选 — 紧凑 + 行竖排 */
+  .m-attr-filters { padding: 10px 12px; margin: 10px 0; }
+  .m-attr-row { flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 10px; }
+  .m-attr-key-label { min-width: 0; font-size: 11px; }
+  .m-attr-values { gap: 4px; }
+  .m-attr-check { padding: 3px 8px; font-size: 11px; }
+  .m-attr-check-count { font-size: 10px; }
+  .m-attr-header-label { font-size: 10px; }
+  .m-apply-row { flex-direction: column; align-items: stretch; gap: 8px; padding-top: 8px; }
+  .m-apply-btn { justify-content: center; padding: 8px 14px; font-size: 12px; }
+  .m-apply-hint { font-size: 10px; text-align: center; }
+
+  /* 选择面板紧凑 */
+  .m-selection-panel { border-radius: 10px; }
+  .m-selection-panel-header { padding: 8px 12px; }
+  .m-selection-panel-body { padding: 10px 12px; gap: 10px; }
+  .m-selection-summary { gap: 4px; padding-bottom: 8px; }
+  .m-pill { font-size: 10px; padding: 1px 6px; }
+  .m-selected-chip-text { font-size: 11px; }
+  .m-selected-chip-clear { width: 16px; height: 16px; font-size: 11px; }
+  .m-attr-expand-btn { padding: 6px 12px; font-size: 12px; }
+
+  /* 加载/错误状态 */
+  .m-loading, .m-error { padding: 14px; font-size: 13px; }
+  .m-empty { padding: 40px 16px; font-size: 13px; }
+}
+
+/* 2026-07-24 P2: 小屏(< 400px) — 极紧凑( iPhone SE / 小米 mini ) */
+@media (max-width: 400px) {
+  .m-main { padding: 12px 10px; }
+  .m-topbar { padding: 8px 10px; }
+  .m-nav { gap: 10px; }
+  .m-nav a { font-size: 12px; }
+  .m-brand { font-size: 13px; }
+  .m-hero h1 { font-size: 18px; }
+  .m-heatmap-title { font-size: 16px; }
+  .m-card-heatmap { padding: 12px 10px; }
+  .m-kpi-value { font-size: 18px; }
 }
 
 /* === 2026-07-24 P0: 复用 /home 设计语言(read-progress / section-marker / cta / kpi 动画 / 回到顶部) === */
