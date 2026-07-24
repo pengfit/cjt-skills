@@ -39,9 +39,12 @@ def _ocr_disabled_check():
 
 def _ocr_page(pdf_path, page_index_0based, dpi=200, lang='chi_sim+eng'):
     """OCR 渲染并识别 PDF 的第 page_index_0based 页，返回文字。
-    
+
     历史原因保留：安康部分期是扫描图像 PDF，pypdf 提取不到文本。
     实际 sync 流程不再依赖 OCR（直接 mark skipped_image_pdf），但保留能力备用。
+
+    2026-07-24 P1: 安康扫描型 PDF 数据页是横版（90° 旋转后表格才读得对）
+    OCR 已自动试 (270, 0, 90, 180) 4 个角度选中文最多。
     """
     cache_key = (pdf_path, page_index_0based, dpi, lang)
     if cache_key in _OCR_CACHE:
@@ -113,8 +116,16 @@ def parse_pdf_pages(pdf_path, city):
     results = []
     for pno, page in enumerate(reader.pages):
         text = page.extract_text() or ''
-        # OCR 兑底（仅在 text 极少时启用，目前主要给 安康 备用）
-        if len(text.strip()) < 50 and _ocr_disabled_check():
+        # 2026-07-24 P1: 安康扫描型 PDF 专用 OCR 路径
+        #   1) 跳过 page 0（封面/目录页，不是数据页）
+        #   2) 强制调 OCR（pypdf 提取的乱码 text 长度 > 50 会跳过 OCR）
+        #   3) _ocr_page 已自动试 (270, 0, 90, 180) 选最佳角度(含 90° 旋转)
+        if city == '安康':
+            if pno == 0:
+                continue  # 跳过封面
+            text = _ocr_page(pdf_path, pno)
+        elif len(text.strip()) < 50 and _ocr_disabled_check():
+            # OCR 兑底（仅在 text 极少时启用，目前主要给 安康 备用）
             text = _ocr_page(pdf_path, pno)
 
         if not text:

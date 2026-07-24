@@ -900,6 +900,56 @@ def _parse_type_A(text, counties):
     return rows
 
 
+def _parse_type_A_nocounty(text):
+    """A 布局无 county 模式：扫描型 PDF OCR 后 county 表头识别不出的兑底。
+
+    每材料行对应一对价格行（除税价/含税价），取该行所有数字的**平均值**
+    作为代表价入库，county 字段填 '_OCR_AVG_' 作为占位。
+    """
+    rows = []
+    raw_lines = [l.strip() for l in text.split('\n') if l.strip()]
+    lines = _join_wrapped_lines(raw_lines)
+    i = 0
+    cur_category = ''
+
+    while i < len(lines):
+        line = lines[i]
+        cat = _category_line(line)
+        if cat:
+            cur_category = cat
+            i += 1
+            continue
+        if re.match(r'^(编码|材料编码)\s', line) or '单位' in line:
+            i += 1
+            continue
+        parsed = _parse_code_line(line)
+        if not parsed:
+            i += 1
+            continue
+        code, breed, spec, unit = parsed
+        no_tax = tax = None
+        if i + 1 < len(lines) and ('除税' in lines_norm_check(lines[i + 1]) or '除税' in lines[i + 1]):
+            nums = [float(n) for n in re.findall(r'\d+\.?\d*', lines[i + 1]) if float(n) > 0]
+            no_tax = round(sum(nums) / len(nums), 2) if nums else None
+        if i + 2 < len(lines) and ('含税' in lines_norm_check(lines[i + 2]) or '含税' in lines[i + 2]):
+            nums = [float(n) for n in re.findall(r'\d+\.?\d*', lines[i + 2]) if float(n) > 0]
+            tax = round(sum(nums) / len(nums), 2) if nums else None
+        if no_tax or tax:
+            rows.append(MaterialRow(
+                code=code, breed=breed, spec=spec, unit=unit,
+                category=cur_category, county='_OCR_AVG_',
+                price=no_tax, tax_price=tax,
+            ))
+        i += 1
+    return rows
+
+
+def lines_norm_check(line):
+    """OCR 容错：去空白后检查。用于 OCR 扫描型 PDF 价格行识别。"""
+    import re as _re
+    return _re.sub(r'\s+', '', line)
+
+
 def parse_ankang(text, page_obj=None):
     """安康《安康建设工程造价信息》— A 布局（11 county 表 + 数字/扫描型 PDF）。
 
@@ -907,6 +957,10 @@ def parse_ankang(text, page_obj=None):
       - county 前 2 字匹配（OCR 输出「汉滨」也能匹配「汉滨区」）
       - 价格标签去空白归一（「除 税 价」「含 税 价」都能匹配「除税价」）
     数字 PDF 仍按原逻辑走，扫描型 PDF 由 parse_pdf_pages 调 OCR 后传入。
+
+    2026-07-24 P2 no-county fallback：扫描型 PDF county 表头 OCR 全乱码时，
+    走 _parse_type_A_nocounty（取价格行所有数字的平均值作为代表价），
+    county 字段填 '_OCR_AVG_'。避免以前 0 docs 全部丢失的局面。
     """
     if _is_skip_page(text):
         return []
@@ -926,13 +980,20 @@ def parse_ankang(text, page_obj=None):
                 return True
         return False
 
-    if not counties or not any(_county_match(c) for c in counties):
-        return []
-    # OCR 容错：价格标签去所有空白（OCR 可能输出「除 税 价」）
+    if counties and any(_county_match(c) for c in counties):
+        matched = [k for c in counties for k in ankang_keys if _county_match(c)]
+        # 去重保序
+        seen = set(); uniq = []
+        for k in matched:
+            if k not in seen:
+                seen.add(k); uniq.append(k)
+        return _parse_type_A(text, uniq)
+
+    # P2 fallback：county 缺失但有价格标签 → 走 no-county 模式
     text_norm = re.sub(r'\s+', '', text)
     if '除税价' not in text_norm or '含税价' not in text_norm:
         return []
-    return _parse_type_A(text, counties)
+    return _parse_type_A_nocounty(text)
 
 
 def parse_shangluo(text, page_obj=None):
@@ -997,6 +1058,8 @@ CITY_PARSERS = {
     '汉中': parse_hanzhong,
     '商洛': parse_shangluo,
     '安康': parse_ankang,  # 仅 5期（数字 PDF）有效；1-4期（扫描型）需 OCR，先走 skipped_image_pdf
+    # 2026-07-24 P1: 西安 月度版（2026.1-6月）复用省本级 B 布局 parser（结构类似,需验证兼容性）
+    '西安': parse_shaanxi_province,
 }
 
 

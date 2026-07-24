@@ -41,6 +41,7 @@ city_patterns:
   - 榆林
   - 商洛
   - 宝鸡
+  - 西安  # 2026-07-24 P1: 补上西安,之前 sync 把西安 PDF 当省本级入库(因 city_patterns 缺项)
 
 # 标题中不包含任何 "造价信息" 期刊字样、且不含设区市名的，归为省本级
 province_label: 陕西
