@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 
 from api.helpers import _build_bool_query, safe_search
-from api.dependencies import es, ALL_INDICES
+from api.dependencies import es, ALL_DWD_INDICES
 
 # 中国省份名 → adcode 映射（DataV.GeoAtlas 用 adcode 标识省份）
 _PROVINCE_ADCODE = {
@@ -83,7 +83,7 @@ def geo_distribution(
         },
     }
     try:
-        result = safe_search(es, ALL_INDICES, body)
+        result = safe_search(es, ALL_DWD_INDICES, body)
         buckets = result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
         items = []
         for b in buckets:
@@ -133,7 +133,7 @@ def geo_distribution(
                 },
             }
             try:
-                cq_result = es.search(index=ALL_INDICES, body=cq_body)
+                cq_result = es.search(index=ALL_DWD_INDICES, body=cq_body)
                 cq_buckets = cq_result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
                 raw_items = [{
                     "name": b["key"], "adcode": None,
@@ -185,7 +185,7 @@ def geo_distribution(
                 },
             }
             try:
-                hn_result = es.search(index=ALL_INDICES, body=hn_body)
+                hn_result = es.search(index=ALL_DWD_INDICES, body=hn_body)
                 hn_buckets = hn_result.get("aggregations", {}).get("by_region", {}).get("buckets", [])
                 # 方位列表（名称加「海南省·方位」以避免与海南地图市县 feature 重名）
                 region_items = [{
@@ -422,7 +422,7 @@ def geo_regions():
                 }
             }
         }
-        result = safe_search(es, ALL_INDICES, body)
+        result = safe_search(es, ALL_DWD_INDICES, body)
         prov_buckets = result.get("aggregations", {}).get("provinces", {}).get("buckets", [])
         provinces = []
         for pb in prov_buckets:
