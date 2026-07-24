@@ -214,6 +214,14 @@ def etl_city(
             if source not in _LOCAL_HIT_SOURCES:
                 v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean_v2)
                 source = v2.get("category_v2_source", "")
+            # v0.19+ (2026-07-24) 贵州 ETL 复盘: 加 v3 = clean_breed(raw_breed)
+            #   v1=raw/v2=ODS breed_clean 都不含括号/规格后缀剥离,但 DB 存的是核心名,
+            #   导致 "镀锌钢管 (Q215-235)" 这种 ODS 数据 miss DB "镀锌钢管" 入口。
+            #   clean_breed() 循环剥后缀括号,让 ODS 标准化形式与 DB 对齐。
+            #   73 个 breed / 1704 条 doc 在贵州重新命中。
+            if source not in _LOCAL_HIT_SOURCES and breed_clean and breed_clean != breed_clean_v2:
+                v2 = classify_v3(breed_raw, raw.get("spec", ""), raw.get("unit", ""), breed_clean)
+                source = v2.get("category_v2_source", "")
             source = v2.get("category_v2_source", "")
 
             if source in _LOCAL_HIT_SOURCES:

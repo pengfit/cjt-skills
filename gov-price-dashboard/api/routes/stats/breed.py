@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 
 from api.helpers import safe_search
-from api.dependencies import es, NORM_INDICES
+from api.dependencies import es, LIST_INDICES
 
 router = APIRouter()
 
@@ -14,17 +14,16 @@ def stats_breed_detail(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """返回指定品种的详细规格价格分析（按单位→规格分层聚合）——走 norm_*_price。"""
-    if not NORM_INDICES:
-        return {"data": {"breed": breed, "category": category, "units": [], "total_records": 0}, "warning": "NORM_INDICES 为空"}
+    """返回指定品种的详细规格价格分析（按单位→规格分层聚合）——走 dws_*_price。"""
+    if not LIST_INDICES:
+        return {"data": {"breed": breed, "category": category, "units": [], "total_records": 0}, "warning": "LIST_INDICES 为空"}
     try:
-        # normalized_breed 优先，原 breed 兌底（覆盖不同城市口径差异）
+        # 2026-07-24 P2: DWS 没有 normalized_breed, 直接按 breed 字段匹配（覆盖不同城市口径差异）
         body = {
             "query": {
                 "bool": {
                     "should": [
-                        {"term": {"normalized_breed.keyword": breed}},
-                        {"term": {"breed.keyword": breed}},
+                        {"term": {"breed": breed}},
                     ],
                     "minimum_should_match": 1,
                 }
@@ -56,7 +55,7 @@ def stats_breed_detail(
                 }
             }
         }
-        result = safe_search(es, NORM_INDICES, body)
+        result = safe_search(es, LIST_INDICES, body)
         aggs = result.get("aggregations", {})
         units_data = []
         for ub in aggs.get("by_unit", {}).get("buckets", []):

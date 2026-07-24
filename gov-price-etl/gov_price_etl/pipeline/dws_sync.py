@@ -86,6 +86,10 @@ def _source_to_dws(d: dict) -> dict:
     for f in ("date", "publish_time"):
         if not dws_doc.get(f):
             dws_doc.pop(f, None)
+    # v0.19+ (2026-07-24): 防御性兜底——若上游未设置 attr_source，默认 _fallback_
+    # 原因：湖南 87 条 price=0 走"价格无效"分支绕过 stage 1/2/3 的显式赋值，
+    # 需在最终 DWS 写入前兜底，避免 attr_source 字段缺失。
+    dws_doc.setdefault("attr_source", "_fallback_")
     return dws_doc
 
 
@@ -343,8 +347,19 @@ def _dwd_to_dws_three_stages(
             doc_id = h["_id"]
             d = dict(h["_source"])
             hits_by_id[doc_id] = h
-            # 价格过滤：price 和 tax_price 都为空/0 → 跳过（2026-06-24 道友需求）
+            # 价格过滤：price 和 tax_price 都为空/0 → 走 fallback 路径
+            # v0.19+ (2026-07-24): 不再 skip，而是写 DWS 并标 attr_source="_fallback_"。
+            # 改前：continue 导致 DWD 有但 DWS 没有（湖南 87 条 gap）。
+            # 改后：保留 spec/breed 信息入 DWS，ai_ok=False，ai_failed_reason="no_price"。
+            # 消费者可用 attr_source="_fallback_" 或 ai_ok=false 过滤掉。
             if not _is_price_valid(d):
+                fb_doc = _source_to_dws(d)
+                fb_doc["attr_source"] = "_fallback_"
+                fb_doc["attr"] = []
+                fb_doc["ai_ok"] = False
+                fb_doc["ai_failed_reason"] = "no_price"
+                dws_docs_s2.append(fb_doc)
+                dws_ids_s2.append(doc_id)
                 continue
             spec = d.get("spec", "")
             breed = d.get("breed", "")

@@ -3,26 +3,26 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 
 from api.helpers import safe_search
-from api.dependencies import es, NORM_INDICES
+from api.dependencies import es, LIST_INDICES
 
 router = APIRouter()
 
 @router.get("/api/stats/categories")
 def stats_categories(size: int = Query(100, ge=1, le=500)):
-    """返回所有产品类别及数据量（走 norm_*_price，保证跨城统一品种名）"""
-    if not NORM_INDICES:
-        return {"data": [], "warning": "NORM_INDICES 为空（未扫到 norm_*_price，请确认 ETL 已跑过归一化）"}
+    """返回所有产品类别及数据量（走 dws_*_price，保证跨城统一品种名）"""
+    if not LIST_INDICES:
+        return {"data": [], "warning": "LIST_INDICES 为空（未扫到 dws_*_price，请确认 ETL 已跑过归一化）"}
     try:
         body = {
             "size": 0,
             "aggs": {
                 "categories": {
-                    # NORM 里 category 是 text 类型，必须用 category.keyword 才能 terms agg
-                    "terms": {"field": "category.keyword", "size": size}
+                    # NORM 里 category 是 text 类型，必须用 category 才能 terms agg
+                    "terms": {"field": "category", "size": size}
                 }
             }
         }
-        result = safe_search(es, NORM_INDICES, body)
+        result = safe_search(es, LIST_INDICES, body)
         buckets = result.get("aggregations", {}).get("categories", {}).get("buckets", [])
         return {
             "data": [
@@ -47,9 +47,9 @@ def stats_category_detail(
     province_limit: int = Query(20, ge=1, le=50),
     breed_limit: int = Query(20, ge=1, le=100),
 ):
-    """返回指定类别的省份分布、热门品种（走 norm_*_price，跨城归一品种）"""
-    if not NORM_INDICES:
-        return {"data": {}, "warning": "NORM_INDICES 为空"}
+    """返回指定类别的省份分布、热门品种（走 dws_*_price，跨城归一品种）"""
+    if not LIST_INDICES:
+        return {"data": {}, "warning": "LIST_INDICES 为空"}
     try:
         # query：兼容中文 cat ("建筑工程") 和 L3 code ("01.05.07")
         body = {
@@ -57,8 +57,8 @@ def stats_category_detail(
                 "bool": {
                     "should": [
                         {"term": {"category": category}},
-                        {"term": {"category.keyword": category}},
-                        {"term": {"category_l3.keyword": category}},
+                        {"term": {"category": category}},
+                        {"term": {"category_l3": category}},
                     ],
                     "minimum_should_match": 1,
                 }
@@ -71,7 +71,7 @@ def stats_category_detail(
                     "terms": {"field": "province", "size": province_limit}
                 },
                 "breeds": {
-                    "terms": {"field": "normalized_breed.keyword", "size": breed_limit},
+                    "terms": {"field": "breed", "size": breed_limit},
                     "aggs": {
                         "province": {"terms": {"field": "province", "size": 1}},
                         "specs": {"terms": {"field": "spec", "size": 3}},
@@ -87,11 +87,11 @@ def stats_category_detail(
                     }
                 },
                 "breed_count": {
-                    "cardinality": {"field": "normalized_breed.keyword"}
+                    "cardinality": {"field": "breed"}
                 }
             }
         }
-        result = safe_search(es, NORM_INDICES, body)
+        result = safe_search(es, LIST_INDICES, body)
         aggs = result.get("aggregations", {})
 
         provinces = [
@@ -144,17 +144,17 @@ def stats_category_detail(
 
 @router.get("/api/stats/category-price-ranges")
 def category_price_ranges(category: str = Query(...)):
-    """返回指定类别的动态价格区间，按分位数分为5段，每段覆盖约20%数据（走 norm_*_price）"""
-    if not NORM_INDICES:
-        return {"data": [], "stats": {"min": 0, "max": 0, "avg": 0}, "warning": "NORM_INDICES 为空"}
+    """返回指定类别的动态价格区间，按分位数分为5段，每段覆盖约20%数据（走 dws_*_price）"""
+    if not LIST_INDICES:
+        return {"data": [], "stats": {"min": 0, "max": 0, "avg": 0}, "warning": "LIST_INDICES 为空"}
     try:
         # Get percentiles to build equal-frequency ranges
         stats_body = {
             "query": {
                 "bool": {
                     "should": [
-                        {"term": {"category.keyword": category}},
-                        {"term": {"category_l3.keyword": category}},
+                        {"term": {"category": category}},
+                        {"term": {"category_l3": category}},
                     ],
                     "minimum_should_match": 1,
                 }
@@ -172,7 +172,7 @@ def category_price_ranges(category: str = Query(...)):
                 }
             }
         }
-        stats_result = safe_search(es, NORM_INDICES, stats_body)
+        stats_result = safe_search(es, LIST_INDICES, stats_body)
         aggs = stats_result.get("aggregations", {})
         min_p = aggs.get("min_price", {}).get("value", []) or 0
         max_p = aggs.get("max_price", {}).get("value", []) or 0
@@ -300,17 +300,17 @@ def stats_category_breeds(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """返回指定类别的去重品种列表（分页）——走 norm_*_price，使用 normalized_breed 跨城统一品种名。"""
-    if not NORM_INDICES:
-        return {"data": {"category": category, "breeds": []}, "total": 0, "warning": "NORM_INDICES 为空"}
+    """返回指定类别的去重品种列表（分页）——走 dws_*_price，使用 DWS 品种字段（不再跨城归一）。"""
+    if not LIST_INDICES:
+        return {"data": {"category": category, "breeds": []}, "total": 0, "warning": "LIST_INDICES 为空"}
     try:
         body = {
             "query": {
                 "bool": {
                     "should": [
                         {"term": {"category": category}},
-                        {"term": {"category.keyword": category}},
-                        {"term": {"category_l3.keyword": category}},
+                        {"term": {"category": category}},
+                        {"term": {"category_l3": category}},
                     ],
                     "minimum_should_match": 1,
                 }
@@ -318,7 +318,7 @@ def stats_category_breeds(
             "size": 0,
             "aggs": {
                 "all_breeds": {
-                    "terms": {"field": "normalized_breed.keyword", "size": 10000},
+                    "terms": {"field": "breed", "size": 10000},
                     "aggs": {
                         "cities": {"terms": {"field": "_index", "size": 50}},
                         "province": {"terms": {"field": "province", "size": 1}},
@@ -336,7 +336,7 @@ def stats_category_breeds(
                 }
             }
         }
-        result = safe_search(es, NORM_INDICES, body)
+        result = safe_search(es, LIST_INDICES, body)
         aggs = result.get("aggregations", {})
         all_buckets = aggs.get("all_breeds", {}).get("buckets", [])
 

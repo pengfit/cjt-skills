@@ -282,7 +282,9 @@ def _city_label(norm_index: str) -> str:
 def _city_latest_two_periods(norm_index: str):
     """用 runtime_mappings 把 period_end 转为 keyword,terms agg 取最近 2 个 unique 值。
     适用于所有期刊节奏 (月刊/双月刊/季刊),不依赖 date_histogram 的 bucket 粒度。
-    返回 (latest_period_end_ms, prev_period_end_ms) | None
+    2026-07-24: 允许仅 1 期时也返回 (latest, None) — 单期也能跑 _period_norm_prices 拿 l3/l1,
+    只是拿不到变化率。
+    返回 (latest_period_end_ms, prev_period_end_ms | None) | None(总失败)
     """
     now = time.time()
     cached = _city_period_cache.get(norm_index)
@@ -316,20 +318,38 @@ def _city_latest_two_periods(norm_index: str):
             allow_no_indices=True,
         )
         buckets = r.get("aggregations", {}).get("by_period", {}).get("buckets", [])
-        if len(buckets) < 2:
+        if not buckets:
             return None
+        # 2026-07-24: 改 — len 1 也允许(返回 latest + None)
+        # 原来 len(buckets) < 2 直接 None,导致单期城市整个被跳过,meta 永远填不上
+        if len(buckets) < 2:
+            print(f"[market] _city_latest_two_periods({norm_index}) 仅 1 期,变化率将为 None", flush=True)
         # key 是 ISO 字符串 (如 "2026-06-30T00:00:00.000Z"),转 epoch ms
         result = []
         for b in buckets[:2]:
             try:
-                pe_clean = b["key"].replace("Z", "+00:00")
-                pe_dt = datetime.fromisoformat(pe_clean)
-                result.append(int(pe_dt.timestamp() * 1000))
+                pe_str = b["key"]
+                # 2026-07-24: 兼容两种格式 — ES date 字段 toString() 返回 epoch ms 数字串("1774915200000"),
+                # 旧版本可能是 ISO 日期串("2026-03-31T08:00:00.000Z")。isnumeric 优先走数字路径。
+                try:
+                    if pe_str.isdigit():
+                        pe_ms = int(pe_str)
+                    else:
+                        pe_clean = pe_str.replace("Z", "+00:00")
+                        pe_dt = datetime.fromisoformat(pe_clean)
+                        pe_ms = int(pe_dt.timestamp() * 1000)
+                    result.append(pe_ms)
+                except Exception:
+                    continue
             except Exception:
                 continue
-        if len(result) < 2:
+        if not result:
             return None
-        ret = (result[0], result[1])
+        # 2026-07-24: 只有 1 期时 prev 置 None(调用方需判断)
+        if len(result) == 1:
+            ret = (result[0], None)
+        else:
+            ret = (result[0], result[1])
         _city_period_cache[norm_index] = (now, ret)
         return ret
     except Exception:
@@ -644,7 +664,8 @@ def overview():
         else:
             latest_end, prev_end = 0, 0
         latest_end_global = max(latest_end_global, latest_end)
-        prev_end_global = max(prev_end_global, prev_end)
+        # 2026-07-24: prev_end 可能为 None(单期城市) — max 不支持 None,转为 0
+        prev_end_global = max(prev_end_global, prev_end or 0)
         cities_meta.append({
             "key": idx.replace("norm_", "").replace("_price", ""),
             "label": _city_label(idx),
@@ -662,6 +683,9 @@ def overview():
             continue
         latest_end, prev_end = periods
         latest = _period_norm_prices(idx, latest_end, breed_size=2000)
+        # 2026-07-24: prev_end 可能 None(单期城市) — 跳过 prev 计算
+        if not prev_end:
+            continue
         prev = _period_norm_prices(idx, prev_end, breed_size=2000)
         common = set(latest) & set(prev)
         if not common:
@@ -939,26 +963,30 @@ def change_heatmap(
                     # 无任何筛选 → 跳过(没意义调 _period_norm_prices_by_attr)
                     continue
                 latest = _period_norm_prices_by_attr(norm_idx, latest_end, breed_key, breed_filters_to_use)
-                prev = _period_norm_prices_by_attr(norm_idx, prev_end, breed_key, breed_filters_to_use)
+                # 2026-07-24: prev_end 可能为 None(单期城市),跳过 prev 查询
+                prev = _period_norm_prices_by_attr(norm_idx, prev_end, breed_key, breed_filters_to_use) if prev_end else {}
+                # 2026-07-24: 只要 latest 有数据就 enrich 元数据(l3/l1/unit) — 不再依赖 prev 也有
+                if breed_key in latest:
+                    _enrich_breed_meta(breeds[bi], latest[breed_key])
                 if breed_key in latest and breed_key in prev:
                     curr_p = latest[breed_key]["price"]
                     prev_p = prev[breed_key]["price"]
                     if prev_p > 0:
                         matrix[bi][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
-                    # v0.31: 从 latest 首次填 breeds[bi] 元数据(不覆盖已有)
-                    _enrich_breed_meta(breeds[bi], latest[breed_key])
         else:
             # 多 breed 模式(混合,无规格对齐)
             latest = _period_norm_prices(norm_idx, latest_end, breed_size=1500)
-            prev = _period_norm_prices(norm_idx, prev_end, breed_size=1500)
+            # 2026-07-24: prev_end 可能为 None(单期城市),跳过 prev 查询
+            prev = _period_norm_prices(norm_idx, prev_end, breed_size=1500) if prev_end else {}
             for bi, breed_key in enumerate(row_keys):
+                # 2026-07-24: 只要 latest 有数据就 enrich 元数据(l3/l1/unit) — 不再依赖 prev 也有
+                if breed_key in latest:
+                    _enrich_breed_meta(breeds[bi], latest[breed_key])
                 if breed_key in latest and breed_key in prev:
                     curr_p = latest[breed_key]["price"]
                     prev_p = prev[breed_key]["price"]
                     if prev_p > 0:
                         matrix[bi][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
-                    # v0.31: 同上 — 首次填元数据,累加 records
-                    _enrich_breed_meta(breeds[bi], latest[breed_key])
 
     return {
         "breeds": breeds,
