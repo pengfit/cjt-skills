@@ -189,7 +189,7 @@ gov-price-dashboard/
 | 重庆 | 重庆 | county | Browser 35 区县 + 3 source |
 | 济南 | 山东 | catalogue | Playwright + REST API 41 目录 |
 | 日照 | 山东 | catalogue | Playwright + REST 3 tab |
-| 菏泽 / 河南 / 青岛 / 海南 / 呼和浩特 / 湖南 / 江西 / 宁夏 / 青海 / 陕西 / 威海 | 各省 | period | HTML + PDF，按期期刊 |
+| 菏泽 / 河南 / 青岛 / 海南 / 呼和浩特 / 湖南 / 江西 / 吉林 / 宁夏 / 青海 / 山西 / 陕西 / 威海 / 贵州 | 各省 | period | HTML + PDF，按期期刊 |
 | 新疆 | 新疆 | county | HTML + xlsx 多 sheet |
 
 完整字段定义见各 `*-price/SKILL.md`。
