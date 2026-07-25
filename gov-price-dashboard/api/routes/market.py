@@ -833,7 +833,8 @@ def sparkline(
             "query": {
                 "bool": {
                     "filter": [
-                        {"terms": {"normalized_breed.keyword": breed_list}}
+                        {"terms": {"normalized_breed.keyword": breed_list}},
+                        {"range": {"period_end": {"gte": "now-12m/m"}}},
                     ]
                 }
             },
@@ -846,7 +847,6 @@ def sparkline(
                                 "field": "period_end",
                                 "calendar_interval": "month",
                                 "min_doc_count": 1,
-                                "size": periods,
                                 "order": {"_key": "asc"},  # 升序 — 左旧右新
                             },
                             "aggs": {
@@ -1478,30 +1478,39 @@ def related_breeds(
 
 
 @router.get("/random-breeds")
-def random_breeds():
-    """默认随机 12 个产品。count 硬编码防滥用 — 不接受参数。"""
-    count = RANDOM_BREEDS_COUNT
-    norm_list = _norm_indices()
-    if not norm_list:
-        return {"results": [], "total": 0, "count": count}
+def random_breeds(
+    count: int = Query(20, ge=1, le=50, description="返回品种数,默认 20 与源城市数相当"),
+):
+    """2026-07-25 重做分层采样。
 
-    pool_size = RANDOM_BREEDS_POOL_SIZE
-    body = {
-        "size": 0,
-        "aggs": {
-            "all_breeds": {
-                "terms": {"field": "normalized_breed.keyword", "size": pool_size},
-                "aggs": {
-                    "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
-                    "all_specs": {
-                        "nested": {"path": "attr_norm"},
-                        "aggs": {
-                            "by_k": {
-                                "terms": {"field": "attr_norm.k", "size": 10},
-                                "aggs": {
-                                    "values": {
-                                        "terms": {"field": "attr_norm.v", "size": 30}
-                                    }
+    原版 count=12 + 全池 terms agg size=200,数据少的小城
+    (吉林/呼和浩特/菏泽 — doc_count << chongqing/jiangxi)
+    永远进不了 pool,刷新 N 次也刷不到他们。
+
+    两阶段:
+      Phase 1: per-city terms agg — 每城 random 抽,保证全城覆盖
+      Phase 2: 还差 → 全池补
+    """
+    norm_list = _norm_indices()
+    n_cities = len(norm_list)
+    if not n_cities:
+        return {"results": [], "total": 0, "count": count}
+    per_city = max(1, count // n_cities)
+
+    def _fetch_one(idx):
+        """单索引 terms agg,带 l3 + 规格"""
+        body = {
+            "size": 0,
+            "aggs": {
+                "breeds": {
+                    "terms": {"field": "normalized_breed.keyword", "size": per_city * 3 + 5},
+                    "aggs": {
+                        "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
+                        "all_specs": {
+                            "nested": {"path": "attr_norm"},
+                            "aggs": {
+                                "by_k": {"terms": {"field": "attr_norm.k", "size": 10},
+                                    "aggs": {"values": {"terms": {"field": "attr_norm.v", "size": 30}}}
                                 }
                             }
                         }
@@ -1509,36 +1518,63 @@ def random_breeds():
                 }
             }
         }
-    }
-    try:
-        r = es.search(
-            index=",".join(norm_list),
-            body=body,
-            ignore_unavailable=True,
-            allow_no_indices=True,
-        )
-        all_buckets = r["aggregations"]["all_breeds"]["buckets"]
-        n_pick = min(len(all_buckets), count)
-        sampled = random.sample(all_buckets, n_pick) if n_pick > 0 else []
-        sampled.sort(key=lambda b: b["doc_count"], reverse=True)
-        results = []
-        for breed_bucket in sampled:
-            breed = breed_bucket["key"]
-            l3 = breed_bucket["l3"]["buckets"][0]["key"] if breed_bucket["l3"]["buckets"] else ""
-            spec_attrs = {}
-            for k_bucket in breed_bucket["all_specs"]["by_k"]["buckets"]:
-                spec_attrs[k_bucket["key"]] = [v["key"] for v in k_bucket["values"]["buckets"]]
-            spec_summary = _summarize_specs(spec_attrs)
-            results.append({
-                "breed": breed,
-                "category_name_l3": l3,
-                "spec_attrs": spec_attrs,
-                "spec_summary": spec_summary,
-                "records": breed_bucket["doc_count"],
-            })
-        return {"results": results, "total": len(results), "count": count}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            r = es.search(index=idx, body=body, ignore_unavailable=True, allow_no_indices=True)
+            return r.get("aggregations", {}).get("breeds", {}).get("buckets", [])
+        except Exception:
+            return []
+
+    def _to_result(b):
+        breed = b["key"]
+        l3 = b["l3"]["buckets"][0]["key"] if b["l3"]["buckets"] else ""
+        spec_attrs = {}
+        for k_bucket in b.get("all_specs", {}).get("by_k", {}).get("buckets", []):
+            spec_attrs[k_bucket["key"]] = [v["key"] for v in k_bucket["values"]["buckets"]]
+        return {
+            "breed": breed,
+            "category_name_l3": l3,
+            "spec_attrs": spec_attrs,
+            "spec_summary": _summarize_specs(spec_attrs),
+            "records": b["doc_count"],
+        }
+
+    results = []
+    picked = set()
+    # Phase 1 (修订 2026-07-25): 每城 random 抽 1 个(random.sample 打乱城顺序,避免顺序偏差)
+    # 即便 count=12 也能保证数据少的城(吉林/呼和浩特/菏泽)有同等概率被选
+    # 不再因 for 循环顺序 + break 导致后注册的小城被截掉
+    for norm_idx in random.sample(norm_list, len(norm_list)):
+        buckets = _fetch_one(norm_idx)
+        if not buckets:
+            continue
+        b = random.choice(buckets)
+        if b["key"] in picked:
+            continue
+        picked.add(b["key"])
+        item = _to_result(b)
+        item["city_index"] = norm_idx  # 前端展示来源城
+        results.append(item)
+    random.shuffle(results)
+    # 已收集 = len(results) (最多 n_cities 条,每城 1 个)
+    # count <= len(results) → 直接截 count;count > len(results) → Phase 2 补齐
+    if count <= len(results):
+        results = results[:count]
+    else:
+        # Phase 2: count 大于城市数,从全池 random 补到 count
+        remain = count - len(results)
+        all_buckets = []
+        for norm_idx in norm_list:
+            for b in _fetch_one(norm_idx):
+                if b["key"] not in picked:
+                    all_buckets.append(b)
+                    picked.add(b["key"])
+        random.shuffle(all_buckets)
+        for b in all_buckets[:remain]:
+            item = _to_result(b)
+            item["city_index"] = norm_idx
+            results.append(item)
+
+    return {"results": results, "total": len(results), "count": count}
 
 
 @router.get("/attr-keys")
