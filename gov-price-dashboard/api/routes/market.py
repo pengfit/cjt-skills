@@ -806,6 +806,88 @@ def market_data_quality():
         })
     return {"cities": sorted(cities, key=lambda c: (c["tone"] != "alert", c["label"]))}
 
+@router.get("/sparkline")
+def sparkline(
+    breeds: Optional[str] = Query(None, description="品种列表(逗号分隔)"),
+    periods: int = Query(6, ge=2, le=24, description="返回 N 期的折线数据"),
+):
+    """2026-07-25 (A.2) — 给 /market 页热力图行标签下的 sparkline 提供数据。
+
+    每城每品种最近 N 期的均价折线(period_end 升序)。
+    用 ES date_histogram 聚合,每城 1 个 query 拿所有品种。
+    数据从 norm_*_price 索引读,NORM 索引无数据时降级 DWS。
+    """
+    breed_list = [b.strip() for b in (breeds or "").split(",") if b.strip()]
+    if not breed_list:
+        return {"timelines": {}}
+
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"timelines": {}}
+
+    timelines: dict = {}
+    for s_city, info in [(idx.replace("norm_", "").replace("_price", ""), idx) for idx in norm_list]:
+        norm_idx = info
+        body = {
+            "size": 0,
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"terms": {"normalized_breed.keyword": breed_list}}
+                    ]
+                }
+            },
+            "aggs": {
+                "by_breed": {
+                    "terms": {"field": "normalized_breed.keyword", "size": len(breed_list) * 2},
+                    "aggs": {
+                        "by_period": {
+                            "date_histogram": {
+                                "field": "period_end",
+                                "calendar_interval": "month",
+                                "min_doc_count": 1,
+                                "size": periods,
+                                "order": {"_key": "asc"},  # 升序 — 左旧右新
+                            },
+                            "aggs": {
+                                "avg_price": {"avg": {"field": "price"}}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        try:
+            r = es.search(
+                index=norm_idx,
+                body=body,
+                ignore_unavailable=True,
+                allow_no_indices=True,
+            )
+        except Exception:
+            continue
+
+        for breed_bucket in r.get("aggregations", {}).get("by_breed", {}).get("buckets", []):
+            breed_name = breed_bucket["key"]
+            period_buckets = (
+                breed_bucket.get("by_period", {}).get("buckets", [])
+            )
+            points = []
+            for p in period_buckets:
+                avg = p["avg_price"]["value"]
+                if avg is None or avg <= 0:
+                    continue
+                points.append({
+                    "period_end": p["key"],   # ms
+                    "avg_price": round(float(avg), 4),
+                })
+            if not points:
+                continue
+            timelines.setdefault(breed_name, {})[s_city] = points
+
+    return {"timelines": timelines, "periods": periods}
+
+
 @router.get("/movers")
 def movers(
     type: str = Query("up", pattern="^(up|down)$"),

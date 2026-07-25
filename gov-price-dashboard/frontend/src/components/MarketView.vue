@@ -211,6 +211,50 @@
                         <template v-else>全规格聚合</template>
                       </span>
                     </div>
+                    <!-- 2026-07-25 (A.1): 跨城绝对价 mini bar -->
+                    <svg
+                      v-if="heatmap.prices_grid?.[bi]?.length"
+                      class="m-minibar"
+                      :viewBox="`0 0 ${heatmap.prices_grid[bi].length * 4} 18`"
+                      :width="heatmap.prices_grid[bi].length * 4"
+                      height="18"
+                      preserveAspectRatio="none"
+                      :title="minibarTitle(heatmap.prices_grid[bi], heatmap.units_grid?.[bi])"
+                    >
+                      <line
+                        v-for="(p, pi) in heatmap.prices_grid[bi]"
+                        :key="`p-${pi}`"
+                        :x1="pi * 4 + 2" :y1="14"
+                        :x2="pi * 4 + 2" :y2="2"
+                        stroke-width="2"
+                        :stroke="minibarColor(p, heatmap.price_min, heatmap.price_max)"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    <!-- 2026-07-25 (A.2): sparkline 历史折线 -->
+                    <svg
+                      v-if="sparklinePath(breed.breed)"
+                      class="m-sparkline"
+                      viewBox="0 0 100 18"
+                      preserveAspectRatio="none"
+                      :title="sparklineTitle(breed.breed)"
+                    >
+                      <path
+                        :d="sparklinePath(breed.breed)"
+                        :stroke="sparklineTrend(breed.breed)"
+                        stroke-width="1.5"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <circle
+                        v-if="sparklineLastPoint(breed.breed)"
+                        :cx="sparklineLastPoint(breed.breed).x"
+                        :cy="sparklineLastPoint(breed.breed).y"
+                        r="1.6"
+                        :fill="sparklineTrend(breed.breed)"
+                      />
+                    </svg>
                   </div>
                   <div
                     v-for="(city, ci) in chunk.cities"
@@ -382,6 +426,8 @@ const overview = ref({})
 const heatmap = ref({ breeds: [], cities: [], matrix: [], spec_fingerprint: null })
 // 2026-07-25: 数据来源模块 — /api/market/sources 返回全量源站清单（按省分组）
 const sources = ref({ total_skills: 0, total_cities: 0, sources: [] })
+// 2026-07-25 (A.2): sparkline 历史折线 — 行标签下 SVG
+const sparklines = ref({ timelines: {}, periods: 6 })
 // 2026-07-25 (B.1): 数据治理透明卡 — 每城新鲜度
 const quality = ref({ cities: [] })
 
@@ -722,9 +768,15 @@ async function loadHeatmap() {
     params.push(`breed_filters=${encodeURIComponent(breedFilterParts.join('||'))}`)
   }
   const url = '/api/market/change-heatmap?' + params.join('&')
+  // 2026-07-25 (A.2): 并行拉 sparkline
+  const sparkUrl = '/api/market/sparkline?breeds=' + encodeURIComponent(selectedBreeds.value.join(','))
   try {
-    const r = await fetchJson(url)
+    const [r, sp] = await Promise.all([
+      fetchJson(url),
+      fetchJson(sparkUrl).catch(() => ({ timelines: {} })),
+    ])
     heatmap.value = r || { breeds: [], cities: [], matrix: [] }
+    sparklines.value = sp || { timelines: {}, periods: 6 }
   } catch (e) {
     console.error('[market] heatmap 加载失败', e)
   }
@@ -879,6 +931,82 @@ function cellStyle(v) {
 function cellTitle(breed, city, v) {
   if (v == null) return `${breed.breed} · ${city.label}: 无本期数据`
   return `${breed.breed} · ${city.label}: ${v >= 0 ? '+' : ''}${v}%`
+}
+
+// 2026-07-25 (A.1 + A.2): 5 个 helper
+function formatNumber(n) {
+  if (n == null) return '—'
+  if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return Math.round(n).toString()
+}
+function minibarTitle(prices, units) {
+  if (!prices?.length) return ''
+  const valid = prices.filter(p => p != null && p > 0)
+  if (!valid.length) return '无价格数据'
+  const min = Math.min(...valid), max = Math.max(...valid)
+  const u = units?.find(x => x) || ''
+  return `${valid.length} 城 · ${formatNumber(min)}-${formatNumber(max)} ${u}/城`
+}
+function minibarColor(p, pmin, pmax) {
+  if (p == null || p <= 0) return '#e5e7eb'
+  if (pmin == null || pmax == null || pmax === pmin) return '#3b82f6'
+  const t = (p - pmin) / (pmax - pmin)
+  if (t < 0.5) {
+    const r = Math.round(34 + (234 - 34) * t * 2)
+    const g = Math.round(197 + (179 - 197) * t * 2)
+    const b = Math.round(94 + (8 - 94) * t * 2)
+    return `rgb(${r},${g},${b})`
+  }
+  const t2 = (t - 0.5) * 2
+  const r = Math.round(234 + (239 - 234) * t2)
+  const g = Math.round(179 + (68 - 179) * t2)
+  const b = Math.round(8 + (68 - 8) * t2)
+  return `rgb(${r},${g},${b})`
+}
+function sparklinePath(breed) {
+  const tl = sparklines.value?.timelines?.[breed]
+  if (!tl) return ''
+  const firstCity = Object.keys(tl)[0]
+  const series = tl[firstCity]
+  if (!series || series.length < 2) return ''
+  const vals = series.map(p => p.avg_price)
+  const min = Math.min(...vals), max = Math.max(...vals)
+  const range = (max - min) || 1
+  const stepX = 100 / (vals.length - 1)
+  return vals.map((v, i) => {
+    const x = (i * stepX).toFixed(1)
+    const y = (16 - ((v - min) / range) * 14).toFixed(1)
+    return `${i === 0 ? 'M' : 'L'}${x},${y}`
+  }).join(' ')
+}
+function sparklineLastPoint(breed) {
+  const firstCity = Object.keys(sparklines.value?.timelines?.[breed] || {})[0]
+  const series = sparklines.value?.timelines?.[breed]?.[firstCity]
+  if (!series || series.length < 2) return null
+  const vals = series.map(p => p.avg_price)
+  const min = Math.min(...vals), max = Math.max(...vals)
+  const range = (max - min) || 1
+  const stepX = 100 / (vals.length - 1)
+  return { x: 100, y: (16 - ((vals[vals.length - 1] - min) / range) * 14).toFixed(1) }
+}
+function sparklineTrend(breed) {
+  const firstCity = Object.keys(sparklines.value?.timelines?.[breed] || {})[0]
+  const series = sparklines.value?.timelines?.[breed]?.[firstCity]
+  if (!series || series.length < 2) return '#94a3b8'
+  const f = series[0].avg_price, l = series[series.length - 1].avg_price
+  if (l > f * 1.02) return '#ef4444'
+  if (l < f * 0.98) return '#10b981'
+  return '#94a3b8'
+}
+function sparklineTitle(breed) {
+  const firstCity = Object.keys(sparklines.value?.timelines?.[breed] || {})[0]
+  const series = sparklines.value?.timelines?.[breed]?.[firstCity]
+  if (!series || series.length < 2) return '无历史价格'
+  const f = series[0], l = series[series.length - 1]
+  const pct = ((l.avg_price - f.avg_price) / f.avg_price * 100).toFixed(1)
+  const dir = l.avg_price > f.avg_price ? '+' : ''
+  return `${series.length} 期 · ${formatNumber(f.avg_price)} → ${formatNumber(l.avg_price)} (${dir}${pct}%)`
 }
 </script>
 
@@ -2111,6 +2239,28 @@ function cellTitle(breed, city, v) {
   background: linear-gradient(90deg, #3b82f6 0%, #1e40af 50%, #3b82f6 100%);
   border-radius: 14px 14px 0 0;
 }
+
+/* 2026-07-25 (A.1): 跨城均价 mini bar — 行标签底部 4px/格 横竖线色阶 */
+.m-minibar {
+  display: block;
+  margin-top: 4px;
+  width: 100%;
+  height: 18px;
+  opacity: 0.85;
+  transition: opacity 0.18s;
+}
+.m-heatmap-row-label:hover .m-minibar { opacity: 1; }
+
+/* 2026-07-25 (A.2): sparkline 历史折线 */
+.m-sparkline {
+  display: block;
+  margin-top: 2px;
+  width: 100%;
+  height: 18px;
+  opacity: 0.85;
+  transition: opacity 0.18s;
+}
+.m-heatmap-row-label:hover .m-sparkline { opacity: 1; }
 .m-sources-toolbar {
   display: flex;
   align-items: center;
