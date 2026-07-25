@@ -77,6 +77,8 @@ _PUBLIC_PATHS = {
     "/api/market/random-breeds",
     # 2026-07-23 v0.33: 相邻品种推荐(按 l1/l2/l3 + spec_attrs 排序,用于搜索时更新推荐区)
     "/api/market/related-breeds",
+    # 2026-07-25: /market 「数据来源」模块 — 全量源站清单(按省分组)
+    "/api/market/sources",
 }
 
 

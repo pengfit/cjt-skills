@@ -711,6 +711,61 @@ def overview():
     }
 
 
+# 2026-07-25 P0: /sources — /market 页「数据来源」模块的入参来源
+#   - 不鉴权：与 /overview /movers /hot-categories 等同走公开页（不需 JWT）
+#   - 不查 ES：纯走 skill_registry（启动时一次扫盘 + 进程级缓存），零开销
+#   - v0.2 (2026-07-25): 按道友反馈，去掉按省分组 — 改为平铺 sources 数组
+#     全部 20 个源站一张 grid 展示，更直观
+#   - 每个 skill 暴露：key / label / province / cities / site_url / skill_dir
+@router.get("/sources")
+def sources():
+    """全量源网站清单（平铺）。给 /market 页「数据来源」模块使用。
+
+    返回:
+      {
+        "total_skills": int,
+        "total_cities": int,
+        "sources": [
+          {"key": "weihai", "label": "威海", "province": "山东",
+           "cities": ["威海"], "site_url": "https://..."},
+          ...
+        ]
+      }
+    """
+    items = []
+    total_cities = 0
+    for s in _registry_get_all():
+        site_url = s.get("site_url") or ""
+        if not site_url:
+            # 没有 site_url 的 skill（老 yml 缺 config 推导）跳过，不在前端展示坏链
+            continue
+        cities = s.get("cities") or []
+        if isinstance(cities, list):
+            total_cities += len(cities)
+        items.append({
+            "key": s.get("key", ""),
+            "label": s.get("label", s.get("key", "")),
+            "province": s.get("province") or "",
+            "cities": cities if isinstance(cities, list) else [],
+            "site_url": site_url,
+            "skill_dir": s.get("skill_dir", ""),
+        })
+
+    # 全局按 label 拼音排序（locale，无 locale 时退化为字典序）
+    try:
+        import locale as _locale
+        _locale.setlocale(_locale.LC_ALL, "")
+        items.sort(key=lambda x: _locale.strxfrm(x["label"]))
+    except Exception:
+        items.sort(key=lambda x: x["label"])
+
+    return {
+        "total_skills": len(items),
+        "total_cities": total_cities,
+        "sources": items,
+    }
+
+
 @router.get("/movers")
 def movers(
     type: str = Query("up", pattern="^(up|down)$"),

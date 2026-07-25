@@ -267,6 +267,40 @@
 
       <!-- 2026-07-24 P3: SOURCE marker 删除,直接进脚注 -->
 
+      <!-- 2026-07-25: 数据来源模块 — /api/market/sources 平铺展示全量源站链接(v0.2 去省份分块) -->
+      <section class="m-card m-card-sources" v-if="sources.sources.length">
+        <header class="m-sources-toolbar">
+          <div class="m-sources-toolbar-info">
+            <h2 class="m-sources-title">🔗 数据来源 · 各省/市住建局官方造价信息</h2>
+            <p class="m-sources-toolbar-sub">
+              共 <strong>{{ sources.total_skills }}</strong> 个源站 · 覆盖 <strong>{{ sources.total_cities }}</strong> 个城市/区县
+              · 点击进入源网站查看原始期刊
+            </p>
+          </div>
+        </header>
+        <div class="m-sources-grid">
+          <a
+            v-for="sk in sources.sources"
+            :key="sk.key"
+            :href="sk.site_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="m-source-card"
+            :title="`${sk.label} — ${sk.province || ''}${sk.cities.length ? ' · ' + sk.cities.slice(0, 6).join(' / ') + (sk.cities.length > 6 ? ' …' : '') : ''}`"
+          >
+            <span class="m-source-card-icon">🌐</span>
+            <span class="m-source-card-info">
+              <span class="m-source-card-label">{{ sk.label }}</span>
+              <span class="m-source-card-meta">
+                <span v-if="sk.province" class="m-source-card-province">{{ sk.province }}</span>
+                <span class="m-source-card-cities">{{ sk.cities.length }} 城</span>
+              </span>
+            </span>
+            <span class="m-source-card-arrow">↗</span>
+          </a>
+        </div>
+      </section>
+
       <!-- 2026-07-24 回到顶部(配合 read-progress 暗示) -->
       <div class="m-back-to-top-wrap">
         <button class="m-back-to-top" type="button" @click="scrollToTop" aria-label="回到顶部">↑ 回到顶部</button>
@@ -317,6 +351,8 @@ function withCacheBuster(path) {
 
 const overview = ref({})
 const heatmap = ref({ breeds: [], cities: [], matrix: [], spec_fingerprint: null })
+// 2026-07-25: 数据来源模块 — /api/market/sources 返回全量源站清单（按省分组）
+const sources = ref({ total_skills: 0, total_cities: 0, sources: [] })
 
 // 热力图选择器状态(v0.28: 多选 — selectedBreeds 数组支持勾多个品种)
 const selectedBreeds = ref([])        // 已选品种名数组
@@ -510,13 +546,20 @@ async function loadAll() {
     const results = await Promise.allSettled([
       fetchJson('/api/market/overview'),
       refreshRandomBreeds(),
+      fetchJson('/api/market/sources'),
     ])
-    const [ov] = results
+    const [ov, , src] = results
     if (ov.status === 'fulfilled') {
       overview.value = ov.value
     } else {
       console.warn('[market] overview 加载失败', ov.reason)
       loadError.value = '数据加载失败，请稍后重试'
+    }
+    // sources 独立处理：加载失败也不影响主页面，只 console.warn
+    if (src && src.status === 'fulfilled') {
+      sources.value = src.value
+    } else if (src) {
+      console.warn('[market] sources 加载失败', src.reason)
     }
   } catch (e) {
     loadError.value = e?.message || '未知错误'
@@ -2009,5 +2052,124 @@ function cellTitle(breed, city, v) {
   border-color: #3b82f6;
   background: rgba(59, 130, 246, 0.06);
   transform: translateY(-1px);
+}
+
+/* 2026-07-25: /market 数据来源模块 — 卡片型按省分组展示 */
+.m-card-sources {
+  position: relative;
+  background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 14px;
+  padding: 22px 24px 24px;
+  margin: 24px 0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+.m-card-sources::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #1e40af 50%, #3b82f6 100%);
+  border-radius: 14px 14px 0 0;
+}
+.m-sources-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.m-sources-toolbar-info { flex: 1; min-width: 0; }
+.m-sources-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+.m-sources-toolbar-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+.m-sources-toolbar-sub strong {
+  color: #1e40af;
+  font-weight: 600;
+}
+.m-sources-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.m-source-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  text-decoration: none;
+  color: #111827;
+  transition: background 0.18s, border-color 0.18s, transform 0.12s, box-shadow 0.18s;
+}
+.m-source-card:hover {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+.m-source-card-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.m-source-card-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.m-source-card-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-source-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.m-source-card-province {
+  color: #1e40af;
+  font-weight: 500;
+}
+.m-source-card-cities {
+  color: #6b7280;
+}
+.m-source-card-arrow {
+  font-size: 14px;
+  color: #3b82f6;
+  opacity: 0;
+  transition: opacity 0.18s;
+  flex-shrink: 0;
+}
+.m-source-card:hover .m-source-card-arrow {
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .m-card-sources { padding: 16px 14px 18px; margin: 16px 0; }
+  .m-sources-title { font-size: 17px; }
+  .m-sources-toolbar-sub { font-size: 12px; }
+  .m-sources-grid { grid-template-columns: 1fr; gap: 10px; }
 }
 </style>
