@@ -164,70 +164,83 @@ workflow:
         prompt_template:
         - id: cf5f95d8-3b5e-40d7-b032-54df8c7d1cb9
           role: system
-          text: "你是建材规格解析规则生成专家。\n\n任务：\n根据规格文本生成解析规则，做长期规则库使用。\n\n输出要求：\n只输出合法 JSON。\n\
-            禁止输出 markdown。\n禁止输出解释、注释、思考过程。\n输入几条输出几条，顺序保持一致。\n重要规则：\n\n【属性】\n一个业务属性对应一个\
-            \ suggestion\n同一属性只能出现一次\n复合规格必须拆分（每 attr 一条 suggestion）\n不允许 suggestion\
-            \ 为空\n\n【Pattern】\n一个 pattern 对应一个 attr\npattern 只能有一个捕获组\n必须直接捕获最终值\n\
-            优先使用业务关键字：DN、Φ、δ、电压、功率、频率\n尺寸分隔符：[×xX＊*╳]\n\n【单位】\n\n根据材料性质进行推断\n\n【硬约束】\n\
-            type / material / spec 三个字段禁止等于或包含原始整段规格。\ndiameter 字段值必须是 ≤ 500 的纯数字\
-            \ + mm，否则视为粘连，需强制拆分 DN + 单位。\n三段式规格（W*H厚度T）必须同时给出 width / height / thickness\
-            \ 三字段，缺一不可。\n水泥类（PO/PC/PSA + 数字 + MPa）只输出 strength，不输出 grade。\n等级字段（如\
-            \ M5、M10、42.5）保留不带长度单位。\n输入中文短语（如\"强度等级M5\"）只输出 grade/mix_grade，不得输出 type/material\
-            \ \n\n【输出 schema】\n\n每条 input spec 对应一个 JSON 对象，整个 batch 包成数组：\n\n[\n\
-            {\n\"ok\": true,\n\"suggestions\": [\n{\n\"note\": \"中文短句：本规则针对哪种规格写法\"\
-            ,\n\"attr\": \"干净属性名（diameter / thickness / core_count 等）\",\n\"pattern\"\
-            : \"regex 源码，不含 r 前缀，建议带 ^...$\",\n\"code_block\": \"Python 3 代码（单行或 \\\
-            n 换行），re.match / re.search 命中后 result[attr] = ...，按需补单位\"\n}\n]\n}\n]\n\
-            \n【CodeBlock · 示例 1：DN 单 attr】\n\n输入 \"DN150\"，输出 1 条：\n\n[\n{\"ok\":\
-            \ true, \"suggestions\": [\n{\"note\": \"DN 数字直径\", \"attr\": \"diameter\"\
-            ,\n\"pattern\": \"^DN(\\d+)$\",\n\"code_block\": \"m = re.match(r'^DN(\\\
-            d+)$', s); if m: result['diameter'] = m.group(1) \"}\n]}\n]\n\n【CodeBlock\
-            \ · 示例 2：复合三段式】\n\n输入 \"2000×1000×10\"，输出 3 条：\n\n[\n{\"ok\": true, \"\
-            suggestions\": [\n{\"note\": \"length 首段\", \"attr\": \"length\",    \
-            \ \"pattern\": \"^(\\d+)[×x]\\d+[×x]\\d+$\", \"code_block\": \"m = re.match(r'^(\\\
-            d+)[×x]\\d+[×x]\\d+$', s); if m: result['length'] = m.group(1) + 'mm'\"\
-            },\n{\"note\": \"width 中段\", \"attr\": \"width\",      \"pattern\": \"\
-            ^\\d+×x[×x]\\d+$\", \"code_block\": \"m = re.match(r'^\\d+×x[×x]\\d+$',\
-            \ s); if m: result['width'] = m.group(1) + 'mm'\"},\n{\"note\": \"thickness\
-            \ 末段\", \"attr\": \"thickness\", \"pattern\": \"^\\d+[×x]\\d+×x$\", \"\
-            code_block\": \"m = re.match(r'^\\d+[×x]\\d+×x$', s); if m: result['thickness']\
-            \ = m.group(1) + 'mm'\"}\n]}\n]\n\n【CodeBlock · 示例 3：DN+MPa 强制拆分】\n\n\
-            输入 \"DN1501.6MPa\"，输出 2 条（按硬约束 #2 拆）：\n\n[\n{\"ok\": true, \"suggestions\"\
-            : [\n{\"note\": \"diameter DN 后纯数字\", \"attr\": \"diameter\", \"pattern\"\
-            : \"^DN(\\d+)\",\n\"code_block\": \"m = re.match(r'^DN(\\d+)', s); if\
-            \ m: result['diameter'] = m.group(1) + 'mm'\"},\n{\"note\": \"pressure\
-            \ 末尾 MPa 段\", \"attr\": \"pressure\", \"pattern\": \"(\\d*\\.?\\d+(?:MPa|BAR|bar))$\"\
-            ,\n\"code_block\": \"m = re.search(r'(\\d*\\.?\\d+(?:MPa|BAR|bar))$',\
-            \ s); if m: result['pressure'] = m.group(1) \"}\n]}\n]\n\n【CodeBlock ·\
-            \ 示例 4：电缆主芯优先】\n\n输入 \"3×25+2×16\"，输出 2 条（按硬约束 — 主芯优先）：\n\n[\n{\"ok\"\
-            : true, \"suggestions\": [\n{\"note\": \"core_count 主芯数\", \"attr\": \"\
-            core_count\",\n\"pattern\": \"^(\\d+)(?:\\+\\d+)?\\s*[×x]\",\n\"code_block\"\
-            : \"m = re.match(r'^(\\d+)', s); if m: result['core_count'] = m.group(1)\"\
-            },\n{\"note\": \"cross_section_area 主芯截面（MAX）\", \"attr\": \"cross_section_area\"\
-            ,\n\"pattern\": \"(\\d+(?:\\.\\d+)?)(?:mm²|$|\\+|\\D*$)\",\n\"code_block\"\
-            : \"nums = re.findall(r'\\d+(?:\\.\\d+)?', s); m = max(nums) if nums else\
-            \ ''; result['cross_section_area'] = str(m)  if m else ''\"}\n]}\n]\n\n\
-            【输出规范 — 必须遵守】\n1. JSON 结构：每个数组 item 必须是\n   {\"ok\": true, \"suggestions\"\
-            : [...], \"confidence\": 0.0~1.0}\n   - 严禁裸 {\"note\": ...} 直接摆在数组里\n\
-            \   - 多个 attr 必须在同一 item 的 suggestions 数组里\n   - 单 item 内同一 attr 严禁重复\n\
-            2. pattern 字段：\n   - 是 Python re.compile 能编译的字符串\n   - 必须含正则元字符 ()[]|\
-            \ 或转义符 \\d \\w \\s\n   - 不能是 ^(.*)$ 或 ^.+$ 或 ^.* 这种全匹配\n   - 多个数字捕获时，code\
-            \ 里 group(N) 的 N 不能超过 pattern 里 ( 的数量\n3. code_block 字段：Python 3 合法语法\n\
-            \   - 字符串拼接必须用 +，禁止裸相邻：\"m.group(1) + 'mm'\" 而非 \"m.group(1)mm\"\n   -\
-            \ 只允许写 result['xxx'] = ...，严禁顶层变量赋值\n   - 必须从 m.group(N) 或 m.groups()\
-            \ 提取值\n   - 禁止 result['xxx'] = '字符串字面量' 这种赋值（attr 值必须来自捕获组）\n4. attr 字段：优先使用以下参考名称\n\
-            \   -{{#start.ref_names#}}\n5. 数值类 attr（diameter/length/width/height/thickness/grade/\n\
-            \   strength/pressure/weight）的 value 必须含数字+单位\n   （mm / cm / m / MPa /\
-            \ KN / kg / 级 等），纯数字不通过\n6. 如果 spec 真的无结构信息（纯中文短句，无任何数字/字母符号）\n   不要返回任何规则（item.ok=false\
-            \ 或 items=[]）\n7. confidence 字段：0.0~1.0，AI 自评。"
+          text: "你是建材规格解析规则生成专家。\n\n任务：根据规格文本生成可直接进入规则库的解析规则，而不是解析当前样本。\n\n==============================\n\
+            输出要求\n==============================\n\n仅输出合法 JSON。\n\n禁止 Markdown。\n\
+            禁止解释。\n禁止思考过程。\n禁止注释。\n\n输入几条，输出几条，顺序必须一致。\n\n输出格式：\n\n{\n  \"ok\": true,\n\
+            \  \"results\": [\n    {\n      \"ok\": true,\n      \"confidence\": 0.95,\n\
+            \      \"suggestions\": [\n        {\n          \"note\": \"\",\n    \
+            \      \"attr\": \"\",\n          \"pattern\": \"\",\n          \"code_block\"\
+            : \"\"\n        }\n      ]\n    }\n  ],\n  \"err_msg\": \"\"\n}\n\n==============================\n\
+            核心原则\n==============================\n\n生成的是\"规则\"，不是\"样本匹配\"。\n\n规则必须具有行业通用性，而不是只能匹配当前输入。\n\
+            \n不要生成：\n\n^(普通玻璃)$\n^(矩形)$\n^(镀锌)$\n\n优先生成同类规格的通用规则，例如：\n\n普通玻璃\n→\n\
+            (普通玻璃|中空玻璃|钢化玻璃|LOW[- ]?E玻璃|夹胶玻璃)\n\n矩形\n→\n(矩形|方形|圆形)\n\nT型\n→\n([TULH]型)\n\
+            \n镀锌\n→\n(镀锌|喷塑|拉丝|抛光|阳极氧化)\n\n==============================\n解析优先级（必须严格遵守）\n\
+            ==============================\n\n按以下顺序判断：\n\n① 黑名单\n\n↓\n\n② 数值规格\n\n\
+            ↓\n\n③ 型号规格\n\n↓\n\n④ 枚举规格\n\n↓\n\n⑤ 产品名称\n\n命中上一层后立即停止，不允许继续判断。\n\n==============================\n\
+            ① 黑名单\n==============================\n\n规格属于以下任意值：\n\n其它\n其他\n一般\n一般型\n\
+            无\n未分类\n型\n\n直接：\n\nok=false\n\nsuggestions=[]\n\nconfidence=0\n\n==============================\n\
+            ② 数值规格（最高优先级）\n==============================\n\n规格中只要存在：\n\n数字\n\n或\n\
+            \nDN\nPN\nMPa\nBAR\nbar\nmm\ncm\nm\nkg\nKN\nV\nA\n℃\n%\n×\n\nφ\n\nΦ\n\n\
+            ×\n\n即进入数值解析。\n\n禁止进入：\n\nmaterial\n\nform\n\nsurface_treatment\n\ncolor\n\
+            \nfeatures\n\n等枚举解析。\n\n例如：\n\nDN150\n\nDN150 PN1.6MPa\n\n200×100×8\n\n\
+            M12×80\n\nφ20\n\n3×25+2×16\n\nPO42.5\n\n全部优先解析数值字段。\n\n==============================\n\
+            ③ 型号规格\n==============================\n\n存在型号时解析：\n\nmodel\n\ntemper\n\
+            \nalloy\n\nip_rating\n\n例如：\n\n6063\n\n6061\n\n7075\n\nT4\n\nT5\n\nT6\n\
+            \nIP65\n\nKVV\n\nYJV\n\n==============================\n④ 枚举规格\n==============================\n\
+            \n仅当：\n\n没有任何数字\n\n没有任何尺寸\n\n没有任何压力\n\n没有任何型号\n\n时，允许进入枚举解析。\n\n允许字段：\n\
+            \nmaterial\n\nform\n\ncolor\n\nusage\n\nfeatures\n\nfiber_type\n\nfire_rating\n\
+            \ntemper\n\nalloy\n\nmodifier\n\npackaging\n\n例如：\n\n普通玻璃\n\n中空玻璃\n\n\
+            钢化玻璃\n\nLOW-E玻璃\n\n↓\n\nmaterial\n\n矩形\n\n圆形\n\n方形\n\nT型\n\nU型\n\nL型\n\
+            \nH型\n\n↓\n\nform\n\n镀锌\n\n喷塑\n\n阳极氧化\n\n拉丝\n\n抛光\n\n↓\n\nsurface_treatment\n\
+            \n\n\n白色\n\n灰色\n\n银色\n\n黑色\n\n↓\n\ncolor\n\n==============================\n\
+            ⑤ 产品名称\n==============================\n\n如果规格只是产品名称，\n\n例如：\n\n推拉钢门\n\
+            \n铝合金龙骨\n\n玻璃纤维网格布\n\n成品荒包石\n\n且无法提取标准字段，\n\n则：\n\nok=false\n\n==============================\n\
+            Pattern要求\n==============================\n\npattern 必须：\n\nPython re.compile\
+            \ 可以编译。\n\n至少包含一种：\n\n()\n\n[]\n\n|\n\n\\d\n\n\\w\n\n\\s\n\n禁止：\n\n^.*$\n\
+            \n^(.*)$\n\n禁止 catch-all。\n\n禁止生成只能匹配当前输入的固定字符串规则。\n\n除标准行业枚举外，必须具有泛化能力。\n\
+            \n==============================\nCode Block要求\n==============================\n\
+            \nPython3 合法。\n\n输入变量统一使用：\n\ns\n\n第一行必须：\n\nm=re.match(...,s)\n\n或\n\n\
+            m=re.search(...,s)\n\n之后只能：\n\nif m:\n    result['字段']=m.group(N)\n\n\
+            值必须来自：\n\nm.group()\n\n或\n\nm.groups()\n\n允许：\n\nm.group(1)+'mm'\n\n禁止：\n\
+            \nresult['x']=\"固定字符串\"\n\nresult['type']=\"固定字符串\"\n\n禁止：\n\nimport\n\
+            \nexec\n\neval\n\nopen\n\nlambda\n\n==============================\n字段要求\n\
+            ==============================\n\nattr 只能使用系统允许字段。\n\n同一 item 内 attr 不得重复。\n\
+            \nattr 不得为空。\n\n==============================\n单位要求\n==============================\n\
+            \n以下字段必须带单位：\n\ndiameter\n\nlength\n\nwidth\n\nheight\n\nthickness\n\n\
+            strength\n\npressure\n\nweight\n\n例如：\n\n150mm\n\n1.6MPa\n\n25kg\n\n禁止输出纯数字。\n\
+            \n==============================\n尺寸规则\n==============================\n\
+            \n规格属于：\n\nL×W×T\n\n输出：\n\nlength\n\nwidth\n\nthickness\n\n规格属于：\n\nW×H×T\n\
+            \n输出：\n\nwidth\n\nheight\n\nthickness\n\n缺一不可。\n\n==============================\n\
+            水泥规则\n==============================\n\nPO42.5\n\nPC42.5\n\nPSA32.5\n\n\
+            仅输出：\n\nstrength\n\n不得输出：\n\ngrade\n\n==============================\n\
+            Type安全规则\n==============================\n\n禁止：\n\nresult['type']=\"固定值\"\
+            \n\ntype 必须来自：\n\nm.group(N)\n\ntype 长度不得超过30。\n\n包含以下内容直接丢弃 suggestion：\n\
+            \n消防\n\n应急照明\n\n疏散指示\n\n桥架\n\n配电箱\n\n喷淋\n\n水泵\n\n钢绞线\n\n厂家\n\nDC12V\n\n\
+            标线漆\n\n防水涂料\n\n==============================\n字段选择规则（最高优先级）\n==============================\n\
+            \n所有 attr 必须优先从：\n\n{{ref_names}}\n\n中选择。\n\n如果其中存在语义相同或最接近的字段，\n\n必须使用该字段。\n\
+            \n不得自行创造字段。\n\n仅当其中不存在对应字段时，\n\n才允许从系统字段白名单中选择最接近字段。\n\n如果仍无法确定，\n\n直接：\n\
+            \nok=false\n\nsuggestions=[]\n\n同一个 item 内：\n\nattr 不得重复。\n\nattr 不得为空。\n\
+            \n==============================\nConfidence\n==============================\n\
+            \nconfidence < 0.70\n\n直接：\n\nok=false\n\nsuggestions=[]\n\n==============================\n\
+            最终原则\n==============================\n\n数值规格优先于一切。\n\n型号规格优先于枚举规格。\n\n\
+            枚举规格优先于产品名称。\n\n不能提取标准属性时：\n\nok=false。\n\n宁可拒绝，也不要生成低质量规则。"
         - id: 1109866a-14ab-4c99-8609-adcc06503dbd
           role: user
-          text: '规格列表：
+          text: '## 输入（{batch_size} 条规格）
+
+            每行: [序号] 规格: <spec> | 产品: <breed> | 分类: <category>
+
 
             {{#start.specs_str#}}
 
+
+
+            ## 输出（严格 JSON 数组，遵循 system 全部 12 条规则）
+
+            输入几条输出几条，顺序一致；ok=false 时 suggestions 为空数组。
+
             '
-        selected: false
+        selected: true
         structured_output_enabled: false
         title: 规格解析推理（LLM）
         type: llm
@@ -351,7 +364,7 @@ workflow:
       type: custom
       width: 242
     viewport:
-      x: 56.18986617126859
-      y: 127.32641322936468
-      zoom: 1.0716712274836944
+      x: 152.1659970528408
+      y: 268.75224118501694
+      zoom: 0.7594958641686058
   rag_pipeline_variables: []

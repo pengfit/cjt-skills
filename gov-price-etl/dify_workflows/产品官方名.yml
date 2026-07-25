@@ -184,7 +184,7 @@ workflow:
             \   \"confidence\": 0.95, \"note\": \"同物异名\"},\n    \"球磨铸铁管\":       \
             \    {\"normalized_breed\": \"球墨铸铁管\",   \"confidence\": 0.85, \"note\"\
             : \"疑似错字'磨→墨'\"}\n  }\n}\n"
-        selected: false
+        selected: true
         title: LLM
         type: llm
         vision:
