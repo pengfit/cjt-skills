@@ -40,6 +40,9 @@ services:
       # cron 状态目录持久卷 (宿主机 cron + 容器 API 共享)
       # 卷内结构: /var/lib/openclaw/{gov-check-status, gov-price-summary, showcase-insight, ...}
       - gov-data:/var/lib/openclaw
+      # 2026-07-24 P1: 宿主机 cron 实际写在 /tmp/gov-check-status/,需绑定挂载到容器内
+      #  GOV_CHECK_STATUS_DIR 指向的子目录,覆盖上面命名卷的同名路径
+      - /tmp/gov-check-status:/var/lib/openclaw/gov-check-status:ro
     logging:
       driver: json-file
       options:

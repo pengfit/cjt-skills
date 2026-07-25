@@ -14,6 +14,16 @@
       >
         <span class="chip-dot-sm" :class="cs.status"></span>
         <span class="chip-label">{{ cs.label }}</span>
+        <!-- 2026-07-24 P1: 加源网站地址链接（从 data.all_cities 拿 site_url） -->
+        <a
+          v-if="data.all_cities?.[key]?.site_url"
+          :href="data.all_cities[key].site_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          :title="'源网址: ' + data.all_cities[key].site_url"
+          class="chip-link"
+          @click.stop
+        >🔗</a>
         <span class="chip-badge" v-if="cs.has_update">更新</span>
         <span class="chip-time" v-if="cs.time">{{ cs.time.slice(11,16) }}</span>
       </div>
@@ -22,9 +32,9 @@
 
     <SectionHeader title="数据抓取（全部城市）" dot-color="purple" style="margin-bottom:12px; margin-top:16px" />
 
-    <div class="scrape-grid" v-if="data.all_cities">
+    <div class="scrape-grid" v-if="displayCities">
       <div
-        v-for="(pipe, key) in data.all_cities"
+        v-for="(pipe, key) in displayCities"
         :key="key"
         class="scrape-card"
       >
@@ -32,14 +42,6 @@
           <div class="scrape-card-title">
             <span class="scrape-card-city">
               {{ pipe.city_label }}
-              <a
-                v-if="pipe.site_url"
-                class="scrape-card-link"
-                :href="pipe.site_url"
-                target="_blank"
-                rel="noopener noreferrer"
-                :title="'原网址: ' + pipe.site_url"
-              >🔗</a>
             </span>
             <span class="scrape-card-status" :class="(pipe.scrape_fresh ?? pipe.sync_ok) ? 'ok' : 'warn'">
               {{ (pipe.scrape_fresh ?? pipe.sync_ok) ? '✓ 已同步' : '⚠ 待同步' }}
@@ -177,6 +179,22 @@ const checkStatus = ref({ cities: {} })
 const loadingCheck = ref(false)
 const data = ref({ all_cities: {} })
 
+// 2026-07-24 P1: 限制 city 卡片只显示定时检查状态中的城市
+//   - /tmp/gov-check-status/{city}.json 为权威清单（01:00–02:25 cron 检测覆盖范围）
+//   - 20 个城 — sync 支持的 20 城里用这 20 个过滤
+const TIMED_CHECK_CITIES = [
+  'chongqing', 'guizhou', 'hainan', 'henan', 'heze', 'huhehaote',
+  'hunan', 'jiangxi', 'jilin', 'jinan', 'ningxia', 'qingdao',
+  'qinghai', 'rizhao', 'shaanxi', 'shanxi', 'sichuan', 'weihai',
+  'xian', 'xinjiang',
+]
+const displayCities = computed(() => {
+  const all = data.value?.all_cities || {}
+  return Object.fromEntries(
+    Object.entries(all).filter(([k]) => TIMED_CHECK_CITIES.includes(k))
+  )
+})
+
 function scrapePct(scrape) {
   if (!scrape?.total_counties) return '0'
   // 重庆等城市会出现 completed (累计跨年) > total_counties (当期应有数) 的情况
@@ -281,10 +299,22 @@ async function loadCheckStatus() {
   finally { loadingCheck.value = false }
 }
 
+// 2026-07-24 P1: 定时检查状态轮询间隔 60s（修复「build 后时间不更新」bug）
+let checkStatusTimer = null
+
 onMounted(() => {
   loadData()
   loadCheckStatus()
   loadExpandLabels()
+  checkStatusTimer = setInterval(loadCheckStatus, 60000)
+})
+
+onUnmounted(() => {
+  // 2026-07-24 P1: 清理轮询 timer，避免内存泄漏
+  if (checkStatusTimer) {
+    clearInterval(checkStatusTimer)
+    checkStatusTimer = null
+  }
 })
 </script>
 

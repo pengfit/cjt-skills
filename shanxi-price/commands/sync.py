@@ -245,7 +245,14 @@ def parse_pdf_tables(pdf_path: str, max_pages: int = 200) -> list[dict]:
         print(f'[sync] pdf2image 失败: {e}')
         return _parse_pdf_tables_legacy(pdf_path, max_pages=max_pages)
 
-    engine = RapidOCR()
+    import onnxruntime as ort
+    ort.set_default_logger_severity(3)
+    # Apple Silicon 进程级 hang workaround: ONNX 多线程在 RapidOCR 调用时偶发死锁
+    # (CoreML provider 之外也可能) — 强制单线程绕开 (workaround 2026-07-24)
+    engine = RapidOCR(
+        use_cuda=False, use_dml=False, use_coreml=False,
+        intra_op_num_threads=1, inter_op_num_threads=1,
+    )
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
     _PAGE_TIMEOUT = 60
     _executor = ThreadPoolExecutor(max_workers=1)
