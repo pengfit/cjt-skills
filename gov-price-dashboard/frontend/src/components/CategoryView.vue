@@ -1508,6 +1508,26 @@ onMounted(() => loadCategories())
   font-size: 11px;
   color: var(--primary);
 }
+
+/* ── 移动端 UI (2026-07-25 P1-fix) ── */
+@media (max-width: 768px) {
+  /* 7 个 grid → 全单列 */
+  [class*="grid"] { grid-template-columns: 1fr !important; }
+  .category-layout { flex-direction: column !important; gap: 12px !important; }
+  .category-sidebar { width: 100% !important; max-height: 280px !important; overflow-y: auto !important; }
+  .category-card { padding: 12px !important; }
+  .category-card h3 { font-size: 14px !important; }
+  /* 表格转卡片式 */
+  table, thead, tbody, tr, td, th { display: block; width: 100%; }
+  thead { display: none; }
+  tr { margin-bottom: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+  td { padding: 4px 0 !important; border: none !important; }
+  /* 字号 */
+  h1 { font-size: 1.1rem !important; }
+  h2 { font-size: 1rem !important; }
+  h3 { font-size: 0.95rem !important; }
+  .stat-big { font-size: 1.6rem !important; }
+}
 </style>
 
 

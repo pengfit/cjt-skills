@@ -186,4 +186,21 @@ onMounted(loadStats)
 }
 
 
+
+/* ── 移动端 UI (2026-07-25 P1-fix) ── */
+@media (max-width: 768px) {
+  .sync-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .city-card-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .city-card { padding: 14px 12px !important; }
+  .city-card h3 { font-size: 15px !important; }
+  .city-card-row { flex-direction: column; align-items: flex-start !important; gap: 4px; }
+  .city-card-meta { font-size: 12px; }
+  .progress-bar { height: 6px; }
+  h1, h2 { font-size: 1.05rem !important; }
+  /* 把同步圆点和表格统一切单列 */
+  table, thead, tbody, tr, td, th { display: block; width: 100%; }
+  thead { display: none; }
+  tr { margin-bottom: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+  td { padding: 4px 0; border: none; }
+}
 </style>

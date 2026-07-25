@@ -217,8 +217,27 @@ defineEmits(['close', 'navigate'])
   opacity: 1;
 }
 
-/* ── 移动端 drawer ── */
+/* ── 移动端 drawer — 全面 UI 优化 (2026-07-25) ── */
 @media (max-width: 768px) {
+  /* 抽屉从左滑入,占满屏宽(默认 280,小屏 92%) */
+  .sidebar {
+    width: 92vw !important;
+    max-width: 360px !important;
+    padding: 16px 0 !important;
+  }
+  /* drawer 项目:大触摸目标 + 文字更清晰 */
+  .sidebar-item {
+    padding: 14px 20px !important;
+    min-height: 48px;
+    font-size: 15px !important;
+  }
+  .sidebar-item-icon { font-size: 18px !important; }
+  .sidebar-group-label {
+    padding: 14px 20px 6px !important;
+    font-size: 11px !important;
+    letter-spacing: 1.5px !important;
+  }
+  /* 主区 backdrop */
   .mobile-sidebar-backdrop { display: block; }
 
   .sidebar {

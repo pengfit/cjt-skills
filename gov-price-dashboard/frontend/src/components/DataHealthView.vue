@@ -1003,5 +1003,22 @@ onUnmounted(() => {
 @media (max-width: 1100px) {
   .rule-grid { grid-template-columns: 1fr; }
 }
+/* ── 移动端 UI (2026-07-25 P1-fix) ── */
+@media (max-width: 768px) {
+  /* 健康卡片网格:4 列 → 2 列 */
+  [class*="stat-grid"], [class*="health-grid"] { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  /* 大卡片 → 单列堆叠 */
+  [class*="grid"][class*="4"], [class*="grid"][class*="3"] { grid-template-columns: 1fr !important; }
+  /* 表格转卡片 */
+  table, thead, tbody, tr, td, th { display: block; width: 100%; }
+  thead { display: none; }
+  tr { margin-bottom: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+  td { padding: 4px 0 !important; border: none !important; }
+  /* 字号 */
+  h1 { font-size: 1.1rem !important; }
+  h2 { font-size: 1rem !important; }
+  .big-num { font-size: 1.5rem !important; }
+  .health-card { padding: 14px 12px !important; }
+}
 
 </style>
