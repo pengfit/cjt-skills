@@ -267,6 +267,35 @@
 
       <!-- 2026-07-24 P3: SOURCE marker 删除,直接进脚注 -->
 
+      <!-- 2026-07-25 (B.1): 数据治理透明卡 — 每城新鲜度 -->
+      <section class="m-card m-card-quality" v-if="quality.cities.length">
+        <header class="m-quality-toolbar">
+          <div class="m-quality-toolbar-info">
+            <h2 class="m-quality-title">📊 数据治理透明卡</h2>
+            <p class="m-quality-toolbar-sub">
+              {{ quality.cities.length }} 城 · 🟢 ≤90d · 🟡 90-180d · 🔴 ≥180d · 按新鲜度倒序(异常在前)
+            </p>
+          </div>
+        </header>
+        <div class="m-quality-grid">
+          <div
+            v-for="c in quality.cities"
+            :key="c.key"
+            class="m-quality-card"
+            :class="`m-quality-${c.tone}`"
+            :title="`${c.label} · ${c.docs.toLocaleString()} 文档 · 最新期 ${c.latest_end || '—'}`"
+          >
+            <span class="m-quality-emoji">{{ c.emoji }}</span>
+            <span class="m-quality-label">{{ c.label }}</span>
+            <span class="m-quality-meta">
+              <span class="m-quality-age">{{ c.age_days < 0 ? '?' : c.age_days }}d</span>
+              <span class="m-quality-date">{{ c.latest_end || '—' }}</span>
+            </span>
+            <span class="m-quality-province">{{ c.province }}</span>
+          </div>
+        </div>
+      </section>
+
       <!-- 2026-07-25: 数据来源模块 — /api/market/sources 平铺展示全量源站链接(v0.2 去省份分块) -->
       <section class="m-card m-card-sources" v-if="sources.sources.length">
         <header class="m-sources-toolbar">
@@ -353,6 +382,8 @@ const overview = ref({})
 const heatmap = ref({ breeds: [], cities: [], matrix: [], spec_fingerprint: null })
 // 2026-07-25: 数据来源模块 — /api/market/sources 返回全量源站清单（按省分组）
 const sources = ref({ total_skills: 0, total_cities: 0, sources: [] })
+// 2026-07-25 (B.1): 数据治理透明卡 — 每城新鲜度
+const quality = ref({ cities: [] })
 
 // 热力图选择器状态(v0.28: 多选 — selectedBreeds 数组支持勾多个品种)
 const selectedBreeds = ref([])        // 已选品种名数组
@@ -547,6 +578,7 @@ async function loadAll() {
       fetchJson('/api/market/overview'),
       refreshRandomBreeds(),
       fetchJson('/api/market/sources'),
+      fetchJson('/api/market/data-quality'),
     ])
     const [ov, , src] = results
     if (ov.status === 'fulfilled') {
@@ -560,6 +592,12 @@ async function loadAll() {
       sources.value = src.value
     } else if (src) {
       console.warn('[market] sources 加载失败', src.reason)
+    }
+    const qu = results[3]
+    if (qu && qu.status === 'fulfilled') {
+      quality.value = qu.value
+    } else if (qu) {
+      console.warn('[market] data-quality 加载失败', qu.reason)
     }
   } catch (e) {
     loadError.value = e?.message || '未知错误'

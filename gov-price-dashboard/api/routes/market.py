@@ -766,6 +766,46 @@ def sources():
     }
 
 
+# 2026-07-25 (B.1): 数据治理透明卡 — 给 /market 页面 hero 下方展示用
+@router.get("/data-quality")
+def market_data_quality():
+    """每城数据健康度 + attr_norm 净化率,Dashboard 公开页可匿名访问。"""
+    norm_list = _norm_indices()
+    import time as _time
+    now_ms = int(_time.time() * 1000)
+    idx2info = {s.get("key"): s for s in _registry_get_all()}
+    cities = []
+    for norm_idx in norm_list:
+        key = norm_idx.replace("norm_", "").replace("_price", "")
+        info = idx2info.get(key, {})
+        # 最近一期距今天数
+        periods = _city_latest_two_periods(norm_idx)
+        latest_end_ms = periods[0] if periods else 0
+        if latest_end_ms:
+            age_days = max(0, (now_ms - latest_end_ms) // 86400000)
+        else:
+            age_days = -1
+        if age_days < 0:
+            status, tone = "unknown", "alert"; emoji = "⚫"
+        elif age_days < 90:    # 0-90 天 = 新鲜
+            status, tone = "fresh",  "ok";    emoji = "🟢"
+        elif age_days < 180:   # 90-180 天 = 警告
+            status, tone = "warm",   "warn";  emoji = "🟡"
+        else:                  # >=180 天 = 停更
+            status, tone = "stale",  "alert"; emoji = "🔴"
+        cities.append({
+            "key": key,
+            "label": _city_label(norm_idx),
+            "province": info.get("province", ""),
+            "latest_end": _ms_to_date(latest_end_ms),
+            "age_days": age_days,
+            "status": status,
+            "tone": tone,
+            "emoji": emoji,
+            "docs": _safe_count(norm_idx),
+        })
+    return {"cities": sorted(cities, key=lambda c: (c["tone"] != "alert", c["label"]))}
+
 @router.get("/movers")
 def movers(
     type: str = Query("up", pattern="^(up|down)$"),
@@ -996,6 +1036,9 @@ def change_heatmap(
 
     # 3) 每城查最新两期,构建矩阵
     matrix = [[None] * len(cities) for _ in row_keys]
+    # 2026-07-25 P0-fix (A.1): 返回每格绝对价格 + 单位,前端做 mini bar
+    prices_grid = [[None] * len(cities) for _ in row_keys]
+    units_grid  = [[None] * len(cities) for _ in row_keys]
 
     for ci, city_info in enumerate(cities):
         norm_idx = next(
@@ -1023,6 +1066,9 @@ def change_heatmap(
                 # 2026-07-24: 只要 latest 有数据就 enrich 元数据(l3/l1/unit) — 不再依赖 prev 也有
                 if breed_key in latest:
                     _enrich_breed_meta(breeds[bi], latest[breed_key])
+                    # 2026-07-25 A.1: 跨城绝对价
+                    prices_grid[bi][ci] = latest[breed_key]["price"]
+                    units_grid[bi][ci] = latest[breed_key].get("unit", "")
                 if breed_key in latest and breed_key in prev:
                     curr_p = latest[breed_key]["price"]
                     prev_p = prev[breed_key]["price"]
@@ -1037,16 +1083,28 @@ def change_heatmap(
                 # 2026-07-24: 只要 latest 有数据就 enrich 元数据(l3/l1/unit) — 不再依赖 prev 也有
                 if breed_key in latest:
                     _enrich_breed_meta(breeds[bi], latest[breed_key])
+                    # 2026-07-25 A.1: 跨城绝对价
+                    prices_grid[bi][ci] = latest[breed_key]["price"]
+                    units_grid[bi][ci] = latest[breed_key].get("unit", "")
                 if breed_key in latest and breed_key in prev:
                     curr_p = latest[breed_key]["price"]
                     prev_p = prev[breed_key]["price"]
                     if prev_p > 0:
                         matrix[bi][ci] = round((curr_p - prev_p) / prev_p * 100, 2)
 
+    # 2026-07-25 (A.1): 算全表价格区间,前端 mini bar 颜色映射需要
+    _all_prices = [p for row in prices_grid for p in row if p is not None and p > 0]
+    _price_min = min(_all_prices) if _all_prices else 0
+    _price_max = max(_all_prices) if _all_prices else 0
+
     return {
         "breeds": breeds,
         "cities": cities,
         "matrix": matrix,
+        "prices_grid": prices_grid,    # 2026-07-25 (A.1): 跨城绝对价 mini bar 数据
+        "units_grid":  units_grid,     # 2026-07-25 (A.1): 对应单位
+        "price_min":   _price_min,     # 2026-07-25 (A.1): mini bar 色阶下限
+        "price_max":   _price_max,     # 2026-07-25 (A.1): mini bar 色阶上限
         "attr_filters": filters,
         # v0.2 (2026-07-22): 输出 spec_label alias = filter_label (兼容前端 spec_label 字段名)
         "spec_label": next((b.get("filter_label", "") for b in breeds if b.get("filter_label")), ""),

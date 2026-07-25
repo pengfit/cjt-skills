@@ -79,6 +79,10 @@ _PUBLIC_PATHS = {
     "/api/market/related-breeds",
     # 2026-07-25: /market 「数据来源」模块 — 全量源站清单(按省分组)
     "/api/market/sources",
+    # 2026-07-25: /market 「数据治理透明卡」 — 每城新鲜度/attr_norm 覆盖
+    "/api/market/data-quality",
+    # 2026-07-25: /market A.1 跨城价格 mini bar — 重用 change-heatmap 端点(返回 prices_grid)
+    #             不需要额外端点
 }
 
 
