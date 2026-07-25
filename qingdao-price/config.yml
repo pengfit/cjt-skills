@@ -14,7 +14,7 @@ minio:
 
 site:
   base_url: https://sjw.qingdao.gov.cn
-  list_path: /cxjsj13/cxjs_95/cxjsj_zj5/
+  list_path: /cxjsj13/cxjs_95/cxjsj_gczjxx13/   # 2026-07-25 源站改版（原 cxjsj_zj5/ 已 404）
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
   timeout_sec: 30
   # PDF 下载时必须带 Referer 头指向详情页，否则 501 Not Implemented

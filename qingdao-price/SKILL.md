@@ -1,6 +1,6 @@
 ---
 name: qingdao-price
-description: "青岛工程造价材料信息采集,从 `https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/` 抓取数据,按期期刊跟踪,同步至 Elasticsearch。覆盖 1 个期数。"
+description: "青岛工程造价材料信息采集,从 `https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_gczjxx13/` 抓取数据,按期期刊跟踪,同步至 Elasticsearch。覆盖 1 个期数。"
 ---
 
 # 青岛 · 工程造价材料信息采集
@@ -10,7 +10,7 @@ description: "青岛工程造价材料信息采集,从 `https://sjw.qingdao.gov.
 ## 数据流
 
 ```
-源站: https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/
+源站: https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_gczjxx13/   # 2026-07-25 由 cxjsj_zj5/ 改版而来（旧地址已 404）
    ↓ (commands/sync.py)
 ods_material_qingdao_price
    ↓ ([gov-price-etl](../../gov-price-etl/) cli/etl.py --city qingdao)
@@ -77,7 +77,7 @@ es:
   index: ods_material_qingdao_price
   progress_index: ods_material_qingdao_price_sync_progress
 site:
-  base_url: https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_zj5/
+  base_url: https://sjw.qingdao.gov.cn/cxjsj13/cxjs_95/cxjsj_gczjxx13/
   counties/tabs:
   - 青岛
 sync:
