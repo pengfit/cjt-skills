@@ -28,6 +28,9 @@ sync:
   target_year: 2026                   # 只抓 2026 年的期
   last_period: ""                     # 增量起点（按 period）；空=全量（限定年内）
   last_publish_date: ""               # 增量同步只用比这新的
+  # 2026-07-25: 安康 2026 年第 1-4 期是扫描图像 PDF（skipped_image_pdf），
+  # OCR 跑通但 parser 不识别格式，无法入仓。check 跳过这些期（不计入任何统计）。
+  ankang_skip_pattern: '《安康建设工程造价信息》2026年第[1-4]期'
 
 # 设区市 / 省本级 关键字 → city 标签
 # 标题正则 "设区市造价信息---《{city}{...}造价信息》{period}" 中的 {city}

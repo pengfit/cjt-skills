@@ -75,8 +75,14 @@ def main():
     # 过滤
     todo = []
     skipped = []
+    import re as _re_check
+    _ankang_skip_pat = cfg.get('sync', {}).get('ankang_skip_pattern', '')
+    _ankang_skip_re = _re_check.compile(_ankang_skip_pat) if _ankang_skip_pat else None
     for it in items:
         if args.year and f'{args.year}年' not in it['title']:
+            continue
+        # 2026-07-25: 安康 1-4 期扫描图像 PDF 无法入仓，配置声明跳过（不算已入仓也不算待入仓）
+        if _ankang_skip_re and _ankang_skip_re.search(it['title']):
             continue
         if it['detail_url'] in done and done[it['detail_url']].get('status') == 'ok':
             skipped.append(it)
@@ -92,7 +98,7 @@ def main():
             status = period_d.get('status', 'new')
             print(f'  [{status:8}] {it["publish_date"]} | {it["title"][:70]}')
     else:
-        print('✓ 全部入仓')
+        print('[陕西] ✅ 全部入仓')
 
 
 # === dashboard status 同步（v0.8.1, 2026-07-03）===
