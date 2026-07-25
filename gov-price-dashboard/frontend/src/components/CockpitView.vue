@@ -583,17 +583,30 @@ onUnmounted(() => {
 /* ── 加载 / 错误 ── */
 .cockpit-loading { padding: 60px; }
 
-/* ── 移动端适配(2026-07-25):gauge-row 单列化 + 字号缩减 + 紧凑 padding ── */
+/* ── 移动端适配 v2 (2026-07-25 P0-fix): 等比例缩小 + 单列 + 紧凑 ── */
 @media (max-width: 768px) {
-  .gauge-row {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
+  /* gauge-row 1 列 */
+  .gauge-row { grid-template-columns: 1fr; gap: 10px; }
   .gauge-card { padding: 14px 12px; }
-  .hero-num { font-size: 36px; }
-  .hud-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  /* 等比例缩(以 44→28 heroNum/22→16 普通数字) */
+  .hero-num { font-size: 28px; }
+  .hero-unit { font-size: 12px; }
+  .hero-meta-row { font-size: 13px; }
+  /* hud 头部改竖排 */
+  .hud-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
   .hud-status { width: 100%; justify-content: space-between; }
+  .hud-prefix { font-size: 14px; }
   .hud-prefix-sub { font-size: 11px; }
+  .hud-clock { font-size: 13px; }
+  .hud-live { font-size: 12px; }
+  /* 整页级:卡片/表格/字体 */
+  .cockpit { padding: 0 !important; }
+  .gauge-row, .geo-map-row, .crawl-grid, .stale-list { margin-bottom: 10px !important; }
+  h1, h2, h3 { font-size: 0.95rem !important; }
+  /* 视觉降级:radial 大块/背景简化,避免移动 GPU 占用 */
+  .gauge-svg { width: 140px; height: 140px; }
+  /* 触摸目标 ≥44px(button 类由 DashboardView 兜底) */
+  button { min-height: 40px; }
 }
 
 /* ── 4 个圆形仪表 ── */

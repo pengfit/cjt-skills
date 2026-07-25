@@ -1,6 +1,17 @@
 <template>
   <header class="top-bar">
     <div class="top-bar-left">
+      <!-- 2026-07-25 (P0): 移动端 hamburger 触发器 — 之前 CSS 定义了 .hamburger 但模板没渲染按钮。
+           点击 emit('toggle-sidebar'),DashboardView 切换 mobileSidebarOpen。
+           桌面端(CSS display:none)隐藏, <768px 显示。-->
+      <button
+        class="hamburger"
+        @click="$emit('toggle-sidebar')"
+        title="打开侧栏菜单"
+        aria-label="打开侧栏菜单"
+      >
+        <span></span><span></span><span></span>
+      </button>
       <!-- 2026-07-21 /showcase 改名为 /home -->
       <router-link to="/home" class="showcase-link" title="返回对外展示首页 /home">
         <span class="showcase-link-icon">←</span>
@@ -268,6 +279,16 @@ async function confirmLogout() {
 }
 @media (max-width: 768px) {
   .hamburger { display: flex; }
+  /* 顶部压缩:减小 padding,隐藏首页链接文字只留箭头 */
+  .top-bar { padding: 8px 10px !important; gap: 8px; height: 48px !important; }
+  .top-bar-left { gap: 6px; }
+  .showcase-link { padding: 4px 6px; }
+  .showcase-link-text { display: none; }
+  /* meta 区按钮:hide 文字标签只留图标,减 padding */
+  .alert-ok-text, .last-refresh, .cmd-hint, .cmd-hint-sep, .cmd-hint-slash, .cmd-kbd { display: none; }
+  .alert-badge, .refresh-btn, .pause-btn, .theme-toggle { padding: 4px 6px; }
+  .cmd-palette-trigger { padding: 4px 8px; gap: 4px; }
+  .user-name { display: none; }
   /* 打开移动侧栏后,隐藏品牌 + 标题,只留汉堡 */
   .dashboard.mobile-sidebar-open .brand-logo,
   .dashboard.mobile-sidebar-open .top-bar-title { display: none; }
