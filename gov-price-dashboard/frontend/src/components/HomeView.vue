@@ -34,7 +34,7 @@
         <!-- 2026-07-25 重构:去掉"联系咨询"(Contact 模块已删),保留核心入口 -->
         <div class="hero-tags fade-in">
           <router-link to="/market" class="hero-tag-chip hero-tag-cta">
-            案例展示 →
+            材价通 →
           </router-link>
           <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="hero-tag-chip hero-tag-cta">
             <svg class="github-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">

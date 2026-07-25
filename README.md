@@ -32,6 +32,12 @@ gov-price-normalization (标准化 → norm_{city}_price)   ← Dashboard 默认
 gov-price-dashboard    (可视化 · /home /market)
 ```
 
+## 📸 Demo
+
+![Market Overview — 全国建材市场行情热力图](./docs/images/market-overview.jpg)
+
+[`/market` 公开访问](https://pengfit.cn/market) — 跨城归一热力图、涨跌幅监控、20 个住建局源站链接直达。
+
 ## 📁 项目结构
 
 ```
