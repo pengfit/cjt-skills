@@ -1,479 +1,208 @@
 ---
 name: gov-price-dashboard
-description: "政府材料价格数据可视化看板（材价通），基于 FastAPI + Vue3 + ECharts 6.x。公开页 /home（landing）+ /market（跨城市场行情，走 NORM 索引）；鉴权 单 admin JWT（/api/* 全部 Bearer）；数据源优先级 NORM > DWS；声明式 skill 注册。"
+description: "材价通 — 政府材料价格数据可视化看板。FastAPI :5200 + Vue3 :5300 + ECharts 6.x。公开页 /home（开源项目 landing）+ /market（跨城市场行情，走 NORM 索引）；鉴权 单 admin JWT（/api/* 全部 Bearer）；数据源优先级 NORM > DWS；声明式 skill 注册，新增城市零代码改动。"
 ---
 
-# 材价通
+# 材价通 / cjt-skills Dashboard
 
-政府材料价格数据可视化看板，基于 FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控。
+政府材料价格数据可视化看板。FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控、跨城归一查询。
 
-## 启动
+## 🚀 快速开始
 
 ```bash
-cd skills/gov-price-dashboard
-./start.sh           # 启动
-./start.sh status    # 查看状态
-./start.sh stop      # 停止
-./start.sh restart   # 重启
+cd cjt-skills/gov-price-dashboard
+./start.sh                # 启动
+./start.sh status         # 查看状态
+./start.sh stop           # 停止
+./start.sh restart        # 重启
 ```
 
 - 前端：http://localhost:5300
 - API：http://localhost:5200
 - API 文档：http://localhost:5200/docs
 
-## 架构
+## 🏗️ 架构
 
 ```
 ods_material_{city}_price    (ODS 原始层 · 17 城采集)
-         ↓
+        ↓
 dwd_{city}_price             (DWD 清洗层 · ETL 三段式)
-         ↓
+        ↓
 dws_{city}_price             (DWS 聚合层)
-         ↓
+        ↓
 norm_{city}_price            (NORM 标准层 · 默认数据源)
-         ↓
-gov-price-dashboard API (FastAPI :5200)
-         ↓
-gov-price-dashboard 前端 (Vue3 :5300)
+        ↓
+gov-price-dashboard API      (FastAPI :5200)
+        ↓
+gov-price-dashboard 前端     (Vue3 :5300)
 ```
 
-## 公开页
+**数据源优先级**：Dashboard 默认查 `norm_*_price`，缺失自动降级 `dws_*_price`（`DASHBOARD_DATA_LAYER=dws` 可强制回退）。
 
-### `/home` — Landing（pengfit-redesign 深色赛博朋克风）
+## 🌐 公开页
 
-公开访问（`/`、`/home`、`/index`），不鉴权。Vue 组件：`HomeView.vue`（自包含 560 行，6 个 section）：
+### `/home` — Landing（开源项目角度）
+
+公开访问（`/`、`/home`、`/index`），不鉴权。Vue 组件：`HomeView.vue`。
 
 | Section | 内容 |
 |---------|------|
-| **Hero** | 大标题"龙虾"（青→珊瑚渐变文字）+ "饲养员"（圆润点缀字体）+ CTA + GitHub 源码链接 + 信任标签排 |
-| **Workflow** | 怎么养（3 步流程，中间高亮） |
-| **Case** | 材价通案例 + 以前 vs 现在对比表 + `/market` 跳转 |
-| **Pricing** | 3 档卡片（中档 `⭐ 推荐` + scale(1.05)） |
-| **FAQ** | 6 条手风琴，默认展开第一条 |
-| **Contact** | mailto 链接（disabled） |
-
-数字动画用 `requestAnimationFrame` + ease-out cubic；段间分隔标记 `01/06 WORKFLOW` 渐变细线。
+| **Hero** | "材价通 / cjt-skills" 大标题 + 数据规模副标 + CTA + GitHub/快速开始 链接 |
+| **01 Architecture** | 4 步流程图：源数据 → ETL Pipeline → 跨城归一 → Dashboard |
+| **02 Showcase** | "它能做什么"对比表 + 真实部署示例 URL |
 
 ### `/market` — 市场行情（跨城归一走 NORM）
 
-公开访问，不鉴权。Vue 组件：`MarketView.vue` + `api/routes/market.py`：
+公开访问，不鉴权。Vue 组件：`MarketView.vue` + `api/routes/market.py`。
 
 - **数据源**：跨城 `norm_*_price` 索引（20 城），通过 `_norm_indices()` 运行时扫盘获取
-- **核心 API**：`/api/market/*`（`/api/market/attrs` / `/api/market/changes` / `/api/market/heatmap` 等）
-- **属性中英映射**：`api/routes/market.py::attr_k_zh` 复用 trend.py 的翻译，给属性自由组合展示中文标签
+- **核心 API**：`/api/market/*`（`/overview` / `/movers` / `/change-heatmap` / `/attr-keys` 等共 9 端点）
+- **数据来源模块**：`/api/market/sources` 返回 20 个源站清单，点击直达源网站
 - 响应缺 NORM 索引的城市会自动降级到 DWS（不报错）
 
-## 鉴权（JWT 单 admin）
+## 🔐 鉴权（JWT 单 admin）
 
-所有 `/api/*` 强制 Bearer token，仅 `/api/auth/login` 公开：
+所有 `/api/*` 强制 Bearer token，仅以下路径公开：
 
 ```
-请求: Authorization: Bearer <jwt>
-      ↓
-中间件 (api/main.py) 验证 JWT
-      ↓
-      ├─ 有效 → 继续
-      └─ 失效 → 401 Unauthorized (WWW-Authenticate: Bearer)
+/api/auth/login           # 登录端点
+/api/showcase/stats       # 公开统计
+/api/showcase/insight     # 公开洞察
+/api/market/overview      # /market 用
+/api/market/movers        # /market 用
+/api/market/hot-categories
+/api/market/change-heatmap
+/api/market/spec-fingerprints
+/api/market/attr-keys
+/api/market/breed-search
+/api/market/random-breeds
+/api/market/related-breeds
+/api/market/sources       # 数据来源清单
 ```
 
-**关键实现**：
-
+**配置**：
 - **JWT secret**：从 `.env.auth` 读 `JWT_SECRET`（开发机）或 `.env.auth.docker`（容器）
 - **算法**：HS256（`JWT_ALG`）
 - **登录端点**：`POST /api/auth/login`，body = `{username, password}`，返回 `{access_token, token_type: "bearer"}`
-- **浏览器**：默认填 admin 用户名关闭（防密码管理器自动填充）
 
-## 数据源优先级（NORM > DWS）
+## 🗂️ 侧栏导航
 
-Dashboard 默认查 NORM 索引，缺失时自动降级到 DWS：
+| 模块 | 标签 | 路由 | 说明 |
+|------|------|------|------|
+| **数据浏览** | 🛸 驾驶舱 | `cockpit` | 全局仪表盘，数据概览卡片 + 省份/城市/分类分布 |
+| | 📋 全部数据 | `list` | 多维筛选搜索，分类树侧栏 |
+| | 📁 全部类别 | `category` | 类别下钻分析，品种列表 + 规格价格明细 |
+| **数据采集** | 🔄 数据同步 | `sync` | 17 城抓取进度监控，ODS→DWD→DWS 同步状态 |
+| | ❤️ 数据健康 | `health` | 每日入库量、省份新鲜度、增量异常检测 |
+| **数据治理** | ⚙️ 规格解析 | `rules` | 规格规则库查询/添加/测试，AI 规则生成 |
+| | 🏷️ 分类体系 | `taxonomy` | 分类树浏览、品种→分类映射管理 |
+| **价格可视化** | 📊 价格分布 | `dist` | 价格区间分布图表 |
+| | 📈 趋势 | `trend` | 品类聚合趋势（全国跨城归一，去城市化） |
 
-| 数据源 | 索引模式 | 适用场景 |
-|--------|---------|---------|
-| **NORM**（默认）| `norm_{city}_price` | `/market` 公开页 + `/trend` 全国聚合 + attr 净化后数据 |
-| **DWS**（fallback）| `dws_{city}_price` | NORM 索引缺失时降级；老 ETL 文档（无 `_norm` 字段）|
-
-**降级逻辑**：API 内部 `try norm → except → try dws`，前端无感知。
-
-## 侧栏导航
-
-侧栏 4 模块拆分（2026-07-10 调整）：
-
-### 数据浏览
-
-| 标签 | 路由 | 说明 |
-|------|------|------|
-| 驾驶舱 | `cockpit` | 全局仪表盘，数据概览卡片 + 省份/城市/分类分布图 |
-| 全部数据 | `list` | 产品搜索/筛选/列表，支持分类树侧栏 |
-| 全部类别 | `category` | 类别下钻分析，品种列表 + 规格价格明细 |
-
-### 数据采集
-
-| 标签 | 路由 | 说明 |
-|------|------|------|
-| 数据同步 | `sync` | 各城市抓取进度监控，ODS→DWD→DWS 同步状态 |
-| 数据健康 | `health` | 每日入库量、省份新鲜度、增量异常检测 |
-
-### 数据治理
-
-| 标签 | 路由 | 说明 |
-|------|------|------|
-| 规格解析 | `rules` | 规格规则库查询/添加/测试，DWD 抽样质量报告 |
-| 分类体系 | `taxonomy` | 分类树浏览、品种→分类映射管理 |
-
-### 价格可视化
-
-| 标签 | 路由 | 说明 |
-|------|------|------|
-| 价格分布 | `dist` | 价格区间分布图表 |
-| 趋势 | `trend` | 品类聚合趋势（全国跨城归一） |
-
-## 项目结构
+## 📁 项目结构
 
 ```
 gov-price-dashboard/
-├── start.sh                  # 一键启动脚本
+├── start.sh / deploy.sh     # 启动 / 一键部署
 │
 ├── api/
-│   ├── main.py               # FastAPI 后端（搜索/统计/同步进度）
-│   ├── requirements.txt
-│   ├── skill_registry.py     # Skill 注册中心（自动扫 skill.yml）
+│   ├── main.py              # FastAPI 后端（中间件 + 路由注册）
+│   ├── dependencies.py      # ES client + ALL_INDICES 注入
+│   ├── skill_registry.py    # 自动扫 skill.yml
+│   ├── auth.py              # JWT 鉴权
+│   ├── normalization_bridge.py  # NORM 桥接
+│   ├── paths.py             # 路径常量
 │   └── routes/
-│       ├── provenance.py     # 数据溯源 + 规格解析 + 分类体系路由
-│       └── prompts.yml       # AI prompt 模板
+│       ├── auth.py / skill.py / market.py / search.py
+│       ├── filter_options.py / norm_search.py / provenance.py
+│       ├── trend.py / category_trend.py / breed_recommend.py
+│       └── stats/           # overview / distribution / category /
+│                            # breed / geo / health / sync / norm
 │
 └── frontend/
-    ├── package.json
+    ├── package.json         # Vue 3 + Vite + ECharts 6.x
     ├── vite.config.js
     └── src/
-        ├── App.vue            # 主布局（顶栏 + 侧栏 + 主内容区）
-        ├── main.js
-        ├── style.css
-        ├── composables/       # 可复用逻辑
-        │   ├── useColumnConfig.js
-        │   ├── useEchartsTheme.js
-        │   ├── useFilterOptions.js
-        │   ├── useOverview.js
-        │   ├── useProvinceColor.js
-        │   ├── useSearch.js
-        │   ├── useTabState.js
-        │   └── useToast.js
+        ├── App.vue / main.js / style.css
+        ├── composables/     # useColumnConfig / useEchartsTheme /
+        │                    # useFilterOptions / useOverview / ...
         └── components/
-            ├── layout/
-            │   ├── Sidebar.vue         # 侧栏导航
-            │   └── TopBar.vue          # 顶栏（品牌 + 统计）
-            ├── AppButton.vue           # 通用按钮
-            ├── AppCard.vue             # 通用卡片
-            ├── AppPagination.vue       # 通用分页
-            ├── AttrTags.vue            # 规格属性标签渲染
-            ├── BreedMapTab.vue         # 品种→分类映射管理
-            ├── CategoryTaxonomyTab.vue # 分类体系标签页
-            ├── CategoryTaxonomyView.vue# 分类体系视图容器
-            ├── CategoryTreeBrowser.vue # 分类树浏览器
-            ├── CategoryTreeNav.vue     # 分类树导航
-            ├── CategoryTreeSidebar.vue # 分类树侧栏
-            ├── CategoryView.vue        # 类别分析视图
-            ├── CleanDimView.vue        # 清洗维度视图
-            ├── CmdPalette.vue          # ⌘K 命令面板
-            ├── CockpitView.vue         # 驾驶舱视图
-            ├── CustomSelect.vue        # 自定义下拉筛选
-            ├── DataHealthView.vue      # 数据健康视图
-            ├── DataProvenanceView.vue  # 数据溯源视图
-            ├── DistributionChart.vue   # 数据分布图表
-            ├── EmptyState.vue          # 空状态占位
-            ├── ErrorBoundary.vue       # 错误边界
-            ├── ErrorState.vue          # 错误状态占位
-            ├── PageHeader.vue          # 页面标题
-            ├── ScrapeView.vue          # 抓取进度视图
-            ├── SectionHeader.vue       # 区块标题
-            ├── SkeletonCard.vue        # 骨架屏卡片
-            ├── SkeletonChart.vue       # 骨架屏图表
-            ├── SpecQualityPanel.vue    # 规格质量面板
-            ├── SpecSamplePanel.vue     # 规格抽样面板
-            ├── StatCard.vue            # 统计卡片
-            ├── SyncCard.vue            # 同步进度卡片
-            ├── SyncView.vue            # 数据同步视图
-            ├── TreeNode.vue            # 树节点组件
-            └── VecRulesView.vue        # 规格规则库视图
+            ├── layout/      # Sidebar / TopBar
+            ├── HomeView.vue / MarketView.vue
+            ├── CockpitView / CategoryView / DistributionChart / ...
+            └── ScrapeView / SyncView / DataHealthView / ...
 ```
 
-## API 端点总览（FastAPI :5200）
+## 🔌 API 端点总览（FastAPI :5200）
 
-### 搜索与筛选
+完整端点表见 [`api/main.py`](./api/)。核心分组：
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/search` | 价格搜索（分页/筛选/sort） |
-| `GET` | `/api/filter-options` | 省市区三级联动选项 |
-| `GET` | `/api/stats/overview` | 全局概览（总量/省份/城市/分类分布） |
+| 分组 | 代表端点 | 说明 |
+|------|---------|------|
+| 搜索与筛选 | `GET /api/search` | 分页/筛选/sort |
+| | `GET /api/filter-options` | 省市区三级联动 |
+| | `GET /api/stats/overview` | 全局概览 |
+| 分类与品种 | `GET /api/stats/categories` | 全量类别及数据量 |
+| | `GET /api/stats/breed-detail` | 指定品种规格价格分析 |
+| 品类聚合趋势（去城市化） | `GET /api/stats/category-trend` | 全国跨城归一（`city` 留空 = 全国聚合）|
+| | `GET /api/stats/category-compare` | 多品类并列对比（2-4 个 normalized_breed）|
+| | `GET /api/stats/category-l3-peers` | 同 L3 的所有 normalized_breed |
+| 价格统计 | `GET /api/stats/price-distribution` | 价格区间分布 |
+| | `GET /api/stats/province-ranges` | 多省份价格区间对比 |
+| 数据质量 | `GET /api/stats/data-health` | 每日入库量/新鲜度/异常 |
+| 同步进度 | `GET /api/stats/scrape-progress` | 单城抓取进度（`?city=xian`）|
+| | `GET /api/stats/scrape-progress-all` | 全城汇总 |
+| | `GET /api/stats/{city}-sync-progress` | 各城专用进度端点 |
+| 数据溯源 | `GET /api/stats/provenance` | 数据新鲜度/趋势/来源 |
+| | `POST /api/stats/provenance/flush-city` | 触发城市刷新 |
+| 规格解析质量 | `GET /api/stats/rules-vector` | 规格规则库查询 |
+| | `GET /api/stats/spec-quality` | Spec 解析质量报告 |
+| | `POST /api/stats/spec-quality/fix-case` | 规则预览/确认 |
+| | `POST /api/stats/spec-quality/batch-spec-parse` | 批量规格解析 |
+| 分类体系 | `GET /api/taxonomy/v3/tree` | v3 分类树（GB 章节）|
+| | `GET /api/stats/category-v2-stats` | v2 分类统计 |
+| 品种分类规则 | `GET/POST/DELETE /api/stats/breed-category-rules` | CRUD |
+| | `POST /api/stats/breed-category-rules/test` | Jaccard 召回测试 |
+| | `POST /api/stats/spec-quality/classify-breed-batch` | 批量 AI 推断 |
+| 系统 | `GET /api/skill-registry` | 已注册 skill 清单 |
+| | `POST /api/skill-registry/reload` | 热加载（无需重启）|
+| | `POST /api/prompts/reload` | 重载 AI prompt |
 
-### 分类与品种
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/categories` | 所有产品类别及数据量 |
-| `GET` | `/api/stats/category-detail` | 指定类别省份分布+热门品种+规格价格 |
-| `GET` | `/api/stats/category-price-ranges` | 指定类别的动态价格区间（按分位数） |
-| `GET` | `/api/stats/category-breeds` | 指定类别的去重品种列表（分页） |
-| `GET` | `/api/stats/breed-detail` | 指定品种的规格价格分析（按单位→规格分层） |
-| `GET` | `/api/stats/breed-category-rules` | 全量 breed 归属分类（分类规则库下拉） |
-
-### 品类聚合趋势（2026-07-09 起「去城市化」，全国跨城归一）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/category-trend` | 单品类规格热力图 + 价格带 + 规格分布。`city` 留空 / `all` / `nation` = 全国聚合（跨 NORM 索引）；保留单城 key 以向后兼容 |
-| `GET` | `/api/stats/category-compare` | 多品类并列对比（2-4 个 normalized_breed）。同样支持 city 留空走全国 |
-| `GET` | `/api/stats/category-l3-peers` | 同 L3 的所有 normalized_breed。同样支持 city 留空走全国 |
-
-全国聚合响应额外字段：`label="全国 (N 城)"`、`is_aggregate=true`、`cities_meta=[...]`。
-后端统一入口：`api/routes/category_trend.py:_resolve_query_indices(city)`。
-前端：`/trend` 标签页「品类聚合」（`CategoryTrendView.vue`）已移除城市控件，不再传 city。
-
-### 价格统计
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/price-distribution` | 全局或分类下的价格区间分布 |
-| `GET` | `/api/stats/province-ranges` | 多省份价格区间分布对比 |
-
-### 数据质量
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/data-health` | 数据健康度（每日入库量/省份新鲜度/增量异常） |
-
-### 同步进度
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/scrape-progress` | 单城市抓取进度（`?city=xian`） |
-| `GET` | `/api/stats/scrape-progress-all` | 全部城市抓取进度汇总 |
-| `POST` | `/api/scrape/check` | 检查抓取进度增量状态 |
-| `GET` | `/api/stats/xian-sync-progress` | 西安同步进度（6区县） |
-| `GET` | `/api/stats/sichuan-sync-progress` | 四川同步进度（21地市） |
-| `GET` | `/api/stats/rizhao-sync-progress` | 日照同步进度（3类别） |
-| `GET` | `/api/stats/jinan-sync-progress` | 济南同步进度（41分类目录） |
-| `GET` | `/api/stats/chongqing-sync-progress` | 重庆同步进度（35区县） |
-| `GET` | `/api/stats/heze-sync-progress` | 菏泽同步进度（按期期刊） |
-| `GET` | `/api/stats/henan-sync-progress` | 河南同步进度（18地市，按月跟踪 period） |
-| `GET` | `/api/stats/qingdao-sync-progress` | 青岛同步进度（月度期刊） |
-
-### 数据溯源与清洗
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/provenance` | 数据溯源（新鲜度/趋势/来源，`?city=all`） |
-| `POST` | `/api/stats/provenance/flush-city` | 触发城市数据刷新 |
-| `GET` | `/api/stats/clean-summary` | 清洗摘要统计 |
-| `GET` | `/api/skill-updates` | 各 skill 增量检测状态 |
-
-### 规格解析质量
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/rules-vector` | 规格规则库查询（分页+过滤+搜索） |
-| `GET` | `/api/stats/spec-quality` | Spec 解析质量报告（抽样+分类覆盖率） |
-| `POST` | `/api/stats/spec-quality/fix-case` | 规则预览/确认（confirm=False 预览，confirm=True 写入） |
-| `POST` | `/api/stats/spec-quality/refresh-category` | 触发指定分类的 DWD→DWS 清洗重算 |
-| `POST` | `/api/stats/spec-quality/batch-spec-parse` | 批量规格解析 |
-
-### 分类体系
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/taxonomy/v3/tree` | v3 分类树（GB 章节体系） |
-| `GET` | `/api/stats/category-v2-stats` | v2 分类统计 |
-| `GET` | `/api/stats/category-v2-taxonomy` | v2 分类层级树 |
-| `GET` | `/api/stats/category-v2-breed-map` | v2 品种→分类映射 |
-| `GET` | `/api/stats/category-v2-l3-detail` | v2 L3 分类明细 |
-
-### 品种分类规则
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/stats/breed-category-rules` | 分页查看品种→分类规则 |
-| `POST` | `/api/stats/breed-category-rules` | 手动添加品种→分类规则 |
-| `DELETE` | `/api/stats/breed-category-rules/{id}` | 删除指定规则 |
-| `POST` | `/api/stats/breed-category-rules/test` | 测试品种名 Jaccard 召回 |
-| `POST` | `/api/stats/spec-quality/classify-breed-batch` | 批量 AI 推断品种分类并写入规则库 |
-
-### 系统
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/skill-registry` | 返回所有已注册 skill 清单（skill.yml 扫盘结果） |
-| `POST` | `/api/skill-registry/reload` | 手动重新扫盘（加新 skill 后无重启生效） |
-| `POST` | `/api/prompts/reload` | 重新加载 AI prompt 模板 |
-
-## 搜索 API 参数
-
-```
-GET /api/search?keyword=&province=&city=&county=&category=
-    &unit=&price_min=&price_max=&page=1&page_size=20
-```
-
-### search 返回字段
-
-```json
-{
-  "id": "_id",
-  "breed": "产品名称",
-  "spec": "规格",
-  "attr": { "thickness": "2mm", "cores": "3芯", "diameter": "150", ... },
-  "unit": "单位",
-  "price": 100.0,
-  "price_t": 100.0,
-  "tax_price": 113.0,
-  "province": "陕西",
-  "city": "西安",
-  "county": "阎良区",
-  "date": "2026-05-20"
-}
-```
-
-## attr 字段说明
-
-| 字段 | 说明 | 示例 |
-|------|------|------|
-| `thickness` | 厚度 | `2mm` |
-| `length` | 长度 | `1200mm` |
-| `width` | 宽度 | `400mm` |
-| `height` | 高度 | `600mm`, `H=0.36m→360mm` |
-| `height_range` | 高度范围 | `H100~H250` |
-| `diameter` | 管径/口径 | `DN125~250`, `Φ700` |
-| `cross_section` | 电缆截面 | `2.5mm²`, `240mm²` |
-| `cores` | 芯数 | `3芯`, `4芯` |
-| `voltage` | 电压 | `220`, `380` |
-| `current` | 电流 | `16`, `32` |
-| `material` | 材质 | `PVC`, `PE`, `铸铁` |
-| `color` | 颜色 | `白`, `灰` |
-| `grade` | 等级/牌号 | `C30`, `Q235B`, `P.O42.5R` |
-| `asphalt_type` | 沥青类型 | `AC-13`, `SBSAC-13` |
-| `cement_content` | 水泥含量 | `5%` |
-| `channels` | 通道数 | `8路` |
-| `doors` | 门数 | `2门` |
-| `drain_type` | 排水类型 | `下出水`, `地排水` |
-| `installation_type` | 安装类型 | `台下盆`, `立柱盆` |
-| `inlet_type` | 进水类型 | `后进水`, `侧进水` |
-| `fiber_core` | 光纤芯数 | `12芯`, `24芯` |
-| `length_range` | 长度范围 | `2~4m` |
-| `media` | 介质 | `水`, `气` |
-| `range` | 量程 | `0~100MPa` |
-| `output` | 功率 | `50W`, `100W` |
-| `cable_length` | 线缆长度 | `5m`, `10m` |
-| `temperature` | 温度 | `70℃` |
-| `temp_range` | 温度范围 | `-10℃~50℃` |
-| `humidity_range` | 湿度范围 | `0~100%RH` |
-| `pressure` | 压力等级 | `PN16`, `PN25` |
-| `ring_stiffness` | 环刚度 | `SN8` |
-| `ip_rating` | 防护等级 | `IP65` |
-| `inner_diameter` | 内径 | `DN100` |
-| `wall_thickness` | 壁厚 | `5mm` |
-| `surface` | 表面处理 | `热镀锌` |
-| `fire_rating` | 耐火等级 | `A级` |
-
-## 环境变量
+## 🔧 环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `ES_HOST` | `http://localhost:59200` | Elasticsearch 地址 |
-| `ES_INDEX` | `dws_xian_price` | 默认查询 DWS 索引 |
+| `ES_INDEX` | `dws_xian_price` | 默认查询索引 |
 | `SKILLS_ROOT` | `~/.openclaw/workspace/skills` | skill.yml 扫描根目录 |
-| `CATEGORY_DB` | `../gov-price-etl/data/category_v3_rules.db` | v3 分类库 SQLite 路径 |
+| `CATEGORY_DB` | `../gov-price-etl/data/category_v3_rules.db` | v3 分类库 |
+| `DASHBOARD_DATA_LAYER` | `norm` | 默认数据层（`dws` 强制回退）|
+| `GOV_CHECK_STATUS_DIR` | `/tmp/gov-check-status` | cron 状态目录（可挂 VOLUME）|
+| `GOV_PRICE_SUMMARY_DIR` | `/tmp/gov-price-summary` | 每日汇总目录（可挂 VOLUME）|
 
-## 支持城市（17 个）
+## 🏙️ 支持城市（17 个）
 
-| City | Province | progress_mode | 数据源类型 | 说明 |
-|------|----------|---------------|-----------|------|
-| 西安 | 陕西 | county | HTML 6 区县 | 按造价信息表月份 |
-| 四川 | 四川 | catalogue | ASP.NET 21 地市 | 月度 |
-| 重庆 | 重庆 | county | Browser 35 区县 + 3 source | 月份 + v4 区间价 |
-| 济南 | 山东 | catalogue | Playwright + REST API 41 目录 | 周期 |
-| 日照 | 山东 | catalogue | Playwright + REST 3 tab | 月份 |
-| 菏泽 | 山东 | period | API + HTML + PDF | 期刊 |
-| 河南 | 河南 | period | HTML 4 页 + PDF | 18 地市，期刊 |
-| 青岛 | 山东 | period | HTML + PDF | 月度期刊 |
-| 海南 | 海南 | period | HTML 10 页 + PDF | 月度期刊 |
-| 呼和浩特 | 内蒙古 | period | HTML + PDF | 双月刊 |
-| 湖南 | 湖南 | period | HTML 14 页 + PDF（2 类）| 期刊 |
-| 江西 | 江西 | period | HTML articleList JSON + PDF | 期刊 |
-| 宁夏 | 宁夏 | period | HTML 5 页 + PDF | 双月刊 |
-| 青海 | 青海 | period | HTML 4 页 + PDF | 双月合刊 |
-| 陕西 | 陕西 | period | HTML 5 页 + 7 种 PDF 格式 | 省本级 + 9 设区市 |
-| 威海 | 山东 | period | jpage dataproxy + PDF | 季度 |
-| 新疆 | 新疆 | county | HTML + xlsx 多 sheet | 16 地州 |
+| City | Province | progress_mode | 数据源类型 |
+|------|----------|---------------|-----------|
+| 西安 | 陕西 | county | HTML 6 区县 |
+| 四川 | 四川 | catalogue | ASP.NET 21 地市 |
+| 重庆 | 重庆 | county | Browser 35 区县 + 3 source |
+| 济南 | 山东 | catalogue | Playwright + REST API 41 目录 |
+| 日照 | 山东 | catalogue | Playwright + REST 3 tab |
+| 菏泽 / 河南 / 青岛 / 海南 / 呼和浩特 / 湖南 / 江西 / 宁夏 / 青海 / 陕西 / 威海 | 各省 | period | HTML + PDF，按期期刊 |
+| 新疆 | 新疆 | county | HTML + xlsx 多 sheet |
 
-## ES 索引结构
+完整字段定义见各 `*-price/SKILL.md`。
 
-| 城市 | ODS 层 | DWD 层 | DWS 层 | 进度索引 |
-|------|--------|--------|--------|---------|
-| 西安 | `ods_material_xian_price` | `dwd_xian_price` | `dws_xian_price` | `ods_material_xian_price_sync_progress` |
-| 四川 | `ods_material_sichuan_price` | `dwd_sichuan_price` | `dws_sichuan_price` | `material_sichuan_price_sync_progress` |
-| 重庆 | `ods_material_chongqing_price` | `dwd_chongqing_price` | `dws_chongqing_price` | `material_chongqing_price_sync_progress` |
-| 济南 | `ods_material_jinan_price` | `dwd_jinan_price` | `dws_jinan_price` | `material_jinan_price_sync_progress` |
-| 日照 | `ods_material_rizhao_price` | `dwd_rizhao_price` | `dws_rizhao_price` | `material_rizhao_price_sync_progress` |
-| 菏泽 | `ods_material_heze_price` | `dwd_heze_price` | `dws_heze_price` | `ods_material_heze_price_sync_progress` |
-| 河南 | `ods_material_henan_price` | `dwd_henan_price` | `dws_henan_price` | `ods_material_henan_price_sync_progress` |
-| 青岛 | `ods_material_qingdao_price` | `dwd_qingdao_price` | `dws_qingdao_price` | `ods_material_qingdao_price_sync_progress` |
+## 🔌 新增 skill 接入规范（v1 · 零 dashboard 代码改动）
 
-> 索引名由各 skill 的 `skill.yml` 声明，`api/skill_registry.py` 启动时扫盘生成 `ALL_INDICES`。
-
-**默认查询索引**：`dws_xian_price`（可通过 `ES_INDEX` 环境变量切换）
-
-## cron 状态目录（docker 部署 · 2026-07-20 归总）
-
-所有 cron 任务产生的 status / summary 文件路径全部走环境变量，docker 镜像无需改动代码即可通过 ENV + VOLUME 切换。
-
-| 环境变量 | 默认值 | 说明 |
-|---|---|---|
-| `GOV_CHECK_STATUS_DIR` | `/tmp/gov-check-status` | 19 城 + 规则增量检测的 status json 写入路径（cron 写、API 读） |
-| `GOV_PRICE_SUMMARY_DIR` | `/tmp/gov-price-summary` | 每日汇总的 markdown + 飞书 card JSON 输出路径 |
-
-**所有引用方（24 个 Python 文件）已统一：**
-
-- `scripts/check_rules.py` / `scripts/daily_price_check_summary.py` / `scripts/write_showcase_insight.py`
-- `skills/gov-price-etl/gov_price_etl/check_status.py`（17 城 check.py 走它写 status）
-- `skills/gov-price-dashboard/api/routes/provenance.py`（`/api/stats/check-status` 读 status）
-- `skills/*/commands/check.py` × 19（19 个城市增量检测入口）
-
-### docker-compose 部署示例
-
-```yaml
-services:
-  dashboard:
-    image: registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
-    environment:
-      - GOV_CHECK_STATUS_DIR=/var/lib/openclaw/gov-check-status
-      - GOV_PRICE_SUMMARY_DIR=/var/lib/openclaw/gov-price-summary
-    volumes:
-      - gov-data:/var/lib/openclaw
-volumes:
-  gov-data:    # 持久化卷, 容器重启 status / summary 不丢
-```
-
-### 裸 docker run 等价
-
-```bash
-docker run -d --name dashboard \
-  -e GOV_CHECK_STATUS_DIR=/var/lib/openclaw/gov-check-status \
-  -e GOV_PRICE_SUMMARY_DIR=/var/lib/openclaw/gov-price-summary \
-  -v gov-data:/var/lib/openclaw \
-  registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
-```
-
-### 默认行为（开发机 / 本地）
-
-不设 ENV 时，所有 cron / API 仍走 `/tmp/gov-*`，向后兼容，零行为变化。
-
-## 新增 skill 接入规范（v1）
-
-Dashboard 采用"声明式配置 + 自动发现"架构。加新 skill **零 dashboard 代码改动**，只需两步：
+声明式配置 + 自动发现架构。两步接入：
 
 ### 1. 在 skill 目录下加 `skill.yml`
 
 ```yaml
 # ~/.openclaw/workspace/skills/<skill_dir>/skill.yml
-key: mycity                  # URL slug，出现在 /api/stats/mycity-sync-progress
+key: mycity                  # URL slug
 label: 我的城市                # 卡片显示名
 province: 省名                 # 用于省市区筛选
 ods_index: ods_material_mycity_price
@@ -486,168 +215,63 @@ cities:                       # 可选：静态城市/区县列表
   - 区B
 ```
 
-**字段说明**：
-- `key` / `label` / `province`：必填，用于 URL 和显示
-- `ods_index` / `dws_index`：ES 索引名；`ALL_INDICES` 会自动拼入
-- `progress_index`：进度记录索引。命名不统一也无所谓，registry 会用此字段
-- `progress_mode`：决定 `<SyncCard>` 怎么渲染
-  - `county`：按区县分组，期望 `county_details` 字段
-  - `period`：按期期刊，期望 `period_details` 字段
-  - `catalogue`：按分类目录，期望 `catalogue_details` 字段
-- `config_path`：用于读 `sync.last_period` / `last_update_date` 做增量检测
-
 ### 2. （可选）写一个 sync-progress 端点
 
-`progress_mode` 决定了 `sync-progress` 端点应返回什么字段。
+`progress_mode` 决定端点应返回什么字段：
 
-**county 模式**（如 xian / chongqing）：
-```python
-@app.get("/api/stats/mycity-sync-progress")
-def mycity_sync_progress():
-    # 查 progress_index，取最新 run_id 的所有 county 记录
-    return {
-        "status": "running", "completed_counties": 3, "total_counties": 6,
-        "current_county": "区A", "current_page": 5, "total_pages": 23,
-        "last_updated": "...", "duration_sec": 120,
-        "total_docs": 1234,
-        "county_details": [{"county": "区A", "status": "completed",
-                           "docs_written": 200, "last_updated": "..."}],
-    }
-```
+- **county 模式**：返回 `county_details` 列表（每区县一条）
+- **period 模式**：返回 `period_details` 列表（每期一条）
+- **catalogue 模式**：返回 `catalogue_details` 列表（每目录一条）
 
-**period 模式**（如 heze / henan / qingdao）：
-```python
-@app.get("/api/stats/mycity-sync-progress")
-def mycity_sync_progress():
-    return {
-        "status": "ok", "completed_periods": 2, "total_periods": 5,
-        "latest_period": "2026.1", "last_updated": "...",
-        "total_docs": 5000,
-        "period_details": [{"period": "2026.1", "publish_date": "...",
-                            "status": "completed", "docs_written": 2500}],
-    }
-```
-
-### 3. 热加载（无需重启）
+### 3. 热加载
 
 ```bash
 curl -X POST http://localhost:5200/api/skill-registry/reload
 ```
 
-或重启 dashboard：
+无需重启，刷新页面新 skill 卡片自动出现。
+
+## 🚢 部署（deploy.sh · 阿里云 ACR）
 
 ```bash
-cd skills/gov-price-dashboard
-./start.sh restart
-```
-
-刷新页面，新 skill 卡片自动出现。
-
-## 相关项目
-
-| 项目 | 说明 |
-|------|------|
-| gov-price-etl | ODS→DWD→DWS 数据入仓 ETL |
-| xian-price | 西安数据同步（6 区县） |
-| sichuan-price | 四川数据同步（21 地市） |
-| chongqing-price | 重庆数据同步（35 区县） |
-| jinan-price | 济南数据同步（41 分类目录） |
-| rizhao-price | 日照数据同步（3 类别） |
-| heze-price | 菏泽数据同步（按期期刊） |
-| henan-price | 河南数据同步（18 地市，按期期刊） |
-| qingdao-price | 青岛数据同步（月度期刊） |
-
-## 发布与部署（deploy.sh）
-
-`deploy.sh` 是一键封装 **build → tag → push → restart** 的自动部署脚本，目标 **阿里云 ACR + 本机容器**。
-
-### 用法
-
-```bash
-./deploy.sh build              # 仅构建镜像（不推送）
-./deploy.sh publish            # 构建 + tag + push 到阿里云 ACR
-./deploy.sh deploy             # 本地拉取 + 重启容器
-./deploy.sh release            # build + publish + deploy 一条龙
-./deploy.sh status             # 查看本地容器/镜像状态
-./deploy.sh rollback [tag]     # 回滚到指定 tag（默认回滚到上一个镜像）
-./deploy.sh login              # 引导登录 ACR
-./deploy.sh help               # 查看用法
-```
-
-### 首次发布
-
-```bash
-# 1. 登录 ACR（密码是 ACR 控制台 → 访问凭证 → 独立密码，不是阿里云账号密码）
-./deploy.sh login
-
-# 2. 一条龙：build + tag + push + 重启
-./deploy.sh release
-
-# 3. 验证
-./deploy.sh status
-curl http://localhost:5200/api/health
-```
-
-### 镜像地址
-
-默认 tag 为 `latest`，完整镜像地址：
-
-```
-registry.cn-hangzhou.aliyuncs.com/pengfit/dashboard:latest
-```
-
-可通过环境变量自定义：
-
-```bash
-ACR_REGISTRY=registry.cn-shanghai.aliyuncs.com \
-ACR_NAMESPACE=pengfit \
-IMAGE_TAG=v1.2.3 \
-./deploy.sh publish
+./deploy.sh login             # 首次：登录 ACR
+./deploy.sh release           # 一条龙：build + tag + push + deploy
+./deploy.sh status            # 查看容器/镜像状态
+./deploy.sh rollback [tag]    # 回滚
 ```
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
-| `ACR_REGISTRY` | `registry.cn-hangzhou.aliyuncs.com` | 阿里云 registry 地址 |
+| `ACR_REGISTRY` | `registry.cn-hangzhou.aliyuncs.com` | registry 地址 |
 | `ACR_NAMESPACE` | `pengfit` | 命名空间 |
 | `ACR_IMAGE` | `dashboard` | 镜像名 |
 | `IMAGE_TAG` | `latest` | tag |
 
-### 部署流程
+**镜像特点**：多阶段构建（Node 20 前端 + Python 3.11 slim），`skills/` 全部打包进镜像实现自包含部署，当前约 **325 MB**。
 
-```
-build (docker compose build)
-  ↓
-tag (docker tag → registry.cn-hangzhou.aliyuncs.com/...)
-  ↓
-push (docker push)
-  ↓
-deploy (docker compose up -d --force-recreate)
-  ↓
-health check (curl /api/health, 30 次 × 2s)
-```
-
-### 配置要点
-
-- **Dockerfile**：多阶段构建（Node 20 前端构建 + Python 3.11 slim 运行时），把 `skills/` 全部打包进镜像实现自包含部署，build context 为 `..`（父目录）
-- **healthcheck**：容器内 `curl /api/health`，30s 间隔，3 次重试
-- **网络**：`extra_hosts: host.docker.internal:host-gateway` 桥接宿主机 ES（`http://localhost:59200`）
-- **端口**：`127.0.0.1:8080:5200`（仅本机可达，外层 nginx 反代 8088 → 8080）
-- **重启策略**：`unless-stopped`（服务器重启自动拉起）
-
-### 镜像大小参考
-
-当前（2026-07-19）：约 **325 MB**（压缩后），主要来自：
-- 前端构建产物（含 echarts 1.1MB）~ 2 MB
-- Python slim 基础镜像 ~ 120 MB
-- pip 依赖（fastapi/elasticsearch/uvicorn 等）~ 50 MB
-- skills/ 数据（17 个城市 ETL + 规则库）~ 150 MB
-
-## 停止
+## 🛑 停止
 
 ```bash
 ./start.sh stop
 # 或部署版本：
 docker stop gov-price-dashboard && docker rm gov-price-dashboard
-# 或手动
-kill $(lsof -ti :5200 -ti :5300)
 ```
+
+## 🤝 贡献
+
+PR 永远欢迎。常见贡献方向：
+
+- **新页面 / 新图表**：在 `frontend/src/components/` 加 Vue 组件，在 `api/routes/` 加对应端点
+- **新数据源**：参照 `*-price/SKILL.md` 写 `skill.yml` + `config.yml` + `commands/sync.py`
+- **Bug 报告**：附 ES 索引名 + 复现命令，提交到 issue tracker
+
+## 📄 License
+
+[MIT License](../README.md) — 根目录有完整 LICENSE 文件。
+
+## 🙏 致谢
+
+- **数据来源**：17 个省/市住建局官方造价信息期刊
+- **AI 编排**：[Dify](https://dify.ai) workflow
+- **多模型协作**：[OpenClaw](https://openclaw.ai)
+- **可视化**：[Apache ECharts](https://echarts.apache.org)
