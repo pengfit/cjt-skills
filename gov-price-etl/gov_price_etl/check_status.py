@@ -25,6 +25,22 @@ from typing import Optional
 STATUS_DIR = os.environ.get("GOV_CHECK_STATUS_DIR", "/tmp/gov-check-status")
 
 
+def _is_zero_pending(line: str) -> bool:
+    """判断 "待入仓: 0" / "待入仓: 0 条" 之类 — 0 不该触发 update。
+
+    2026-07-25 增加：shaanxi check.py 输出 "已入仓: 33, 待入仓: 0"，
+    不该被判为 "有待同步"。
+    """
+    import re as _re
+    m = _re.search(r"待入仓\s*[:：]\s*(\d+)", line)
+    if not m:
+        return False
+    try:
+        return int(m.group(1)) == 0
+    except ValueError:
+        return False
+
+
 def _now_str() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -111,11 +127,16 @@ def write_status_from_check_output(
             status = "error"
             has_update = False
             message = line
-        elif any(k in line for k in ["🔔", "有更新", "需同步", "需首次同步", "缺月", "有待同步", "待入仓"]):
+        elif any(k in line for k in ["🔔", "有更新", "需同步", "需首次同步", "缺月", "有待同步"]):
             status = "update"
             has_update = True
             message = line
-        elif any(k in line for k in ["✅", "无新数据", "已同步", "已对齐"]):
+        elif any(k in line for k in ["待入仓"]) and not _is_zero_pending(line):
+            # 2026-07-25: "待入仓: 0" / "待入仓: 0 条" 不该算 update
+            status = "update"
+            has_update = True
+            message = line
+        elif any(k in line for k in ["✅", "无新数据", "已同步", "已对齐", "全部入仓"]):
             status = "ok"
             has_update = False
             message = line
