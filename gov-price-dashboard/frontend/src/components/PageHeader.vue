@@ -52,6 +52,32 @@ defineProps({
   gap: 24px;
 }
 
+/* 2026-07-25 P0-fix: 移动端 wrap + stats 横滚 */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .page-header-main { min-width: 0; }
+  .page-header-title { font-size: 1.05rem !important; line-height: 1.3 !important; word-break: break-word; }
+  .page-header-subtitle { font-size: 12px !important; }
+  .page-header-right { width: 100% !important; }
+  .page-header-stats {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 14px !important;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page-header-stat { flex: 0 0 auto !important; min-width: 90px !important; }
+  .page-header-stat-val { font-size: 18px !important; }
+  .page-header-stat-key { font-size: 11px !important; }
+  .page-header-badge { font-size: 12px !important; padding: 4px 10px !important; }
+}
+
 /* card 变体：白底 + 边框 + 阴影 */
 .page-header--card {
   padding: 18px 20px;

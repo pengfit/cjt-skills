@@ -45,7 +45,16 @@ const routes = [
   // /breed-detail?breed=X&l3=Y&province=Z&city=W[&from=list|taxonomy|spec-rules]
   // 用「直接挂组件」而非 TabsLayout,以免 router-view 二级路由丢渲染
   { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
-  { path: '/', redirect: '/home' },
+  { path: '/', redirect: () => {
+      // 2026-07-25: 移动端(<768px)默认落 /cockpit(后台驾驶舱);
+      // 桌面端保持 /home(对外落地页)。
+      // /market 公开页 + /home 都还可手动访问。
+      if (typeof window !== 'undefined' && window.matchMedia &&
+          window.matchMedia('(max-width: 768px)').matches) {
+        return '/cockpit';
+      }
+      return '/home';
+    } },
   // 2026-07-20 #19 友好 404 页: catch-all 渲染 NotFoundView 组件 (替代原 redirect)
   // 注: NotFoundView 路由已在前面 /showcase 路由旁注册
 ] 

@@ -548,4 +548,24 @@ onMounted(() => { loadTaxonomy(1) })
 .ctx-drawer-field label { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .ctx-drawer-field span { font-size: 13px; color: var(--text, #0f172a); font-weight: 500; }
 .ctx-drawer-actions { padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* ── 移动端 (2026-07-25 P0-fix): filter-bar/table/header 全面适配 ── */
+@media (max-width: 768px) {
+  .filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px !important; }
+  .filter-bar-input, .filter-bar-select { width: 100% !important; min-height: 44px !important; font-size: 15px !important; }
+  .quick-filters, .chip-row { flex-wrap: wrap !important; gap: 6px !important; }
+  .filter-drawer { width: 92vw !important; max-width: 360px !important; }
+  table, thead, tbody, tr, td, th { display: block !important; width: 100% !important; }
+  thead { display: none !important; }
+  tr { margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
+  td, th { padding: 4px 0 !important; border: none !important; display: flex !important; justify-content: space-between !important; gap: 12px !important; }
+  td::before { content: attr(data-label); font-weight: 500; color: var(--text-3, #6b7280); font-size: 12px; }
+  h1 { font-size: 1.1rem !important; }
+  h2 { font-size: 1rem !important; }
+}
+
+  .t-header, .taxonomy-header, .ctx-drawer-grid { grid-template-columns: 1fr !important; flex-direction: column !important; }
+  .ctx-drawer { width: 92vw !important; max-width: 360px !important; }
+  .tree-pane, .detail-pane { width: 100% !important; max-width: 100% !important; }
+
 </style>
