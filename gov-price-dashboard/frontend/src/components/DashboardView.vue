@@ -399,6 +399,26 @@ const tabLoading = ref(false)
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
-  .main-content { padding: 14px 16px; }
+  /* 主区紧凑 padding */
+  .main-content { padding: 12px 14px; }
+
+  /* 防水平溢出(表格/卡组越界) */
+  .main-content { overflow-x: hidden; }
+  .main-content * { max-width: 100%; word-break: break-word; }
+
+  /* 字号在小屏略缩 */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1.05rem !important; }
+
+  /* 表格横向滚动兜底 */
+  table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+
+  /* 表单 input 防 iOS 缩放, 触摸目标 ≥44px */
+  input[type=text], input[type=search], input[type=email], input[type=password], select, textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+  button { min-height: 40px; }
 }
 </style>

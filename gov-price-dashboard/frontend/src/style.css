@@ -3148,3 +3148,11 @@ span.meta-tag.tag-ring       { background: rgba(20,184,166,0.12); color: #0d9488
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(148,163,184,0.35);
 }
+
+/* === 2026-07-25 后台控制台移动端工具类(给 View 用,不影响 /home /market)== */
+@media (max-width: 768px) {
+  .m-stack > * { width: 100% !important; }
+  .m-hide    { display: none !important; }
+  .m-2col    { grid-template-columns: 1fr !important; }
+  .scroll-x  { overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+}

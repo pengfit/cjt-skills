@@ -583,6 +583,19 @@ onUnmounted(() => {
 /* ── 加载 / 错误 ── */
 .cockpit-loading { padding: 60px; }
 
+/* ── 移动端适配(2026-07-25):gauge-row 单列化 + 字号缩减 + 紧凑 padding ── */
+@media (max-width: 768px) {
+  .gauge-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .gauge-card { padding: 14px 12px; }
+  .hero-num { font-size: 36px; }
+  .hud-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .hud-status { width: 100%; justify-content: space-between; }
+  .hud-prefix-sub { font-size: 11px; }
+}
+
 /* ── 4 个圆形仪表 ── */
 .gauge-row {
   display: grid;
