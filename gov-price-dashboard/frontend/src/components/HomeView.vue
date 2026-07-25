@@ -1,9 +1,11 @@
 <!--
-  HomeView.vue (2026-07-22 完整替换)
-  /home 公开 landing — 直接采用 pengfit-redesign.html 的内容
-  · 深色赛博朋克风 + 渐变标题 + 霓虹青/珊瑚红双色系
-  · 6 个 section: Hero / Workflow / Case / Pricing / FAQ / Contact
-  · 数字滚动动画 + FAQ 折叠 + 平滑滚动
+  HomeView.vue (2026-07-25 重构)
+  /home 公开 landing — 按"开源项目"角度重组
+  · 3 个 section: Hero / Architecture(原 01 Workflow) / Showcase(原 02 Case)
+  · 删除模块 03 Pricing / 04 FAQ / 05 Contact — 与开源定位不符
+  · Hero tags 去掉"联系咨询"(联系模块已删),保留"案例展示" + "查看源码"
+  · Hero 文案重写:项目名 / 简介 / 数据规模;CTA 改"看看架构 →"
+  · Workflow → Architecture,内容改为源站 → ETL → 归一 → Dashboard 全链路
 
   旧 9 个子组件不再引用(ShowcaseNav/Hero/Manifesto/Workspace/Pricing/Case/Faq/Contact/Footer)
 -->
@@ -16,19 +18,21 @@
     <section class="hero">
       <div class="hero-content">
         <h1 class="fade-in">
-          <span class="hero-title-main">龙虾</span>
-          <span class="hero-title-sub">饲养员</span>
+          <!-- 2026-07-25: 把"龙虾 饲养员"(AI agent 人设名)换成项目自身名"材价通 / cjt-skills"，
+               与开源项目定位对齐 -->
+          <span class="hero-title-main">材价通</span>
+          <span class="hero-title-sub">cjt-skills</span>
         </h1>
-        <p class="subtitle fade-in">你提需求，它长出新能力。</p>
-        <p class="tagline fade-in">不是外包，是共同养育。</p>
-        <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看怎么养 →</a>
+        <p class="subtitle fade-in">开源工程造价数据基础设施</p>
+        <p class="tagline fade-in">20 城住建局 · 9,931 跨城归一品种 · 1 人 + AI 全程</p>
+        <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看架构 →</a>
         <div class="hero-footer fade-in">
-          OpenClaw · 多模型协作 · Dify Workflow · Docker
+          cjt-skills · MIT License · GitHub pengfit/cjt-skills
         </div>
 
         <!-- 2026-07-22 信任标签排 — 填补下半屏空白 -->
+        <!-- 2026-07-25 重构:去掉"联系咨询"(Contact 模块已删),保留核心入口 -->
         <div class="hero-tags fade-in">
-          <!-- 2026-07-24 P2: 案例展示 入口（指向 /market 材价通案例） -->
           <router-link to="/market" class="hero-tag-chip hero-tag-cta">
             案例展示 →
           </router-link>
@@ -38,47 +42,52 @@
             </svg>
             查看源码 ↗
           </a>
-          <a href="#contact" class="hero-tag-chip hero-tag-cta" @click.prevent="scrollTo('contact')">
-            联系咨询 →
+          <a href="https://github.com/pengfit/cjt-skills/blob/main/README.md" target="_blank" rel="noopener" class="hero-tag-chip hero-tag-cta">
+            📖 快速开始
           </a>
         </div>
       </div>
     </section>
 
-    <!-- 工作模式 -->
+    <!-- 架构原理（原 01 工作模式 → 2026-07-25 按开源项目视角重写） -->
     <section class="workflow" id="workflow">
       <div class="section-marker">
         <span class="section-num">01</span>
         <span class="section-divider"></span>
-        <span class="section-tagline">WORKFLOW</span>
+        <span class="section-tagline">ARCHITECTURE</span>
       </div>
       <div class="container">
-        <h2>怎么"养"</h2>
-        <p class="section-subtitle">6个AI部门，1台电脑，全程飞书协作。</p>
+        <h2>架构原理</h2>
+        <p class="section-subtitle">源数据 → ETL Pipeline → 跨城归一 → 公开 Dashboard,全链路开源可复用。</p>
 
         <div class="workflow-diagram">
           <div class="workflow-steps">
             <div class="workflow-step">
-              <h4>👤 你（飞书说一声）</h4>
-              <p>提出需求，下达指令</p>
+              <h4>📡 源数据</h4>
+              <p>20 个省/市住建局官方造价信息期刊</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step highlight">
-              <h4>🤖 AI团队协作</h4>
-              <p>需求分析 → 架构设计 → 开发 → 测试 → 运维 → 监控</p>
+              <h4>⚙️ ETL Pipeline</h4>
+              <p>gov-price-etl · 17 个城市技能包 · 三段式 ODS→DWD→DWS</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step">
-              <h4>📦 交付物（会生长的系统）</h4>
-              <p>持续迭代，越用越强</p>
+              <h4>🌐 跨城归一</h4>
+              <p>L1~L4 四层规范化 · 9,931 个品种统一口径</p>
+            </div>
+            <div class="workflow-arrow">↓</div>
+            <div class="workflow-step highlight">
+              <h4>📊 Dashboard</h4>
+              <p>FastAPI + Vue3 + ECharts · 公开访问 /market</p>
             </div>
           </div>
         </div>
 
         <div class="workflow-bottom">
-          <p>传统公司需要6人团队多年磨合，</p>
-          <p>你只需要1台电脑 + OpenClaw + 行业know-how。</p>
-          <p><strong style="color: #00d9ff;">它提供每天在长的算力，你提供日常照料。</strong></p>
+          <p>每个环节独立成包、可独立部署、可被 fork。</p>
+          <p>数据流透明 · 索引命名规范 · 进度文件断点续传。</p>
+          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据 ETL 工具链。</strong></p>
         </div>
       </div>
     </section>
@@ -91,11 +100,11 @@
         <span class="section-tagline">CASE STUDY</span>
       </div>
       <div class="container">
-        <h2>养出来什么</h2>
+        <h2>它能做什么</h2>
         <p class="section-subtitle">
-          案例：
-          <router-link to="/market" class="case-link">材价通</router-link>
-          · 工程造价行业的数据中台
+          部署示例：
+          <router-link to="/market" class="case-link">材价通 Dashboard</router-link>
+          · https://pengfit.cn · 工程造价行业的数据中台
         </p>
 
         <h3>以前 vs 现在</h3>
@@ -131,7 +140,7 @@
         </table>
 
         <p style="text-align: center; color: #a0a0a0; margin-top: 32px;">
-          1人公司 + AI全程无需干预，覆盖数据业务全生命周期。
+          1 人 + AI 全程,覆盖数据采集 → 清洗 → 归一 → 展示全生命周期。
         </p>
         <div class="case-cta-wrap">
           <router-link to="/market" class="case-cta">
@@ -141,101 +150,7 @@
       </div>
     </section>
 
-    <!-- 合作模式 -->
-    <section class="pricing" id="pricing">
-      <div class="section-marker">
-        <span class="section-num">03</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">PRICING</span>
-      </div>
-      <div class="container">
-        <h2>三种模式，按项目选</h2>
-        <p class="section-subtitle">项目大小、持续性、调用量 —— 三种需求形态，对应三种合作深度。</p>
 
-        <div class="pricing-grid">
-          <div class="pricing-card">
-            <h3>🥉 项目制</h3>
-            <p class="suitable">适合：一次性数据基建</p>
-            <p class="price-type">一次性报价</p>
-            <ul>
-              <li>需求诊断</li>
-              <li>方案报价</li>
-              <li>签约交付</li>
-            </ul>
-            <span class="cta-button is-disabled" aria-disabled="true">约需求诊断</span>
-          </div>
-
-          <div class="pricing-card featured">
-            <h3>🥈 长期顾问</h3>
-            <p class="suitable">适合：持续运维 / 增量迭代</p>
-            <p class="price-type">月费，单独报价</p>
-            <ul>
-              <li>月度合作</li>
-              <li>按需迭代</li>
-              <li>随时调整</li>
-              <li style="color: #e94560;">AI升级，项目自动升级</li>
-            </ul>
-            <span class="cta-button is-disabled" aria-disabled="true">约月度合作</span>
-          </div>
-
-          <div class="pricing-card">
-            <h3>🥇 数据接入</h3>
-            <p class="suitable">适合：直接调用已采集的20城数据</p>
-            <p class="price-type">按调用量计费</p>
-            <ul>
-              <li>申请API试用</li>
-              <li>评估用量</li>
-              <li>开通服务</li>
-            </ul>
-            <span class="cta-button is-disabled" aria-disabled="true">申请API试用</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ -->
-    <section class="faq" id="faq">
-      <div class="section-marker">
-        <span class="section-num">04</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">FAQ</span>
-      </div>
-      <div class="container">
-        <h2>常见问题</h2>
-        <p class="section-subtitle">合作前最常被问到的几件事</p>
-
-        <div class="faq-list">
-          <div
-            v-for="(f, i) in faqs"
-            :key="i"
-            class="faq-item"
-            :class="{ active: activeFaq === i }"
-          >
-            <div class="faq-question" @click="toggleFaq(i)">{{ f.q }}</div>
-            <div class="faq-answer">{{ f.a }}</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 联系 -->
-    <section class="contact" id="contact">
-      <div class="section-marker">
-        <span class="section-num">05</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">CONTACT</span>
-      </div>
-      <div class="container">
-        <h2>聊聊你的项目</h2>
-        <p class="section-subtitle">发邮件，平均12小时内回复。</p>
-        <p style="color: #a0a0a0; margin-bottom: 32px;">
-          复杂需求附上：<strong>数据源</strong> / <strong>期望产出</strong> / <strong>时间线</strong>，三项即可。
-        </p>
-        <span class="contact-email is-disabled" aria-disabled="true">
-          📧 hello@pengfit.cn
-        </span>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -255,20 +170,6 @@ function onScroll() {
 function scrollTo(id) {
   const el = document.getElementById(id)
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-// FAQ 折叠(单开)
-const activeFaq = ref(0)  // 2026-07-22: 默认展开第一条,减少空白感
-const faqs = [
-  { q: '你一个人能扛大项目吗？', a: '能。规模在 OpenClaw 边界内。超过此规模我会提前告知并建议扩队或外包分包，不暗中降质。' },
-  { q: '工期和报价会变吗？', a: '报价单签前锁定。需求变更走书面补充协议，不口头承诺。' },
-  { q: '数据从哪来？合规吗？', a: '全部来自政府/协会公开站点，严格遵守 robots.txt 与访问频次。' },
-  { q: '能不能用我的私有数据源？', a: '能。采集、清洗、接入全链路都支持私有源定制。' },
-  { q: '售后响应多久？', a: '工作日4小时内首响应，紧急工单24h内出修复方案。' },
-  { q: '可以签合同/NDA吗？', a: '可以。私有部署场景常规配合签NDA。' },
-]
-function toggleFaq(i) {
-  activeFaq.value = activeFaq.value === i ? -1 : i
 }
 
 // 数字滚动动画
