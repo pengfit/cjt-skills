@@ -23,6 +23,18 @@
       "period": "2026.1-2月",
       "docs_written": 2979,
       "ts": "2026-07-17T16:50:42"
+    },
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202607/t20260720_10180486.shtml": {
+      "status": "ok",
+      "period": "2026.5-6月",
+      "docs_written": 2967,
+      "ts": "2026-07-24T18:33:22"
+    },
+    "https://zjt.shanxi.gov.cn/fwzl/bzdexx/jgxx/202607/t20260720_10180488.shtml": {
+      "status": "ok",
+      "period": "2026.5-6月",
+      "docs_written": 2883,
+      "ts": "2026-07-24T23:20:20"
     }
   }
 }
