@@ -729,20 +729,22 @@ defineExpose({ loadCategoryOptions })
 }
 .attr-cell { font-size: 11px; color: var(--text-3); }
 
-/* 移动端 */
-.table-mobile { display: none; }
+/* 2026-07-25 P0-fix: 移动端 — 注意所有规则都要在 @media 块内! 
+   (之前 bug:Python 拼接时把规则放到了 @media 块外面,
+    导致 .grid-table { display: block !important } 变成全局样式,
+    桌面端表格也变成卡片,布局紊乱。) */
 @media (max-width: 768px) {
   .table-desktop { display: none; }
-  .table-mobile { display: block; }
-}
-  /* 2026-07-25 P0-fix: grid-table + filter sheet */
+  .table-mobile  { display: block; }
+  /* grid-table / filter sheet 适配 */
   .grid-table { display: block !important; }
   .grid-table thead { display: none !important; }
   .grid-table tbody, .grid-table .grid-row, .grid-table tr { display: block !important; width: 100% !important; }
   .grid-table tr { margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
-  .grid-table td, .grid-table .grid-cell { display: flex !important; justify-content: space-between !important; padding: 4px 0 !important; border: none !important; }
+  .grid-table td, .grid-table .grid-cell { display: flex !important; justify-content: space-between !important; padding: 4px 0 !important; border: none !important; word-break: break-word; }
   .filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px !important; }
   .filter-bar-input, .filter-bar-select { width: 100% !important; min-height: 44px !important; font-size: 15px !important; }
   .quick-filters { flex-wrap: wrap !important; gap: 6px !important; }
+}
 
 </style>
