@@ -34,7 +34,9 @@ gov-price-dashboard    (可视化 · /home /market)
 
 ## 📸 Demo
 
-![Market Overview — 全国建材市场行情热力图](./docs/images/market-overview.jpg)
+完整全页截图（包括 Hero + KPI 卡片 + 城市×品种热力图 + 数据来源模块 + 页脚），运行时单次截图超过 25M 像素限制，分 3 段拼接 + 缩放到 1200 宽。
+
+<img src="./docs/images/market-overview.jpg" alt="Market Overview — /market 完整全页截图" width="1100">
 
 [`/market` 公开访问](https://pengfit.cn/market) — 跨城归一热力图、涨跌幅监控、20 个住建局源站链接直达。
 
