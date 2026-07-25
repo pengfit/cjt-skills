@@ -2360,4 +2360,70 @@ function sparklineTitle(breed) {
   .m-sources-toolbar-sub { font-size: 12px; }
   .m-sources-grid { grid-template-columns: 1fr; gap: 10px; }
 }
+
+/* === 2026-07-25 (B.1): 数据治理透明卡 — 之前 string-match 假阳性漏了,这次精准补 === */
+.m-card-quality {
+  position: relative;
+  padding: 22px 24px 24px;
+  margin: 24px 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fefce8 0%, #ffffff 100%);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+.m-card-quality::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%);
+  border-radius: 14px 14px 0 0;
+}
+.m-quality-toolbar { display: flex; align-items: center; margin-bottom: 14px; }
+.m-quality-toolbar-info { flex: 1; min-width: 0; }
+.m-quality-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; color: #78350f; letter-spacing: -0.3px; }
+.m-quality-toolbar-sub { font-size: 12px; color: #92400e; margin: 0; }
+.m-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.m-quality-card {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "emoji label meta"
+    ".     province meta";
+  align-items: center;
+  gap: 4px 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  transition: border-color 0.18s, transform 0.12s, box-shadow 0.18s;
+}
+.m-quality-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+.m-quality-emoji { grid-area: emoji; font-size: 18px; line-height: 1; }
+.m-quality-label { grid-area: label; font-size: 14px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-quality-meta { grid-area: meta; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.m-quality-age { font-size: 14px; font-weight: 700; color: #6b7280; }
+.m-quality-date { font-size: 10px; color: #9ca3af; }
+.m-quality-province { grid-area: province; font-size: 11px; color: #6b7280; }
+.m-quality-ok    { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.04); }
+.m-quality-ok    .m-quality-age { color: #16a34a; }
+.m-quality-warn  { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.04); }
+.m-quality-warn  .m-quality-age { color: #d97706; }
+.m-quality-alert { border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.04); }
+.m-quality-alert .m-quality-age { color: #dc2626; font-weight: 800; }
+@media (max-width: 640px) {
+  .m-card-quality { padding: 16px 14px 18px; margin: 16px 0; }
+  .m-quality-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+
 </style>
