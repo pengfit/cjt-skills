@@ -9,6 +9,8 @@
   <!-- 2026-07-23 v2: /home 恢复公开(友反馈 — 首页作为落地页必须访客直访) -->
   <HomeView v-else-if="route.name === 'home'" />
   <NotFoundView v-else-if="route.name === 'not-found'" />
+  <!-- 2026-07-25: 移动端拦截页 — 不需鉴权,放在 LoginView 前面优先渲染 -->
+  <MobileBlockedView v-else-if="route.name === 'mobile-blocked'" />
   <LoginView v-else-if="!isAuthed" />
   <DashboardView v-else />
 </template>
@@ -18,6 +20,7 @@ import { defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import HomeView from './components/HomeView.vue'
 import MarketView from './components/MarketView.vue'
+import MobileBlockedView from './components/MobileBlockedView.vue'
 import NotFoundView from './components/NotFoundView.vue'
 import { useAuth } from './composables/useAuth.js'
 

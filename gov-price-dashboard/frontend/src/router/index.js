@@ -45,6 +45,8 @@ const routes = [
   // /breed-detail?breed=X&l3=Y&province=Z&city=W[&from=list|taxonomy|spec-rules]
   // 用「直接挂组件」而非 TabsLayout,以免 router-view 二级路由丢渲染
   { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
+  // 2026-07-25 P0: 移动端访问 admin 非驾驶舱页的拦截页
+  { path: '/mobile-blocked', name: 'mobile-blocked', component: () => import('../components/MobileBlockedView.vue'), meta: { public: true } },
   { path: '/', redirect: () => {
       // 2026-07-25: 移动端(<768px)默认落 /cockpit(后台驾驶舱);
       // 桌面端保持 /home(对外落地页)。
@@ -84,6 +86,20 @@ const INDEX_ONLY_KEYS = new Set(['date_from', 'date_to', 'v'])
 const COCKPIT_ONLY_KEYS = new Set(['date_from', 'date_to'])
 
 router.beforeEach((to) => {
+  // 0) 2026-07-25: 移动端(<768)拦截 — 除「驾驶舱」 + 公开页 外,一律跳 /mobile-blocked
+  //    背景: 数据查询类页(list / taxonomy / distribution / sync / health 等)在手机
+  //         端排版混乱。驾驶舱是唯一为手机端做过专项适配的 admin 页。
+  //    允许移动端: cockpit / home / market / login / not-found / mobile-blocked
+  const MOBILE_ALLOW_NAMES = new Set([
+    'cockpit', 'home', 'market', 'login', 'not-found', 'mobile-blocked',
+  ])
+  if (typeof window !== 'undefined' && window.matchMedia &&
+      window.matchMedia('(max-width: 768px)').matches) {
+    if (to.name && !MOBILE_ALLOW_NAMES.has(to.name)) {
+      return { path: '/mobile-blocked', query: { from: to.fullPath } }
+    }
+  }
+
   // 1) 旧 ?tab=xxx 重定向
   const tab = to.query.tab
   if (tab && TAB_KEYS.has(tab)) {
