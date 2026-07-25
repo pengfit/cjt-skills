@@ -166,6 +166,7 @@ def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False
     scanned = 0
     written = 0
     failed = 0
+    skipped = 0
     err_samples = []
     actions = []
     for hit in _scan_dws(es, city, since=since):
@@ -176,6 +177,19 @@ def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False
             failed += 1
             if len(err_samples) < 3:
                 err_samples.append(f"normalize: {e}")
+            continue
+
+        # 2026-07-25 (P0-fix): price 必须 > 0 才入 NORM
+        # 修复 bug:之前 DWS->NORM 允许 price 为 None 或 0 的数据落入 NORM,
+        # 污染跨城归一均价、热力图涨跌幅、attr_norm 计算。
+        # tax_price 也要求 > 0(双向校验,价格数据基本都有)
+        _price_v = normed.get("price")
+        _tax_v = normed.get("tax_price")
+        if (
+            _price_v is None or not isinstance(_price_v, (int, float)) or _price_v <= 0
+            or _tax_v is None or not isinstance(_tax_v, (int, float)) or _tax_v <= 0
+        ):
+            skipped += 1
             continue
 
         if dry_run:
@@ -220,6 +234,7 @@ def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False
         "scanned": scanned,
         "written": written,
         "failed": failed,
+        "skipped": skipped,
         "elapsed_sec": round(elapsed, 2),
         "rate": round(scanned / elapsed, 1) if elapsed > 0 else 0,
         "err_samples": err_samples,
