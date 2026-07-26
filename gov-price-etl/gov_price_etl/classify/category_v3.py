@@ -34,7 +34,11 @@ _DB_LOCK = threading.Lock()
 
 
 def _get_singleton_conn(db_path: str) -> sqlite3.Connection:
-    """取（懒加载）单例 SQLite 连接。线程安全。"""
+    """取（懒加载）单例 SQLite 连接。线程安全。
+
+    v0.10 (2026-07-26): 加 PRAGMA journal_mode=READ-ONLY 仍然不开 write，
+    但能读到外部同一进程的更新（WAL 模式）。同时改 _open_db() 为重置单例的 hook。
+    """
     if db_path in _DB_SINGLETON:
         return _DB_SINGLETON[db_path]
     with _DB_LOCK:
@@ -42,6 +46,11 @@ def _get_singleton_conn(db_path: str) -> sqlite3.Connection:
         if db_path in _DB_SINGLETON:
             return _DB_SINGLETON[db_path]
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
+        # WAL checkpoint refresh（让连接读到其他进程/同进程前面 INSERT 的数据）
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
         _DB_SINGLETON[db_path] = conn
         return conn
 
