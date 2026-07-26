@@ -21,7 +21,7 @@ show_usage() {
 CMD="$1"; shift
 
 case "$CMD" in
-    preview|sync|status|check|test)
+    preview|sync|sync-gczj|status|check|test)
         "$PYTHON_CMD" "$CMD_DIR/$CMD.py" "$@"
         ;;
     *)  show_usage; exit 1 ;;

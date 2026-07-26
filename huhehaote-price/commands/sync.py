@@ -479,9 +479,12 @@ def cmd_legacy_sync(args):
     print(f'[huhehaote v0.x legacy] 共 {len(items)} 期')
 
     journal_kw = cfg.get('journal_keyword', '')
+    # v0.2 (2026-07-26): 支持 list / str - 标题含任一关键词即匹配
+    if isinstance(journal_kw, str):
+        journal_kw = [journal_kw]
     todo = []
     for it in items:
-        if journal_kw and journal_kw not in it['title']:
+        if journal_kw and not any(kw in it['title'] for kw in journal_kw):
             continue
         if args.period and args.period not in it['title']:
             continue
@@ -537,7 +540,7 @@ def cmd_legacy_sync(args):
                 now = datetime.now().isoformat(timespec='seconds')
                 docs = []
                 for r in rows:
-                    docs.append({
+                    doc = {
                         'no': r['no'],
                         'breed': r['breed'],
                         'spec': r['spec'],
@@ -560,7 +563,10 @@ def cmd_legacy_sync(args):
                         'create_time': now,
                         'source_pdf': minio_key,
                         'source_url': pdf_url,
-                    })
+                    }
+                    # v0.9 (2026-07-26): 智能拆分 breed/spec — 让 ETL 不拒收空 spec
+                    apply_smart_split(doc)
+                    docs.append(doc)
 
                 if args.dry_run:
                     print(f'  [dry-run] 将写 {len(docs)} 条到 {cfg["es"]["ods_index"]}')

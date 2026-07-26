@@ -237,6 +237,9 @@ class HuhehaoteCollector(SyncRunner):
         self.s3 = None  # lazy init
         self.es = None  # lazy init
         self.journal_keyword = cfg.get('journal_keyword', '信息价')
+        # v0.9 (2026-07-26): 支持 list - 标题含任一关键词即匹配
+        if isinstance(self.journal_keyword, str):
+            self.journal_keyword = [self.journal_keyword]
 
     # ── SyncRunner 钩子实现 ──
 
@@ -256,7 +259,8 @@ class HuhehaoteCollector(SyncRunner):
         # 过滤
         filtered = []
         for it in all_items:
-            if self.journal_keyword and self.journal_keyword not in it['title']:
+            # v0.9: 多关键词匹配 - 标题含任一即过
+            if self.journal_keyword and not any(kw in it['title'] for kw in self.journal_keyword):
                 continue
             if self.year and f'{self.year}年' not in it['title']:
                 continue
@@ -367,10 +371,11 @@ class HuhehaoteCollector(SyncRunner):
 
             # 5. 构造 docs（含 v0.8 新字段）
             from datetime import datetime
+            from utils import apply_smart_split
             now = datetime.now().isoformat(timespec='seconds')
             docs = []
             for r in rows:
-                docs.append({
+                doc = {
                     'no': r['no'],
                     'breed': r['breed'],
                     'spec': r['spec'],
@@ -392,7 +397,10 @@ class HuhehaoteCollector(SyncRunner):
                     'create_time': now,
                     'source_pdf': minio_key,
                     'source_url': pdf_url,
-                })
+                }
+                # v0.9 (2026-07-26): 智能拆分 breed/spec — 让 ETL 不拒收空 spec
+                apply_smart_split(doc)
+                docs.append(doc)
 
             unit['minio_key'] = minio_key
 

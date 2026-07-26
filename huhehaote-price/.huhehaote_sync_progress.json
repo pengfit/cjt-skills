@@ -1,5 +1,19 @@
 {
   "done": {
+    "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202607/t20260716_2021400.html": {
+      "period": "2026.第3期",
+      "period_start": "2026-05-01",
+      "period_end": "2026-06-30",
+      "period_days": 61,
+      "publish_date": "2026-07-16",
+      "detail_url": "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202607/t20260716_2021400.html",
+      "pdf_url": "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202607/P020260716599859448793.pdf",
+      "minio_key": "huhehaote-price/2026.第3期/P020260716599859448793.pdf",
+      "docs_written": 1845,
+      "status": "ok",
+      "error": "",
+      "created_at": "2026-07-26T14:50:51"
+    },
     "http://zfcxjsj.huhhot.gov.cn/bsfw_91/xzzx/zjxx/202603/t20260331_1987221.html": {
       "period": "2026.第1期",
       "period_start": "2026-01-01",
@@ -12,8 +26,8 @@
       "docs_written": 1854,
       "status": "ok",
       "error": "",
-      "created_at": "2026-07-03T13:34:34"
+      "created_at": "2026-07-26T14:50:56"
     }
   },
-  "saved_at": "2026-07-03 13:34:34"
+  "saved_at": "2026-07-26 14:50:56"
 }

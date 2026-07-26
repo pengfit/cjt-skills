@@ -54,6 +54,105 @@ def load_config():
         return yaml.safe_load(f) or {}
 
 
+# 2026-07-26: 智能拆分 breed/spec — 通用正则 + 领域特例
+# 背景：huhehaote PDF 表格里很多「核心名 + 规格」是一次连写的（如「钢筋HPB300(高线)Φ6」），
+#       原始 spec 列为空，ETL 会跳过（v0.12+ 源头杜绝设计）。需要提前拆开。
+# 设计：先空格拆、再正则抽 Φ/DN/De/Mpa/mm/m³ 、最后走领域特例（玻璃厚度、混凝土标号）。
+import re
+
+GENERIC_SPEC_PATTERNS = [
+    # Φ6 / Φ12.5 / φ6
+    (re.compile(r'Φ(\d+(?:\.\d+)?)'), None),
+    (re.compile(r'φ(\d+(?:\.\d+)?)'), None),
+    # DN100 / De110
+    (re.compile(r'\bDN(\d+)'), None),
+    (re.compile(r'\bDe(\d+)'), None),
+    # Mpa1.6
+    (re.compile(r'Mpa(\d+(?:\.\d+)?)', re.IGNORECASE), None),
+    # 240×115×53mm / 6×50mm
+    (re.compile(r'(\d+)\s*×\s*(\d+)(?:\s*×\s*(\d+))?\s*mm'), None),
+    # 通用 mm / m³ / t (以词边界防误伤“25×6mm”里的 6)
+    (re.compile(r'(\d+(?:\.\d+)?)\s*mm\b'), None),
+    (re.compile(r'(\d+(?:\.\d+)?)\s*m³\b'), None),
+    (re.compile(r'(\d+(?:\.\d+)?)\s*\bt\b'), None),
+]
+
+
+def smart_split_breed_spec(breed: str, spec: str = '') -> tuple[str, str]:
+    """智能拆分 breed/spec。返回 (new_breed, new_spec)。
+
+    优先级：
+      1. 空格拆分（已有的源 PDF 「核心名 规格」布局）
+      2. 通用正则抽 Φ/DN/De/Mpa/mm/m³/t/×mm
+      3. 领域特例：玻璃厚度（5+12A+5mm）、混凝土标号+石料（C30 碎石）
+
+    拆到 spec 有内容为止。拿不到就返回原样（spec 可能还是空，让 ETL 拒收）。
+    """
+    if not breed:
+        return breed, spec
+
+    original_breed = breed
+    original_spec = spec
+
+    # Step 1: 空格拆分
+    if ' ' in breed:
+        breed_part, _, space_part = breed.partition(' ')
+        breed = breed_part
+        if not spec:
+            spec = space_part
+        else:
+            spec = f'{spec} {space_part}'
+
+    # Step 2: 通用正则抽规格
+    if not spec:
+        extracted = []
+        for pattern, _ in GENERIC_SPEC_PATTERNS:
+            m = pattern.search(breed)
+            if m:
+                grp = m.group(0)
+                if grp not in extracted:
+                    extracted.append(grp)
+                    breed = (breed[:m.start()] + breed[m.end():]).strip()
+        if extracted:
+            spec = ' '.join(extracted)
+            breed = breed.strip()
+
+    # Step 3: 领域特例 — 玻璃厚度 (5+12A+5mm / 5+9A+5mm)
+    if not spec and '玻璃' in breed:
+        m = re.search(r'((?:\d+\+)*\d+A?\+?\d+mm)$', breed)
+        if m:
+            spec = m.group(1)
+            breed = breed[:m.start()].strip()
+
+    # Step 4: 领域特例 — 混凝土标号+石料 (C30 碎石 / C20 卵石)
+    if not spec and '混凝土' in breed:
+        m = re.search(r'(C\d+(?:\.\d+)?)\s*(\S+)$', breed)
+        if m:
+            spec = f'{m.group(1)} {m.group(2)}'
+            breed = breed[:m.start()].strip()
+
+    # 拿不到任何 spec → 还原原值（不脏写）
+    if not spec and not original_spec:
+        return original_breed, original_spec
+    if not spec and original_spec:
+        # 原 spec 还在但 breed 被正则制过，还原 breed
+        return original_breed, original_spec
+
+    return breed, spec
+
+
+def apply_smart_split(row: dict) -> dict:
+    """对单条 ODS doc 应用智能拆分，返回 row（修改原 row）。"""
+    if not isinstance(row, dict):
+        return row
+    breed = row.get('breed') or ''
+    spec = row.get('spec') or ''
+    new_breed, new_spec = smart_split_breed_spec(breed, spec)
+    row['breed'] = new_breed
+    row['spec'] = new_spec
+    return row
+
+
 def ensure_ods_index(es, host, index):
     """确保 ODS 索引存在，套用 mapping（如果不存在）
 

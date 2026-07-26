@@ -115,3 +115,42 @@ huhehaote-price/
 
 - <skills>/gov-price-dashboard — 看板(查 DWS 数据)
 - <skills>/gov-price-etl — ETL 公共层
+
+## sync-gczj（建设工程造价信息 双月刊增量流，v0.1, 2026-07-26）
+
+源站 8 期里 6 期是「建设工程造价信息」双月刊主刊，2 期是「信息价1期」等散刊。
+原 sync 用 `journal_keyword="信息价"` 一次性抓所有，但只能命中 1 期散刊。
+新 `sync-gczj` 专门抓建设工程造价信息系列，独立 progress 文件，独立 run。
+
+```bash
+cd <skills>/huhehaote-price
+./run.sh sync-gczj                  # 增量同步（默认，跳过已 done 的期）
+./run.sh sync-gczj --reset           # 重置进度，重抓全量
+./run.sh sync-gczj --dry-run         # 只看不写
+./run.sh sync-gczj --latest          # 只同步最新一期
+```
+
+复用 sync.py 的 fetch/parse 工具（parse_list_page / fetch_all_periods / fetch_detail_pdf / parse_pdf）。
+源站过滤器：标题含「建设工程造价信息」且不含「信息价」散刊关键字。
+
+## smart_split_breed_spec（v0.9, 2026-07-26）
+
+源 PDF 表格里很多「核心名 + 规格」是一次连写的（如「钢筋HPB300(高线)Φ6」），
+原 spec 列为空，ETL 会跳过（v0.12+ 源头杜绝设计）。需要提前拆开。
+
+utils.py::smart_split_breed_spec(breed, spec) 优先级：
+  1. 空格拆分
+  2. 通用正则抽规格（Φ/φ/DN/De/Mpa/mm/m³/t/×mm）
+  3. 领域特例：玻璃厚度（5+12A+5mm）、混凝土标号+石料（C30 碎石）
+
+下游用法：
+- sync.py collector 路径：自动调用
+- sync_gczj_zjxx.py：自动调用
+- 直接 API：`from utils import apply_smart_split; apply_smart_split(doc)`
+
+## period_rules 补登（v0.2, 2026-07-26）
+
+源站 bimonthly 但 period_rules 漏登记 guizhou/shanxi，导致 ETL 第一轮 报 UnknownCityError。
+补登两条：
+- guizhou: bimonthly, anchor_month [2,4,6,8,10,12]
+- shanxi: bimonthly, anchor_month [1,3,5,7,9,11]
