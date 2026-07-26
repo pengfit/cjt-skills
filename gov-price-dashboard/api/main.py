@@ -235,6 +235,12 @@ async def spa_catch_all(full_path: str):
     potential = os.path.join(STATIC_DIR, full_path)
     if os.path.isfile(potential):
         return FileResponse(potential)
+    # 2026-07-26 #SEO: 目录形式 prerender(/home/index.html /market/index.html)
+    #   vite seoBuildPlugin 为公开路由生成 dist/{path}/index.html,
+    #   /home → static/home 是目录(上面 isfile False),改成也查 {path}/index.html
+    dir_index = os.path.join(potential, "index.html")
+    if os.path.isfile(dir_index):
+        return FileResponse(dir_index)
     # SPA 路由(/home /cockpit /dist ... 等) → 返回 index.html
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
