@@ -423,6 +423,69 @@ def _city_latest_publish_date(norm_index: str):
         return None
 
 
+def _city_latest_update_date(ods_index: str):
+    """最新 ODS update_date 聚合 (ms epoch) — 数据治理透明卡 / 数据新鲜度用
+
+    区别于 _city_latest_publish_date (走 NORM source_publish_date):
+    - update_date           = ODS 入库时间(数据治理透明卡的"新鲜度"更准 — 抓到我们系统的时间)
+    - source_publish_date   = 政府发布时间(NORM 层规范化,部分城市抓得晚 → 时间远早于实际入库)
+
+    部分 ODS 索引(如 heze)的 update_date 是 keyword 不是 date,直接 max 聚合会失败,
+    用 max+script 取 _source.update_date。ODS update_date 三种常见格式都兜底:
+      - "YYYY-MM-DDTHH:MM:SSZ"   → Instant.parse
+      - "YYYY-MM-DD HH:MM:SS"    → LocalDateTime.parse (空格先替 T)
+      - "YYYY-MM-DD"             → LocalDate.parse (纯日期,atStartOfDay(UTC))
+    全失败时返 0,被外层过滤(避免崩 500)。
+
+    返回: ms(epoch) | None
+    """
+    now = time.time()
+    cache_key = f"upd::{ods_index}"
+    cached = _city_period_cache.get(cache_key)
+    if cached and (now - cached[0]) < _CITY_PERIOD_TTL_S:
+        return cached[1]
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "max_upd": {
+                    "max": {
+                        "script": {
+                            "lang": "painless",
+                            "source": (
+                                "if (params._source == null || !params._source.containsKey('update_date') || params._source.update_date == null) return null;"
+                                "String s = params._source.update_date.toString().replace(' ', 'T');"
+                                "long ms = 0L;"
+                                "try { ms = java.time.Instant.parse(s).toEpochMilli(); }"
+                                "catch (Exception e) {"
+                                "  try { ms = java.time.LocalDateTime.parse(s).atZone(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(); }"
+                                "  catch (Exception e2) {"
+                                "    try { ms = java.time.LocalDate.parse(s).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(); }"
+                                "    catch (Exception e3) { ms = 0L; }"
+                                "  }"
+                                "}"
+                                "return ms;"
+                            ),
+                        }
+                    }
+                }
+            },
+        }
+        r = es.search(
+            index=ods_index,
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        max_ms = r.get("aggregations", {}).get("max_upd", {}).get("value", 0) or 0
+        if not max_ms:
+            return None
+        _city_period_cache[cache_key] = (now, max_ms)
+        return max_ms
+    except Exception:
+        return None
+
+
 def _period_norm_prices(norm_index: str, period_end_ms: int, breed_size: int = 800,
                          spec_fingerprint: Optional[str] = None):
     """聚合给定 period_end(±3 天)内的 normalized_breed → avg_price + 元数据
@@ -846,6 +909,8 @@ def sources():
 # 2026-07-25 (B.1): 数据治理透明卡 — 给 /market 页面 hero 下方展示用
 # 2026-07-26 (修): latest_end / age_days 改用 source_publish_date (ODS 真实发布时间)
 #   之前用 period_end ("覆盖期结束日") 会导致 jiangxi=未来 5 天、henan=87 天等错误新鲜度
+# 2026-07-27 (修): fresh_ms 优先 ODS update_date (入库时间,8 城 ODS 有索引),
+#   缺 ODS 的城回退 NORM source_publish_date (政府发布时间,2026-07-26 引入)
 @router.get("/data-quality")
 def market_data_quality():
     """每城数据健康度 + attr_norm 净化率,Dashboard 公开页可匿名访问。"""
@@ -857,13 +922,18 @@ def market_data_quality():
     for norm_idx in norm_list:
         key = norm_idx.replace("norm_", "").replace("_price", "")
         info = idx2info.get(key, {})
-        # 2026-07-26: 用 source_publish_date 算 fresh/age,period_end 仍保留供查看覆盖期
-        publish_ms = _city_latest_publish_date(norm_idx)
+        # 2026-07-27: 优先 ODS update_date (入库时间),缺 ODS 的城回退 NORM source_publish_date
+        ods_idx = f"ods_material_{key}_price"
+        fresh_ms = _city_latest_update_date(ods_idx)
+        fresh_source = "ods_update" if fresh_ms else None
+        if not fresh_ms:
+            fresh_ms = _city_latest_publish_date(norm_idx)
+            fresh_source = "norm_publish" if fresh_ms else None
         periods = _city_latest_two_periods(norm_idx)
         period_end_ms = periods[0] if periods else 0
 
-        if publish_ms:
-            age_days = max(0, (now_ms - publish_ms) // 86400000)
+        if fresh_ms:
+            age_days = max(0, (now_ms - fresh_ms) // 86400000)
         else:
             age_days = -1
         if age_days < 0:
@@ -878,10 +948,12 @@ def market_data_quality():
             "key": key,
             "label": _city_label(norm_idx),
             "province": info.get("province", ""),
-            # 改: latest_end 改为 source_publish_date 的日期(YYYY-MM-DD)
-            "latest_end": _ms_to_date(publish_ms),
+            # fresh_ms 优先 ODS update_date (2026-07-27),回退到 NORM source_publish_date
+            "latest_end": _ms_to_date(fresh_ms),
             # 新增: 保留 period_end 供查看覆盖期
             "period_end": _ms_to_date(period_end_ms),
+            # 新增: 数据来源标记,前端/调试用 — ods_update / norm_publish / None
+            "fresh_source": fresh_source,
             "age_days": age_days,
             "status": status,
             "tone": tone,
