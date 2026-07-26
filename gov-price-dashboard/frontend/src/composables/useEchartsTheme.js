@@ -1,7 +1,7 @@
 import { useEcharts } from './useEcharts'
 
 /**
- * 材价通 ECharts 统一主题
+ * ChinaJT ECharts 统一主题
  * - 浅色背景 + 深色文字（与 :root CSS 变量一致）
  * - 调色板：blue / green / orange / purple / cyan / red
  * - axisLine/splitLine 走中性灰

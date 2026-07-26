@@ -40,7 +40,7 @@ from api.skill_registry import (
 )
 # 索引集的初始化已迁移到 api/dependencies（ALL_INDICES/LIST_INDICES/ALL_DWD/ALL_ODS/NORM_INDICES）
 
-app = FastAPI(title="材价通 API", version="1.0.0")
+app = FastAPI(title="ChinaJT API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -187,7 +187,7 @@ app.include_router(skill_router, **_PROTECTED)
 
 @app.get("/api/", include_in_schema=False)
 def api_info():
-    return {"message": "材价通 API", "version": "1.0.0", "docs": "/healthz"}
+    return {"message": "ChinaJT API", "version": "1.0.0", "docs": "/healthz"}
 
 
 # 2026-07-23: 补回 /healthz 公开探针。Phase 7 把 main.py 收到 171 行时把

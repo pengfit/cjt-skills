@@ -18,9 +18,9 @@
     <section class="hero">
       <div class="hero-content">
         <h1 class="fade-in">
-          <!-- 2026-07-25: 把"龙虾 饲养员"(AI agent 人设名)换成项目自身名"材价通 / cjt-skills"，
+          <!-- 2026-07-25: 把"龙虾 饲养员"(AI agent 人设名)换成项目自身名"ChinaJT / cjt-skills"，
                与开源项目定位对齐 -->
-          <span class="hero-title-main">材价通</span>
+          <span class="hero-title-main">ChinaJT</span>
           <span class="hero-title-sub">cjt-skills</span>
         </h1>
         <p class="subtitle fade-in">开源工程造价数据基础设施</p>
@@ -34,7 +34,7 @@
         <!-- 2026-07-25 重构:去掉"联系咨询"(Contact 模块已删),保留核心入口 -->
         <div class="hero-tags fade-in">
           <router-link to="/market" class="hero-tag-chip hero-tag-cta">
-            材价通 →
+            ChinaJT →
           </router-link>
           <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="hero-tag-chip hero-tag-cta">
             <svg class="github-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
@@ -103,7 +103,7 @@
         <h2>它能做什么</h2>
         <p class="section-subtitle">
           部署示例：
-          <router-link to="/market" class="case-link">材价通 Dashboard</router-link>
+          <router-link to="/market" class="case-link">ChinaJT Dashboard</router-link>
           · https://pengfit.cn · 工程造价行业的数据中台
         </p>
 
@@ -163,16 +163,16 @@ import { useHead } from '@unhead/vue'
 //   @unhead/vue 在 mount 时覆盖 → Google / Bing / 社媒分享卡实时拿到正确元数据
 const SITE_URL = 'https://pengfit.cn'
 useHead({
-  title: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills',
+  title: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills',
   meta: [
-    { name: 'description', content: '材价通 (cjt-skills) · 17 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城归一 · 公开免费 · AI 协作的一人公司实践' },
-    { name: 'keywords', content: '工程造价, 材料价格, 材价通, cjt-skills, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据可视化, 一人公司, OPC, AI, 跨城归一, 公开数据, FastAPI, Vue' },
-    { property: 'og:title', content: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊' },
+    { name: 'description', content: 'ChinaJT (cjt-skills) · 17 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城归一 · 公开免费 · AI 协作的一人公司实践' },
+    { name: 'keywords', content: '工程造价, 材料价格, ChinaJT, cjt-skills, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据可视化, 一人公司, OPC, AI, 跨城归一, 公开数据, FastAPI, Vue' },
+    { property: 'og:title', content: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊' },
     { property: 'og:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
     { property: 'og:url', content: `${SITE_URL}/home` },
     { property: 'og:type', content: 'website' },
     { property: 'og:image', content: `${SITE_URL}/og-image.png` },
-    { name: 'twitter:title', content: '材价通 · 工程造价材料价格数据 · cjt-skills' },
+    { name: 'twitter:title', content: 'ChinaJT · 工程造价材料价格数据 · cjt-skills' },
     { name: 'twitter:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
     { name: 'twitter:image', content: `${SITE_URL}/og-image.png` },
   ],
@@ -200,7 +200,7 @@ useHead({
             '@type': 'WebSite',
             '@id': `${SITE_URL}/#website`,
             url: `${SITE_URL}/`,
-            name: '材价通 · cjt-skills',
+            name: 'ChinaJT · cjt-skills',
             alternateName: 'cjt-skills Dashboard',
             inLanguage: 'zh-CN',
             description: '17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作',
@@ -216,7 +216,7 @@ useHead({
           },
           {
             '@type': 'SoftwareApplication',
-            name: '材价通 / cjt-skills',
+            name: 'ChinaJT / cjt-skills',
             applicationCategory: 'BusinessApplication',
             applicationSubCategory: '工程材料价格数据可视化',
             operatingSystem: 'Web',

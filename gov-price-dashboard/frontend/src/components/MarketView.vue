@@ -11,7 +11,7 @@
 
     <!-- 顶栏 -->
     <header class="m-topbar">
-      <a href="/home" class="m-brand">Pengfit · 材价通</a>
+      <a href="/home" class="m-brand">Pengfit · ChinaJT</a>
       <nav class="m-nav">
         <a href="/home">首页</a>
         <a href="/market" class="active">市场行情</a>
@@ -411,11 +411,11 @@ import { useHead } from '@unhead/vue'
 // 2026-07-26 #SEO: /market 页面级 head — 长尾词关键词(钢筋/水泥/给水管/电缆 价格)
 const SITE_URL = 'https://pengfit.cn'
 useHead({
-  title: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · 材价通',
+  title: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · ChinaJT',
   meta: [
-    { name: 'description', content: '全国 20 城建材市场行情 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料跨城归一价格 · 住建局官方期刊 · 涨跌幅追踪 · 公开免费 · 材价通 cjt-skills' },
-    { name: 'keywords', content: '材料价格行情, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 建材市场, 工程造价, 跨城价格对比, 涨跌幅, 住建局, 材价通, cjt-skills' },
-    { property: 'og:title', content: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · 材价通' },
+    { name: 'description', content: '全国 20 城建材市场行情 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料跨城归一价格 · 住建局官方期刊 · 涨跌幅追踪 · 公开免费 · ChinaJT cjt-skills' },
+    { name: 'keywords', content: '材料价格行情, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 建材市场, 工程造价, 跨城价格对比, 涨跌幅, 住建局, ChinaJT, cjt-skills' },
+    { property: 'og:title', content: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · ChinaJT' },
     { property: 'og:description', content: '全国 20 城住建局官方造价信息 · 钢筋/水泥/给水管/电缆跨城归一价格 · 涨跌幅追踪' },
     { property: 'og:url', content: `${SITE_URL}/market` },
     { property: 'og:type', content: 'website' },
@@ -434,7 +434,7 @@ useHead({
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'Dataset',
-        name: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊',
+        name: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊',
         description: '17 城住建局官方造价信息期刊数据 · 跨城归一品类 9,000+ · 钢筋 / 水泥 / 给水管 / 电缆 等材料价格行情',
         url: `${SITE_URL}/market`,
         inLanguage: 'zh-CN',

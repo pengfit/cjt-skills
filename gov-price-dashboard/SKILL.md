@@ -1,9 +1,9 @@
 ---
 name: gov-price-dashboard
-description: "材价通 — 政府材料价格数据可视化看板。FastAPI :5200 + Vue3 :5300 + ECharts 6.x。公开页 /home（开源项目 landing）+ /market（跨城市场行情，走 NORM 索引）；鉴权 单 admin JWT（/api/* 全部 Bearer）；数据源优先级 NORM > DWS；声明式 skill 注册，新增城市零代码改动。"
+description: "ChinaJT — 政府材料价格数据可视化看板。FastAPI :5200 + Vue3 :5300 + ECharts 6.x。公开页 /home（开源项目 landing）+ /market（跨城市场行情，走 NORM 索引）；鉴权 单 admin JWT（/api/* 全部 Bearer）；数据源优先级 NORM > DWS；声明式 skill 注册，新增城市零代码改动。"
 ---
 
-# 材价通 / cjt-skills Dashboard
+# ChinaJT / cjt-skills Dashboard
 
 政府材料价格数据可视化看板。FastAPI + Vue3，支持多维度筛选、价格趋势分析、涨跌幅监控、跨城归一查询。
 
@@ -47,7 +47,7 @@ gov-price-dashboard 前端     (Vue3 :5300)
 
 | Section | 内容 |
 |---------|------|
-| **Hero** | "材价通 / cjt-skills" 大标题 + 数据规模副标 + CTA + GitHub/快速开始 链接 |
+| **Hero** | "ChinaJT / cjt-skills" 大标题 + 数据规模副标 + CTA + GitHub/快速开始 链接 |
 | **01 Architecture** | 4 步流程图：源数据 → ETL Pipeline → 跨城归一 → Dashboard |
 | **02 Showcase** | "它能做什么"对比表 + 真实部署示例 URL |
 

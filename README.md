@@ -1,4 +1,4 @@
-# 材价通 / cjt-skills
+# ChinaJT / cjt-skills
 
 > 开源工程造价数据基础设施 — 从政府公开期刊到跨城统一查询的全链路工具链。
 
@@ -46,7 +46,7 @@ gov-price-dashboard    (可视化 · /home /market)
 cjt-skills/
 ├── gov-price-etl/              # ETL 公共层(v0.10)
 ├── gov-price-normalization/    # 标准化层(v0.2,L1 attr 净化)
-├── gov-price-dashboard/        # 材价通 Dashboard(FastAPI + Vue3)
+├── gov-price-dashboard/        # ChinaJT Dashboard(FastAPI + Vue3)
 ├── gov-price-etl/dify_workflows/  # Dify workflow 配置
 │
 ├── [城市]-price/               # 17 个城市采集 skill
