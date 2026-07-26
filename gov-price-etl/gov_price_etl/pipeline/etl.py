@@ -196,6 +196,10 @@ def etl_city(
                 stats["failed"] += 1
                 stats["skipped_empty_breed_or_spec"] = stats.get("skipped_empty_breed_or_spec", 0) + 1
                 continue
+            # v0.20+ (2026-07-26): normalize breed/spec for canonical lookup
+            # clean_breed() 后面会做更全的清洗,这里先 strip 内部换行/制表防“袋\n装”这种边对边 case miss
+            breed_raw = breed_raw.replace('\n', '').replace('\r', '').replace('\t', ' ').strip()
+            spec_raw = spec_raw.replace('\n', '').replace('\r', '').replace('\t', ' ').strip()
             # 2026-06-29 新疆 ETL 优化 A：双 key 查询
             #   1. raw_breed 直接（ODS 文档的 breed 字段，含规格的完整名）
             #   2. ODS 索引的 breed_clean（xinjiang-price 的 split_breed_spec 算，去掉规格的核心名）
