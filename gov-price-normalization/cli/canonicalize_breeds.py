@@ -265,6 +265,32 @@ def _call_dify_batch(breed_cleans: list, retries: int = 2) -> dict:
     raise RuntimeError(f"Dify batch failed after {retries+1} attempts: {last_err}")
 
 
+def _call_dify_batch_with_split(breed_cleans: list, retries: int = 2) -> dict:
+    """Dify batch wrapper + 整批失败自动二分（防 LLM 偶发截断/格式不稳）。
+
+    实测：
+      - size=1  LLM 单条输出格式易不稳（如字段格式抖动）
+      - size=15 偶发输出截断
+      - size=5/10/20 稳定
+    根因：LLM 输出长 JSON 时偶发截断/字段格式异常。整批失败时拆半重试，
+    直到每批都能过（最终 ≤1 条时还会走 _call_dify_batch 的 retries）。
+
+    返回 dict{breed_clean: {normalized_breed, confidence, note}}，缺条不上层补。
+    """
+    if not breed_cleans:
+        return {}
+    try:
+        return _call_dify_batch(breed_cleans, retries=retries)
+    except Exception as e:
+        if len(breed_cleans) <= 1:
+            raise
+        mid = len(breed_cleans) // 2
+        print(f"    [split] 整批 {len(breed_cleans)} 失败 ({str(e)[:80]}); 二分 {mid}+{len(breed_cleans)-mid}", file=sys.stderr)
+        left = _call_dify_batch_with_split(breed_cleans[:mid], retries=retries)
+        right = _call_dify_batch_with_split(breed_cleans[mid:], retries=retries)
+        return {**left, **right}
+
+
 def cmd_resolve(args) -> int:
     t0 = time.time()
     in_path = Path(args.in_)
@@ -386,8 +412,7 @@ def cmd_bootstrap(args) -> int:
     t0 = time.time()
 
     # 1. 拉 v3 rules DB
-    from gov_price_etl.paths import PROJECT_ROOT
-    v3_db = PROJECT_ROOT / "data" / "category_v3_rules.db"
+    v3_db = _V3_DB_PATH
     if not v3_db.exists():
         print(f"[bootstrap] v3 rules DB 不存在: {v3_db}", file=sys.stderr)
         return 1
@@ -524,6 +549,16 @@ def cmd_bootstrap(args) -> int:
 
 
 # ── classify：补 UNCLASSIFIED 的 l3_code ─────────────────────────────
+# v3 DB 路径（共享 skills/data/，与 breed_canonical.py 一致）
+#   cli/canonicalize_breeds.py
+#   ↑ _HERE_V3.parent = cli/
+#   ↑ _PKG_V3 = _HERE_V3.parent.parent = gov-price-normalization/
+#   ↑ _SKILLS_V3 = _PKG_V3.parent = skills/
+_HERE_V3 = Path(__file__).resolve()
+_PKG_V3 = _HERE_V3.parent.parent               # gov-price-normalization/
+_SKILLS_V3 = _PKG_V3.parent                     # skills/
+_V3_DB_PATH = _SKILLS_V3 / "data" / "category_v3_rules.db"
+
 # v3 字典查询（独立函数，不依赖 cache 单例的全局副作用）
 _V3_L3_CACHE: set = set()
 
@@ -536,8 +571,7 @@ def _validate_l3_v3_dict(l3: str) -> bool:
         return True
     try:
         import sqlite3 as _sq
-        from gov_price_etl.paths import PROJECT_ROOT
-        v3_db = PROJECT_ROOT / "data" / "category_v3_rules.db"
+        v3_db = _V3_DB_PATH
         if not v3_db.exists():
             return False
         conn = _sq.connect(f"file:{v3_db}?mode=ro", uri=True)

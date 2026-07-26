@@ -1481,21 +1481,27 @@ def related_breeds(
 def random_breeds(
     count: int = Query(20, ge=1, le=50, description="返回品种数,默认 20 与源城市数相当"),
 ):
-    """2026-07-25 重做分层采样。
+    """2026-07-25 三改分层采样 — 每城 1-2 个 + 大池。
 
-    原版 count=12 + 全池 terms agg size=200,数据少的小城
-    (吉林/呼和浩特/菏泽 — doc_count << chongqing/jiangxi)
-    永远进不了 pool,刷新 N 次也刷不到他们。
+    历史:
+      v1: count=12 + 全池 terms agg size=200,数据少的小城(吉林/呼和浩特/菏泽)
+          doc_count << chongqing/jiangxi,top-200 都是大宗主材,长尾品种进不去
+      v2: 每城 terms agg size=per_city*3+5(=8),每城 random 1 个 — 但池子还是太浅
+          吉林的「数码水表」「数码雷管」排名 50+ 之外,8 个名额永远轮不到
+      v3 (当前): 每城 size=120,每城 random 1-2 个 — 长尾品种进池,数据少的小城
+          也能展示多样品种(钢筋/水泥/数码水表都有机会)
 
     两阶段:
-      Phase 1: per-city terms agg — 每城 random 抽,保证全城覆盖
-      Phase 2: 还差 → 全池补
+      Phase 1: 每城从大池 random 1-2 个(打乱城顺序,random.sample 不重复)
+      Phase 2: 还差 count → 全池 random 补
     """
     norm_list = _norm_indices()
     n_cities = len(norm_list)
     if not n_cities:
         return {"results": [], "total": 0, "count": count}
-    per_city = max(1, count // n_cities)
+    # 大池 size:小城(吉林/呼和浩特)品种总数常 < 200,120 已能覆盖长尾品种
+    # 大城(重庆 4000+)120 只取前 1.5%,random 在这 120 内仍能拿到冷门品类
+    pool_size = 120
 
     def _fetch_one(idx):
         """单索引 terms agg,带 l3 + 规格"""
@@ -1503,7 +1509,7 @@ def random_breeds(
             "size": 0,
             "aggs": {
                 "breeds": {
-                    "terms": {"field": "normalized_breed.keyword", "size": per_city * 3 + 5},
+                    "terms": {"field": "normalized_breed.keyword", "size": pool_size},
                     "aggs": {
                         "l3": {"terms": {"field": "category_name_l3.keyword", "size": 1}},
                         "all_specs": {
@@ -1524,7 +1530,7 @@ def random_breeds(
         except Exception:
             return []
 
-    def _to_result(b):
+    def _to_result(b, norm_idx):
         breed = b["key"]
         l3 = b["l3"]["buckets"][0]["key"] if b["l3"]["buckets"] else ""
         spec_attrs = {}
@@ -1536,43 +1542,42 @@ def random_breeds(
             "spec_attrs": spec_attrs,
             "spec_summary": _summarize_specs(spec_attrs),
             "records": b["doc_count"],
+            "city_index": norm_idx,  # 前端展示来源城
         }
 
     results = []
     picked = set()
-    # Phase 1 (修订 2026-07-25): 每城 random 抽 1 个(random.sample 打乱城顺序,避免顺序偏差)
-    # 即便 count=12 也能保证数据少的城(吉林/呼和浩特/菏泽)有同等概率被选
-    # 不再因 for 循环顺序 + break 导致后注册的小城被截掉
+    # Phase 1: 每城强制取 #1 (v0.35, 2026-07-26)
+    # - v0.34 逻辑: dedup 会让 jilin/huhehaote 落到稀有品种(如稀土铝合金电缆),
+    #   这些品种往往只有 1 期数据,热力图 cell 始终 null
+    # - v0.35 改: Phase 1 完全跳过 dedup,每城强取 doc_count #1(即使与其他城重复)
+    #   保证 jilin 商品混凝土、huhehaote 商品混凝土 都能进热力图。
+    #   重复品种在前端用 city_index 列差异化展示。
     for norm_idx in random.sample(norm_list, len(norm_list)):
         buckets = _fetch_one(norm_idx)
         if not buckets:
             continue
-        b = random.choice(buckets)
-        if b["key"] in picked:
-            continue
-        picked.add(b["key"])
-        item = _to_result(b)
-        item["city_index"] = norm_idx  # 前端展示来源城
-        results.append(item)
-    random.shuffle(results)
-    # 已收集 = len(results) (最多 n_cities 条,每城 1 个)
-    # count <= len(results) → 直接截 count;count > len(results) → Phase 2 补齐
-    if count <= len(results):
-        results = results[:count]
-    else:
-        # Phase 2: count 大于城市数,从全池 random 补到 count
-        remain = count - len(results)
+        # 直接取 buckets[0](doc_count 最高),不去重
+        picked.add(buckets[0]["key"])
+        results.append(_to_result(buckets[0], norm_idx))
+    # Phase 2: 还差多少条,从全池 random 补
+    # 优先从各城大池 random,保证多样性;再不够才不重复
+    if len(results) < count:
         all_buckets = []
         for norm_idx in norm_list:
             for b in _fetch_one(norm_idx):
                 if b["key"] not in picked:
-                    all_buckets.append(b)
-                    picked.add(b["key"])
+                    all_buckets.append((norm_idx, b))
         random.shuffle(all_buckets)
-        for b in all_buckets[:remain]:
-            item = _to_result(b)
-            item["city_index"] = norm_idx
-            results.append(item)
+        for norm_idx, b in all_buckets:
+            if len(results) >= count:
+                break
+            picked.add(b["key"])
+            results.append(_to_result(b, norm_idx))
+    # Phase 3: count 小于 20 城全覆盖(默认 30 >= 20,正常走不到这里)
+    if len(results) > count:
+        results = results[:count]
+    random.shuffle(results)
 
     return {"results": results, "total": len(results), "count": count}
 

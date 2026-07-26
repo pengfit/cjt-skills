@@ -2,7 +2,8 @@
   "_meta": {
     "version": "0.1.0",
     "updated": "2026-07-08",
-    "note": "每个城市的业务期粒度规则。monthly=月刊；quarterly=季刊（4 期/年）；bimonthly=双月刊；irregular=不定期（按 period_start 实际月份对齐）。anchor_month 为季刊/双月刊的发布月份。"
+    "note": "每个城市的业务期粒度规则。monthly=月刊；quarterly=季刊（4 期/年）；bimonthly=双月刊；irregular=不定期（按 period_start 实际月份对齐）。anchor_month 为季刊/双月刊的发布月份。",
+    "fix_2026_07_26": "补登 guizhou/shanxi（07-23 重建已漏，runtime 报 UnknownCityError，3 天没人修）"
   },
   "xian":       {"granularity": "monthly",    "default_unit": "m³"},
   "sichuan":    {"granularity": "monthly",    "default_unit": "m³"},
@@ -21,5 +22,7 @@
   "hainan":     {"granularity": "monthly",    "default_unit": "m³"},
   "huhehaote":  {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [1, 3, 5, 7, 9, 11]},
   "xinjiang":   {"granularity": "monthly",    "default_unit": "m³"},
-  "jilin":      {"granularity": "monthly",    "default_unit": "m³"}
+  "jilin":      {"granularity": "monthly",    "default_unit": "m³"},
+  "guizhou":    {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [2, 4, 6, 8, 10, 12]},
+  "shanxi":     {"granularity": "bimonthly",  "default_unit": "m³", "anchor_month": [1, 3, 5, 7, 9, 11]}
 }
