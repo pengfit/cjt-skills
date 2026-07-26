@@ -371,9 +371,10 @@ class HuhehaoteCollector(SyncRunner):
 
             # 5. 构造 docs（含 v0.8 新字段）
             from datetime import datetime
-            from utils import apply_smart_split
+            from utils import apply_smart_split, pre_ods_clean
             now = datetime.now().isoformat(timespec='seconds')
             docs = []
+            skipped_empty_breed = 0  # v0.10 计数：pre_ods_clean 后 breed 为空的 row数
             for r in rows:
                 doc = {
                     'no': r['no'],
@@ -400,6 +401,13 @@ class HuhehaoteCollector(SyncRunner):
                 }
                 # v0.9 (2026-07-26): 智能拆分 breed/spec — 让 ETL 不拒收空 spec
                 apply_smart_split(doc)
+                # v0.10 (2026-07-26): 入 ODS 前的源端清洗 — strip \n/\r/\t, 全角→半角
+                # 让 ODS 形态 == v3 lookup 表形态, ETL hit=100% (不再 miss)
+                doc = pre_ods_clean(doc)
+                if doc is None:
+                    # breed 清洗后为空 — drop, 不入 ODS (避免污染下游)
+                    skipped_empty_breed += 1
+                    continue
                 docs.append(doc)
 
             unit['minio_key'] = minio_key

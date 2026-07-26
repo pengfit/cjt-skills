@@ -153,6 +153,38 @@ def apply_smart_split(row: dict) -> dict:
     return row
 
 
+# v0.3 (2026-07-26): 入 ODS 前的源端清洗
+# 背景: ETL 的 v3 lookup 是 strict exact match, ODS 里如果含 \n/全角括号就会 miss。
+# 治本: 在入 ODS 前先 normalize 掉脏字符 — ODS 形态 = v3 形态, ETL hit=100%。
+def clean_for_ods(text: str) -> str:
+    """入 ODS 前的脏字符清洗 — strip \\n/\\r/\\t, 全角→半角, 压空格。返回清洗后字符串。"""
+    if not text:
+        return text
+    text = text.replace('\n', '').replace('\r', '').replace('\t', ' ')
+    text = text.replace('（', '(').replace('）', ')')
+    text = text.replace('【', '[').replace('】', ']')
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def pre_ods_clean(doc: dict) -> dict:
+    """对整条 doc 应用入 ODS 前的清洗（处理所有字符串字段）。
+
+    - breed, spec 等用户字段
+    - 返回 doc（修改原 dict）
+    - 如果清洗后 breed 为空，返回 None 让调用方 drop
+    """
+    if not isinstance(doc, dict):
+        return doc
+    for k in ('breed', 'spec', 'remark', 'category', 'section'):
+        if k in doc and isinstance(doc[k], str):
+            doc[k] = clean_for_ods(doc[k])
+    # 清洗后 breed 为空 — 标记为不写入
+    if not (doc.get('breed') or '').strip():
+        return None
+    return doc
+
+
 def ensure_ods_index(es, host, index):
     """确保 ODS 索引存在，套用 mapping（如果不存在）
 

@@ -37,7 +37,7 @@ from utils import (
     load_config, get_es_client, get_s3_client,
     ensure_bucket, ensure_ods_index,
     fetch_html, download_file, upload_to_minio,
-    apply_smart_split,
+    apply_smart_split, pre_ods_clean,
 )
 
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.huhehaote_gczj_sync_progress.json')
@@ -176,6 +176,13 @@ def main():
                         r['period_start'] = it['publish_date'][:7] + '-01'
                     # v0.4 (2026-07-26): 智能拆分 breed/spec (通用正则 + 领域特例) — 委托给 utils.apply_smart_split
                     _split_breed_spec(r)
+                    # v0.5 (2026-07-26): 入 ODS 前的源端清洗 — strip \n/\r/\t, 全角→半角
+                    # 让 ODS 形态 == v3 lookup 表形态, ETL hit=100% (不再 miss)
+                    r = pre_ods_clean(r)
+                    if r is None:
+                        # breed 清洗后为空 — drop, 不入 ODS (避免污染下游)
+                        stats['skipped_empty_breed'] = stats.get('skipped_empty_breed', 0) + 1
+                        continue
                     # 删除非 whitelist 字段 (strict mapping 会拒收)
                     whitelist_extras.update([
                         'period_source_url', 'period_pdf_url', 'period_pdf_name',

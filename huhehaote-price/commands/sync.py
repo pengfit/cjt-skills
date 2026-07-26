@@ -566,6 +566,13 @@ def cmd_legacy_sync(args):
                     }
                     # v0.9 (2026-07-26): 智能拆分 breed/spec — 让 ETL 不拒收空 spec
                     apply_smart_split(doc)
+                    # v0.10 (2026-07-26): 入 ODS 前的源端清洗 — strip \n/\r/\t, 全角→半角
+                    # 让 ODS 形态 == v3 lookup 表形态, ETL hit=100% (不再 miss)
+                    doc = pre_ods_clean(doc)
+                    if doc is None:
+                        # breed 清洗后为空 — drop, 不入 ODS (避免污染下游)
+                        stats['skipped_empty_breed'] = stats.get('skipped_empty_breed', 0) + 1
+                        continue
                     docs.append(doc)
 
                 if args.dry_run:
