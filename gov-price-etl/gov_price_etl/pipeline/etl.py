@@ -294,6 +294,37 @@ def etl_city(
         except Exception as _e2:
             print(f"    [AI 补缓存] 提置信度失败: {_e2}")
 
+        # v0.22 (2026-07-26): path B 兑底 — Dify 失败的 breed 本地启发式补 L3
+        # 背景: Dify dedup bug（单条输入 1≥1 必败）让 ai_v3 标记几乎为 0
+        # 启发式：按 canonical 最长前缀匹配推 L3，兑低优先级
+        try:
+            _conn3 = _sqlite.connect(str(_db_path))
+            from gov_price_etl.classify.constants import MIN_RULE_CONFIDENCE as _MIN_CONF
+            _canonical = {r[0]: r[1] for r in _conn3.execute("SELECT breed_clean, l3 FROM breed_l3_map_v3 WHERE confidence >= ?", (_MIN_CONF,))}
+            _local_ok = 0
+            for bc, v in ai_results.items():
+                # 只对 Dify 未成功分类的才兑底
+                if v.get("category_v2_source") == "ai_v3" and v.get("l3"):
+                    continue
+                # 启发式：按 canonical 最长前缀匹配
+                best_l3 = None
+                for ck in sorted(_canonical.keys(), key=len, reverse=True):
+                    if ck in bc:
+                        best_l3 = _canonical[ck]
+                        break
+                if best_l3:
+                    _conn3.execute(
+                        "UPDATE breed_l3_map_v3 SET l3=?, source='local_heuristic_2026_07_26', confidence=0.75, updated_at=datetime('now','localtime') WHERE breed_clean=?",
+                        (best_l3, bc),
+                    )
+                    _local_ok += 1
+            _conn3.commit()
+            _conn3.close()
+            if _local_ok:
+                print(f"    [path B 兑底] 本地启发式补 L3: {_local_ok} 条")
+        except Exception as _e3:
+            print(f"    [path B 兑底] 失败: {_e3}")
+
         # ── 第三轮：从 ODS 拉回这组 breed 的文档，重新匹配写 DWD ──
         # 注意：uncategorized_breeds 的 key 是 breed_clean（规范化后），但 _fetch_ods_by_breeds 查的是 breed.keyword（原始）
         # 必须从 value 里拿 raw breed 才能捞到文档（2026-06-24 bug fix）
