@@ -356,6 +356,73 @@ def _city_latest_two_periods(norm_index: str):
         return None
 
 
+def _city_latest_publish_date(norm_index: str):
+    """最新 source_publish_date 聚合 (ms epoch) — 数据治理透明卡 / 整体新鲜度用
+
+    区别于 _city_latest_two_periods(用 period_end):
+    - period_end            = 数据覆盖期结束日(本期 vs 上期 涨跌幅对比有意义)
+    - source_publish_date   = ODS 实际发布时间(数据新鲜度有意义)
+
+    2026-07-26 修:之前 latest_end + age_days 都用 period_end 算,导致
+      - jilin   period_end=2026-06-30  source_publish_date=2026-07-08  (6 月数据 7 月 8 号才发)
+      - jiangxi period_end=2026-07-31  source_publish_date=2026-07-07  (7 月 7 号发,覆盖 7 月)
+      - henan   period_end=2026-04-30  source_publish_date=2026-07-03  (4 月数据 7 月 3 号才发,差 64 天)
+
+    2026-07-26 (2): 6 城(sichuan/xinjiang/rizhao/jinan/xian/chongqing)把 source_publish_date
+    存成 text 类型(值 "YYYY-MM-DD HH:MM:SS" 空格分隔),不是 date(ISO 8601 'T' 分隔)。
+    ES 直接 `max` 聚合在 text 字段上会报 "Fielddata is disabled" 错误(默认 text 字段不启 fielddata)。
+
+    方案:`max` + `script` 参数,Painlessly 取 _source.source_publish_date 转 ISO 8601,再解析成 epoch ms。
+      - date 类型源:_source 里是 ISO 8601 字符串("2026-07-08T18:01:34"),Instant.parse 直接成功
+      - text  类型源:是空格分隔的 "2026-07-04 07:49:02",replace 空格为 T 后用 LocalDateTime.parse + UTC 兜底
+    两种解析都失败时返 0,被外层 `if not max_ms: return None` 过滤掉(避免崩 500)。
+
+    返回: ms(epoch) | None
+    """
+    now = time.time()
+    cache_key = f"pub::{norm_index}"
+    cached = _city_period_cache.get(cache_key)
+    if cached and (now - cached[0]) < _CITY_PERIOD_TTL_S:
+        return cached[1]
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "max_pub": {
+                    "max": {
+                        "script": {
+                            "lang": "painless",
+                            "source": (
+                                "if (params._source == null || !params._source.containsKey('source_publish_date') || params._source.source_publish_date == null) return null;"
+                                "String s = params._source.source_publish_date.toString().replace(' ', 'T');"
+                                "long ms = 0L;"
+                                "try { ms = java.time.Instant.parse(s).toEpochMilli(); }"
+                                "catch (Exception e) {"
+                                "  try { ms = java.time.LocalDateTime.parse(s).atZone(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(); }"
+                                "  catch (Exception e2) { ms = 0L; }"
+                                "}"
+                                "return ms;"
+                            ),
+                        }
+                    }
+                }
+            },
+        }
+        r = es.search(
+            index=norm_index,
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        max_ms = r.get("aggregations", {}).get("max_pub", {}).get("value", 0) or 0
+        if not max_ms:
+            return None
+        _city_period_cache[cache_key] = (now, max_ms)
+        return max_ms
+    except Exception:
+        return None
+
+
 def _period_norm_prices(norm_index: str, period_end_ms: int, breed_size: int = 800,
                          spec_fingerprint: Optional[str] = None):
     """聚合给定 period_end(±3 天)内的 normalized_breed → avg_price + 元数据
@@ -652,12 +719,15 @@ def overview():
     # 每城最新两期（2026-07-23 修：0/1/2 期都计入，不再要求必须两期
     # 只要有 NORM 数据的城都进 cities_meta；不足两期时 prev_period_end
     # 走 0，_ms_to_date(0) 返 "",不会出 1970）
+    # 2026-07-26: 同步拿 publish_date — 新增字段,旧字段保留(驱动本期 vs 上期 均价对比)
     cities_active = 0
     cities_meta = []
     latest_end_global = 0
     prev_end_global = 0
+    latest_publish_global = 0
     for idx in norm_list:
         periods = _city_latest_two_periods(idx)
+        publish_ms = _city_latest_publish_date(idx) or 0
         cities_active += 1
         if periods:
             latest_end, prev_end = periods
@@ -666,9 +736,13 @@ def overview():
         latest_end_global = max(latest_end_global, latest_end)
         # 2026-07-24: prev_end 可能为 None(单期城市) — max 不支持 None,转为 0
         prev_end_global = max(prev_end_global, prev_end or 0)
+        latest_publish_global = max(latest_publish_global, publish_ms)
         cities_meta.append({
             "key": idx.replace("norm_", "").replace("_price", ""),
             "label": _city_label(idx),
+            # 2026-07-26 新增: ODS 实际发布时间(数据新鲜度口径)
+            "latest_publish_date": _ms_to_date(publish_ms),
+            # 保留: 覆盖期结束日(本期 vs 上期 涨跌幅口径)
             "latest_period_end": _ms_to_date(latest_end),
             "prev_period_end": _ms_to_date(prev_end),
         })
@@ -704,6 +778,9 @@ def overview():
         "total_records": total_records,
         "breeds_count": breeds_count,
         "overall_change_pct": overall_change_pct,
+        # 2026-07-26 新增: 全局最新发布时间(用于新鲜度口径)
+        "latest_publish_date": _ms_to_date(latest_publish_global),
+        # 保留: 驱动本期 vs 上期 均价对比
         "latest_period_end": _ms_to_date(latest_end_global),
         "prev_period_end": _ms_to_date(prev_end_global),
         "cities_meta": sorted(cities_meta, key=lambda c: c["label"]),
@@ -767,6 +844,8 @@ def sources():
 
 
 # 2026-07-25 (B.1): 数据治理透明卡 — 给 /market 页面 hero 下方展示用
+# 2026-07-26 (修): latest_end / age_days 改用 source_publish_date (ODS 真实发布时间)
+#   之前用 period_end ("覆盖期结束日") 会导致 jiangxi=未来 5 天、henan=87 天等错误新鲜度
 @router.get("/data-quality")
 def market_data_quality():
     """每城数据健康度 + attr_norm 净化率,Dashboard 公开页可匿名访问。"""
@@ -778,11 +857,13 @@ def market_data_quality():
     for norm_idx in norm_list:
         key = norm_idx.replace("norm_", "").replace("_price", "")
         info = idx2info.get(key, {})
-        # 最近一期距今天数
+        # 2026-07-26: 用 source_publish_date 算 fresh/age,period_end 仍保留供查看覆盖期
+        publish_ms = _city_latest_publish_date(norm_idx)
         periods = _city_latest_two_periods(norm_idx)
-        latest_end_ms = periods[0] if periods else 0
-        if latest_end_ms:
-            age_days = max(0, (now_ms - latest_end_ms) // 86400000)
+        period_end_ms = periods[0] if periods else 0
+
+        if publish_ms:
+            age_days = max(0, (now_ms - publish_ms) // 86400000)
         else:
             age_days = -1
         if age_days < 0:
@@ -797,7 +878,10 @@ def market_data_quality():
             "key": key,
             "label": _city_label(norm_idx),
             "province": info.get("province", ""),
-            "latest_end": _ms_to_date(latest_end_ms),
+            # 改: latest_end 改为 source_publish_date 的日期(YYYY-MM-DD)
+            "latest_end": _ms_to_date(publish_ms),
+            # 新增: 保留 period_end 供查看覆盖期
+            "period_end": _ms_to_date(period_end_ms),
             "age_days": age_days,
             "status": status,
             "tone": tone,
