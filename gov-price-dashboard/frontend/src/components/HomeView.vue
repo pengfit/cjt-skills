@@ -156,6 +156,93 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useHead } from '@unhead/vue'
+
+// 2026-07-26 #SEO: /home 页面级 head 覆盖 — 业务关键词 / OG / Twitter Card / JSON-LD
+//   默认 meta 在 index.html 已就位(Baidu 等不执行 JS 的爬虫靠它),
+//   @unhead/vue 在 mount 时覆盖 → Google / Bing / 社媒分享卡实时拿到正确元数据
+const SITE_URL = 'https://pengfit.cn'
+useHead({
+  title: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills',
+  meta: [
+    { name: 'description', content: '材价通 (cjt-skills) · 17 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城归一 · 公开免费 · AI 协作的一人公司实践' },
+    { name: 'keywords', content: '工程造价, 材料价格, 材价通, cjt-skills, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据可视化, 一人公司, OPC, AI, 跨城归一, 公开数据, FastAPI, Vue' },
+    { property: 'og:title', content: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊' },
+    { property: 'og:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
+    { property: 'og:url', content: `${SITE_URL}/home` },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:image', content: `${SITE_URL}/og-image.png` },
+    { name: 'twitter:title', content: '材价通 · 工程造价材料价格数据 · cjt-skills' },
+    { name: 'twitter:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
+    { name: 'twitter:image', content: `${SITE_URL}/og-image.png` },
+  ],
+  link: [
+    { rel: 'canonical', href: `${SITE_URL}/home` },
+  ],
+  script: [
+    // JSON-LD: Organization + WebSite + SoftwareApplication(三合一,Google 富媒体片段用)
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            '@id': `${SITE_URL}/#organization`,
+            name: 'Pengfit',
+            url: 'https://github.com/pengfit/cjt-skills',
+            logo: `${SITE_URL}/favicon.svg`,
+            sameAs: [
+              'https://github.com/pengfit/cjt-skills',
+            ],
+          },
+          {
+            '@type': 'WebSite',
+            '@id': `${SITE_URL}/#website`,
+            url: `${SITE_URL}/`,
+            name: '材价通 · cjt-skills',
+            alternateName: 'cjt-skills Dashboard',
+            inLanguage: 'zh-CN',
+            description: '17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作',
+            publisher: { '@id': `${SITE_URL}/#organization` },
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: {
+                '@type': 'EntryPoint',
+                urlTemplate: `${SITE_URL}/market?q={search_term_string}`,
+              },
+              'query-input': 'required name=search_term_string',
+            },
+          },
+          {
+            '@type': 'SoftwareApplication',
+            name: '材价通 / cjt-skills',
+            applicationCategory: 'BusinessApplication',
+            applicationSubCategory: '工程材料价格数据可视化',
+            operatingSystem: 'Web',
+            url: `${SITE_URL}/`,
+            description: '17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作',
+            offers: {
+              '@type': 'Offer',
+              price: '0',
+              priceCurrency: 'CNY',
+              availability: 'https://schema.org/InStock',
+            },
+            publisher: { '@id': `${SITE_URL}/#organization` },
+            inLanguage: 'zh-CN',
+            featureList: [
+              '17 城住建局官方造价信息期刊数据',
+              '跨城归一品类 9,000+',
+              '钢筋/水泥/给水管/电缆价格行情',
+              'AI 协作规格解析',
+              '公开免费',
+            ],
+          },
+        ],
+      }),
+    },
+  ],
+})
 
 // 阅读进度条
 const readProgress = ref(0)

@@ -3,28 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cstyle%3Ecircle%2Cpath%2Cline%7Bcolor%3A%232563eb%7D%3C/style%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%2214.5%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.2%22%20opacity%3D%220.55%22%20stroke-dasharray%3D%222%202%22/%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22currentColor%22/%3E%0A%3Cpath%20d%3D%22M%2010%2022%20Q%2010%2017%2016%2017%20Q%2022%2017%2022%2022%20Z%22%20fill%3D%22currentColor%22/%3E%0A%3Cline%20x1%3D%2213%22%20y1%3D%2213.5%22%20x2%3D%227.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22/%3E%0A%3Cline%20x1%3D%2219%22%20y1%3D%2213.5%22%20x2%3D%2224.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22/%3E%0A%3Cline%20x1%3D%2216%22%20y1%3D%2219%22%20x2%3D%2216%22%20y2%3D%2226%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22/%3E%0A%3Ccircle%20cx%3D%226.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22/%3E%0A%3Ccircle%20cx%3D%2225.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22/%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2227.5%22%20r%3D%222%22%20fill%3D%22currentColor%22/%3E%3C/svg%3E" />
-    <title>Pengfit · One Person Company</title>
+    <!-- 2026-07-26 #SEO 默认站址;生产可由 vite.config.js env 覆盖;部署前 sed 替换亦可 -->
+    <link rel="canonical" href="https://pengfit.cn/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- 2026-07-20 #26 SEO + Open Graph + Twitter Card (分享到微信/飞书/Twitter 好看) -->
-    <meta name="description" content="Pengfit OPC 一人公司 · AI 协作贯穿全链路 · 17 城住建局官方价格 · 788,525 条材料数据 · 9,931 个跨城归一品类" />
-    <meta name="keywords" content="Pengfit, OPC, 一人公司, AI 协作, 工程造价, 材料价格, 大数据, Vue, FastAPI" />
+    <!-- 默认 title(每个 Vue 路由会在 mount 时用 @unhead/vue 覆盖) -->
+    <title>材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills</title>
+
+    <!-- 2026-07-26 #SEO 业务级 description — 涵盖工程造价 / 材料价格 / 政府数据 / 跨城归一 / 17 城 / AI / OPC -->
+    <meta name="description" content="材价通 (cjt-skills) · 17 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城归一 · 公开免费 · AI 协作的一人公司实践" />
+    <meta name="keywords" content="工程造价, 材料价格, 材价通, cjt-skills, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据可视化, 一人公司, OPC, AI, 跨城归一, 公开数据, FastAPI, Vue" />
     <meta name="author" content="Pengfit" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#2563eb" />
 
-    <!-- Open Graph (微信 / 飞书 / QQ / LinkedIn) -->
+    <!-- Open Graph (微信 / 飞书 / QQ / LinkedIn 分享卡) -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Pengfit · One Person Company" />
-    <meta property="og:description" content="1 个人 + AI > 1 个团队 · 17 城住建局官方价格 · 公开 OPC 案例" />
-    <meta property="og:url" content="http://localhost:5300/showcase" />
-    <meta property="og:site_name" content="Pengfit" />
+    <meta property="og:title" content="材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊" />
+    <meta property="og:description" content="17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作" />
+    <meta property="og:url" content="https://pengfit.cn/" />
+    <meta property="og:site_name" content="材价通 · cjt-skills" />
     <meta property="og:locale" content="zh_CN" />
-    <meta property="og:image" content="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cstyle%3Ecircle%2Cpath%2Cline%7Bcolor%3A%232563eb%7D%3C%2Fstyle%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%2214.5%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.2%22%20opacity%3D%220.55%22%20stroke-dasharray%3D%222%202%22%2F%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22currentColor%22%2F%3E%0C%3Cpath%20d%3D%22M%2010%2022%20Q%2010%2017%2016%2017%20Q%2022%2017%2022%2022%20Z%22%20fill%3D%22currentColor%22%2F%3E%0A%3Cline%20x1%3D%2213%22%20y1%3D%2213.5%22%20x2%3D%227.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Cline%20x1%3D%2219%22%20y1%3D%2213.5%22%20x2%3D%2224.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Cline%20x1%3D%2216%22%20y1%3D%2219%22%20x2%3D%2216%22%20y2%3D%2226%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Ccircle%20cx%3D%226.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%0A%3Ccircle%20cx%3D%2225.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2227.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%3C%2Fsvg%3E" />
+    <meta property="og:image" content="https://pengfit.cn/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="材价通 dashboard — 17 城工程材料价格跨城归一" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Pengfit · One Person Company" />
-    <meta name="twitter:description" content="1 个人 + AI > 1 个团队 · 17 城住建局官方价格 · 公开 OPC 案例" />
-    <meta name="twitter:image" content="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cstyle%3Ecircle%2Cpath%2Cline%7Bcolor%3A%232563eb%7D%3C%2Fstyle%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%2214.5%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.2%22%20opacity%3D%220.55%22%20stroke-dasharray%3D%222%202%22%2F%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22currentColor%22%2F%3E%0C%3Cpath%20d%3D%22M%2010%2022%20Q%2010%2017%2016%2017%20Q%2022%2017%2022%2022%20Z%22%20fill%3D%22currentColor%22%2F%3E%0A%3Cline%20x1%3D%2213%22%20y1%3D%2213.5%22%20x2%3D%227.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Cline%20x1%3D%2219%22%20y1%3D%2213.5%22%20x2%3D%2224.5%22%20y2%3D%229%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Cline%20x1%3D%2216%22%20y1%3D%2219%22%20x2%3D%2216%22%20y2%3D%2226%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221%22%20opacity%3D%220.5%22%2F%3E%0A%3Ccircle%20cx%3D%226.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%0A%3Ccircle%20cx%3D%2225.5%22%20cy%3D%228.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%0A%3Ccircle%20cx%3D%2216%22%20cy%3D%2227.5%22%20r%3D%222%22%20fill%3D%22currentColor%22%2F%3E%3C%2Fsvg%3E" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="材价通 · 工程造价材料价格数据 · cjt-skills" />
+    <meta name="twitter:description" content="17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作" />
+    <meta name="twitter:image" content="https://pengfit.cn/og-image.png" />
+    <meta name="twitter:image:alt" content="材价通 dashboard — 17 城工程材料价格跨城归一" />
+
+    <!-- 默认 JSON-LD(由 HomeView 在 mount 时追加更具体的 SoftwareApplication schema) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "材价通 · cjt-skills",
+      "alternateName": "cjt-skills Dashboard",
+      "url": "https://pengfit.cn/",
+      "inLanguage": "zh-CN",
+      "description": "17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Pengfit",
+        "url": "https://github.com/pengfit/cjt-skills"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://pengfit.cn/market?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="app"></div>

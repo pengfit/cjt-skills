@@ -6,6 +6,14 @@ import router from './router'
 // 2026-07-19 鉴权：注册全局 axios 拦截器(side-effect import)
 import './composables/useApi.js'
 
+// 2026-07-26 #SEO: @unhead/vue@3.2.3 注册
+//   跟 v1 不一样 — 没有 app.use(createHead()) 这种入口,要靠 provide + headSymbol 让
+//   injectHead() 在 HomeView/MarketView 的 setup 阶段拿到实例。
+//   不注册 → injectHead() 返回 undefined → useHead() 抛错 → Vue mount 失败 → 全页空白。
+//   教训：以后改 SEO 这种跨包改动，构建完必须实际访问页面，不能只看 dist 输出。
+import { createUnhead, headSymbol } from '@unhead/vue'
+const unhead = createUnhead()
+
 // 2026-07-22: 关闭浏览器自动滚动恢复,避免刷新 /home 时滚到上次位置
 // 浏览器默认 'auto' 会恢复刷新前的 scrollY,Vue Router 的 scrollBehavior 无法覆盖
 if ('scrollRestoration' in history) {
@@ -43,4 +51,6 @@ registerGovPriceTheme()
 // 旧 ?tab=xxx 兼容由 router.beforeEach 守卫处理
 const app = createApp(App)
 app.use(router)
+// 2026-07-26 #SEO: 把 unhead 实例 provide 到根,让 useHead() 在 setup 阶段能 injectHead() 拿到
+app.provide(headSymbol, unhead)
 app.mount('#app')

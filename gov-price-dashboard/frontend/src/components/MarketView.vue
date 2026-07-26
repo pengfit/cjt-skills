@@ -406,6 +406,63 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import { useHead } from '@unhead/vue'
+
+// 2026-07-26 #SEO: /market 页面级 head — 长尾词关键词(钢筋/水泥/给水管/电缆 价格)
+const SITE_URL = 'https://pengfit.cn'
+useHead({
+  title: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · 材价通',
+  meta: [
+    { name: 'description', content: '全国 20 城建材市场行情 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料跨城归一价格 · 住建局官方期刊 · 涨跌幅追踪 · 公开免费 · 材价通 cjt-skills' },
+    { name: 'keywords', content: '材料价格行情, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 建材市场, 工程造价, 跨城价格对比, 涨跌幅, 住建局, 材价通, cjt-skills' },
+    { property: 'og:title', content: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格 · 材价通' },
+    { property: 'og:description', content: '全国 20 城住建局官方造价信息 · 钢筋/水泥/给水管/电缆跨城归一价格 · 涨跌幅追踪' },
+    { property: 'og:url', content: `${SITE_URL}/market` },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:image', content: `${SITE_URL}/og-image.png` },
+    { name: 'twitter:title', content: '材料价格行情 · 钢筋/水泥/给水管/电缆 跨城实时价格' },
+    { name: 'twitter:description', content: '全国 20 城住建局官方造价信息 · 钢筋/水泥/给水管/电缆跨城归一价格 · 涨跌幅追踪' },
+    { name: 'twitter:image', content: `${SITE_URL}/og-image.png` },
+  ],
+  link: [
+    { rel: 'canonical', href: `${SITE_URL}/market` },
+  ],
+  script: [
+    // JSON-LD: Dataset — 标注数据规模 / 提供方 / 时间跨度,Google Dataset Search 友好
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Dataset',
+        name: '材价通 · 工程造价材料价格数据 · 17 城住建局官方期刊',
+        description: '17 城住建局官方造价信息期刊数据 · 跨城归一品类 9,000+ · 钢筋 / 水泥 / 给水管 / 电缆 等材料价格行情',
+        url: `${SITE_URL}/market`,
+        inLanguage: 'zh-CN',
+        license: 'https://opensource.org/licenses/MIT',
+        isAccessibleForFree: true,
+        keywords: ['工程造价', '材料价格', '钢筋价格', '水泥价格', '给水管价格', '电缆价格', '住建局', '政府数据', '跨城归一'],
+        spatialCoverage: {
+          '@type': 'Place',
+          name: '中华人民共和国',
+        },
+        temporalCoverage: '2024-01-01/..',
+        provider: {
+          '@type': 'Organization',
+          name: 'Pengfit',
+          url: 'https://github.com/pengfit/cjt-skills',
+        },
+        publisher: { '@id': `${SITE_URL}/#organization` },
+        distribution: {
+          '@type': 'DataDownload',
+          encodingFormat: 'application/json',
+          contentUrl: `${SITE_URL}/api/market/overview`,
+          license: 'https://opensource.org/licenses/MIT',
+        },
+      }),
+    },
+  ],
+})
+
 // 2026-07-24 P1: SectionHeader 已被自定义 m-heatmap-toolbar 代替(加 🎲 换一批按钮),不再使用
 
 // 2026-07-23: /market 只接 v=timestamp URL 参数(作 cache buster 拼到 API 请求后)
@@ -801,6 +858,7 @@ function formatFingerprintShort(fp) {
 // 2026-07-24 删除: _onMarketDocMousedown — 搜索 dropdown 已删,点击外侧不再需要收起逻辑
 // 2026-07-24 P0: 复用 /home 设计语言 — read-progress + 锚点滚动 + KPI 滚动数字
 const readProgress = ref(0)
+const kpiRef = ref(null)  // v0.43 (2026-07-26): 修复 ReferenceError: kpiRef is not defined — 模板 ref="kpiRef" 需在 setup 定义
 let _kpiObserver = null
 
 function _onScrollForProgress() {
