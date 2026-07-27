@@ -55,9 +55,15 @@
           </div>
           <div class="m-heatmap-toolbar-actions">
             <!-- 2026-07-27 新增 P0#1 — 品种搜索:输入品种名片段,debounced 调用 /api/market/breed-search,
-                 下拉建议点击 → 加入 selectedBreeds,触发 attr-keys + change-heatmap 刷新 -->
+                 下拉建议点击 → 加入 selectedBreeds,触发 attr-keys + change-heatmap 刷新。
+                 2026-07-27 UI 改:SVG 图标(替代 emoji 🔍)、loading spinner、清空按钮 SVG ×、匹配 .m-card 风格(box-shadow / border-radius) -->
             <div class="m-breed-search" :class="{ open: breedSearchOpen && breedSearchResults.length > 0 }">
-              <span class="m-breed-search-icon">🔍</span>
+              <span class="m-breed-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+              </span>
               <input
                 v-model="breedSearch"
                 type="text"
@@ -65,38 +71,50 @@
                 placeholder="搜品种,如 HRB400 / DN100 / 螺纹钢"
                 maxlength="50"
                 autocomplete="off"
+                spellcheck="false"
                 @input="onBreedSearchInput"
                 @focus="breedSearchOpen = breedSearchResults.length > 0"
                 @blur="closeBreedSearch"
                 @keydown.enter.prevent="onBreedSearchEnter"
                 @keydown.escape="breedSearchOpen = false"
               />
+              <!-- 2026-07-27 UI 改:搜索中显示 spinner(替代之前的"搜索中…"文字),loading 状态时把 clear 按钮也盖掉 -->
+              <span v-if="breedSearchLoading" class="m-breed-search-spinner" aria-label="搜索中"></span>
               <button
-                v-if="breedSearch"
+                v-else-if="breedSearch"
                 type="button"
                 class="m-breed-search-clear"
                 title="清空搜索"
+                aria-label="清空"
                 @mousedown.prevent="clearBreedSearch"
-              >×</button>
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+              <kbd v-else class="m-breed-search-kbd" aria-hidden="true">Enter</kbd>
               <div v-if="breedSearchOpen" class="m-breed-search-dropdown">
-                <div v-if="breedSearchLoading" class="m-breed-search-loading">搜索中…</div>
-                <div v-else-if="!breedSearchResults.length" class="m-breed-search-empty">
+                <!-- 有结果:列出来 -->
+                <template v-if="breedSearchResults.length > 0">
+                  <button
+                    v-for="r in breedSearchResults"
+                    :key="r.breed"
+                    type="button"
+                    class="m-breed-search-result"
+                    :class="{ selected: selectedBreeds.includes(r.breed) }"
+                    :disabled="selectedBreeds.includes(r.breed)"
+                    @mousedown.prevent="addBreedFromSearch(r)"
+                  >
+                    <span class="m-breed-search-result-name">{{ r.breed }}</span>
+                    <span v-if="r.category_name_l3" class="m-breed-search-result-l3">{{ r.category_name_l3 }}</span>
+                    <span class="m-breed-search-result-docs">{{ r.records }} 条</span>
+                    <span v-if="r.spec_summary" class="m-breed-search-result-spec" :title="r.spec_summary">{{ r.spec_summary }}</span>
+                  </button>
+                </template>
+                <!-- 没结果 + 不在加载:空提示 -->
+                <div v-else class="m-breed-search-empty">
                   没找到「{{ breedSearchLastQuery }}」相关品种
                 </div>
-                <button
-                  v-for="r in breedSearchResults"
-                  :key="r.breed"
-                  type="button"
-                  class="m-breed-search-result"
-                  :class="{ selected: selectedBreeds.includes(r.breed) }"
-                  :disabled="selectedBreeds.includes(r.breed)"
-                  @mousedown.prevent="addBreedFromSearch(r)"
-                >
-                  <span class="m-breed-search-result-name">{{ r.breed }}</span>
-                  <span v-if="r.category_name_l3" class="m-breed-search-result-l3">{{ r.category_name_l3 }}</span>
-                  <span class="m-breed-search-result-docs">{{ r.records }} 条</span>
-                  <span v-if="r.spec_summary" class="m-breed-search-result-spec" :title="r.spec_summary">{{ r.spec_summary }}</span>
-                </button>
               </div>
             </div>
             <button
@@ -2627,74 +2645,161 @@ function sparklineTitle(breed) {
 
 
 
-/* === 品种搜索框 P0#1 (2026-07-27) — toolbar 内嵌下拉建议 === */
+/* === 品种搜索框 P0#1 (2026-07-27) — toolbar 内嵌下拉建议
+   2026-07-27 UI 改:跟 .m-card 风格统一(box-shadow + border-radius)、SVG 图标、loading spinner、kbd hint === */
 .m-breed-search {
   position: relative;
   display: inline-flex;
   align-items: center;
   background: #fff;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 0 10px 0 32px;
+  padding: 0 10px 0 36px;
   height: 36px;
   width: 280px;
   transition: border-color .15s, box-shadow .15s;
+  /* 跟 .m-card 一致的微阴影(默认态)+ 浅灰边框 */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
-.m-breed-search:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f61a; }
+.m-breed-search:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+.m-breed-search:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
 .m-breed-search-icon {
-  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-  font-size: 14px; color: #6b7280; pointer-events: none;
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.m-breed-search-icon svg { width: 15px; height: 15px; display: block; }
 .m-breed-search-input {
   flex: 1; min-width: 0; border: none; outline: none; background: transparent;
   font-size: 13px; color: #111827; padding: 0;
   font-family: inherit;
 }
 .m-breed-search-input::placeholder { color: #9ca3af; }
+.m-breed-search-input:focus::placeholder { color: #cbd5e1; }
+
+/* 清空按钮 — SVG × 图标,跟页面其他 icon-button 一致 */
 .m-breed-search-clear {
-  background: none; border: none; cursor: pointer;
-  color: #6b7280; font-size: 18px; line-height: 1;
-  padding: 0 4px; border-radius: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: color .15s, background .15s;
 }
 .m-breed-search-clear:hover { color: #ef4444; background: #fef2f2; }
-.m-breed-search-dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
-  box-shadow: 0 8px 24px #0f172a1f;
-  max-height: 360px; overflow-y: auto;
-  z-index: 50;
+.m-breed-search-clear svg { width: 13px; height: 13px; display: block; }
+
+/* Loading spinner — 搜索时显示(替代之前的"搜索中…"文字) */
+.m-breed-search-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: m-breed-search-spin .8s linear infinite;
+  flex-shrink: 0;
 }
-.m-breed-search-loading, .m-breed-search-empty {
-  padding: 16px 14px; font-size: 13px; color: #6b7280; text-align: center;
+@keyframes m-breed-search-spin { to { transform: rotate(360deg); } }
+
+/* kbd hint — 空输入时右侧显示 Enter,告诉用户回车可选首条 */
+.m-breed-search-kbd {
+  font-family: ui-monospace, SF Mono, monospace;
+  font-size: 10px;
+  color: #9ca3af;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Dropdown */
+.m-breed-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 50;
+  /* 跟页面其他 dropdown 一致:加 1px 上边框视觉层次 */
+  border-top: 3px solid #3b82f6;
+}
+.m-breed-search-empty {
+  padding: 16px 14px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
 }
 .m-breed-search-result {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px 14px; text-align: left;
-  background: none; border: none; cursor: pointer;
-  font-family: inherit; font-size: 13px; color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: #111827;
   transition: background .12s;
+  flex-wrap: wrap;  /* 让 spec 摘要换到第二行 */
 }
 .m-breed-search-result:hover:not(:disabled) { background: #f0f9ff; }
-.m-breed-search-result.selected { background: #dbeafe; color: #1d4ed8; cursor: default; }
+.m-breed-search-result.selected {
+  background: #dbeafe;
+  color: #1d4ed8;
+  cursor: default;
+}
 .m-breed-search-result-name {
   flex: 1; min-width: 0; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .m-breed-search-result-l3 {
-  flex-shrink: 0; font-size: 11px; color: #6b7280;
-  background: #f3f4f6; padding: 1px 8px; border-radius: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+.m-breed-search-result-docs {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #9ca3af;
+  font-family: ui-monospace, SF Mono, monospace;
 }
 /* 规格摘要独占第二行 — 横向不再挤压品种名,只一行省略号 */
 .m-breed-search-result-spec {
   flex-basis: 100%;
-  font-size: 11px; color: #9ca3af; font-family: ui-monospace, SF Mono, monospace;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px;
+  color: #9ca3af;
+  font-family: ui-monospace, SF Mono, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-top: 2px;
-}
-/* 按钮允许换行 — 默认 flex 容器 nowrap,这里放开让 spec 换到第二行 */
-.m-breed-search-result {
-  flex-wrap: wrap;
 }
 .m-breed-search-result-docs {
   flex-shrink: 0; font-size: 11px; color: #9ca3af;
