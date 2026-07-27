@@ -23,8 +23,8 @@
           <span class="hero-title-main">ChinaJT</span>
           <span class="hero-title-sub">cjt-skills</span>
         </h1>
-        <p class="subtitle fade-in">全国住建局官方造价期刊 · 跨城归一 · 公开免费</p>
-        <p class="tagline fade-in">20 城 · 8,845 跨城归一品种 · 81.7 万条记录 · 1 人 + AI 全程</p>
+        <p class="subtitle fade-in">20 城住建局官方造价期刊 · 跨城数据聚合 · 开放即用</p>
+        <p class="tagline fade-in">8,845 个跨城归一品种 · 81.7 万条记录 · 1 人 + OpenClaw + AI 全程运维</p>
         <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看架构 →</a>
         <div class="hero-footer fade-in">
           cjt-skills · MIT License · GitHub pengfit/cjt-skills
@@ -58,7 +58,7 @@
       </div>
       <div class="container">
         <h2>架构原理</h2>
-        <p class="section-subtitle">源站 → ODS→DWD→DWS 三段式 ETL → L1~L4 跨城归一 → 公开 Dashboard。从原始网页到可视化,每一步都是独立可复用的开源包。</p>
+        <p class="section-subtitle">源站 → 三段式 ETL → L1~L4 跨城数据聚合 → 开放 Dashboard。从原始网页到可视化,每一步都是独立可复用的开源包。</p>
 
         <div class="workflow-diagram">
           <div class="workflow-steps">
@@ -69,17 +69,17 @@
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step highlight">
               <h4>⚙️ ETL Pipeline</h4>
-              <p>gov-price-etl · 20 个城市技能包 · 三段式 ODS→DWD→DWS + AI 攒批</p>
+              <p>gov-price-etl · 20 个城市技能包 · 三段式 ODS→DWD→DWS + Dify AI 攒批</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step">
-              <h4>🌐 跨城归一</h4>
+              <h4>🌐 数据聚合</h4>
               <p>L1 字段净化 · L2 单位 · L3 期号 · L4 跨城映射 · 8,845 个品种统一口径</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step highlight">
               <h4>📊 Dashboard</h4>
-              <p>FastAPI + Vue3 + ECharts · 公开访问 /market · SEO / JSON-LD 友好</p>
+              <p>FastAPI + Vue3 + ECharts · 即开即用 /market · 公开 · 鉴权 API 可对接</p>
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@
         <div class="workflow-bottom">
           <p>每个环节独立成包、可独立部署、可被 fork。</p>
           <p>数据流透明 · 索引命名规范 · 进度文件断点续传 · Dify AI 串行攒批。</p>
-          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据 ETL 工具链——每段都能 fork、改造、嵌入到你的项目里。</strong></p>
+          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据聚合工具链——1 人 + OpenClaw + AI 全程运维,开放协作,每段都能 fork、改造、嵌入到你的项目里。</strong></p>
         </div>
       </div>
     </section>
@@ -103,7 +103,7 @@
         <h2>它能做什么</h2>
         <p class="section-subtitle">
           线上部署：<router-link to="/market" class="case-link">pengfit.cn/market</router-link>
-          · 公开访问,无需注册 · 鉴权 API 可对接
+          · 即开即用,开放便捷 · 鉴权 API 可对接
         </p>
 
         <h3>以前 vs 现在</h3>
@@ -121,7 +121,7 @@
             </tr>
             <tr>
               <td class="before">跨城口径不一</td>
-              <td class="after">8,845 品种统一归一</td>
+              <td class="after">8,845 品种跨城数据聚合</td>
             </tr>
             <tr>
               <td class="before">期刊滞后查询</td>
@@ -133,13 +133,13 @@
             </tr>
             <tr>
               <td class="before">需要登录查数据</td>
-              <td class="after">公开数据,鉴权 API 可对接</td>
+              <td class="after">公开数据,即开即用</td>
             </tr>
           </tbody>
         </table>
 
         <p style="text-align: center; color: #a0a0a0; margin-top: 32px;">
-          1 人 + AI 全程,覆盖数据采集 → 清洗 → 归一 → 可视化全生命周期。
+          1 人 + OpenClaw + AI 全程运维,开放协作,覆盖数据采集 → 清洗 → 聚合 → 可视化全生命周期。
         </p>
         <div class="case-cta-wrap">
           <router-link to="/market" class="case-cta">
@@ -164,15 +164,15 @@ const SITE_URL = 'https://pengfit.cn'
 useHead({
   title: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills',
   meta: [
-    { name: 'description', content: 'ChinaJT (cjt-skills) · 17 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城归一 · 公开免费 · AI 协作的一人公司实践' },
-    { name: 'keywords', content: '工程造价, 材料价格, ChinaJT, cjt-skills, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据可视化, 一人公司, OPC, AI, 跨城归一, 公开数据, FastAPI, Vue' },
+    { name: 'description', content: 'ChinaJT (cjt-skills) · 20 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
+    { name: 'keywords', content: '工程造价, 材料价格, ChinaJT, cjt-skills, OpenClaw, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据聚合, 数据可视化, 一人公司, OPC, AI, 跨城归一, 开放, 公开, 即开即用, FastAPI, Vue' },
     { property: 'og:title', content: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊' },
-    { property: 'og:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
+    { property: 'og:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
     { property: 'og:url', content: `${SITE_URL}/home` },
     { property: 'og:type', content: 'website' },
     { property: 'og:image', content: `${SITE_URL}/og-image.png` },
     { name: 'twitter:title', content: 'ChinaJT · 工程造价材料价格数据 · cjt-skills' },
-    { name: 'twitter:description', content: '17 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一 · 公开免费 · AI 协作' },
+    { name: 'twitter:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
     { name: 'twitter:image', content: `${SITE_URL}/og-image.png` },
   ],
   link: [
@@ -202,7 +202,7 @@ useHead({
             name: 'ChinaJT · cjt-skills',
             alternateName: 'cjt-skills Dashboard',
             inLanguage: 'zh-CN',
-            description: '17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作',
+            description: '20 城住建局官方造价信息期刊 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维',
             publisher: { '@id': `${SITE_URL}/#organization` },
             potentialAction: {
               '@type': 'SearchAction',
@@ -217,10 +217,10 @@ useHead({
             '@type': 'SoftwareApplication',
             name: 'ChinaJT / cjt-skills',
             applicationCategory: 'BusinessApplication',
-            applicationSubCategory: '工程材料价格数据可视化',
+            applicationSubCategory: '工程材料价格数据聚合',
             operatingSystem: 'Web',
             url: `${SITE_URL}/`,
-            description: '17 城住建局官方造价信息期刊 · 跨城归一材料价格数据 · 公开免费 · AI 协作',
+            description: '20 城住建局官方造价信息期刊 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维',
             offers: {
               '@type': 'Offer',
               price: '0',
@@ -231,10 +231,10 @@ useHead({
             inLanguage: 'zh-CN',
             featureList: [
               '20 城住建局官方造价信息期刊',
-              '8,845 个跨城归一材料品种',
+              '8,845 个跨城数据聚合品种',
               '钢筋/水泥/给水管/电缆 价格行情',
-              'AI 协作规格解析 · L1~L4 归一',
-              '公开免费 · 鉴权 API 可对接',
+              '1 人 + OpenClaw + AI 全程运维',
+              '开放公开 · 即开即用 · 鉴权 API 可对接',
             ],
           },
         ],
@@ -379,7 +379,7 @@ section {
 
 .hero h1 {
   display: flex;
-  align-items: baseline;
+  align-items: center;  /* 2026-07-27 改: baseline → center, 主副标题字号悬殊(96px vs 22px)时 baseline 视觉偏左下,center 更稳 */
   justify-content: center;
   gap: 20px;
   margin-bottom: 24px;
@@ -400,12 +400,13 @@ section {
 }
 
 .hero-title-sub {
-  /* 饲养员 — 点缀,瘦体、偏色、间距拉开 */
+  /* 副标题 — 点缀,瘦体、偏色、间距拉开 */
   font-family: 'HarmonyOS Sans SC', 'OPPO Sans', 'Mi Sans',
                'PingFang SC', 'Noto Sans SC', -apple-system,
                BlinkMacSystemFont, sans-serif;
   font-size: clamp(18px, 2.2vw, 26px);
   font-weight: 300;
+  line-height: 1;  /* 2026-07-27 加:与 .hero-title-main line-height: 1 对齐,避免 baseline 视觉漂移 */
   color: #a0a0a0;
   letter-spacing: 0.2em;
   white-space: nowrap;
@@ -477,14 +478,6 @@ section {
   border-color: #00d9ff;
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 217, 255, 0.18);
-}
-
-.hero-tag-num {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-weight: 700;
-  color: #00d9ff;
-  margin-right: 4px;
-  letter-spacing: -0.02em;
 }
 
 .hero-tag-cta {
@@ -668,204 +661,11 @@ h3 {
   box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
 }
 
-/* === 合作模式 === */
-.pricing {
-  background: #1a1a1a;
-}
-
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 32px;
-  margin: 48px 0;
-}
-
-.pricing-card {
-  background: #0f0f0f;
-  border-radius: 16px;
-  padding: 40px;
-  border: 2px solid #2a2a2a;
-  transition: transform 0.3s ease, border-color 0.3s ease;
-  position: relative;
-}
-
-.pricing-card:hover {
-  transform: translateY(-8px);
-  border-color: #00d9ff;
-}
-
-.pricing-card.featured {
-  border-color: #e94560;
-  transform: scale(1.05);
-}
-/* featured hover: 保留缩放 + 抬升(覆盖基类 translateY) */
-.pricing-card.featured:hover {
-  transform: scale(1.05) translateY(-8px);
-  border-color: #e94560;
-}
-
-.pricing-card.featured::before {
-  content: '⭐ 推荐';
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #e94560;
-  color: #fff;
-  padding: 4px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.pricing-card h3 {
-  margin-bottom: 16px;
-}
-
-.pricing-card .price-type {
-  color: #a0a0a0;
-  margin-bottom: 24px;
-}
-
-.pricing-card .suitable {
-  color: #888;
-  font-size: 0.9rem;
-  margin-bottom: 16px;
-}
-
-.pricing-card ul {
-  list-style: none;
-  margin: 24px 0;
-  padding: 0;
-}
-
-.pricing-card ul li {
-  padding: 8px 0;
-  color: #a0a0a0;
-  position: relative;
-  padding-left: 24px;
-}
-
-.pricing-card ul li::before {
-  content: '✓';
-  position: absolute;
-  left: 0;
-  color: #00d9ff;
-  font-weight: bold;
-}
-
-.pricing-card .cta-button {
-  width: 100%;
-  text-align: center;
-  margin-top: 24px;
-}
-
-/* === FAQ === */
-.faq {
-  background: #0f0f0f;
-}
-
-.faq-list {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.faq-item {
-  background: #1a1a1a;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  border: 1px solid #2a2a2a;
-  overflow: hidden;
-}
-
-.faq-question {
-  padding: 24px;
-  cursor: pointer;
-  font-weight: 600;
-  color: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background 0.3s ease;
-  user-select: none;
-}
-.faq-question:hover {
-  background: #222;
-}
-.faq-question::after {
-  content: '+';
-  font-size: 1.5rem;
-  color: #00d9ff;
-  transition: transform 0.3s ease;
-}
-.faq-item.active .faq-question::after {
-  transform: rotate(45deg);
-}
-
-.faq-answer {
-  padding: 0 24px;
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.25s ease;
-  color: #a0a0a0;
-  line-height: 1.8;
-}
-.faq-item.active .faq-answer {
-  padding: 0 24px 24px;
-  max-height: 500px;
-  opacity: 1;
-  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease 0.05s;
-}
-
-/* === 联系 === */
-.contact {
-  background: #1a1a1a;
-  text-align: center;
-}
-
-.contact-email {
-  font-size: 1.5rem;
-  color: #00d9ff;
-  text-decoration: none;
-  display: inline-block;
-  margin-top: 24px;
-  padding: 16px 32px;
-  background: #0f0f0f;
-  border-radius: 12px;
-  border: 2px solid #00d9ff;
-  transition: all 0.3s ease;
-}
-.contact-email:hover {
-  background: #00d9ff;
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
-}
-
-/* === 禁用态(三档按钮 / 联系邮箱,2026-07-22 道友要求暂未开放) === */
-.cta-button.is-disabled,
-.contact-email.is-disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-  filter: grayscale(0.4);
-  transform: none !important;
-  box-shadow: none !important;
-}
-.cta-button.is-disabled::after,
-.contact-email.is-disabled::after {
-  content: '（暂未开放）';
-  margin-left: 6px;
-  font-size: 0.85em;
-  opacity: 0.8;
-}
-
 /* === 全局可访问性:焦点环(青色光晕) === */
+/* 2026-07-27 删:Pricing/FAQ/Contact 三个模块的 CSS 死代码(模板 2026-07-25 重构已删) */
 .cta-button:focus-visible,
 .case-cta:focus-visible,
-.case-link:focus-visible,
-.faq-question:focus-visible,
-.contact-email:focus-visible {
+.case-link:focus-visible {
   outline: 2px solid #00d9ff;
   outline-offset: 3px;
 }
@@ -1003,22 +803,7 @@ h3 {
   .workflow-arrow { font-size: 1.4rem; }
   .workflow-bottom { margin-top: 28px; line-height: 1.7; font-size: 0.92rem; }
 
-  /* Pricing — 更紧凑 */
-  .pricing-grid { gap: 20px; margin: 28px 0; }
-  .pricing-card { padding: 24px 18px; border-radius: 12px; }
-  .pricing-card.featured::before { font-size: 0.8rem; padding: 3px 12px; }
-  .pricing-card ul { margin: 18px 0; }
-  .pricing-card ul li { padding: 6px 0 6px 20px; font-size: 0.88rem; }
-  .pricing-card .cta-button { padding: 12px 20px; font-size: 0.95rem; }
-
-  /* FAQ — 紧凑 + 可点击区域加大 */
-  .faq-list { margin: 0 -4px; }
-  .faq-item { margin-bottom: 12px; border-radius: 10px; }
-  .faq-question { padding: 16px 18px; font-size: 0.95rem; }
-  .faq-item.active .faq-answer { padding: 0 18px 18px; font-size: 0.88rem; line-height: 1.7; }
-
-  /* Contact — 紧凑 */
-  .contact-email { font-size: 0.95rem; padding: 12px 16px; border-radius: 10px; word-break: break-all; }
+  /* Case CTA */
   .case-cta-wrap { margin-top: 20px; }
 }
 
@@ -1038,9 +823,5 @@ h3 {
   .stat-number { font-size: 1.6rem; }
   .stat-card { padding: 16px 10px; }
   .workflow-diagram { padding: 18px 12px; }
-  .pricing-card { padding: 20px 14px; }
-  .faq-question { padding: 14px 14px; font-size: 0.88rem; }
-  .faq-item.active .faq-answer { padding: 0 14px 14px; font-size: 0.82rem; }
-  .contact-email { font-size: 0.85rem; padding: 10px 12px; }
 }
 </style>
