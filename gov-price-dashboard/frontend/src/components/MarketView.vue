@@ -54,6 +54,51 @@
             </p>
           </div>
           <div class="m-heatmap-toolbar-actions">
+            <!-- 2026-07-27 新增 P0#1 — 品种搜索:输入品种名片段,debounced 调用 /api/market/breed-search,
+                 下拉建议点击 → 加入 selectedBreeds,触发 attr-keys + change-heatmap 刷新 -->
+            <div class="m-breed-search" :class="{ open: breedSearchOpen && breedSearchResults.length > 0 }">
+              <span class="m-breed-search-icon">🔍</span>
+              <input
+                v-model="breedSearch"
+                type="text"
+                class="m-breed-search-input"
+                placeholder="搜品种,如 HRB400 / DN100 / 螺纹钢"
+                maxlength="50"
+                autocomplete="off"
+                @input="onBreedSearchInput"
+                @focus="breedSearchOpen = breedSearchResults.length > 0"
+                @blur="closeBreedSearch"
+                @keydown.enter.prevent="addFirstSearchResult"
+                @keydown.escape="breedSearchOpen = false"
+              />
+              <button
+                v-if="breedSearch"
+                type="button"
+                class="m-breed-search-clear"
+                title="清空搜索"
+                @mousedown.prevent="clearBreedSearch"
+              >×</button>
+              <div v-if="breedSearchOpen" class="m-breed-search-dropdown">
+                <div v-if="breedSearchLoading" class="m-breed-search-loading">搜索中…</div>
+                <div v-else-if="!breedSearchResults.length" class="m-breed-search-empty">
+                  没找到「{{ breedSearchLastQuery }}」相关品种
+                </div>
+                <button
+                  v-for="r in breedSearchResults"
+                  :key="r.breed"
+                  type="button"
+                  class="m-breed-search-result"
+                  :class="{ selected: selectedBreeds.includes(r.breed) }"
+                  :disabled="selectedBreeds.includes(r.breed)"
+                  @mousedown.prevent="addBreedFromSearch(r)"
+                >
+                  <span class="m-breed-search-result-name">{{ r.breed }}</span>
+                  <span v-if="r.category_name_l3" class="m-breed-search-result-l3">{{ r.category_name_l3 }}</span>
+                  <span v-if="r.spec_summary" class="m-breed-search-result-spec" :title="r.spec_summary">{{ r.spec_summary }}</span>
+                  <span class="m-breed-search-result-docs">{{ r.records }} 条</span>
+                </button>
+              </div>
+            </div>
             <button
               class="m-heatmap-refresh-btn"
               type="button"
@@ -496,6 +541,14 @@ const attrKeys = ref([])              // [{key, label, values: [{value, docs}], 
 const attrFilters = ref({})          // {key: [values]} — 各 k 独立多选
 const loadingAttrKeys = ref(false)
 
+// 2026-07-27 新增 P0#1 — 品种搜索状态(debounced 300ms,跨 NORM 聚合 distinct breed)
+const breedSearch = ref('')             // 输入框当前值
+const breedSearchResults = ref([])     // /api/market/breed-search 结果 [{breed, docs, category_l3}]
+const breedSearchLoading = ref(false)
+const breedSearchOpen = ref(false)
+const breedSearchLastQuery = ref('')    // 最近一次成功的查询字符串(用于空结果提示)
+let breedSearchTimer = null             // debounce timer
+
 // v0.29: 折叠面板 + 应用前/后分离 — 避免 checkbox toggle 每次 reload
 //   panelExpanded: 折叠/展开(默认展开,有默认筛选时方便看)
 //   attrFiltersApplied: 实际生效的(传给 /change-heatmap),attrFilters 是用户编辑中
@@ -585,6 +638,69 @@ const attrFilterSummary = computed(() => {
 
 // 2026-07-24 P1: 换一批随机品种(顶 toolbar 主操作,代替原 ↻ 重置按钮)
 const refreshingBreeds = ref(false)
+// 2026-07-27 P0#1 — 品种搜索 debounced fetch
+function onBreedSearchInput() {
+  const q = breedSearch.value.trim()
+  if (breedSearchTimer) clearTimeout(breedSearchTimer)
+  if (!q) {
+    breedSearchResults.value = []
+    breedSearchOpen.value = false
+    return
+  }
+  breedSearchTimer = setTimeout(() => searchBreeds(q), 300)
+}
+
+async function searchBreeds(q) {
+  breedSearchLoading.value = true
+  try {
+    const r = await fetch(`/api/market/breed-search?q=${encodeURIComponent(q)}&limit=15`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const data = await r.json()
+    breedSearchResults.value = data.results || []
+    breedSearchLastQuery.value = data.q || q
+    breedSearchOpen.value = true
+  } catch (e) {
+    console.error('[breed-search]', e)
+    breedSearchResults.value = []
+  } finally {
+    breedSearchLoading.value = false
+  }
+}
+
+function closeBreedSearch() {
+  // 延迟关闭,让 @mousedown.prevent 的 click handler 先跑
+  setTimeout(() => { breedSearchOpen.value = false }, 150)
+}
+
+function clearBreedSearch() {
+  breedSearch.value = ''
+  breedSearchResults.value = []
+  breedSearchOpen.value = false
+}
+
+function addBreedFromSearch(r) {
+  if (selectedBreeds.value.includes(r.breed)) {
+    breedSearch.value = ''
+    breedSearchResults.value = []
+    breedSearchOpen.value = false
+    return
+  }
+  selectedBreeds.value = [...selectedBreeds.value, r.breed]
+  breedSearch.value = ''
+  breedSearchResults.value = []
+  breedSearchOpen.value = false
+  // 选品种后触发:重拉 attr-keys + 重算热力图 + sparkline
+  loadAttrKeys()
+  loadHeatmap()
+  loadSparkline()
+}
+
+function addFirstSearchResult() {
+  if (breedSearchResults.value.length > 0) {
+    addBreedFromSearch(breedSearchResults.value[0])
+  }
+}
+
 async function refreshRandomBreeds() {
   if (refreshingBreeds.value) return
   refreshingBreeds.value = true
@@ -2484,4 +2600,73 @@ function sparklineTitle(breed) {
   .m-quality-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
 
+
+
+/* === 品种搜索框 P0#1 (2026-07-27) — toolbar 内嵌下拉建议 === */
+.m-breed-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0 10px 0 32px;
+  height: 36px;
+  width: 280px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.m-breed-search:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f61a; }
+.m-breed-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; color: #6b7280; pointer-events: none;
+}
+.m-breed-search-input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font-size: 13px; color: #111827; padding: 0;
+  font-family: inherit;
+}
+.m-breed-search-input::placeholder { color: #9ca3af; }
+.m-breed-search-clear {
+  background: none; border: none; cursor: pointer;
+  color: #6b7280; font-size: 18px; line-height: 1;
+  padding: 0 4px; border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.m-breed-search-clear:hover { color: #ef4444; background: #fef2f2; }
+.m-breed-search-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  box-shadow: 0 8px 24px #0f172a1f;
+  max-height: 360px; overflow-y: auto;
+  z-index: 50;
+}
+.m-breed-search-loading, .m-breed-search-empty {
+  padding: 16px 14px; font-size: 13px; color: #6b7280; text-align: center;
+}
+.m-breed-search-result {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 14px; text-align: left;
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13px; color: #111827;
+  transition: background .12s;
+}
+.m-breed-search-result:hover:not(:disabled) { background: #f0f9ff; }
+.m-breed-search-result.selected { background: #dbeafe; color: #1d4ed8; cursor: default; }
+.m-breed-search-result-name {
+  flex: 1; min-width: 0; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-breed-search-result-l3 {
+  flex-shrink: 0; font-size: 11px; color: #6b7280;
+  background: #f3f4f6; padding: 1px 8px; border-radius: 4px;
+}
+.m-breed-search-result-spec {
+  flex-shrink: 1; min-width: 0; max-width: 220px;
+  font-size: 11px; color: #6b7280; font-family: ui-monospace, SF Mono, monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-breed-search-result-docs {
+  flex-shrink: 0; font-size: 11px; color: #9ca3af;
+  font-family: ui-monospace, SF Mono, monospace;
+}
 </style>
