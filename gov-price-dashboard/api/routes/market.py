@@ -1783,7 +1783,7 @@ def breed_trend(
                     "field": "period_end",
                     "calendar_interval": "month",
                     "min_doc_count": 1,
-                    "order": {"_key": "desc"},  # 倒序 — 最新月在前,前端取前 N 个
+                    "order": {"_key": "asc"},   # 2026-07-27:改正序 — 横坐标左旧右新符合时间轴直觉
                     "extended_bounds": {"min": "2025-01-01", "max": "2030-12-31"},
                 },
                 "aggs": {
@@ -1812,17 +1812,19 @@ def breed_trend(
         )
         buckets = r.get("aggregations", {}).get("by_period", {}).get("buckets", [])
 
-        # period 元数据
+        # period 元数据 — buckets 现在 asc,取最后 months 个 = 最近 N 月
+        # (固定 size: months 避免 ES 返太多空 bucket)
+        last_n = buckets[-months:] if len(buckets) > months else buckets
         periods = []
-        for b in buckets:
+        for b in last_n:
             ms = b["key"]
             dt = datetime.fromtimestamp(ms / 1000)
             label = f"{dt.year}-{str(dt.month).zfill(2)}"
             periods.append({"start": ms, "end": ms, "label": label})
 
-        # 按城按期聚合
+        # 按城按期聚合(用 last_n,与 periods 同序)
         city_points: dict = {}
-        for period_idx, b in enumerate(buckets):
+        for period_idx, b in enumerate(last_n):
             for city_bucket in b["by_city"]["buckets"]:
                 city = city_bucket["key"]
                 if city_filter and city not in city_filter:
