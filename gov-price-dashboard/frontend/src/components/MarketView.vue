@@ -787,7 +787,11 @@ async function renderTrendChart() {
   if (!trendChartRef.value) return
   await registerGovPriceThemeOnce()
   if (!trendChart.value) {
-    trendChart.value = useEcharts(trendChartRef.value, 'govPrice')
+    // useEcharts() 返回 Promise(懒加载 echarts 模块),需要 await 后用 .init(el)
+    // 之前误用 useEcharts(el, theme) → chart.value 是 Promise 不是 chart 实例,
+    // setOption / dispose 都无效 → canvas 空
+    const echarts = await useEcharts()
+    trendChart.value = echarts.init(trendChartRef.value, 'govPrice')
   }
   const breed = trendBreed.value
   const cityLines = (trendTimelines.value[breed] || {})
