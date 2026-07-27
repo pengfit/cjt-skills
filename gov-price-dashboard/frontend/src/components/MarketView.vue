@@ -680,6 +680,7 @@ function clearBreedSearch() {
 
 function addBreedFromSearch(r) {
   if (selectedBreeds.value.includes(r.breed)) {
+    // 已选品种 — 清输入 + 关闭 dropdown + 视觉提示(下拉项已 selected 样式),不重复加
     breedSearch.value = ''
     breedSearchResults.value = []
     breedSearchOpen.value = false
@@ -689,10 +690,9 @@ function addBreedFromSearch(r) {
   breedSearch.value = ''
   breedSearchResults.value = []
   breedSearchOpen.value = false
-  // 选品种后触发:重拉 attr-keys + 重算热力图 + sparkline
+  // 选品种后触发:重拉 attr-keys + 重算热力图(loadHeatmap 内已 inline 拉 sparkline)
   loadAttrKeys()
   loadHeatmap()
-  loadSparkline()
 }
 
 function addFirstSearchResult() {
