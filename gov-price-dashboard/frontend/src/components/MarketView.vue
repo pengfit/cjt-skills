@@ -68,7 +68,7 @@
                 @input="onBreedSearchInput"
                 @focus="breedSearchOpen = breedSearchResults.length > 0"
                 @blur="closeBreedSearch"
-                @keydown.enter.prevent="addFirstSearchResult"
+                @keydown.enter.prevent="onBreedSearchEnter"
                 @keydown.escape="breedSearchOpen = false"
               />
               <button
@@ -94,8 +94,8 @@
                 >
                   <span class="m-breed-search-result-name">{{ r.breed }}</span>
                   <span v-if="r.category_name_l3" class="m-breed-search-result-l3">{{ r.category_name_l3 }}</span>
-                  <span v-if="r.spec_summary" class="m-breed-search-result-spec" :title="r.spec_summary">{{ r.spec_summary }}</span>
                   <span class="m-breed-search-result-docs">{{ r.records }} 条</span>
+                  <span v-if="r.spec_summary" class="m-breed-search-result-spec" :title="r.spec_summary">{{ r.spec_summary }}</span>
                 </button>
               </div>
             </div>
@@ -656,7 +656,19 @@ async function searchBreeds(q) {
     const r = await fetch(`/api/market/breed-search?q=${encodeURIComponent(q)}&limit=15`)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const data = await r.json()
-    breedSearchResults.value = data.results || []
+    // ES wildcard 不算 relevance,纯按 doc_count 排,"外环氧内衬水泥砂浆螺旋焊接钢管"会被混在"水泥"前面
+    // 客户端按匹配质量重排:exact > prefix > contains > 其他
+    const qLower = q.toLowerCase()
+    const scored = (data.results || []).map(r => {
+      const name = r.breed.toLowerCase()
+      let score = 3  // contains(默认最低)
+      if (name === qLower) score = 0                           // 完全相等
+      else if (name.startsWith(qLower)) score = 1               // 前缀
+      else if (name.includes(qLower)) score = 2                // 包含
+      return { r, score }
+    })
+    scored.sort((a, b) => a.score - b.score || (b.r.records || 0) - (a.r.records || 0))
+    breedSearchResults.value = scored.map(s => s.r)
     breedSearchLastQuery.value = data.q || q
     breedSearchOpen.value = true
   } catch (e) {
@@ -695,7 +707,20 @@ function addBreedFromSearch(r) {
   loadHeatmap()
 }
 
-function addFirstSearchResult() {
+async function onBreedSearchEnter() {
+  // 取消 debounce timer — 用户按 Enter 想要"立刻"生效
+  if (breedSearchTimer) {
+    clearTimeout(breedSearchTimer)
+    breedSearchTimer = null
+  }
+  const q = breedSearch.value.trim()
+  if (!q) return
+  // 若已有结果,直接选第一条;否则立即搜完再选
+  if (breedSearchResults.value.length > 0) {
+    addBreedFromSearch(breedSearchResults.value[0])
+    return
+  }
+  await searchBreeds(q)
   if (breedSearchResults.value.length > 0) {
     addBreedFromSearch(breedSearchResults.value[0])
   }
@@ -2660,10 +2685,16 @@ function sparklineTitle(breed) {
   flex-shrink: 0; font-size: 11px; color: #6b7280;
   background: #f3f4f6; padding: 1px 8px; border-radius: 4px;
 }
+/* 规格摘要独占第二行 — 横向不再挤压品种名,只一行省略号 */
 .m-breed-search-result-spec {
-  flex-shrink: 1; min-width: 0; max-width: 220px;
-  font-size: 11px; color: #6b7280; font-family: ui-monospace, SF Mono, monospace;
+  flex-basis: 100%;
+  font-size: 11px; color: #9ca3af; font-family: ui-monospace, SF Mono, monospace;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+/* 按钮允许换行 — 默认 flex 容器 nowrap,这里放开让 spec 换到第二行 */
+.m-breed-search-result {
+  flex-wrap: wrap;
 }
 .m-breed-search-result-docs {
   flex-shrink: 0; font-size: 11px; color: #9ca3af;
