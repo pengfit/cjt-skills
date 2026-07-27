@@ -107,6 +107,12 @@
           <div v-else class="scroll-panel"><CategoryTaxonomyView /></div>
         </template>
 
+        <!-- 2026-07-27:品种归一后台 - 浏览 breed_canonical.db -->
+        <template v-if="currentTab === 'canon'">
+          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+          <div v-else class="scroll-panel"><BreedCanonicalView /></div>
+        </template>
+
       </main>
     </div>
 
@@ -142,6 +148,8 @@ const DataHealthView = defineAsyncComponent(() => import('./DataHealthView.vue')
 const CockpitView = defineAsyncComponent(() => import('./CockpitView.vue'))
 const VecRulesView = defineAsyncComponent(() => import('./VecRulesView.vue'))
 const CategoryTaxonomyView = defineAsyncComponent(() => import('./CategoryTaxonomyView.vue'))
+// 2026-07-27:品种归一后台 - 浏览 breed_canonical.db (只读,无新增)
+const BreedCanonicalView = defineAsyncComponent(() => import('./BreedCanonicalView.vue'))
 
 // 跨页详情中心 (2026-07-15 改造 A) — /breed-detail
 const BreedDetailView = defineAsyncComponent(() => import('./BreedDetailView.vue'))
@@ -167,6 +175,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const TAB_ICONS = {
   cockpit: '🛸', list: '📋', category: '📁', dist: '📊',
   trend: '📈', sync: '🔄', health: '❤️', rules: '⚙️', taxonomy: '🏷️',
+  canon: '🧬',
 }
 function sidebarItems(keys) {
   return TAB_ROUTES
@@ -183,7 +192,7 @@ function sidebarItems(keys) {
 const sidebarGroups = computed(() => ([
   { key: 'view',    label: '数据浏览',    items: sidebarItems(['cockpit', 'list', 'category']) },
   { key: 'collect', label: '数据采集',    items: sidebarItems(['sync', 'health']) },
-  { key: 'govern',  label: '数据治理',    items: sidebarItems(['rules', 'taxonomy']) },
+  { key: 'govern',  label: '数据治理',    items: sidebarItems(['rules', 'taxonomy', 'canon']) },
   { key: 'viz',     label: '价格可视化',  items: sidebarItems(['dist', 'trend']) },
 ]))
 
