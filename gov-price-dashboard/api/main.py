@@ -152,7 +152,9 @@ app.include_router(showcase_router)
 # 2026-07-21：/market 市场行情公开 API（涨跌幅/热门品类/热力图）
 # 同样只读 ES 聚合,返回的字段已脱敏(无原始 spec/attr,只有均价)
 from api.routes.market import router as market_router
+from api.routes.canon import router as canon_router
 app.include_router(market_router)
+app.include_router(canon_router)  # 2026-07-27:治理页读操作先 public(/market 也公开同源数据,没风险)
 
 # 2026-07-23: 搜索 / 分类树 / 筛选选项 路由抽取
 from api.routes.search import router as search_router

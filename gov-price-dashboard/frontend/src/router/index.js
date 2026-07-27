@@ -15,6 +15,8 @@ export const TAB_ROUTES = [
   { key: 'health',   label: '数据健康',   path: '/health' },
   { key: 'rules',    label: '规格解析',   path: '/spec-rules' },
   { key: 'taxonomy', label: '分类体系',   path: '/taxonomy' },
+  // 2026-07-27 P0: 数据治理 - 品种归一后台(/canon),展示 breed_canonical.db
+  { key: 'canon',    label: '品种归一',   path: '/canon' },
 ]
 
 const TAB_KEYS = new Set(TAB_ROUTES.map(r => r.key))
