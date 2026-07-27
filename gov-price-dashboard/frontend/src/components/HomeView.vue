@@ -23,8 +23,8 @@
           <span class="hero-title-main">ChinaJT</span>
           <span class="hero-title-sub">cjt-skills</span>
         </h1>
-        <p class="subtitle fade-in">开源工程造价数据基础设施</p>
-        <p class="tagline fade-in">20 城住建局 · 9,931 跨城归一品种 · 1 人 + AI 全程</p>
+        <p class="subtitle fade-in">全国住建局官方造价期刊 · 跨城归一 · 公开免费</p>
+        <p class="tagline fade-in">20 城 · 8,845 跨城归一品种 · 81.7 万条记录 · 1 人 + AI 全程</p>
         <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看架构 →</a>
         <div class="hero-footer fade-in">
           cjt-skills · MIT License · GitHub pengfit/cjt-skills
@@ -58,36 +58,36 @@
       </div>
       <div class="container">
         <h2>架构原理</h2>
-        <p class="section-subtitle">源数据 → ETL Pipeline → 跨城归一 → 公开 Dashboard,全链路开源可复用。</p>
+        <p class="section-subtitle">源站 → ODS→DWD→DWS 三段式 ETL → L1~L4 跨城归一 → 公开 Dashboard。从原始网页到可视化,每一步都是独立可复用的开源包。</p>
 
         <div class="workflow-diagram">
           <div class="workflow-steps">
             <div class="workflow-step">
               <h4>📡 源数据</h4>
-              <p>20 个省/市住建局官方造价信息期刊</p>
+              <p>20 个省/市住建局官方造价信息期刊(月刊 / 季刊 / 不定期)</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step highlight">
               <h4>⚙️ ETL Pipeline</h4>
-              <p>gov-price-etl · 17 个城市技能包 · 三段式 ODS→DWD→DWS</p>
+              <p>gov-price-etl · 20 个城市技能包 · 三段式 ODS→DWD→DWS + AI 攒批</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step">
               <h4>🌐 跨城归一</h4>
-              <p>L1~L4 四层规范化 · 9,931 个品种统一口径</p>
+              <p>L1 字段净化 · L2 单位 · L3 期号 · L4 跨城映射 · 8,845 个品种统一口径</p>
             </div>
             <div class="workflow-arrow">↓</div>
             <div class="workflow-step highlight">
               <h4>📊 Dashboard</h4>
-              <p>FastAPI + Vue3 + ECharts · 公开访问 /market</p>
+              <p>FastAPI + Vue3 + ECharts · 公开访问 /market · SEO / JSON-LD 友好</p>
             </div>
           </div>
         </div>
 
         <div class="workflow-bottom">
           <p>每个环节独立成包、可独立部署、可被 fork。</p>
-          <p>数据流透明 · 索引命名规范 · 进度文件断点续传。</p>
-          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据 ETL 工具链。</strong></p>
+          <p>数据流透明 · 索引命名规范 · 进度文件断点续传 · Dify AI 串行攒批。</p>
+          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据 ETL 工具链——每段都能 fork、改造、嵌入到你的项目里。</strong></p>
         </div>
       </div>
     </section>
@@ -102,9 +102,8 @@
       <div class="container">
         <h2>它能做什么</h2>
         <p class="section-subtitle">
-          部署示例：
-          <router-link to="/market" class="case-link">ChinaJT Dashboard</router-link>
-          · https://pengfit.cn · 工程造价行业的数据中台
+          线上部署：<router-link to="/market" class="case-link">pengfit.cn/market</router-link>
+          · 公开访问,无需注册 · 鉴权 API 可对接
         </p>
 
         <h3>以前 vs 现在</h3>
@@ -117,12 +116,12 @@
           </thead>
           <tbody>
             <tr>
-              <td class="before">人工汇总20数据源</td>
-              <td class="after">凌晨自动抓取，0干预</td>
+              <td class="before">人工汇总 20 个数据源</td>
+              <td class="after">凌晨自动抓取,0 干预</td>
             </tr>
             <tr>
               <td class="before">跨城口径不一</td>
-              <td class="after">9,931品种统一归一</td>
+              <td class="after">8,845 品种统一归一</td>
             </tr>
             <tr>
               <td class="before">期刊滞后查询</td>
@@ -134,13 +133,13 @@
             </tr>
             <tr>
               <td class="before">需要登录查数据</td>
-              <td class="after">公开数据，鉴权API可对接</td>
+              <td class="after">公开数据,鉴权 API 可对接</td>
             </tr>
           </tbody>
         </table>
 
         <p style="text-align: center; color: #a0a0a0; margin-top: 32px;">
-          1 人 + AI 全程,覆盖数据采集 → 清洗 → 归一 → 展示全生命周期。
+          1 人 + AI 全程,覆盖数据采集 → 清洗 → 归一 → 可视化全生命周期。
         </p>
         <div class="case-cta-wrap">
           <router-link to="/market" class="case-cta">
@@ -231,11 +230,11 @@ useHead({
             publisher: { '@id': `${SITE_URL}/#organization` },
             inLanguage: 'zh-CN',
             featureList: [
-              '17 城住建局官方造价信息期刊数据',
-              '跨城归一品类 9,000+',
-              '钢筋/水泥/给水管/电缆价格行情',
-              'AI 协作规格解析',
-              '公开免费',
+              '20 城住建局官方造价信息期刊',
+              '8,845 个跨城归一材料品种',
+              '钢筋/水泥/给水管/电缆 价格行情',
+              'AI 协作规格解析 · L1~L4 归一',
+              '公开免费 · 鉴权 API 可对接',
             ],
           },
         ],
