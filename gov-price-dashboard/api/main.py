@@ -82,7 +82,9 @@ _PUBLIC_PATHS = {
     # 2026-07-25: /market 「数据治理透明卡」 — 每城新鲜度/attr_norm 覆盖
     "/api/market/data-quality",
     # 2026-07-25: /market (A.2) 热力图行标签下的 sparkline 历史折线
-    "/api/market/sparkline"
+    "/api/market/sparkline",
+    # 2026-07-27:趋势卡专用,单品种按城绝对价,公开(/market 页用)
+    "/api/market/breed-trend",
 }
 
 
