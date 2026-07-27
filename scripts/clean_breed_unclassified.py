@@ -7,12 +7,13 @@ clean_breed_unclassified.py
 需要删除。)
 
 只清理:
-  - breed_canonical.l3_code='UNCLASSIFIED'    (品种→L3 映射垃圾, 87 行)
-  - breed_canonical_review.l3_code='UNCLASSIFIED' (如有,审核队列垃圾)
+  - breed_canonical.l3_code='UNCLASSIFIED'    (品种→L3 映射垃圾)
 
 不清理:
-  - category_v3.l4='UNCLASSIFIED'              (合法 L4 占位符,191 行)
+  - category_v3.l4='UNCLASSIFIED'              (合法 L4 占位符)
   - category_v3.l1/l2/l3 列里的 'UNCLASSIFIED' (v2/v3 字典自身的占位)
+
+注：2026-07-27 起 breed_canonical_review 表已 DROP（本脚本不再处理）。
 
 用法:
   python3 scripts/clean_breed_unclassified.py           # 报告 + 询问
@@ -36,39 +37,29 @@ def _open():
 
 
 def report(c: sqlite3.Connection) -> dict:
-    out = {}
-    for table in ("breed_canonical", "breed_canonical_review"):
-        try:
-            row = c.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE l3_code=?",
-                ("UNCLASSIFIED",),
-            ).fetchone()
-            n = row[0] if row else 0
-        except sqlite3.OperationalError as e:
-            print(f"  [warn] skip {table}: {e}")
-            continue
-        # source / confidence 分布
-        if n > 0:
-            dist = c.execute(
-                f"SELECT source, COUNT(*) FROM {table} WHERE l3_code=? GROUP BY source",
-                ("UNCLASSIFIED",),
-            ).fetchall()
-            print(f"  {table}: {n} 行 UNCLASSIFIED")
-            for s, c2 in dist:
-                print(f"    source={s!r}: {c2} 行")
-        out[table] = n
-    return out
+    table = "breed_canonical"
+    row = c.execute(
+        f"SELECT COUNT(*) FROM {table} WHERE l3_code=?",
+        ("UNCLASSIFIED",),
+    ).fetchone()
+    n = row[0] if row else 0
+    if n > 0:
+        dist = c.execute(
+            f"SELECT source, COUNT(*) FROM {table} WHERE l3_code=? GROUP BY source",
+            ("UNCLASSIFIED",),
+        ).fetchall()
+        print(f"  {table}: {n} 行 UNCLASSIFIED")
+        for s, c2 in dist:
+            print(f"    source={s!r}: {c2} 行")
+    return {table: n}
 
 
-def delete_unclassified(c: sqlite3.Connection) -> tuple[int, int]:
+def delete_unclassified(c: sqlite3.Connection) -> int:
     n1 = c.execute(
         "DELETE FROM breed_canonical WHERE l3_code=?", ("UNCLASSIFIED",)
     ).rowcount
-    n2 = c.execute(
-        "DELETE FROM breed_canonical_review WHERE l3_code=?", ("UNCLASSIFIED",)
-    ).rowcount
     c.commit()
-    return n1, n2
+    return n1
 
 
 def main():
@@ -100,8 +91,8 @@ def main():
             print("取消")
             c.close()
             return 1
-    n1, n2 = delete_unclassified(c)
-    print(f"\n[done] 删 breed_canonical: {n1} 行; breed_canonical_review: {n2} 行")
+    n1 = delete_unclassified(c)
+    print(f"\n[done] 删 breed_canonical: {n1} 行")
 
     print("\n[verify] after:")
     report(c)
