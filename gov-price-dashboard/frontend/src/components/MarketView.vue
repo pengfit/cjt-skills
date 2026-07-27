@@ -759,7 +759,10 @@ function addBreedFromSearch(r) {
   loadHeatmap()
 }
 
-// 2026-07-27 P1: 趋势卡 — 拉 sparkline 数据,渲染 ECharts 折线
+// 2026-07-27 P1 (v2): 趋势卡 — 拉 /api/market/breed-trend(单品种按城,原始 prices 数组),
+//   不再走 /api/market/sparkline(sparkline 是 monthly avg,double-averaging 失真)
+//   新接口实现思路跟 /api/norm/price-trend 一致(date_histogram 月 + terms city),
+//   但输出按城市拆分,prices 用 top_hits 取原始价 — 前端可做 median / min-max band / scatter
 async function loadTrend(breed) {
   if (!breed) {
     trendTimelines.value = {}
@@ -770,10 +773,11 @@ async function loadTrend(breed) {
   }
   trendLoading.value = true
   try {
-    const r = await fetch(`/api/market/sparkline?breeds=${encodeURIComponent(breed)}&periods=6`)
+    const r = await fetch(`/api/market/breed-trend?breed=${encodeURIComponent(breed)}&months=6`)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const data = await r.json()
-    trendTimelines.value = data.timelines || {}
+    // 新结构: {breed, periods:[{start,label}], cities:[{city, points:[{period_idx, prices:[]}]}]}
+    trendTimelines.value = data
     await nextTick()
     renderTrendChart()
   } catch (e) {
@@ -793,48 +797,66 @@ async function renderTrendChart() {
     const echarts = await useEcharts()
     trendChart.value = echarts.init(trendChartRef.value, 'govPrice')
   }
-  const breed = trendBreed.value
-  const cityLines = (trendTimelines.value[breed] || {})
-  const cities = Object.keys(cityLines)
-  if (!cities.length) {
+  // 2026-07-27 (v2): 用 /api/market/breed-trend 新数据结构
+  //   {periods:[{start,label}], cities:[{city, points:[{period_idx, prices:[]}]}]}
+  //   每城一条线,值 = 该城当月所有原始价格的中位数(避开 double-averaging 失真,贴近"绝对价格"诉求)
+  const data = trendTimelines.value
+  if (!data || !data.periods?.length || !data.cities?.length) {
     trendChart.value.clear()
     return
   }
-  // 收集所有 period_end(取并集 ms)
-  const periodSet = new Set()
-  cities.forEach(c => cityLines[c].forEach(p => periodSet.add(p.period_end)))
-  const periods = [...periodSet].sort((a, b) => a - b)
-  const periodLabels = periods.map(ms => {
-    const d = new Date(ms)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
-
-  // series: 每城一条线(粗蓝实线为删除前的旧版;现在只画每城)
-  const series = cities.map((city, i) => {
-    const points = cityLines[city]
-    const byMs = new Map(points.map(p => [p.period_end, p.avg_price]))
-    const data = periods.map(ms => byMs.get(ms) ?? null)
+  const periodLabels = data.periods.map(p => p.label)
+  function median(arr) {
+    if (!arr?.length) return null
+    const s = [...arr].sort((a, b) => a - b)
+    const m = Math.floor(s.length / 2)
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+  }
+  // 选前 12 城避免 legend 滚太长
+  const citySeries = data.cities.slice(0, 12)
+  const series = citySeries.map((cityData, i) => {
+    const values = cityData.points.map(p => p.prices?.length ? +median(p.prices).toFixed(4) : null)
+    const range = cityData.points.map(p => {
+      if (!p.prices?.length) return null
+      return [Math.min(...p.prices), Math.max(...p.prices)]
+    })
     return {
-      name: city,
+      name: cityData.city,
       type: 'line',
-      data,
+      data: values,
       smooth: true,
       symbol: 'circle',
-      symbolSize: 4,
-      lineStyle: { width: 1.5, color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
+      symbolSize: 5,
+      lineStyle: { width: 1.8, color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
       itemStyle: { color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
       emphasis: { focus: 'series' },
       connectNulls: true,
+      _range: range,  // 给自定义 tooltip 用
     }
   })
-  // 2026-07-27 改:删「全国均价」粗线 — 用户反馈"不要均价要绝对价格",
-  //   全国均价 = 各城均价再平均(double-averaging),失真且误导。
-  //   现在每城一条线本身就是该城当月各记录的实际均价(绝对值),更直观。
 
 
   trendChart.value.setOption({
-    grid: { left: 50, right: 20, top: 50, bottom: 40 },
-    tooltip: { trigger: 'axis' },
+    grid: { left: 60, right: 20, top: 50, bottom: 40 },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        if (!params?.length) return ''
+        const period = params[0].axisValue
+        let html = `<div style="font-weight:600;margin-bottom:4px;">${period}</div>`
+        params.forEach(p => {
+          const r = p.data._range?.[p.dataIndex]
+          const val = p.data
+          const txt = val != null ? `¥${val.toFixed(2)}` : '—'
+          const rangeTxt = r ? ` (${r[0].toFixed(2)}~${r[1].toFixed(2)})` : ''
+          html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
+            <span>${p.seriesName}: ${txt}${rangeTxt}</span>
+          </div>`
+        })
+        return html
+      }
+    },
     legend: { type: 'scroll', top: 5, textStyle: { fontSize: 11 } },
     xAxis: {
       type: 'category',
@@ -844,7 +866,7 @@ async function renderTrendChart() {
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#475569', formatter: v => v.toFixed(0) },
+      axisLabel: { fontSize: 11, color: '#475569', formatter: v => '¥' + v.toFixed(0) },
       splitLine: { lineStyle: { color: '#f1f5f9' } },
     },
     series,
@@ -865,11 +887,10 @@ watch(() => selectedBreeds.value, (list) => {
   const findFirstWithData = async () => {
     for (const b of list) {
       try {
-        const r = await fetch(`/api/market/sparkline?breeds=${encodeURIComponent(b)}&periods=6`)
+        const r = await fetch(`/api/market/breed-trend?breed=${encodeURIComponent(b)}&months=6`)
         if (!r.ok) continue
         const data = await r.json()
-        const t = data.timelines?.[b]
-        if (t && Object.keys(t).length > 0) {
+        if (data.cities?.length > 0) {
           trendBreed.value = b
           return
         }

@@ -1738,6 +1738,110 @@ def random_breeds(
     return {"results": results, "total": len(results), "count": count}
 
 
+# 2026-07-27 新增 — /market 趋势卡专用端点
+#   实现思路参考 /api/norm/price-trend:date_histogram(month) + terms(city)
+#   区别:不分 spec(每个 (city, period) 一个桶);不用 avg,用 top_hits 取原始价格数组
+#   给前端做 median / min-max band / scatter 都有空间 — 避开 double-averaging 失真
+@router.get("/breed-trend")
+def breed_trend(
+    breed: str = Query(..., min_length=1, max_length=100, description="归一品种名(精确匹配 normalized_breed)"),
+    cities: Optional[str] = Query(None, description="城市过滤,逗号分隔;空=全部 NORM 城市"),
+    months: int = Query(6, ge=1, le=24, description="往前几个月"),
+):
+    """单品种按城半年价趋势
+    输出:
+    {
+      "breed": "闸阀",
+      "periods": [{"start": ms, "end": ms, "label": "YYYY-MM"}, ...],
+      "cities": [
+        {"city": "jiangxi", "points": [{"period_idx": 0, "prices": [134.5, 135.0, ...]}, ...]},
+        ...
+      ]
+    }
+    """
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"breed": breed, "periods": [], "cities": []}
+
+    city_filter = [c.strip() for c in (cities or "").split(",") if c.strip()]
+    # months 参数在 date_histogram 的 min_doc_count + 取最后 N 个月逻辑里用,不在 ES 端 filter
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"term": {"normalized_breed.keyword": breed}},
+                    # 2026-07-27:不用 now-6m(ES 服务器时钟可能不对),硬编码宽范围
+                    #   NORM 数据目前都在 2025-2030 内,够用;月 bucket 数量由 date_histogram 自动归
+                    {"range": {"period_end": {"gte": "2025-01-01", "lte": "2030-12-31"}}},
+                ]
+            }
+        },
+        "aggs": {
+            "by_period": {
+                "date_histogram": {
+                    "field": "period_end",
+                    "calendar_interval": "month",
+                    "min_doc_count": 1,
+                    "order": {"_key": "desc"},  # 倒序 — 最新月在前,前端取前 N 个
+                    "extended_bounds": {"min": "2025-01-01", "max": "2030-12-31"},
+                },
+                "aggs": {
+                    "by_city": {
+                        "terms": {"field": "city", "size": 30},
+                        "aggs": {
+                            "prices": {
+                                "top_hits": {
+                                    "size": 80,  # 每月每城最多取 80 条原始价样本
+                                    "_source": ["price"],
+                                    "sort": [{"period_end": {"order": "desc"}}]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    try:
+        r = es.search(
+            index=",".join(norm_list),
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        buckets = r.get("aggregations", {}).get("by_period", {}).get("buckets", [])
+
+        # period 元数据
+        periods = []
+        for b in buckets:
+            ms = b["key"]
+            dt = datetime.fromtimestamp(ms / 1000)
+            label = f"{dt.year}-{str(dt.month).zfill(2)}"
+            periods.append({"start": ms, "end": ms, "label": label})
+
+        # 按城按期聚合
+        city_points: dict = {}
+        for period_idx, b in enumerate(buckets):
+            for city_bucket in b["by_city"]["buckets"]:
+                city = city_bucket["key"]
+                if city_filter and city not in city_filter:
+                    continue
+                prices = []
+                for hit in city_bucket["prices"]["hits"]["hits"]:
+                    p = hit["_source"].get("price")
+                    if p and p > 0:
+                        prices.append(p)
+                if city not in city_points:
+                    city_points[city] = []
+                city_points[city].append({"period_idx": period_idx, "prices": prices})
+
+        city_series = [{"city": c, "points": data} for c, data in city_points.items()]
+        return {"breed": breed, "periods": periods, "cities": city_series}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/attr-keys")
 def attr_keys(
     breed: str = Query(None, description="单品种名(向后兼容,优先 breeds)"),
