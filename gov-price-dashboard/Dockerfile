@@ -5,7 +5,9 @@ WORKDIR /build/frontend
 
 # 单独 COPY package.json 走 npm ci 缓存
 COPY gov-price-dashboard/frontend/package*.json ./
-RUN npm ci --no-audit --no-fund
+# alpine 内到 npmjs.org 不稳(早 build 在 zrender 下载时 TLS 断开),强制走淘宝镜像
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
 
 COPY gov-price-dashboard/frontend/ ./
 # Vite build → dist/
