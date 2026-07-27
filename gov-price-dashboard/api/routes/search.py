@@ -16,7 +16,7 @@ from elasticsearch import NotFoundError, RequestError, ConnectionError as ESConn
 
 from api.helpers import _build_bool_query, safe_search
 from api.dependencies import es, LIST_INDICES, ALL_INDICES, NORM_INDICES
-from api.paths import CATEGORY_DB
+from api.paths import CATEGORY_V3_RULES_DB
 
 router = APIRouter()
 
@@ -140,8 +140,12 @@ def search(
 
 @router.get("/api/taxonomy/v3/tree")
 def taxonomy_v3_tree():
-    """返回 L1→L2→L3 分类树（纯分类体系，无 ES 计数）"""
-    db_path = CATEGORY_DB
+    """返回 L1→L2→L3 分类树（纯分类体系，无 ES 计数）
+
+    2026-07-27:改读 category_v3_rules.db(DWD→DWS ETL live 写入),
+    代替 breed_canonical.db 的快照 category_v3 表。
+    """
+    db_path = CATEGORY_V3_RULES_DB
     if not os.path.isfile(db_path):
         return {"ok": False, "error": f"分类库不存在: {db_path}", "tree": []}
     try:

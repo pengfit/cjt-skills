@@ -88,6 +88,11 @@ _PUBLIC_PATHS = {
     # 2026-07-27:品种归一后台(只读 breed_canonical.db,只返脱敏字段,公开)
     "/api/canon/breeds/stats",
     "/api/canon/breeds",
+    # 2026-07-27:分类映射后台(只读 breed_l3_map_v3,只返 breed_clean/l3/source/confidence,公开)
+    "/api/stats/breed-l3-map/stats",
+    "/api/stats/breed-l3-map",
+    # 2026-07-27:/taxonomy 公共页调(只返分类骨架统计,无敏感数据)
+    "/api/stats/category-v2-stats",
 }
 
 
@@ -156,8 +161,10 @@ app.include_router(showcase_router)
 # 同样只读 ES 聚合,返回的字段已脱敏(无原始 spec/attr,只有均价)
 from api.routes.market import router as market_router
 from api.routes.canon import router as canon_router
+from api.routes.breed_l3_map import router as breed_l3_map_router
 app.include_router(market_router)
 app.include_router(canon_router)  # 2026-07-27:治理页读操作先 public(/market 也公开同源数据,没风险)
+app.include_router(breed_l3_map_router)  # 2026-07-27:数据治理读操作 public(同类 canon, /market 也公开同源数据)
 
 # 2026-07-23: 搜索 / 分类树 / 筛选选项 路由抽取
 from api.routes.search import router as search_router

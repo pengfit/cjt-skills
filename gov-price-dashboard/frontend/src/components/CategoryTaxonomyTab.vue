@@ -39,7 +39,8 @@
         <div class="ctx-help-item">
           <span class="ctx-help-key">数据源</span>
           <span class="ctx-help-val">
-            <code>skills/data/breed_canonical.db</code> · 表 <code>category_v3</code><br/>
+            分类骨架读 <code>skills/data/category_v3_rules.db</code> · 表 <code>category_v3</code><br/>
+            （DWD→DWS ETL live 写入，不依赖 breed_canonical.db 快照）<br/>
             <strong>9 L1</strong> 大类 · <strong>57 L2</strong> 分部 · <strong>191 L3</strong> 分项
           </span>
         </div>

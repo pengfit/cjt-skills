@@ -1984,14 +1984,12 @@ def stats_rules_vector(
     conn2.close()
 
     # v0.8+: category 列已 DROP，category_options 改为从 l3 推导 l2 名（JOIN category_v3）
+    # 2026-07-27 改读 category_v3_rules.db(DWD→DWS ETL live 写入)，代替 breed_canonical.db 快照
     category_options = []
     try:
-        cat_db_path = os.path.expanduser(
-            "~/.openclaw/workspace/cjt/skills/data/breed_canonical.db"
-        )
-        if os.path.exists(cat_db_path):
+        if CATEGORY_V3_RULES_DB.exists():
             conn3 = sqlite3.connect(db_path)
-            conn_cat = sqlite3.connect(cat_db_path)
+            conn_cat = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
             l2_rows = conn_cat.execute(
                 "SELECT l3, l2 FROM category_v3 WHERE l3 IS NOT NULL AND l3 != ''"
             ).fetchall()
@@ -2803,27 +2801,21 @@ def clean_summary(
 # 端点路径仍保留 category-v2-* 旧名（向前兼容前端 BreedMapTab /
 # CategoryTaxonomyView / CategoryTaxonomyTab），但底层数据源已切换。
 #
-# 表 1：category_v3 (191 行) — 4 级分类体系
-#   数据已从 category_v3_rules.db 复制到 breed_canonical.db
-#   （见迁移 commit d73cd49，migrate_catv3_into_canonical.py）
-# 表 2：breed_canonical (14507 行) — 品种→L3 映射
-#   替代旧 breed_l3_map_v3
+# 表 1：category_v3 — 从 category_v3_rules.db 读(DWD→DWS ETL live 写入)
+#   不再读 breed_canonical.db 的快照表,与 ETL 写入保持同步
+# 表 2：breed_canonical — 仍从 breed_canonical.db 读（仅该 DB 有这表）
 #   字段差异：l3 → l3_code；时间字段用 ISO 8601（带 Z）替代 SQLite CURRENT_TIMESTAMP
-#
-# 原 category_v3_rules.db 仍由 gov-price-etl 写入，本模块不再读
 # ══════════════════════════════════════════════════════════════
 
 
 # 与 breed_recommend.py / category_trend.py 同源（2026-07-18 统一从 api.paths 读）
-from api.paths import CATEGORY_DB as _PROV_CANON_DB  # noqa: E402
+# 2026-07-27：category_v3 改读 category_v3_rules.db(DWD→DWS ETL live 写入);
+# breed_canonical 表仍读 breed_canonical.db。
+from api.paths import CATEGORY_DB as _PROV_CANON_DB, CATEGORY_V3_RULES_DB  # noqa: E402
 
 
 def _canon_db_ready() -> bool:
-    """检查 breed_canonical.db 是否存在且含必备表（替代旧 _ensure_cat_v3_tables）
-
-    不创建表：breed_canonical.db 的 schema 由 gov-price-etl 维护，
-    本模块只读。如果表不存在说明 ETL 没跑或数据丢失，应报错。
-    """
+    """检查 breed_canonical.db 是否存在且含 breed_canonical 表"""
     if not _PROV_CANON_DB.exists():
         return False
     try:
@@ -2832,7 +2824,22 @@ def _canon_db_ready() -> bool:
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}
         con.close()
-        return {"breed_canonical", "category_v3"}.issubset(names)
+        return "breed_canonical" in names
+    except Exception:
+        return False
+
+
+def _v3_rules_db_ready() -> bool:
+    """检查 category_v3_rules.db 是否存在且含 category_v3 表"""
+    if not CATEGORY_V3_RULES_DB.exists():
+        return False
+    try:
+        con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+        names = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        con.close()
+        return "category_v3" in names
     except Exception:
         return False
 
@@ -2860,59 +2867,28 @@ _GB_STANDARD_BY_L1: dict[str, str] = {
 }
 
 
-@router.get("/api/stats/category-v2-stats")
+@router.get("/api/stats/category-v2-stats", dependencies=[])
 def category_v2_stats():
-    """category_v3_rules.db 整体统计：分类法条数 / 映射条数 / 来源分布 / L3 覆盖率
+    """分类体系统计：分类法条数 / L1/L2/L3/L4 层级数
 
-    端点路径保持 v2 名称（向前兼容），数据源已切到 breed_canonical.db。
+    2026-07-27 进一步拆分：/taxonomy 页不再读 breed_canonical.db,
+    本端点只返回 category_v3 信息。品种映射相关数据走 /api/canon 或 /api/stats/breed-recommend。
     """
-    if not _canon_db_ready():
-        return {"ok": False, "message": "breed_canonical.db 不存在或无法访问"}
+    if not _v3_rules_db_ready():
+        return {"ok": False, "message": "category_v3_rules.db 不存在或无法访问"}
 
-    conn = _open_canon()
-    c = conn.cursor()
+    v3_con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+    v3_con.row_factory = sqlite3.Row
+    v3_cur = v3_con.cursor()
 
-    # 分类法表（category_v3 字段未变）
-    c.execute("SELECT COUNT(*) AS n FROM category_v3")
-    taxonomy_total = c.fetchone()["n"]
-    c.execute("SELECT COUNT(DISTINCT l1) AS n FROM category_v3")
-    l1_count = c.fetchone()["n"]
-    c.execute("SELECT COUNT(DISTINCT l2) AS n FROM category_v3")
-    l2_count = c.fetchone()["n"]
-    c.execute("SELECT COUNT(DISTINCT l3) AS n FROM category_v3")
-    l3_total = c.fetchone()["n"]
-    c.execute("SELECT COUNT(DISTINCT l4) AS n FROM category_v3 WHERE l4 != 'UNCLASSIFIED'")
-    l4_count = c.fetchone()["n"]
-
-    # 品种映射表（breed_l3_map_v3 → breed_canonical，l3 → l3_code）
-    c.execute("SELECT COUNT(*) AS n FROM breed_canonical WHERE l3_code IS NOT NULL")
-    map_total = c.fetchone()["n"]
-    c.execute(
-        "SELECT source, COUNT(*) AS n FROM breed_canonical "
-        "WHERE l3_code IS NOT NULL GROUP BY source ORDER BY n DESC"
-    )
-    source_buckets = [{"source": r["source"], "count": r["n"]} for r in c.fetchall()]
-    c.execute(
-        "SELECT confidence, COUNT(*) AS n FROM breed_canonical "
-        "WHERE l3_code IS NOT NULL "
-        "GROUP BY ROUND(confidence, 2) ORDER BY confidence DESC"
-    )
-    confidence_buckets = [
-        {"confidence": round(r["confidence"], 2), "count": r["n"]} for r in c.fetchall()
-    ]
-    # L3 命中率（映射的 l3_code 是否都存在于分类法）
-    c.execute(
-        "SELECT COUNT(DISTINCT m.l3_code) AS n "
-        "FROM breed_canonical m "
-        "WHERE m.l3_code IS NOT NULL AND m.l3_code IN (SELECT l3 FROM category_v3)"
-    )
-    l3_hit = c.fetchone()["n"]
-    c.execute(
-        "SELECT COUNT(DISTINCT m.l3_code) AS n FROM breed_canonical m "
-        "WHERE m.l3_code IS NOT NULL AND m.l3_code NOT IN (SELECT l3 FROM category_v3)"
-    )
-    l3_miss = c.fetchone()["n"]
-    conn.close()
+    taxonomy_total = v3_cur.execute("SELECT COUNT(*) AS n FROM category_v3").fetchone()["n"]
+    l1_count = v3_cur.execute("SELECT COUNT(DISTINCT l1) AS n FROM category_v3").fetchone()["n"]
+    l2_count = v3_cur.execute("SELECT COUNT(DISTINCT l2) AS n FROM category_v3").fetchone()["n"]
+    l3_total = v3_cur.execute("SELECT COUNT(DISTINCT l3) AS n FROM category_v3").fetchone()["n"]
+    l4_count = v3_cur.execute(
+        "SELECT COUNT(DISTINCT l4) AS n FROM category_v3 WHERE l4 != 'UNCLASSIFIED'"
+    ).fetchone()["n"]
+    v3_con.close()
 
     return {
         "ok": True,
@@ -2922,13 +2898,6 @@ def category_v2_stats():
             "l2": l2_count,
             "l3": l3_total,
             "l4": l4_count,
-        },
-        "map": {
-            "total": map_total,
-            "source_buckets": source_buckets,
-            "confidence_buckets": confidence_buckets,
-            "l3_in_taxonomy": l3_hit,
-            "l3_not_in_taxonomy": l3_miss,
         },
     }
 
@@ -3112,74 +3081,6 @@ def category_v2_breed_map(
     }
 
 
-@router.get("/api/stats/category-v2-confidence-dist")
-def category_v2_confidence_dist(
-    date_from: str = Query("", description="YYYY-MM-DD"),
-    date_to: str = Query("", description="YYYY-MM-DD"),
-):
-    """品种映射置信度分布：按阈值分桶 + 按 source 分组 + 时间范围过滤
-    返回: { ok, total, buckets: { high, mid, low }, by_source: [...], by_l1: [...] }
-    """
-    if not _canon_db_ready():
-        return {"ok": False, "total": 0, "buckets": {}, "by_source": [], "by_l1": []}
-
-    conn = _open_canon()
-    c = conn.cursor()
-
-    where = ["m.l3_code IS NOT NULL"]
-    params = []
-    if date_from:
-        where.append("m.updated_at >= ?")
-        params.append(f"{date_from} 00:00:00")
-    if date_to:
-        where.append("m.updated_at <= ?")
-        params.append(f"{date_to} 23:59:59")
-    where_sql = " AND ".join(where)
-
-    # 总数 + 分桶（high ≥ 0.85 / mid 0.7-0.85 / low < 0.7）
-    c.execute(
-        f"SELECT "
-        f"COUNT(*) AS total, "
-        f"SUM(CASE WHEN m.confidence >= 0.85 THEN 1 ELSE 0 END) AS high_cnt, "
-        f"SUM(CASE WHEN m.confidence >= 0.7 AND m.confidence < 0.85 THEN 1 ELSE 0 END) AS mid_cnt, "
-        f"SUM(CASE WHEN m.confidence < 0.7 THEN 1 ELSE 0 END) AS low_cnt "
-        f"FROM breed_canonical m WHERE {where_sql}",
-        params,
-    )
-    row = c.fetchone()
-    total = row["total"] or 0
-
-    # 按 source 分组
-    c.execute(
-        f"SELECT m.source AS source, COUNT(*) AS cnt "
-        f"FROM breed_canonical m WHERE {where_sql} "
-        f"GROUP BY m.source ORDER BY cnt DESC",
-        params,
-    )
-    by_source = [{"source": r["source"], "count": r["cnt"]} for r in c.fetchall()]
-
-    # 按 L1 大类统计命中数（关联 category_v3）
-    c.execute(
-        f"SELECT t.l1 AS l1, COUNT(*) AS cnt "
-        f"FROM breed_canonical m LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
-        f"WHERE {where_sql} GROUP BY t.l1 ORDER BY t.l1",
-        params,
-    )
-    by_l1 = [{"l1": r["l1"], "count": r["cnt"]} for r in c.fetchall()]
-
-    conn.close()
-
-    return {
-        "ok": True,
-        "total": total,
-        "buckets": {
-            "high": row["high_cnt"] or 0,
-            "mid": row["mid_cnt"] or 0,
-            "low": row["low_cnt"] or 0,
-        },
-        "by_source": by_source,
-        "by_l1": by_l1,
-    }
 
 
 @router.get("/api/stats/category-v2-l3-detail")

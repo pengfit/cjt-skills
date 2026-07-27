@@ -183,20 +183,19 @@ def _all_norm_indices_csv(max_cities: int = 50) -> Tuple[str, List[dict]]:
 # ──────────────────────────────────────────────────────────────────────────
 # L3 metadata（2026-07-09 起统一从 breed_canonical.db 查）
 #   - l3_code_for_breed：从 breed_canonical 表反查（取众数）
-#   - l3_info：从 breed_canonical.db 内的 category_v3 表拿 L1/L2/L3 名称 + GB
-#   原 category_v3_rules.db 不再被本模块读
+#   - l3_info：2026-07-27 改读 category_v3_rules.db(DWD→DWS ETL live 写入)
+#   - breed_canonical: 仍读 breed_canonical.db（仅该 DB 有这表）
 # ──────────────────────────────────────────────────────────────────────────
 
-# 与 breed_recommend.py / provenance.py 同源（2026-07-18 统一从 api.paths 读）
-from api.paths import CATEGORY_DB as _CANON_DB  # noqa: E402
+from api.paths import CATEGORY_DB as _CANON_DB, CATEGORY_V3_RULES_DB  # noqa: E402
 
 
 def _l3_info_from_v3(l3_code: str) -> dict:
-    """从 breed_canonical.db 内的 category_v3 表查 L1/L2/L3 名称 + GB 编码"""
-    if not _CANON_DB.exists():
+    """从 category_v3_rules.db 查 L1/L2/L3 名称 + GB 编码(2026-07-27 改 source)"""
+    if not CATEGORY_V3_RULES_DB.exists():
         return {}
     try:
-        con = sqlite3.connect(str(_CANON_DB))
+        con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
         row = con.execute(
             "SELECT l1, l2, l3, gb_50500, name_l1, name_l2, name_l3 FROM category_v3 WHERE l3 = ?",
             (l3_code,)

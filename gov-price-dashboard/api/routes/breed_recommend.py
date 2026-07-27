@@ -29,13 +29,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.routes.provenance import _registry_get_all, ES_HOST
 
-# 2026-07-09 起 dashboard 层统一从 breed_canonical.db 读（category_v3 表内嵌）
-# 与 api/routes/category_trend.py / provenance.py 同源（2026-07-18 统一从 api.paths 读）
-from api.paths import CATEGORY_DB as _CANON_DB  # noqa: E402
+# 2026-07-27 起 category_v3 改读 category_v3_rules.db(DWD→DWS ETL live 写入),
+# breed_canonical 表仍读 breed_canonical.db(仅该 DB 有这表)。
+# 双 DB 连接 · category_v3_rules.db 仅读 category_v3 表 · breed_canonical.db 读 breed_canonical + 可选 category_v3。
+from api.paths import CATEGORY_DB as _CANON_DB, CATEGORY_V3_RULES_DB  # noqa: E402
 
 
 def _canon_db_ready() -> bool:
-    """检查 breed_canonical.db 是否存在且含必备表（替代原 _ensure_cat_v3_tables）"""
+    """检查 breed_canonical.db 是否存在且含必备表"""
     if not _CANON_DB.exists():
         return False
     try:
@@ -44,7 +45,22 @@ def _canon_db_ready() -> bool:
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}
         con.close()
-        return {"breed_canonical", "category_v3"}.issubset(names)
+        return "breed_canonical" in names
+    except Exception:
+        return False
+
+
+def _v3_rules_db_ready() -> bool:
+    """检查 category_v3_rules.db 是否存在且含 category_v3 表"""
+    if not CATEGORY_V3_RULES_DB.exists():
+        return False
+    try:
+        con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+        names = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        con.close()
+        return "category_v3" in names
     except Exception:
         return False
 
@@ -91,19 +107,42 @@ def breed_recommend(
         params.append(l3)
     where_sql = " AND ".join(where)
 
-    # 关联分类法表拿 name_l1/l2/l3 + gb_50500
-    # 注：breed_canonical.l3_code 字段对应旧 breed_l3_map_v3.l3
+    # 2026-07-27 拆 JOIN：先查 breed_canonical 再用 l3 列表去 category_v3_rules.db 查名字
     c.execute(
-        f"SELECT m.breed_clean, m.l3_code, m.source, m.confidence, "
-        f"t.name_l1, t.name_l2, t.name_l3, t.gb_50500, t.unit AS default_unit "
+        f"SELECT m.breed_clean, m.l3_code, m.source, m.confidence "
         f"FROM breed_canonical m "
-        f"LEFT JOIN category_v3 t ON m.l3_code = t.l3 "
         f"WHERE {where_sql} "
         f"ORDER BY m.confidence DESC, m.breed_clean "
         f"LIMIT ?",
         params + [limit],
     )
-    rows = [dict(r) for r in c.fetchall()]
+    breed_rows = [dict(r) for r in c.fetchall()]
+
+    # 第二步：取涉及到的所有 l3_code，去 category_v3_rules.db 拿名称
+    l3_set = sorted({r["l3_code"] for r in breed_rows if r["l3_code"]})
+    v3_lookup: dict = {}
+    if l3_set and _v3_rules_db_ready():
+        try:
+            v3_con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+            ph = ",".join("?" * len(l3_set))
+            v3_rows = v3_con.execute(
+                f"SELECT l3, name_l1, name_l2, name_l3, gb_50500, unit FROM category_v3 WHERE l3 IN ({ph})",
+                l3_set,
+            ).fetchall()
+            v3_con.close()
+            for r in v3_rows:
+                v3_lookup[r[0]] = {
+                    "name_l1": r[1] or "", "name_l2": r[2] or "", "name_l3": r[3] or "",
+                    "gb_50500": r[4] or "", "default_unit": r[5] or "",
+                }
+        except Exception:
+            pass
+
+    # 合并：行加上 v3 信息
+    rows = []
+    for r in breed_rows:
+        v3 = v3_lookup.get(r["l3_code"], {})
+        rows.append({**r, **v3})
 
     # classifications（取第一条结果的 L3 作主分类）
     classifications = None
@@ -114,11 +153,11 @@ def breed_recommend(
             "l1_code": l3_code.split(".")[0] if l3_code else "",
             "l2_code": ".".join(l3_code.split(".")[:2]) if l3_code else "",
             "l3_code": l3_code,
-            "name_l1": first["name_l1"] or "",
-            "name_l2": first["name_l2"] or "",
-            "name_l3": first["name_l3"] or "",
-            "gb_50500": first["gb_50500"] or "",
-            "default_unit": first["default_unit"] or "",
+            "name_l1": first.get("name_l1") or "",
+            "name_l2": first.get("name_l2") or "",
+            "name_l3": first.get("name_l3") or "",
+            "gb_50500": first.get("gb_50500") or "",
+            "default_unit": first.get("default_unit") or "",
         }
 
     # 同 L3 总品种数（用于展示"该章节下还有 N 个品种"）
@@ -225,32 +264,30 @@ def breed_recommend(
 def category_tree(min_confidence: float = Query(0.9, ge=0.0, le=1.0)):
     """C 方案入口：返回 4 级分类树，每 L3 节点带该分类下的品种数
 
-    数据量级：191 个分类节点 + 9077 行品种映射，单次返回 JSON < 200 KB。
+    2026-07-27：分类节点改读 category_v3_rules.db，品种计数读 breed_canonical.db(双连接)。
     """
-    if not _canon_db_ready():
-        return {"ok": False, "error": "breed_canonical.db 不可用"}
+    if not _v3_rules_db_ready() or not _canon_db_ready():
+        return {"ok": False, "error": "category_v3_rules.db 或 breed_canonical.db 不可用"}
 
-    conn = sqlite3.connect(str(_CANON_DB))
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-
-    # 1. 全部分类节点
-    c.execute(
+    # 1. 分类节点(从 category_v3_rules.db)
+    v3_con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+    v3_con.row_factory = sqlite3.Row
+    nodes = [dict(r) for r in v3_con.execute(
         "SELECT l1, l2, l3, l4, gb_50500, name_l1, name_l2, name_l3, name_l4 "
         "FROM category_v3 ORDER BY l1, l2, l3, l4"
-    )
-    nodes = [dict(r) for r in c.fetchall()]
+    ).fetchall()]
+    v3_con.close()
 
-    # 2. 每个 L3 的品种数（仅 confidence ≥ 阈值，仅 l3_code 非 NULL）
-    c.execute(
+    # 2. 每个 L3 的品种数(从 breed_canonical.db,仅该 DB 有 breed_canonical 表)
+    canon_con = sqlite3.connect(str(_CANON_DB))
+    canon_con.row_factory = sqlite3.Row
+    breed_count_by_l3 = {r["l3_code"]: r["n"] for r in canon_con.execute(
         "SELECT l3_code, COUNT(*) AS n FROM breed_canonical "
         "WHERE confidence >= ? AND l3_code IS NOT NULL "
         "GROUP BY l3_code",
         (min_confidence,),
-    )
-    breed_count_by_l3 = {r["l3_code"]: r["n"] for r in c.fetchall()}
-
-    conn.close()
+    ).fetchall()}
+    canon_con.close()
 
     # 3. 装配 4 级树（l1 → l2 → l3 → l4）
     tree: dict = {}
