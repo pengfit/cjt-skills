@@ -31,6 +31,11 @@ DATA_DIR: Path = SKILLS_ROOT / "data"
 # 简称 CATEGORY_DB（dashboard 主要用来查分类），但文件实际名是 breed_canonical.db
 CATEGORY_DB: Path = DATA_DIR / "breed_canonical.db"
 
+# 2026-07-27 拆分：DWD→DWS 实时写入的分类体系库（dashboard /taxonomy 读 category_v3 改用这个）
+# 原 etl 路径：CATEGORY_V3_RULES_DB in gov-price-etl/paths.py → 同一文件
+# dashboard 这边重复声明是为了不跨包依赖
+CATEGORY_V3_RULES_DB: Path = DATA_DIR / "category_v3_rules.db"
+
 # 规格解析规则库（前端 /api/stats/spec-quality 查这个）
 BREED_SPEC_RULES_DB: Path = DATA_DIR / "breed_spec_rules.db"
 
