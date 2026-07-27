@@ -29,9 +29,7 @@
     <div class="vec-toolbar">
       <div class="vec-toolbar-main">
         <input class="vec-input" v-model="vecSearch" placeholder="🔍 搜索 pattern / note / code..." @input="loadVecRules(1)" />
-        <input type="date" class="vec-input vec-date" v-model="vecDateFrom" @change="loadVecRules(1)" title="起始日期 (created_at)" />
-        <input type="date" class="vec-input vec-date" v-model="vecDateTo" @change="loadVecRules(1)" title="结束日期 (created_at)" />
-        <button v-if="vecDateFrom || vecDateTo" class="vec-clear-btn" @click="clearDateRange" title="清除日期范围">×</button>
+        <button v-if="vecSearch" class="vec-clear-btn" @click="vecSearch = ''; loadVecRules(1)" title="清除搜索">×</button>
       </div>
       <div class="vec-toolbar-side">
         <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
@@ -140,8 +138,6 @@ const vecPageSizeOptions = [50, 100, 200]
 const vecJumpPage = ref(1)
 
 const vecSearch = ref('')
-const vecDateFrom = ref('')
-const vecDateTo = ref('')
 const vecOrder = ref('desc')
 const vecLoading = ref(false)
 const showHelp = ref(false)
@@ -166,8 +162,6 @@ const vecPageRange = computed(() => {
 const activeChips = computed(() => {
   const cs = []
   if (vecSearch.value) cs.push({ key: 'search', label: '🔍 「' + vecSearch.value + '」', clear: () => { vecSearch.value = '' } })
-  if (vecDateFrom.value) cs.push({ key: 'date_from', label: '📅 起「' + vecDateFrom.value + '」', clear: () => { vecDateFrom.value = '' } })
-  if (vecDateTo.value) cs.push({ key: 'date_to', label: '📅 止「' + vecDateTo.value + '」', clear: () => { vecDateTo.value = '' } })
   return cs
 })
 
@@ -179,14 +173,6 @@ function clearOne(chip) {
 
 function clearAllFilters() {
   vecSearch.value = ''
-  vecDateFrom.value = ''
-  vecDateTo.value = ''
-  loadVecRules(1)
-}
-
-function clearDateRange() {
-  vecDateFrom.value = ''
-  vecDateTo.value = ''
   loadVecRules(1)
 }
 
@@ -208,8 +194,6 @@ async function loadVecRules(page = 1) {
   try {
     const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
     if (vecSearch.value) params.search = vecSearch.value
-    if (vecDateFrom.value) params.date_from = vecDateFrom.value
-    if (vecDateTo.value) params.date_to = vecDateTo.value
     const res = await axios.get(`${API}/stats/rules-vector`, { params })
     vecRules.value = res.data || {}
     } catch (e) {
@@ -219,18 +203,15 @@ async function loadVecRules(page = 1) {
   }
 }
 
-// ── URL query 同步 (date_from / date_to 直达链接) ──
+// ── URL query 同步 (search 直达链接) ──
 const route = useRoute()
 const router = useRouter()
-if (route.query.date_from) vecDateFrom.value = String(route.query.date_from)
-if (route.query.date_to) vecDateTo.value = String(route.query.date_to)
+if (route.query.search) vecSearch.value = String(route.query.search)
 
-watch([vecDateFrom, vecDateTo], () => {
+watch([vecSearch], () => {
   const q = { ...route.query }
-  if (vecDateFrom.value) q.date_from = vecDateFrom.value
-  else delete q.date_from
-  if (vecDateTo.value) q.date_to = vecDateTo.value
-  else delete q.date_to
+  if (vecSearch.value) q.search = vecSearch.value
+  else delete q.search
   router.replace({ query: q })
 })
 

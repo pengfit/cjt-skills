@@ -113,6 +113,12 @@
           <div v-else class="scroll-panel"><BreedCanonicalView /></div>
         </template>
 
+        <!-- 2026-07-27:分类映射后台 - 浏览 breed_l3_map_v3 表 -->
+        <template v-if="currentTab === 'breed-map'">
+          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
+          <div v-else class="scroll-panel"><BreedL3MapView /></div>
+        </template>
+
       </main>
     </div>
 
@@ -148,6 +154,8 @@ const DataHealthView = defineAsyncComponent(() => import('./DataHealthView.vue')
 const CockpitView = defineAsyncComponent(() => import('./CockpitView.vue'))
 const VecRulesView = defineAsyncComponent(() => import('./VecRulesView.vue'))
 const CategoryTaxonomyView = defineAsyncComponent(() => import('./CategoryTaxonomyView.vue'))
+// 2026-07-27:分类映射后台 - 浏览 breed_l3_map_v3 表 (category_v3_rules.db)
+const BreedL3MapView = defineAsyncComponent(() => import('./BreedL3MapView.vue'))
 // 2026-07-27:品种归一后台 - 浏览 breed_canonical.db (只读,无新增)
 const BreedCanonicalView = defineAsyncComponent(() => import('./BreedCanonicalView.vue'))
 
@@ -175,7 +183,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const TAB_ICONS = {
   cockpit: '🛸', list: '📋', category: '📁', dist: '📊',
   trend: '📈', sync: '🔄', health: '❤️', rules: '⚙️', taxonomy: '🏷️',
-  canon: '🧬',
+  canon: '🧬', 'breed-map': '🔗',
 }
 function sidebarItems(keys) {
   return TAB_ROUTES
@@ -192,7 +200,7 @@ function sidebarItems(keys) {
 const sidebarGroups = computed(() => ([
   { key: 'view',    label: '数据浏览',    items: sidebarItems(['cockpit', 'list', 'category']) },
   { key: 'collect', label: '数据采集',    items: sidebarItems(['sync', 'health']) },
-  { key: 'govern',  label: '数据治理',    items: sidebarItems(['rules', 'taxonomy', 'canon']) },
+  { key: 'govern',  label: '数据治理',    items: sidebarItems(['taxonomy', 'breed-map', 'rules', 'canon']) },
   { key: 'viz',     label: '价格可视化',  items: sidebarItems(['dist', 'trend']) },
 ]))
 
@@ -207,7 +215,7 @@ const cmdItems = computed(() => {
     id: 'tab:' + t.key,
     group: '页面跳转',
     label: t.label,
-    icon: ['🛩️', '📋', '📊', '📈', '🗺️', '🔄', '💚', '🧩', '🗂️'][i] || '·',
+    icon: ['🛸', '📋', '📁', '📊', '📈', '🔄', '❤️', '🏷️', '🔗', '⚙️', '🧬'][i] || '·',
     hint: '跳转到 ' + t.label,
     shortcut: String(i + 1),
     action: () => router.push(t.path),
@@ -348,7 +356,7 @@ onMounted(() => {
       showCmdPalette.value = true
       return
     }
-    if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+    if (!isInputFocused && !e.ctrlKey && !e.metaKey && !e.altKey && /^(10|11|[1-9])$/.test(e.key)) {
       const tab = TAB_ROUTES[Number(e.key) - 1]
       if (tab) router.push(tab.path)
     }

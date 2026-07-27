@@ -13,9 +13,13 @@ export const TAB_ROUTES = [
   { key: 'trend',    label: '价格走势',   path: '/trend' },
   { key: 'sync',     label: '数据同步',   path: '/sync' },
   { key: 'health',   label: '数据健康',   path: '/health' },
-  { key: 'rules',    label: '规格解析',   path: '/spec-rules' },
+  // 2026-07-27 P0: 数据治理 - 分类体系(/taxonomy),快捷键 8
   { key: 'taxonomy', label: '分类体系',   path: '/taxonomy' },
-  // 2026-07-27 P0: 数据治理 - 品种归一后台(/canon),展示 breed_canonical.db
+  // 2026-07-27 P1: 数据治理 - 分类映射(/breed-map),快捷键 9
+  { key: 'breed-map', label: '分类映射',   path: '/breed-map' },
+  // 2026-07-27 P0: 数据治理 - 规格解析(/spec-rules),快捷键 10
+  { key: 'rules',    label: '规格解析',   path: '/spec-rules' },
+  // 2026-07-27 P0: 数据治理 - 品种归一(/canon),快捷键 11
   { key: 'canon',    label: '品种归一',   path: '/canon' },
 ]
 
