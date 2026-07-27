@@ -336,6 +336,30 @@
         <div v-else class="m-empty">该品种暂无热力图数据</div>
       </section>
 
+      <!-- 2026-07-27 P1: 半年价格趋势卡(ECharts) — 选中品种 ≥ 1 时显示,
+           默认展示最新加入的品种(selectedBreeds watch → trendBreed),可手动切换 -->
+      <section v-if="selectedBreeds.length" class="m-card m-card-trend">
+        <header class="m-trend-toolbar">
+          <div class="m-trend-toolbar-info">
+            <h2 class="m-trend-title">📈 半年价格趋势</h2>
+            <p class="m-trend-toolbar-sub">
+              近 6 期(月度)均价 · 每城一条线 + 全国均值(粗黑)
+              <span class="m-trend-toolbar-meta-inline">· 当前品种 {{ trendBreed || '—' }}</span>
+            </p>
+          </div>
+          <div class="m-trend-toolbar-actions">
+            <select v-model="trendBreed" class="m-trend-breed-select">
+              <option v-for="b in selectedBreeds" :key="b" :value="b">{{ b }}</option>
+            </select>
+            <span v-if="trendLoading" class="m-trend-loading">加载中…</span>
+          </div>
+        </header>
+        <div ref="trendChartRef" class="m-trend-chart"></div>
+        <div v-if="!trendTimelines[trendBreed] && !trendLoading" class="m-trend-empty">
+          该品种暂无历史价数据(月度聚合 ≥ 1 条才出图)
+        </div>
+      </section>
+
       <!-- 2026-07-24 P3: KPI 直接跟在热力图后,不再需要 02 marker -->
       <!-- KPI -->
       <section class="m-kpi" ref="kpiRef">
@@ -470,6 +494,8 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
+import { useEcharts } from '../composables/useEcharts'
+import { registerGovPriceTheme, GOV_PRICE_PALETTE } from '../composables/useEchartsTheme'
 
 // 2026-07-26 #SEO: /market 页面级 head — 长尾词关键词(钢筋/水泥/给水管/电缆 价格)
 const SITE_URL = 'https://pengfit.cn'
@@ -566,6 +592,14 @@ const breedSearchLoading = ref(false)
 const breedSearchOpen = ref(false)
 const breedSearchLastQuery = ref('')    // 最近一次成功的查询字符串(用于空结果提示)
 let breedSearchTimer = null             // debounce timer
+
+// 2026-07-27 P1: 半年价格趋势卡(ECharts) — 默认显示最近选中的品种
+const trendBreed = ref(null)           // 当前展示趋势的品种(null = 未选)
+const trendTimelines = ref({})         // {breed: {city: [{period_end, avg_price}]}}
+const trendChartRef = ref(null)        // ECharts DOM 容器 ref
+const trendChart = ref(null)           // ECharts 实例
+const trendLoading = ref(false)
+const registerGovPriceThemeOnce = (() => { let done = false; return async () => { if (!done) { await registerGovPriceTheme(); done = true; } } })()
 
 // v0.29: 折叠面板 + 应用前/后分离 — 避免 checkbox toggle 每次 reload
 //   panelExpanded: 折叠/展开(默认展开,有默认筛选时方便看)
@@ -724,6 +758,126 @@ function addBreedFromSearch(r) {
   loadAttrKeys()
   loadHeatmap()
 }
+
+// 2026-07-27 P1: 趋势卡 — 拉 sparkline 数据,渲染 ECharts 折线
+async function loadTrend(breed) {
+  if (!breed) {
+    trendTimelines.value = {}
+    if (trendChart.value) {
+      trendChart.value.clear()
+    }
+    return
+  }
+  trendLoading.value = true
+  try {
+    const r = await fetch(`/api/market/sparkline?breeds=${encodeURIComponent(breed)}&periods=6`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const data = await r.json()
+    trendTimelines.value = data.timelines || {}
+    await nextTick()
+    renderTrendChart()
+  } catch (e) {
+    console.error('[trend]', e)
+  } finally {
+    trendLoading.value = false
+  }
+}
+
+async function renderTrendChart() {
+  if (!trendChartRef.value) return
+  await registerGovPriceThemeOnce()
+  if (!trendChart.value) {
+    trendChart.value = useEcharts(trendChartRef.value, 'govPrice')
+  }
+  const breed = trendBreed.value
+  const cityLines = (trendTimelines.value[breed] || {})
+  const cities = Object.keys(cityLines)
+  if (!cities.length) {
+    trendChart.value.clear()
+    return
+  }
+  // 收集所有 period_end(取并集 ms)
+  const periodSet = new Set()
+  cities.forEach(c => cityLines[c].forEach(p => periodSet.add(p.period_end)))
+  const periods = [...periodSet].sort((a, b) => a - b)
+  const periodLabels = periods.map(ms => {
+    const d = new Date(ms)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  // series: 每城一条线 + 全国均价(粗蓝实线)
+  const series = cities.map((city, i) => {
+    const points = cityLines[city]
+    const byMs = new Map(points.map(p => [p.period_end, p.avg_price]))
+    const data = periods.map(ms => byMs.get(ms) ?? null)
+    return {
+      name: city,
+      type: 'line',
+      data,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 4,
+      lineStyle: { width: 1.5, color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
+      itemStyle: { color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
+      emphasis: { focus: 'series' },
+      connectNulls: true,
+    }
+  })
+  // 全国均值(每期所有城平均)
+  const avgSeries = {
+    name: '全国均价',
+    type: 'line',
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 6,
+    data: periods.map((ms, idx) => {
+      const vals = series.map(s => s.data[idx]).filter(v => v != null)
+      return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(4) : null
+    }),
+    lineStyle: { width: 3, color: '#0f172a' },
+    itemStyle: { color: '#0f172a' },
+    z: 10,
+    connectNulls: true,
+  }
+  series.unshift(avgSeries)
+
+  trendChart.value.setOption({
+    grid: { left: 50, right: 20, top: 50, bottom: 40 },
+    tooltip: { trigger: 'axis' },
+    legend: { type: 'scroll', top: 5, textStyle: { fontSize: 11 } },
+    xAxis: {
+      type: 'category',
+      data: periodLabels,
+      boundaryGap: false,
+      axisLabel: { fontSize: 11, color: '#475569' },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#475569', formatter: v => v.toFixed(0) },
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+    },
+    series,
+  }, true)
+}
+
+// 切换品种时 watch 自动刷新
+watch(() => trendBreed.value, (b) => { if (b) loadTrend(b) })
+
+// selectedBreeds 变化时自动把最新加的品种设为 trendBreed
+watch(() => selectedBreeds.value, (list) => {
+  if (!list.length) {
+    trendBreed.value = null
+    return
+  }
+  // 只在用户主动 add 时(不是 watch 自身引起)更新 — 但简单起见直接跟末位
+  // 如果当前 trendBreed 不在 list 里(被删了),才重置
+  if (!trendBreed.value || !list.includes(trendBreed.value)) {
+    trendBreed.value = list[list.length - 1]
+  }
+})
+
+// 卸载时 dispose ECharts
+onUnmounted(() => { if (trendChart.value) trendChart.value.dispose() })
 
 async function onBreedSearchEnter() {
   // 取消 debounce timer — 用户按 Enter 想要"立刻"生效
@@ -2799,5 +2953,52 @@ function sparklineTitle(breed) {
 .m-breed-search-result-docs {
   flex-shrink: 0; font-size: 11px; color: #9ca3af;
   font-family: ui-monospace, SF Mono, monospace;
+}
+
+
+/* === 半年价格趋势卡 P1 (2026-07-27) — 跟 .m-card 风格统一 === */
+.m-card-trend { /* 复用 .m-card 通用样式:bg / border / radius */ }
+.m-trend-toolbar {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.m-trend-toolbar-info { flex: 1; min-width: 0; }
+.m-trend-title {
+  color: #111827; letter-spacing: -.3px; margin: 0 0 4px;
+  font-size: 18px; font-weight: 700;
+}
+.m-trend-toolbar-sub {
+  color: #6b7280; margin: 0; font-size: 13px; line-height: 1.5;
+}
+.m-trend-toolbar-meta-inline {
+  color: #3b82f6; font-family: ui-monospace, SF Mono, monospace;
+  font-size: 12px; font-weight: 600;
+}
+.m-trend-toolbar-actions {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.m-trend-breed-select {
+  color: #111827; background: #fff;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  padding: 6px 10px; font-family: inherit; font-size: 13px;
+  cursor: pointer; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  min-width: 160px; max-width: 280px;
+}
+.m-trend-breed-select:hover { border-color: #94a3b8; }
+.m-trend-breed-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.m-trend-loading {
+  color: #6b7280; font-size: 12px;
+}
+.m-trend-chart {
+  width: 100%; height: 360px;
+}
+.m-trend-empty {
+  text-align: center; color: #9ca3af;
+  background: #fafbfc; border: 1px dashed #e5e7eb; border-radius: 8px;
+  padding: 40px 20px; font-size: 13px;
 }
 </style>
