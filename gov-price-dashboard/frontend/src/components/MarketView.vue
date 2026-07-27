@@ -2645,29 +2645,24 @@ function sparklineTitle(breed) {
 
 
 
-/* === 品种搜索框 P0#1 (2026-07-27) — toolbar 内嵌下拉建议
-   2026-07-27 UI 改:跟 .m-card 风格统一(box-shadow + border-radius)、SVG 图标、loading spinner、kbd hint === */
+/* === 品种搜索框 P0#1 (2026-07-27) — 2026-07-27 改:对齐 LoginView .field input 风格
+   LoginView 参考: border #cbd5e1 / radius 8px / focus 0 0 0 3px rgba(59,130,246,.15) / padding 10px 12px / font-size 14px === */
 .m-breed-search {
   position: relative;
   display: inline-flex;
   align-items: center;
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 10px 0 36px;
-  height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px 0 34px;
+  height: 38px;
   width: 280px;
   transition: border-color .15s, box-shadow .15s;
-  /* 跟 .m-card 一致的微阴影(默认态)+ 浅灰边框 */
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
-.m-breed-search:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
-}
+.m-breed-search:hover { border-color: #94a3b8; }
 .m-breed-search:focus-within {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 .m-breed-search-icon {
   position: absolute;
@@ -2683,7 +2678,7 @@ function sparklineTitle(breed) {
 .m-breed-search-icon svg { width: 15px; height: 15px; display: block; }
 .m-breed-search-input {
   flex: 1; min-width: 0; border: none; outline: none; background: transparent;
-  font-size: 13px; color: #111827; padding: 0;
+  font-size: 14px; color: #0f172a; padding: 0;
   font-family: inherit;
 }
 .m-breed-search-input::placeholder { color: #9ca3af; }
@@ -2716,16 +2711,16 @@ function sparklineTitle(breed) {
 }
 @keyframes m-breed-search-spin { to { transform: rotate(360deg); } }
 
-/* kbd hint — 空输入时右侧显示 Enter,告诉用户回车可选首条 */
+/* kbd hint — 空输入时右侧显示 Enter,告诉用户回车可选首条(参考 LoginView .hint 配色) */
 .m-breed-search-kbd {
   font-family: ui-monospace, SF Mono, monospace;
-  font-size: 10px;
-  color: #9ca3af;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  font-size: 11px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
-  padding: 1px 5px;
-  line-height: 1;
+  padding: 1px 6px;
+  line-height: 1.2;
   flex-shrink: 0;
 }
 
