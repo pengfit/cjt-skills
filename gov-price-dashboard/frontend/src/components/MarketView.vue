@@ -343,7 +343,7 @@
           <div class="m-trend-toolbar-info">
             <h2 class="m-trend-title">📈 半年价格趋势</h2>
             <p class="m-trend-toolbar-sub">
-              近 6 期(月度)均价 · 每城一条线 + 全国均值(粗黑)
+              近 6 期(月度) · 每城一条线(该城当月实际价)
               <span class="m-trend-toolbar-meta-inline">· 当前品种 {{ trendBreed || '—' }}</span>
             </p>
           </div>
@@ -809,7 +809,7 @@ async function renderTrendChart() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
 
-  // series: 每城一条线 + 全国均价(粗蓝实线)
+  // series: 每城一条线(粗蓝实线为删除前的旧版;现在只画每城)
   const series = cities.map((city, i) => {
     const points = cityLines[city]
     const byMs = new Map(points.map(p => [p.period_end, p.avg_price]))
@@ -827,23 +827,10 @@ async function renderTrendChart() {
       connectNulls: true,
     }
   })
-  // 全国均值(每期所有城平均)
-  const avgSeries = {
-    name: '全国均价',
-    type: 'line',
-    smooth: true,
-    symbol: 'circle',
-    symbolSize: 6,
-    data: periods.map((ms, idx) => {
-      const vals = series.map(s => s.data[idx]).filter(v => v != null)
-      return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(4) : null
-    }),
-    lineStyle: { width: 3, color: '#0f172a' },
-    itemStyle: { color: '#0f172a' },
-    z: 10,
-    connectNulls: true,
-  }
-  series.unshift(avgSeries)
+  // 2026-07-27 改:删「全国均价」粗线 — 用户反馈"不要均价要绝对价格",
+  //   全国均价 = 各城均价再平均(double-averaging),失真且误导。
+  //   现在每城一条线本身就是该城当月各记录的实际均价(绝对值),更直观。
+
 
   trendChart.value.setOption({
     grid: { left: 50, right: 20, top: 50, bottom: 40 },
@@ -867,16 +854,33 @@ async function renderTrendChart() {
 // 切换品种时 watch 自动刷新
 watch(() => trendBreed.value, (b) => { if (b) loadTrend(b) })
 
-// selectedBreeds 变化时自动把最新加的品种设为 trendBreed
+// selectedBreeds 变化时自动选第一个有数据的品种做趋势图
 watch(() => selectedBreeds.value, (list) => {
   if (!list.length) {
     trendBreed.value = null
     return
   }
-  // 只在用户主动 add 时(不是 watch 自身引起)更新 — 但简单起见直接跟末位
-  // 如果当前 trendBreed 不在 list 里(被删了),才重置
-  if (!trendBreed.value || !list.includes(trendBreed.value)) {
+  // 2026-07-27 改:trendBreed 优先选"有历史价数据"的第一个品种,避免空态
+  //   找过 loadTrendAsync 顺序遍历,直到找到非空 timelines[breed]
+  const findFirstWithData = async () => {
+    for (const b of list) {
+      try {
+        const r = await fetch(`/api/market/sparkline?breeds=${encodeURIComponent(b)}&periods=6`)
+        if (!r.ok) continue
+        const data = await r.json()
+        const t = data.timelines?.[b]
+        if (t && Object.keys(t).length > 0) {
+          trendBreed.value = b
+          return
+        }
+      } catch (e) { continue }
+    }
+    // 都无数据:兜底用末位
     trendBreed.value = list[list.length - 1]
+  }
+  // 当前 trendBreed 不在 list 里(被删了)才重选
+  if (!trendBreed.value || !list.includes(trendBreed.value)) {
+    findFirstWithData()
   }
 })
 
