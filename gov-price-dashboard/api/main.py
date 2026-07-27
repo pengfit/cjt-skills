@@ -85,6 +85,9 @@ _PUBLIC_PATHS = {
     "/api/market/sparkline",
     # 2026-07-27:趋势卡专用,单品种按城绝对价,公开(/market 页用)
     "/api/market/breed-trend",
+    # 2026-07-27:品种归一后台(只读 breed_canonical.db,只返脱敏字段,公开)
+    "/api/canon/breeds/stats",
+    "/api/canon/breeds",
 }
 
 

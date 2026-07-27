@@ -22,11 +22,18 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-# 从 routes/ 上去 4 层 = skills/(routes → api → gov-price-dashboard → skills)
-_SKILLS = Path(__file__).resolve().parent.parent.parent.parent
-_PKG = _SKILLS / "gov-price-normalization"
-if str(_PKG) not in sys.path:
-    sys.path.insert(0, str(_PKG))
+# 路径优先走 SKILLS_ROOT 环境变量(与 api/paths.py / normalization_bridge.py 一致)
+# 本地默认 ~/.openclaw/workspace/cjt/skills；容器内 /app/skills(Dockerfile 已 ENV)
+try:
+    from api.paths import SKILLS_ROOT as _SKILLS_ROOT  # type: ignore
+except Exception:
+    # 兑底:逽3 层 parent(dashboard) + 1 层 parent(skills),与 normalization_bridge.py 同
+    _DASHBOARD = Path(__file__).resolve().parents[2]  # api/routes → api → dashboard
+    _SKILLS_ROOT = _DASHBOARD.parent                  # dashboard → skills
+
+_NORM_PKG = Path(_SKILLS_ROOT) / "gov-price-normalization"
+if str(_NORM_PKG) not in sys.path:
+    sys.path.insert(0, str(_NORM_PKG))
 
 from gov_price_normalization.data.breed_canonical import DB_PATH  # noqa: E402
 
