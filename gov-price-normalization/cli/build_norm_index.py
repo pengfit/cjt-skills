@@ -354,7 +354,7 @@ def _upsert_dify_results(results: dict) -> int:
     INSERT OR REPLACE：如果该 breed_clean 已有 ai_dify entry，覆盖；其他 source 不动
 
     2026-07-25: Dify etl-canonicalize-breed 只返回 normalized_breed/confidence/note
-    （l3_code 不返回，与 canonicalize_breeds.py 行为一致）— 允许 l3_code=None
+    （l3_code 不返回，Dify workflow 只返 normalized_breed/confidence/note）— 允许 l3_code=None
     """
     if not results:
         return 0

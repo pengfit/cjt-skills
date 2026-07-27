@@ -11,7 +11,7 @@ DB 位置：~/.openclaw/workspace/cjt/skills/data/breed_canonical.db
 
 设计要点：
   - 进程内缓存：全量加载一次（10K+ 行），二次查询 O(1)
-  - WAL 模式：读进程（build_norm_index.py）不阻塞写进程（canonicalize_breeds.py）
+  - WAL 模式：多读单写（NORM 链路是唯一写进程）
   - query_only=ON：读连接不能写，防误操作
   - 缓存失效：clear_cache() 后下次重新从 DB 拉
 
