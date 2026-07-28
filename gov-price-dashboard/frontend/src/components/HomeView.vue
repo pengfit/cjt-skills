@@ -93,63 +93,6 @@
       </div>
     </section>
 
-    <!-- 案例 -->
-    <section class="case-study" id="case">
-      <div class="section-marker">
-        <span class="section-num">02</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">CASE STUDY</span>
-      </div>
-      <div class="container">
-        <h2>它能做什么</h2>
-        <p class="section-subtitle">
-          线上部署：<router-link to="/market" class="case-link">pengfit.cn/market</router-link>
-          · 即开即用,开放便捷 · 鉴权 API 可对接
-        </p>
-
-        <h3>以前 vs 现在</h3>
-        <table class="comparison-table">
-          <thead>
-            <tr>
-              <th>🕐 以前</th>
-              <th>⚡ 现在</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="before">人工汇总 20 个数据源</td>
-              <td class="after">凌晨自动抓取,0 干预</td>
-            </tr>
-            <tr>
-              <td class="before">跨城口径不一</td>
-              <td class="after">8,845 品种跨城数据聚合</td>
-            </tr>
-            <tr>
-              <td class="before">期刊滞后查询</td>
-              <td class="after">秒级跨城检索</td>
-            </tr>
-            <tr>
-              <td class="before">历史趋势缺失</td>
-              <td class="after">时序趋势可追溯</td>
-            </tr>
-            <tr>
-              <td class="before">需要登录查数据</td>
-              <td class="after">公开数据,即开即用</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <p style="text-align: center; color: #a0a0a0; margin-top: 32px;">
-          1 人 + OpenClaw + AI 全程运维,开放协作,覆盖数据采集 → 清洗 → 聚合 → 可视化全生命周期。
-        </p>
-        <div class="case-cta-wrap">
-          <router-link to="/market" class="case-cta">
-            查看实时市场行情 →
-          </router-link>
-        </div>
-      </div>
-    </section>
-
 
   </div>
 </template>
@@ -564,109 +507,10 @@ h3 {
   line-height: 1.8;
 }
 
-/* === 案例 === */
-.case-study {
-  background: #0f0f0f;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 32px;
-  margin: 48px 0;
-}
-
-.stat-card {
-  text-align: center;
-  padding: 32px;
-  background: #1a1a1a;
-  border-radius: 12px;
-  border: 1px solid #2a2a2a;
-}
-
-.stat-number {
-  font-size: 3rem;
-  font-weight: 800;
-  color: #00d9ff;
-  margin-bottom: 8px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-}
-
-.stat-label {
-  color: #a0a0a0;
-  font-size: 0.95rem;
-}
-
-.comparison-table {
-  width: 100%;
-  margin: 48px 0;
-  border-collapse: collapse;
-}
-
-.comparison-table th {
-  background: #1a1a2e;
-  padding: 16px;
-  text-align: left;
-  font-weight: 600;
-  color: #00d9ff;
-}
-
-.comparison-table td {
-  padding: 16px;
-  border-bottom: 1px solid #2a2a2a;
-  color: #f7f7f7;
-}
-
-.comparison-table tr:nth-child(even) {
-  background: #1a1a1a;
-}
-
-.comparison-table .before {
-  color: #e94560;
-}
-.comparison-table .after {
-  color: #00d9ff;
-}
-
-/* === 案例 → Market 跳转 === */
-.case-link {
-  color: #00d9ff;
-  text-decoration: none;
-  border-bottom: 1px dashed rgba(0, 217, 255, 0.4);
-  transition: all 0.2s ease;
-  font-weight: 600;
-}
-.case-link:hover {
-  color: #e94560;
-  border-bottom-color: #e94560;
-  border-bottom-style: solid;
-}
-
-.case-cta-wrap {
-  text-align: center;
-  margin-top: 32px;
-}
-.case-cta {
-  display: inline-block;
-  padding: 14px 32px;
-  background: linear-gradient(135deg, #00d9ff 0%, #0099cc 100%);
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 1.05rem;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.case-cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
-}
-
 /* === 全局可访问性:焦点环(青色光晕) === */
 /* 2026-07-27 删:Pricing/FAQ/Contact 三个模块的 CSS 死代码(模板 2026-07-25 重构已删) */
-.cta-button:focus-visible,
-.case-cta:focus-visible,
-.case-link:focus-visible {
+/* 2026-07-28 删:case-cta / case-link 也随 02 案例段一并清理 */
+.cta-button:focus-visible {
   outline: 2px solid #00d9ff;
   outline-offset: 3px;
 }
