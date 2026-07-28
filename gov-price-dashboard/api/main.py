@@ -85,6 +85,10 @@ _PUBLIC_PATHS = {
     "/api/market/sparkline",
     # 2026-07-27:趋势卡专用,单品种按城绝对价,公开(/market 页用)
     "/api/market/breed-trend",
+    # 2026-07-28:浏览器 GPS 反查中国省份名(Nominatim 代理),公开(/market 首屏定位用)
+    "/api/market/geo-locate",
+    # 2026-07-28:GPS 定位后展示用 — 单省份多品种 × 月度均价趋势(单 query 拿 10 品种 × 6 月),公开
+    "/api/market/province-trend",
     # 2026-07-27:品种归一后台(只读 breed_canonical.db,只返脱敏字段,公开)
     "/api/canon/breeds/stats",
     "/api/canon/breeds",

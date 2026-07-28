@@ -14,6 +14,7 @@ import sys
 import time
 import math
 import random
+import requests
 from datetime import datetime
 from typing import Optional
 
@@ -277,6 +278,14 @@ def _city_label(norm_index: str) -> str:
             return s.get("label", s.get("key", ""))
     # 兜底兜底:把 index 名转换成可读 key
     return norm_index.replace("norm_", "").replace("_price", "")
+
+
+# 2026-07-28: 省份 → skill keys 映射（给 random-breeds / breed-trend 的 province 参数用）
+def _skill_keys_by_province(province: str) -> list:
+    """返回某省份下所有 skill key（如 '山东' → ['qingdao','weihai','heze','jinan','rizhao']）"""
+    if not province:
+        return []
+    return [s["key"] for s in _registry_get_all() if s.get("province") == province]
 
 
 def _city_latest_two_periods(norm_index: str):
@@ -904,6 +913,77 @@ def sources():
         "total_cities": total_cities,
         "sources": items,
     }
+
+
+# 2026-07-28: 浏览器 GPS → 中国省份名 (给 /market 首屏定位用)
+#   Nominatim reverse geocoding + 内存缓存(按 lat,lng 3 位小数键 ≈ 110m 精度)
+#   同小区缓存命中(1 天 TTL),失败兜底返 province=None,前端降级"全国"
+_geo_locate_cache: dict = {}
+_GEO_LOCATE_TTL_S = 86400
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+NOMINATIM_HEADERS = {"User-Agent": "ChinaJT-Market/1.0 (https://pengfit.cn; contact via github.com/pengfit/cjt-skills)"}
+
+# 中国省份名归一化: Nominatim 中文返回可能带 "省/市/自治区/xxx族" 后缀,
+#   NORM province 字段是简短名(山东、四川、新疆、内蒙古...),需要剥后缀
+def _normalize_province(name: str) -> str:
+    if not name:
+        return ""
+    n = name.strip()
+    # 优先剥长后缀(顺序很重要:长 → 短)
+    for suffix in ["维吾尔自治区", "壮族自治区", "回族自治区", "特别行政区", "自治区", "省", "市"]:
+        if n.endswith(suffix):
+            return n[:-len(suffix)].strip()
+    return n
+
+
+@router.get("/geo-locate")
+def geo_locate(
+    lat: float = Query(..., ge=-90, le=90, description="纬度(浏览器 GPS)"),
+    lng: float = Query(..., ge=-180, le=180, description="经度(浏览器 GPS)"),
+):
+    """浏览器 GPS 坐标 → 中国省份名
+
+    返回:
+    {
+      "province": "山东",       # 归一化省份名(对齐 NORM province 字段),None 表示不在中国或失败
+      "province_full": "山东省", # Nominatim 原始返回
+      "country": "中国",
+      "source": "nominatim" | "cache" | "error",
+      "cached": bool,
+      "lat": float, "lng": float
+    }
+    """
+    cache_key = f"{lat:.3f},{lng:.3f}"
+    now = time.time()
+    cached = _geo_locate_cache.get(cache_key)
+    if cached and (now - cached[0]) < _GEO_LOCATE_TTL_S:
+        return {**cached[1], "cached": True, "lat": lat, "lng": lng, "source": "cache"}
+    try:
+        r = requests.get(
+            NOMINATIM_URL,
+            params={"lat": lat, "lon": lng, "format": "json", "accept-language": "zh-CN", "zoom": 5},
+            headers=NOMINATIM_HEADERS,
+            timeout=5,
+        )
+        r.raise_for_status()
+        data = r.json()
+        addr = data.get("address", {})
+        province_full = addr.get("province") or addr.get("state") or ""
+        province = _normalize_province(province_full)
+        country = addr.get("country", "")
+        result = {
+            "province": province or None,
+            "province_full": province_full or None,
+            "country": country or None,
+        }
+        _geo_locate_cache[cache_key] = (now, result)
+        return {**result, "cached": False, "lat": lat, "lng": lng, "source": "nominatim"}
+    except Exception as e:
+        print(f"[geo-locate] Nominatim error: {e}", flush=True)
+        return {
+            "province": None, "province_full": None, "country": None,
+            "cached": False, "lat": lat, "lng": lng, "source": "error", "error": str(e)
+        }
 
 
 # 2026-07-25 (B.1): 数据治理透明卡 — 给 /market 页面 hero 下方展示用
@@ -1635,9 +1715,10 @@ def related_breeds(
 
 @router.get("/random-breeds")
 def random_breeds(
-    count: int = Query(20, ge=1, le=50, description="返回品种数,默认 20 与源城市数相当"),
+    province: Optional[str] = Query(None, description="省份过滤(中文,如 '山东'),只从该省 NORM 池子抽"),
+    count: int = Query(10, ge=1, le=50, description="返回品种数,默认 10"),
 ):
-    """2026-07-28 v0.4: 跨城 dedup + 跨 index 聚合 records/cities。
+    """2026-07-28 v0.5: 加 province 参数 — 指定省份时只从该省 NORM 池子抽。
 
     历史:
       v1: 全池 size=200 → 小城长尾进不去
@@ -1645,16 +1726,26 @@ def random_breeds(
       v3 (v0.35, 2026-07-26): 每城 size=120 + Phase 1 不 dedup,每城强取 #1
           保证小城品种进热力图,但商品混凝土/钢筋等大宗主材在 15+ 城都出现,
           列表严重重复
-      v4 (当前, 2026-07-28 配合 build_norm_index.py 全 20 城重建):
+      v4 (2026-07-28 配合 build_norm_index.py 全 20 城重建):
           - dedup by normalized_breed:同一品种只出现一次
           - records = Σ该 breed 在所有 NORM 索引中的 doc_count(跨 index 求和)
           - city_index 改为 list[str]:列出该 breed 出现的所有 NORM 索引
           - 长尾品种仍能进(每城 pool=120,dedup 后总池数百个 breed,
             random.sample 覆盖长尾;小城品种排在 100+ 也能被 random 到)
+      v5 (当前, 2026-07-28): 加 province 参数 — /market 首屏 GPS 定位后
+          只从该省数据池里抽,避免随机出黑龙江的"白桦原木"给广东用户
     """
     norm_list = _norm_indices()
     if not norm_list:
-        return {"results": [], "total": 0, "count": count}
+        return {"results": [], "total": 0, "count": count, "province": province}
+    # province 过滤:把 norm_list 限定到该省份的 skill key 列表
+    if province:
+        prov_keys = set(_skill_keys_by_province(province))
+        norm_list = [idx for idx in norm_list
+                     if idx.replace("norm_", "").replace("_price", "") in prov_keys]
+        if not norm_list:
+            # 该省份暂无任何 NORM 数据 → 返空,前端降级"全国"提示
+            return {"results": [], "total": 0, "count": count, "province": province}
     # 大池 size:小城品种总数常 < 200,120 已能覆盖长尾品种
     # 大城(重庆 4000+)120 只取前 1.5%,random 在这 120 内仍能拿到冷门品类
     pool_size = 120
@@ -1742,6 +1833,7 @@ def random_breeds(
 def breed_trend(
     breed: str = Query(..., min_length=1, max_length=100, description="归一品种名(精确匹配 normalized_breed)"),
     cities: Optional[str] = Query(None, description="城市过滤,逗号分隔;空=全部 NORM 城市"),
+    province: Optional[str] = Query(None, description="省份过滤(中文,如 '山东'),自动转成该省 skill key 列表"),
     months: int = Query(6, ge=1, le=24, description="往前几个月"),
 ):
     """单品种按城半年价趋势
@@ -1754,12 +1846,17 @@ def breed_trend(
         ...
       ]
     }
+
+    2026-07-28 v0.3: 加 province 参数 — GPS 定位后只取所在省的城市,避免山东用户看全国折线
     """
     norm_list = _norm_indices()
     if not norm_list:
         return {"breed": breed, "periods": [], "cities": []}
 
     city_filter = [c.strip() for c in (cities or "").split(",") if c.strip()]
+    # province 参数自动转成城市列表（仅在 cities 未指定时生效,给前端一个高层级 API）
+    if province and not city_filter:
+        city_filter = _skill_keys_by_province(province)
     # months 参数在 date_histogram 的 min_doc_count + 取最后 N 个月逻辑里用,不在 ES 端 filter
     body = {
         "size": 0,
@@ -1917,6 +2014,121 @@ def attr_keys(
         result.append({"key": k, "label": _label_k(k), "values": values, "total_docs": total})
     result.sort(key=lambda x: x["total_docs"], reverse=True)
     return {"data": result}
+
+
+# 2026-07-28: /market GPS 定位后展示用 — 单省份多品种 × 月度均价趋势(一次 ES query)
+#   vs /breed-trend:后者是单品种 × 多城市(每城一条线);本端点是多品种 × 单省(每品种一条均价线)
+@router.get("/province-trend")
+def province_trend(
+    province: Optional[str] = Query(None, description="省份(中文,如 '山东');空=全国"),
+    months: int = Query(6, ge=1, le=24, description="往前几个月"),
+    limit: int = Query(10, ge=1, le=30, description="随机品种数"),
+):
+    """单省份多品种半年价趋势(给 /market GPS 定位后展示)
+
+    返回:
+    {
+      "province": "山东",
+      "periods": [{"start": ms, "label": "YYYY-MM"}, ...],
+      "breeds": [
+        {"breed": "商品混凝土", "points": [{"period_idx": 0, "avg_price": 425.5}, ...]},
+        ...
+      ]
+    }
+
+    实现思路:
+      1) province 空 → 走全池;非空 → 限定到该省份的 skill key 列表
+      2) 一次 ES query(date_histogram 月 + terms breed),拿全月全品种均值
+      3) 按品种随机抽 limit 个(优先选覆盖度高的, 保证随机性)
+    """
+    norm_list = _norm_indices()
+    if not norm_list:
+        return {"province": province or "", "periods": [], "breeds": []}
+    if province:
+        prov_keys = set(_skill_keys_by_province(province))
+        norm_list = [idx for idx in norm_list
+                     if idx.replace("norm_", "").replace("_price", "") in prov_keys]
+        if not norm_list:
+            return {"province": province, "periods": [], "breeds": []}
+
+    # 一次 query 拿全月全品种均值(跨索引)
+    body = {
+        "size": 0,
+        "query": {"range": {"period_end": {"gte": "2025-01-01", "lte": "2030-12-31"}}},
+        "aggs": {
+            "by_period": {
+                "date_histogram": {
+                    "field": "period_end",
+                    "calendar_interval": "month",
+                    "min_doc_count": 1,
+                    "order": {"_key": "asc"},
+                    "extended_bounds": {"min": "2025-01-01", "max": "2030-12-31"},
+                },
+                "aggs": {
+                    "by_breed": {
+                        "terms": {"field": "normalized_breed.keyword", "size": 300},
+                        "aggs": {
+                            "avg_price": {"avg": {"field": "price"}}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    try:
+        r = es.search(
+            index=",".join(norm_list),
+            body=body,
+            ignore_unavailable=True,
+            allow_no_indices=True,
+        )
+        buckets = r.get("aggregations", {}).get("by_period", {}).get("buckets", [])
+        # 取最近 months 个月
+        last_n = buckets[-months:] if len(buckets) > months else buckets
+        periods = []
+        for b in last_n:
+            ms = b["key"]
+            dt = datetime.fromtimestamp(ms / 1000)
+            label = f"{dt.year}-{str(dt.month).zfill(2)}"
+            periods.append({"start": ms, "end": ms, "label": label})
+
+        # 按 breed 聚合:每个 breed 在所有月里的均价
+        breed_data: dict = {}  # breed_name -> {period_idx: avg_price}
+        for period_idx, b in enumerate(last_n):
+            for breed_bucket in b["by_breed"]["buckets"]:
+                breed_name = breed_bucket["key"]
+                avg = breed_bucket["avg_price"]["value"]
+                if avg is None or avg <= 0:
+                    continue
+                breed_data.setdefault(breed_name, {})[period_idx] = round(float(avg), 4)
+
+        # 按覆盖度(多少个月有数据)排序,再 random.sample 取 limit 个保多样性
+        candidates = sorted(
+            [(b, len(pts)) for b, pts in breed_data.items()],
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        # 优先覆盖度 ≥1 的所有品种,random.sample 出 limit 个
+        candidate_names = [b for b, c in candidates if c >= 1]
+        if len(candidate_names) > limit:
+            selected_names = random.sample(candidate_names, limit)
+        else:
+            selected_names = candidate_names
+
+        breeds_out = []
+        for breed_name in selected_names:
+            pts = breed_data[breed_name]
+            points = [{"period_idx": pidx, "avg_price": pts[pidx]} for pidx in sorted(pts.keys())]
+            breeds_out.append({"breed": breed_name, "points": points})
+
+        random.shuffle(breeds_out)
+        return {
+            "province": province or "",
+            "periods": periods,
+            "breeds": breeds_out,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/spec-fingerprints")
