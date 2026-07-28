@@ -878,7 +878,7 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* ── 定位状态条(2026-07-28) ── */
+/* ── 定位状态条(2026-07-28 美化)— dropdown 永远可见,地区切换 ── */
 .m-geo-bar {
   margin-top: 14px;
   display: flex;
@@ -886,79 +886,120 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 8px;
 }
+/* 控制条 pill — 浅渐变 + 轻阴影,统一按钮视觉 */
 .m-geo-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 10px;
+  padding: 6px 14px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
-  background: #f3f4f6;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
   color: #4b5563;
   border: 1px solid #e5e7eb;
   flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-.m-geo-icon { font-size: 14px; }
+.m-geo-icon { font-size: 14px; flex-shrink: 0; }
+.m-geo-status-text {
+  font-size: 12px;
+  color: #6b7280;
+  letter-spacing: 0.2px;
+}
+/* 状态变色 — 不同 GPS 状态对应不同色调(柔和渐变) */
 .m-geo-status.m-geo-located {
-  background: #eff6ff;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   color: #1e40af;
-  border-color: #bfdbfe;
+  border-color: #93c5fd;
 }
 .m-geo-status.m-geo-locating,
 .m-geo-status.m-geo-prompting {
-  background: #fef3c7;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   color: #92400e;
-  border-color: #fde68a;
+  border-color: #fcd34d;
 }
 .m-geo-status.m-geo-denied,
 .m-geo-status.m-geo-error,
 .m-geo-status.m-geo-unsupported {
-  background: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
   color: #991b1b;
-  border-color: #fecaca;
+  border-color: #fca5a5;
 }
-.m-geo-province {
-  font-weight: 700;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-}
+/* 状态后缀(本地缓存 / 手动)— 继承父色,自动调整 */
 .m-geo-source {
   font-size: 11px;
-  color: #6b7280;
+  color: inherit;
+  opacity: 0.7;
   font-weight: normal;
+  margin-left: 2px;
 }
+/* 地区切换 dropdown — 自定义箭头 + polished(高度与按钮对齐 30px) */
 .m-geo-select {
-  margin-left: 4px;
-  padding: 3px 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 4px 30px 4px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
+  border-radius: 8px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23475569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M2.5 4.5l3.5 3.5 3.5-3.5'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
   font-size: 13px;
+  font-weight: 600;
   font-family: inherit;
-  color: #111827;
+  color: #1e40af;
   cursor: pointer;
   outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  min-width: 90px;
+  height: 30px;
 }
-.m-geo-select:focus {
+.m-geo-select:hover {
+  border-color: #93c5fd;
+  background-color: #f8fafc;
+}
+.m-geo-select:focus,
+.m-geo-select:focus-visible {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
+.m-geo-select:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  border-color: #e5e7eb;
+  opacity: 0.7;
+}
+/* 重新定位/重试按钮 — 与 dropdown 同高 30px,精致 ghost button */
 .m-geo-reset {
-  margin-left: 4px;
-  padding: 3px 10px;
+  margin-left: 2px;
+  padding: 0 12px;
+  height: 30px;
   background: #fff;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
+  font-weight: 500;
   font-family: inherit;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .m-geo-reset:hover {
   background: #f9fafb;
-  border-color: #9ca3af;
-  color: #111827;
+  border-color: #93c5fd;
+  color: #1e40af;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.08);
+}
+.m-geo-reset:active {
+  transform: translateY(1px);
 }
 
 /* ── KPI ── */
