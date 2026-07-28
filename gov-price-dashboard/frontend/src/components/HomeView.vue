@@ -25,7 +25,7 @@
         </h1>
         <p class="subtitle fade-in">20 城住建局官方造价期刊 · 钢筋/水泥/给水管/电缆 · 跨城归一价</p>
         <p class="tagline fade-in">8,845 个跨城归一品类 · 81.7 万条记录 · 1 人 + OpenClaw + AI 全程运维 · 全部 MIT 开源</p>
-        <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看架构 →</a>
+        <!-- 2026-07-28 15:41:看看架构 → CTA 删除(架构段已删,CTA 指向死链) -->
         <div class="hero-footer fade-in">
           案例: ChinaJT (cjt-skills) · MIT License · GitHub pengfit/cjt-skills
         </div>
