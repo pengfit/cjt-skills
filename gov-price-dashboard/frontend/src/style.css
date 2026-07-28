@@ -1923,53 +1923,7 @@ body {
   flex: 1;
   min-height: 0;
 }
-.list-tree-panel {
-  width: 240px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-.list-tree-panel.collapsed {
-  width: 36px;
-}
-.panel-toggle {
-  position: absolute;
-  bottom: 12px;
-  right: 4px;
-  z-index: 10;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text-3);
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  padding: 0;
-  line-height: 1;
-}
-.panel-toggle:hover {
-  background: var(--primary-dim);
-  color: var(--primary);
-  border-color: var(--primary-soft);
-}
-.list-tree-panel.collapsed .panel-toggle {
-  right: 6px;
-}
-.panel-inner {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
+/* 2026-07-28:删除 .list-tree-panel / .panel-toggle / .panel-inner（list 页面去掉了左侧分类树侧栏） */
 
 /* Drawer backdrop */
 .drawer-backdrop {
@@ -2055,8 +2009,6 @@ body {
 
 /* ——— P0-4 Mid-tablet 1100-1400px 13-15寸笔记本过渡档 ——— */
 @media (min-width: 1101px) and (max-width: 1400px) {
-  /* 分类树 240 → 200,释放 40px 给表格 */
-  .list-tree-panel { width: 200px; }
   /* 表格列紧凑:压缩 breed/spec 列,给价格列腾空间 */
   .data-table.compact-table .col-breed { width: 220px !important; min-width: 220px !important; }
   .data-table.compact-table .col-spec { width: 160px !important; min-width: 160px !important; }
@@ -2068,14 +2020,36 @@ body {
 @media (max-width: 1200px) {
   .sync-grid           { grid-template-columns: repeat(2, 1fr) !important; }
   .province-chart-grid { grid-template-columns: repeat(3, 1fr) !important; }
-  /* P0-4:1200 以下进入更紧凑档,分类树降到 180 */
-  .list-tree-panel { width: 180px; }
 }
 
 /* ——— Mid-tablet 901-1100px (P0-4 新增):分类树自动收起 ——— */
 @media (max-width: 1100px) and (min-width: 901px) {
-  .list-tree-panel { width: 200px; }
   .content-area { padding: 0 12px; }
+}
+
+/* ——— 13" Laptop 1101-1400px (2026-07-28 新增):收紧横向间距 ———
+   - sidebar 210 + 28×2 padding = inner 1014px,在 13" 1280 视口偏紧
+   - 各后台页 padding 从 28 → 20,横向内容宽度增加 16px
+   - top-bar gap 压缩,cmd 提示中间字符隐藏,只留 ⌘K */
+@media (max-width: 1400px) and (min-width: 769px) {
+  .ctx-page,
+  .sync-page,
+  .health-page,
+  .dist-page,
+  .trend-page,
+  .cat-page,
+  .scrape-page,
+  .breed-page {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  .top-bar { gap: 10px !important; padding: 8px 18px !important; }
+  .top-bar-meta { gap: 8px !important; }
+  /* 命令面板提示:13" 上 "·" 和 "/" 占位偏多,只留 ⌘K 更紧凑 */
+  .cmd-hint-sep, .cmd-hint-slash { display: none; }
+  .cmd-palette-trigger { gap: 6px !important; padding: 4px 10px !important; }
+  /* 长用户名更紧 */
+  .user-name { max-width: 80px; }
 }
 
 /* ——— Small tablet 900px ——— */
