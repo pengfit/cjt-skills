@@ -18,17 +18,19 @@
 <script setup>
 import { defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
-import HomeView from './components/HomeView.vue'
-import MarketView from './components/MarketView.vue'
-import MobileBlockedView from './components/MobileBlockedView.vue'
-import NotFoundView from './components/NotFoundView.vue'
 import { useAuth } from './composables/useAuth.js'
 
-// 2026-07-24 架构修复: DashboardView / LoginView 改为异步加载
-//   背景: App.vue 之前静态 import DashboardView,把 useListSearch.js(含 /api/list/* 调用)全压进首屏 bundle。
-//         /market 公开页加载时,这部分代码会被 evaluate,axios 模块被提前初始化 → 下次改一行顶层 fetch 就可能误触发 list 接口。
-//         架构上不对 —— /market /home 公开页不需要 ListView 的代码。
-//   修复: defineAsyncComponent 拆分,只有路由需要时才下载。首屏 bundle 不含 ListView / SearchHistory / Export 等代码。
+// 2026-07-28 架构:所有路由级组件统一 defineAsyncComponent — 让 vite 真正能拆 chunk
+//   背景:之前 HomeView / MarketView / MobileBlockedView / NotFoundView 是静态 import,
+//         router/index.js 的 () => import() 被静态 import 抵消,Vite 警告
+//         '[INEFFECTIVE_DYNAMIC_IMPORT]' — 这些组件仍打进主 chunk,首页加载代价高。
+//   修复:统一走 defineAsyncComponent,首屏 bundle 只含 router + useAuth。
+//         公开页(/home /market)按需加载,后台页(/cockpit /list / ...)也按需加载。
+//   设计保留:仍走 App.vue 的 v-if="route.name==='xxx'" 模板,跨 tab 共享 state。
+const HomeView = defineAsyncComponent(() => import('./components/HomeView.vue'))
+const MarketView = defineAsyncComponent(() => import('./components/MarketView.vue'))
+const MobileBlockedView = defineAsyncComponent(() => import('./components/MobileBlockedView.vue'))
+const NotFoundView = defineAsyncComponent(() => import('./components/NotFoundView.vue'))
 const DashboardView = defineAsyncComponent(() => import('./components/DashboardView.vue'))
 const LoginView = defineAsyncComponent(() => import('./components/LoginView.vue'))
 
