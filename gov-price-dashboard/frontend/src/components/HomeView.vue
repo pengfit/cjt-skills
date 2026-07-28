@@ -18,23 +18,24 @@
     <section class="hero">
       <div class="hero-content">
         <h1 class="fade-in">
-          <!-- 2026-07-25: 把"龙虾 饲养员"(AI agent 人设名)换成项目自身名"ChinaJT / cjt-skills"，
-               与开源项目定位对齐 -->
-          <span class="hero-title-main">ChinaJT</span>
-          <span class="hero-title-sub">cjt-skills</span>
+          <!-- 2026-07-28: 重心从项目名(ChinaJT)转向主题领域 + 方法
+               ChinaJT 现在只是 cjt-skills 一个案例实现,不是 hero 主标题 -->
+          <span class="hero-title-main">工程造价材料价格</span>
+          <span class="hero-title-sub">跨城归一聚合 · 开放数据</span>
         </h1>
-        <p class="subtitle fade-in">20 城住建局官方造价期刊 · 跨城数据聚合 · 开放即用</p>
-        <p class="tagline fade-in">8,845 个跨城归一品种 · 81.7 万条记录 · 1 人 + OpenClaw + AI 全程运维</p>
+        <p class="subtitle fade-in">20 城住建局官方造价期刊 · 钢筋/水泥/给水管/电缆 · 跨城归一价</p>
+        <p class="tagline fade-in">8,845 个跨城归一品类 · 81.7 万条记录 · 1 人 + OpenClaw + AI 全程运维 · 全部 MIT 开源</p>
         <a href="#workflow" class="cta-button fade-in" @click.prevent="scrollTo('workflow')">看看架构 →</a>
         <div class="hero-footer fade-in">
-          cjt-skills · MIT License · GitHub pengfit/cjt-skills
+          案例: ChinaJT (cjt-skills) · MIT License · GitHub pengfit/cjt-skills
         </div>
 
         <!-- 2026-07-22 信任标签排 — 填补下半屏空白 -->
         <!-- 2026-07-25 重构:去掉"联系咨询"(Contact 模块已删),保留核心入口 -->
+        <!-- 2026-07-28: "ChinaJT →" 改"查看数据 →",ChinaJT 名字不再占 CTA 位 -->
         <div class="hero-tags fade-in">
           <router-link to="/market" class="hero-tag-chip hero-tag-cta">
-            ChinaJT →
+            查看数据 →
           </router-link>
           <a href="https://github.com/pengfit/cjt-skills" target="_blank" rel="noopener" class="hero-tag-chip hero-tag-cta">
             <svg class="github-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
@@ -162,17 +163,17 @@ import { useHead } from '@unhead/vue'
 //   @unhead/vue 在 mount 时覆盖 → Google / Bing / 社媒分享卡实时拿到正确元数据
 const SITE_URL = 'https://pengfit.cn'
 useHead({
-  title: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊 · cjt-skills',
+  title: '工程造价材料价格 · 跨城归一聚合 · 住建局官方期刊 · 开放数据',
   meta: [
-    { name: 'description', content: 'ChinaJT (cjt-skills) · 20 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格数据 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
-    { name: 'keywords', content: '工程造价, 材料价格, ChinaJT, cjt-skills, OpenClaw, 住建局, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 政府数据, 数据聚合, 数据可视化, 一人公司, OPC, AI, 跨城归一, 开放, 公开, 即开即用, FastAPI, Vue' },
-    { property: 'og:title', content: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊' },
-    { property: 'og:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
+    { name: 'description', content: '20 城住建局官方造价信息期刊 · 钢筋 / 水泥 / 给水管 / 电缆 等工程造价材料价格 · 跨城归一聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维 · 案例实现 ChinaJT (cjt-skills) MIT 开源' },
+    { name: 'keywords', content: '工程造价, 材料价格, 跨城归一, 住建局, 政府数据, 钢筋价格, 水泥价格, 给水管价格, 电缆价格, 数据聚合, 数据可视化, 一人公司, OPC, AI, 开放, 公开, 即开即用, FastAPI, Vue, 案例, ChinaJT, cjt-skills, OpenClaw' },
+    { property: 'og:title', content: '工程造价材料价格 · 跨城归一聚合 · 住建局官方期刊 · 开放数据' },
+    { property: 'og:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维 · 案例实现 ChinaJT (cjt-skills) MIT 开源' },
     { property: 'og:url', content: `${SITE_URL}/home` },
     { property: 'og:type', content: 'website' },
     { property: 'og:image', content: `${SITE_URL}/og-image.png` },
-    { name: 'twitter:title', content: 'ChinaJT · 工程造价材料价格数据 · cjt-skills' },
-    { name: 'twitter:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维' },
+    { name: 'twitter:title', content: '工程造价材料价格 · 跨城归一聚合 · 开放数据' },
+    { name: 'twitter:description', content: '20 城住建局官方造价信息期刊 · 钢筋/水泥/给水管/电缆等材料价格 · 跨城归一聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维 · 案例实现 ChinaJT (cjt-skills) MIT 开源' },
     { name: 'twitter:image', content: `${SITE_URL}/og-image.png` },
   ],
   link: [
@@ -199,8 +200,8 @@ useHead({
             '@type': 'WebSite',
             '@id': `${SITE_URL}/#website`,
             url: `${SITE_URL}/`,
-            name: 'ChinaJT · cjt-skills',
-            alternateName: 'cjt-skills Dashboard',
+            name: '工程造价材料价格 · 跨城归一聚合 · 开放数据',
+            alternateName: 'ChinaJT · cjt-skills Dashboard',
             inLanguage: 'zh-CN',
             description: '20 城住建局官方造价信息期刊 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维',
             publisher: { '@id': `${SITE_URL}/#organization` },
@@ -215,12 +216,12 @@ useHead({
           },
           {
             '@type': 'SoftwareApplication',
-            name: 'ChinaJT / cjt-skills',
+            name: 'ChinaJT · cjt-skills',
             applicationCategory: 'BusinessApplication',
-            applicationSubCategory: '工程材料价格数据聚合',
+            applicationSubCategory: '工程材料价格数据聚合(案例实现)',
             operatingSystem: 'Web',
             url: `${SITE_URL}/`,
-            description: '20 城住建局官方造价信息期刊 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维',
+            description: '20 城住建局官方造价信息期刊 · 跨城数据聚合 · 开放公开 · 即开即用 · 1 人 + OpenClaw + AI 全程运维 · 本页为该方向的一个案例实现',
             offers: {
               '@type': 'Offer',
               price: '0',
