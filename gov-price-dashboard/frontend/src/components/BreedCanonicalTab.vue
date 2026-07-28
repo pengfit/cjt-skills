@@ -37,7 +37,6 @@
         <div class="canon-cell col-id">#</div>
         <div class="canon-cell col-breed text-left">breed_clean</div>
         <div class="canon-cell col-norm text-left">normalized_breed</div>
-        <div class="canon-cell col-l3">l3_code</div>
         <div class="canon-cell col-source">source</div>
         <div class="canon-cell col-conf">confidence</div>
         <div class="canon-cell col-note text-left">note</div>
@@ -48,10 +47,6 @@
         <div class="canon-cell col-id">{{ (page - 1) * size + idx + 1 }}</div>
         <div class="canon-cell col-breed text-left canon-cell-strong" :title="r.breed_clean">{{ r.breed_clean }}</div>
         <div class="canon-cell col-norm text-left" :title="r.normalized_breed">{{ r.normalized_breed }}</div>
-        <div class="canon-cell col-l3">
-          <span v-if="r.l3_code" class="canon-l3-pill">{{ r.l3_code }}</span>
-          <span v-else class="canon-l3-pill canon-l3-pill-warn">UNCLASSIFIED</span>
-        </div>
         <div class="canon-cell col-source">
           <span class="canon-source-tag">{{ r.source }}</span>
         </div>
@@ -68,11 +63,8 @@
         <div class="canon-empty-hint">{{ hasFilter ? '点击【全部清除】或单独移除筛选条件' : 'check breed_canonical.db 是否存在 / 是否有数据' }}</div>
       </div>
     </div>
-  </div>
-
-  <!-- Pagination -->
-  <div class="canon-pagination" v-if="pages > 1">
-    <button class="page-btn nav" :disabled="page <= 1" @click="reload(page - 1)">‹</button>
+    <div class="canon-pagination" v-if="pages > 1">
+      <button class="page-btn nav" :disabled="page <= 1" @click="reload(page - 1)">‹</button>
     <button
       v-for="p in pageRange" :key="p"
       class="page-btn" :class="{ active: p === page, ellipsis: p === '...' }"
@@ -91,6 +83,7 @@
       </select>
       <span>条</span>
     </div>
+  </div>
   </div>
 
   <!-- Row detail drawer -->
@@ -112,7 +105,6 @@
           <div class="ctx-drawer-grid">
             <div class="ctx-drawer-field ctx-drawer-wide"><label>breed_clean</label><span class="canon-cell-strong">{{ drawerRow.breed_clean }}</span></div>
             <div class="ctx-drawer-field ctx-drawer-wide"><label>normalized_breed</label><span>{{ drawerRow.normalized_breed }}</span></div>
-            <div class="ctx-drawer-field"><label>l3_code</label><span class="canon-l3-pill">{{ drawerRow.l3_code || 'UNCLASSIFIED' }}</span></div>
             <div class="ctx-drawer-field"><label>source</label><span class="canon-source-tag">{{ drawerRow.source }}</span></div>
             <div class="ctx-drawer-field"><label>confidence</label><span class="canon-conf" :class="confClass(drawerRow.confidence)">{{ drawerRow.confidence.toFixed(2) }}</span></div>
             <div class="ctx-drawer-field"><label>created_at</label><span class="canon-time">{{ drawerRow.created_at || '—' }}</span></div>
@@ -129,7 +121,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 // 8 列 (id / breed / norm / l3 / source / conf / note / date)
-const GRID_COLS = '52px minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(110px, 1.1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(200px, 1.5fr) minmax(150px, 1fr)'
+const GRID_COLS = '52px minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(200px, 1.5fr) minmax(150px, 1fr)'
 
 const search = ref('')
 const page = ref(1)
@@ -361,19 +353,7 @@ onMounted(() => { loadStats(); reload(1) })
 .canon-cell-strong { font-weight: 600; color: #111827; }
 .col-norm { color: var(--text-2, #475569); }
 
-.canon-l3-pill {
-  display: inline-block;
-  padding: 1px 8px;
-  background: rgba(37,99,235,0.1);
-  color: var(--primary, #2563eb);
-  border: 1px solid rgba(37,99,235,0.18);
-  border-radius: 5px;
-  font-size: 11px;
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.canon-l3-pill-warn { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+/* 2026-07-28:.canon-l3-pill / .canon-l3-pill-warn 删除（/canon 隐藏 L3_CODE 列） */
 
 .canon-conf {
   display: inline-block;
@@ -457,54 +437,18 @@ onMounted(() => { loadStats(); reload(1) })
 .canon-note { color: var(--text-2); font-size: 12px; }
 
 /* ── Pagination ── */
+/* ── 分页 — 沿用全局 .pagination / .page-btn ── */
 .canon-pagination {
-  position: sticky; bottom: 0;
+  position: sticky;
+  bottom: 0;
   display: flex; align-items: center; justify-content: center;
-  gap: 8px; padding: 12px 18px; margin-top: 12px;
+  gap: 5px;
+  padding: 12px 18px;
+  margin-top: 12px;
   background: rgba(241,245,249,0.95);
   backdrop-filter: blur(8px);
   border-top: 1px solid rgba(15,23,42,0.06);
   border-radius: 10px;
-  flex-wrap: wrap;
-}
-.page-btn {
-  min-width: 32px; height: 32px; padding: 0 8px;
-  background: #fff; border: 1px solid rgba(15,23,42,0.08);
-  border-radius: 6px;
-  color: var(--text-2);
-  font-size: 12px; font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
-.page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.page-btn.ellipsis { border: none; background: transparent; cursor: default; }
-.page-btn.nav { font-size: 14px; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-jump-wrap, .page-size-wrap {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; color: var(--text-3, #64748b);
-  margin-left: 4px;
-}
-.page-jump {
-  width: 50px; padding: 5px 6px;
-  background: #fff;
-  border: 1px solid rgba(15,23,42,0.1);
-  border-radius: 6px;
-  font-size: 12px; font-family: inherit;
-  outline: none;
-  text-align: center;
-}
-.page-jump:focus { border-color: var(--primary); }
-.page-size-select {
-  background: #fff;
-  border: 1px solid rgba(15,23,42,0.1);
-  border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
 }
 
 /* ── Slide down ── */

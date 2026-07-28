@@ -6,10 +6,10 @@
       title="品种归一后台"
       subtitle="品种→L3 映射 + normalized_breed（多对一合并名）。数据源 <code>skills/data/breed_canonical.db</code> · 表 <code>breed_canonical</code>(DWS→NORM 阶段 build_norm_index.py 写入)。"
       :stats="stats ? [
-        { label: '总映射',         value: stats.total_mappings.toLocaleString() },
-        { label: 'distinct',       value: stats.distinct_normalized_breed.toLocaleString() },
+        { label: '总映射',         value: fmt(stats.total_mappings) },
+        { label: 'distinct',       value: fmt(stats.distinct_normalized_breed) },
         { label: 'distinct L3',    value: stats.top10_l3 ? Object.keys(stats.top10_l3).length : 0 },
-        { label: 'reject',         value: stats.reject_count.toLocaleString() },
+        { label: 'reject',         value: fmt(stats.reject_count) },
       ] : []"
     />
 
@@ -33,6 +33,9 @@ async function loadStats() {
 }
 
 onMounted(() => loadStats())
+
+// 防御:API 可能返回 null/缺失字段,toLocaleString() 会炸
+function fmt(v) { return (v ?? 0).toLocaleString() }
 </script>
 
 <style scoped>

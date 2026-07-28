@@ -125,6 +125,13 @@ defineProps({
   font-weight: 600;
 }
 
+/* 13" 视口：<code> 长路径(如 skills/data/...db)默认不换行,会撑爆右侧;
+   加 overflow-wrap 让长串在必要处可断 */
+.page-header-subtitle :deep(code) {
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
 .page-header-right {
   display: flex;
   align-items: center;
@@ -136,6 +143,16 @@ defineProps({
   display: flex;
   gap: 20px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* 13" 视口（1101-1400px）：右侧 stat 在与 main 冲突时允许收缩,避免挤压左侧子标题 */
+@media (max-width: 1400px) and (min-width: 769px) {
+  .page-header { gap: 16px; }
+  .page-header-stats { gap: 14px; }
+  .page-header-stat-val { font-size: 16px; }
+  .page-header-stat-key { font-size: 10px; }
 }
 
 .page-header-stat {

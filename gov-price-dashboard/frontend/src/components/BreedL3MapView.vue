@@ -6,10 +6,10 @@
       title="分类映射"
       subtitle="品种→L3 映射规则表。数据源 <code>skills/data/category_v3_rules.db</code> · 表 <code>breed_l3_map_v3</code>(DWD→DWS ETL 第二轮 Dify 自动写入)。"
       :stats="stats ? [
-        { label: '总映射',     value: stats.total_mappings.toLocaleString() },
-        { label: 'distinct 品种', value: stats.distinct_breed.toLocaleString() },
-        { label: 'distinct L3', value: stats.distinct_l3.toLocaleString() },
-        { label: 'NULL l3',    value: stats.null_l3.toLocaleString() },
+        { label: '总映射',     value: fmt(stats.total_mappings) },
+        { label: 'distinct 品种', value: fmt(stats.distinct_breed) },
+        { label: 'distinct L3', value: fmt(stats.distinct_l3) },
+        { label: 'NULL l3',    value: fmt(stats.null_l3) },
       ] : []"
     />
 
@@ -33,6 +33,9 @@ async function loadStats() {
 }
 
 onMounted(() => loadStats())
+
+// 防御:API 可能返回 null/缺失字段,toLocaleString() 会炸
+function fmt(v) { return (v ?? 0).toLocaleString() }
 </script>
 
 <style scoped>

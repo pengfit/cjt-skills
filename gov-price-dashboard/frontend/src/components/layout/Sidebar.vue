@@ -26,7 +26,6 @@
       >
         <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
         <span class="sidebar-item-label">{{ item.label }}</span>
-        <span v-if="item.shortcut" class="sidebar-item-key" aria-hidden="true">{{ item.shortcut }}</span>
       </RouterLink>
     </div>
   </aside>
@@ -178,15 +177,7 @@ defineEmits(['close', 'navigate'])
 }
 
 .sidebar-item-key {
-  font-size: 10px;
-  font-family: var(--font-mono-num);
-  color: var(--text-3);
-  padding: 1px 5px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--surface-2);
-  font-weight: 600;
-  opacity: 0.6;
+  display: none;  /* 2026-07-28:隐藏数字快捷键徽章 */
 }
 
 .sidebar-item:hover {
@@ -211,10 +202,7 @@ defineEmits(['close', 'navigate'])
 }
 
 .sidebar-item.active .sidebar-item-key {
-  color: var(--primary);
-  border-color: rgba(var(--primary-rgb), 0.3);
-  background: var(--surface);
-  opacity: 1;
+  display: none;  /* 2026-07-28:同上 */
 }
 
 /* ── 移动端 drawer — 全面 UI 优化 (2026-07-25) ── */

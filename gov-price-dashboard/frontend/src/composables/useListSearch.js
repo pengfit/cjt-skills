@@ -219,24 +219,7 @@ export function useListSearch({ router }) {
     searchCounty.value = ''
   }
 
-  function onCategoryTreeSelect(node) {
-    if (node.l3) {
-      searchCategoryCode.value = node.l3
-      searchCategoryLevel.value = 'l3'
-      const parents = (node.parentPath || []).map(p => ({ code: p.code, name: p.name || p.code }))
-      categoryBreadcrumb.value = [...parents, { code: node.l3, name: node.name_l3 || node.l3 }]
-    } else if (node.l2) {
-      searchCategoryCode.value = node.l2
-      searchCategoryLevel.value = 'l2'
-      const parents = (node.parentPath || []).map(p => ({ code: p.code, name: p.name || p.code }))
-      categoryBreadcrumb.value = [...parents, { code: node.l2, name: node.name_l2 || node.l2 }]
-    } else if (node.l1) {
-      searchCategoryCode.value = node.l1
-      searchCategoryLevel.value = 'l1'
-      categoryBreadcrumb.value = [{ code: node.l1, name: node.name_l1 || node.l1 }]
-    }
-    doSearch()
-  }
+  // function onCategoryTreeSelect(node) { ... } // 2026-07-28 删除 list-tree-panel
 
   function resetSearch() {
     searchKeyword.value = ''
@@ -631,7 +614,7 @@ export function useListSearch({ router }) {
     pageStart, pageEnd, pageRange,
     // actions
     sortBy, onPageSizeChange, prevPage, nextPage, goToPage,
-    onCityChange, onProvinceChange, onCategoryTreeSelect, resetSearch,
+    onCityChange, onProvinceChange, resetSearch,  // 2026-07-28 去掉 onCategoryTreeSelect
     onKeywordInput, isPresetActive, applyPreset, expandRange, clearHistory,
     applyDatePreset, toggleColConfig,
     doSearch, restoreFromQuery, syncToQuery,

@@ -124,18 +124,6 @@
   </Transition>
 
     <div class="list-tree-layout">
-      <aside class="list-tree-panel" :class="{ collapsed: categoryPanelCollapsed }">
-        <button class="panel-toggle" @click="categoryPanelCollapsed = !categoryPanelCollapsed" :title="categoryPanelCollapsed ? '展开分类' : '收起分类'">
-          {{ categoryPanelCollapsed ? '▸' : '◂' }}
-        </button>
-        <div class="panel-inner" v-show="!categoryPanelCollapsed">
-          <CategoryTreeSidebar
-            :active-l3="searchCategoryCode"
-            @select="onCategoryTreeSelect"
-          />
-        </div>
-      </aside>
-
       <main class="content-area">
 
       <!-- PageHeader 在 main 内,跨 content-area 全宽(原位恢复) -->
@@ -480,7 +468,7 @@ import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const fmt = useFormatNumber()
 
-const CategoryTreeSidebar = defineAsyncComponent(() => import('./CategoryTreeSidebar.vue'))
+// const CategoryTreeSidebar = defineAsyncComponent(() => import('./CategoryTreeSidebar.vue')) // 2026-07-28 删除 list-tree-panel
 
 const router = useRouter()
 
@@ -500,7 +488,7 @@ function openBreedDetail(item) {
 
 const props = defineProps({
   bundle: { type: Object, required: true },
-  categoryPanelCollapsed: { type: Boolean, default: false },
+  // categoryPanelCollapsed: { type: Boolean, default: false }, // 2026-07-28 删除 list-tree-panel
 })
 
 const {
@@ -517,7 +505,7 @@ const {
   visibleColumns, filteredCities, filteredCounties, sortedData,
   pageStart, pageEnd, pageRange,
   sortBy, onPageSizeChange, prevPage, nextPage, goToPage,
-  onCityChange, onProvinceChange, onCategoryTreeSelect, resetSearch,
+  onCityChange, onProvinceChange, resetSearch,  // 2026-07-28 去掉 onCategoryTreeSelect
   onKeywordInput, isPresetActive, applyPreset, expandRange, clearHistory,
   applyDatePreset, toggleColConfig,
   doSearch, restoreFromQuery, syncToQuery,

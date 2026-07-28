@@ -64,11 +64,8 @@
         <div class="canon-empty-hint">{{ hasFilter ? '点击【全部清除】或单独移除筛选条件' : 'check category_v3_rules.db 是否存在 / 是否有数据' }}</div>
       </div>
     </div>
-  </div>
-
-  <!-- Pagination (jump + page-size) -->
-  <div class="canon-pagination" v-if="pages > 1">
-    <button class="page-btn nav" :disabled="page <= 1" @click="reload(page - 1)">‹</button>
+    <div class="canon-pagination" v-if="pages > 1">
+      <button class="page-btn nav" :disabled="page <= 1" @click="reload(page - 1)">‹</button>
     <button
       v-for="p in pageRange" :key="p"
       class="page-btn" :class="{ active: p === page, ellipsis: p === '...' }"
@@ -87,6 +84,7 @@
       </select>
       <span>条</span>
     </div>
+  </div>
   </div>
 
   <!-- Row detail drawer -->

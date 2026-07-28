@@ -52,7 +52,6 @@
         <template v-if="currentTab === 'list'">
           <ListView
             :bundle="listSearch"
-            :category-panel-collapsed="categoryPanelCollapsed"
           />
         </template>
 
@@ -180,10 +179,14 @@ const API = import.meta.env.VITE_API_URL || '/api'
 // STATE
 // ============================================================
 // 侧栏分组:复用 router/index.js 的 TAB_ROUTES,数字键 1-9 用 index 直接定位
+// icon 按页面实际内容定:
+  //   cockpit = 控制台 / list = 数据表 / category = 类目集合 / dist = 分布图
+  //   trend = 走势 / sync = 同步 / health = 健康(绿心) / taxonomy = 标签
+  //   breed-map = 重定向 / rules = 规则引擎 / canon = DNA 归一
 const TAB_ICONS = {
-  cockpit: '🛸', list: '📋', category: '📁', dist: '📊',
-  trend: '📈', sync: '🔄', health: '❤️', rules: '⚙️', taxonomy: '🏷️',
-  canon: '🧬', 'breed-map': '🔗',
+  cockpit: '🎛️', list: '📋', category: '🗂️', dist: '📊',
+  trend: '📈', sync: '🔄', health: '💚', rules: '⚙️', taxonomy: '🏷️',
+  canon: '🧬', 'breed-map': '🔀',
 }
 function sidebarItems(keys) {
   return TAB_ROUTES
@@ -198,15 +201,16 @@ function sidebarItems(keys) {
     }))
 }
 const sidebarGroups = computed(() => ([
-  { key: 'view',    label: '数据浏览',    items: sidebarItems(['cockpit', 'list', 'category']) },
+  // 按数据生命周期排序: 采集 → 治理 → 浏览 → 可视化
   { key: 'collect', label: '数据采集',    items: sidebarItems(['sync', 'health']) },
-  { key: 'govern',  label: '数据治理',    items: sidebarItems(['taxonomy', 'breed-map', 'rules', 'canon']) },
+  { key: 'govern',  label: '数据治理',    items: sidebarItems(['taxonomy', 'canon', 'breed-map', 'rules']) },
+  { key: 'view',    label: '数据浏览',    items: sidebarItems(['cockpit', 'list', 'category']) },
   { key: 'viz',     label: '价格可视化',  items: sidebarItems(['dist', 'trend']) },
 ]))
 
 const mobileSidebarOpen = ref(false)
 const showCmdPalette = ref(false)
-const categoryPanelCollapsed = ref(false)
+// const categoryPanelCollapsed = ref(false) // 2026-07-28 删除 list-tree-panel
 watch(() => route.name, () => { mobileSidebarOpen.value = false })
 
 // ⌘K 命令面板项
@@ -215,7 +219,7 @@ const cmdItems = computed(() => {
     id: 'tab:' + t.key,
     group: '页面跳转',
     label: t.label,
-    icon: ['🛸', '📋', '📁', '📊', '📈', '🔄', '❤️', '🏷️', '🔗', '⚙️', '🧬'][i] || '·',
+    icon: TAB_ICONS[t.key] || '·',
     hint: '跳转到 ' + t.label,
     shortcut: String(i + 1),
     action: () => router.push(t.path),

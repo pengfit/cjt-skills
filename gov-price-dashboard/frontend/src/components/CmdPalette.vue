@@ -79,8 +79,9 @@ const filtered = computed(() => {
 })
 
 // 按 group 分组（P3-batch2）：保留 group 顺序，未设 group 的放到底部「其他」
+// 顺序：高频查询在前、动作次之、页面跳转放最后（sidebar 已有一份,palette 只做备胎）
 const grouped = computed(() => {
-  const order = ['页面跳转', '动作', '数据查询']
+  const order = ['数据查询', '动作', '页面跳转']
   const buckets = new Map()
   filtered.value.forEach(it => {
     const g = it.group || '其他'
