@@ -2112,11 +2112,21 @@ def province_trend(
                     continue
                 breed_data.setdefault(breed_name, {})[period_idx] = round(float(avg), 4)
 
-        # 2026-07-28: breeds 参数 — 用户指定品种时按用户顺序返回(不随机),否则保持原 random 逻辑
+        # 2026-07-28: breeds 参数 — 用户指定品种时按用户顺序返回(不随机,不截断),否则保持原 random 逻辑
+        missing_breeds = []
         if breeds:
-            target = [b.strip() for b in breeds.split(",") if b.strip()][:limit]
-            # 静默跳过无数据的品种(避免 500)
-            selected_names = [b for b in target if b in breed_data]
+            target = [b.strip() for b in breeds.split(",") if b.strip()]
+            # 不 [:limit] 截断:用户传 11 个就返 11 个(空品种会被 missing 报告)
+            # 但保险起见设个硬上限 100,避免恶意请求拖垮 ES
+            if len(target) > 100:
+                target = target[:100]
+            # 记录无数据品种,告诉前端(避免静默丢品种 — 13:15 道友报)
+            selected_names = []
+            for b in target:
+                if b in breed_data:
+                    selected_names.append(b)
+                else:
+                    missing_breeds.append(b)
         else:
             # 按覆盖度(多少个月有数据)排序,再 random.sample 取 limit 个保多样性
             candidates = sorted(
@@ -2144,6 +2154,7 @@ def province_trend(
             "province": province or "",
             "periods": periods,
             "breeds": breeds_out,
+            "missing": missing_breeds,  # 用户指定的品种中无数据的(帮前端告警)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
