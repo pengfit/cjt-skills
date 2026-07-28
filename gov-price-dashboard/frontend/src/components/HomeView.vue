@@ -50,48 +50,127 @@
       </div>
     </section>
 
-    <!-- 架构原理（原 01 工作模式 → 2026-07-25 按开源项目视角重写） -->
-    <section class="workflow" id="workflow">
-      <div class="section-marker">
-        <span class="section-num">01</span>
-        <span class="section-divider"></span>
-        <span class="section-tagline">ARCHITECTURE</span>
-      </div>
-      <div class="container">
-        <h2>架构原理</h2>
-        <p class="section-subtitle">源站 → 三段式 ETL → L1~L4 跨城数据聚合 → 开放 Dashboard。从原始网页到可视化,每一步都是独立可复用的开源包。</p>
+    <!-- 2026-07-28: 首页改轮播图样式 — Hero 后接 el-carousel,默认 2 部
+         Slide 1: Pengfit 工作模式(1 人 + AI OPC 模式 + 工具链架构)
+         Slide 2: 案例(以前 vs 现在对比 + 部署信息)
+         arrow='always' 总是显示上下一对,indicator 圆点导航 -->
+    <el-carousel
+      class="home-carousel"
+      :interval="0"
+      arrow="always"
+      indicator-position="outside"
+      height="auto"
+      trigger="click"
+    >
+      <!-- Slide 1: Pengfit 工作模式 -->
+      <el-carousel-item name="mode">
+        <div class="slide-container slide-mode">
+          <div class="section-marker">
+            <span class="section-num">01</span>
+            <span class="section-divider"></span>
+            <span class="section-tagline">PENGFIT MODE</span>
+          </div>
+          <div class="container">
+            <h2>Pengfit 工作模式</h2>
+            <p class="section-subtitle">
+              <strong>1 人 + OpenClaw + AI = 团队级生产力。</strong>
+              不只是“勤奋”,而是一套可复用的工程工具链——从原始网页到开放 Dashboard,每一步独立成包、可被 fork / 改造 / 嵌入。
+            </p>
 
-        <div class="workflow-diagram">
-          <div class="workflow-steps">
-            <div class="workflow-step">
-              <h4>📡 源数据</h4>
-              <p>20 个省/市住建局官方造价信息期刊(月刊 / 季刊 / 不定期)</p>
+            <div class="mode-pillars">
+              <div class="pillar">
+                <span class="pillar-icon">🧠</span>
+                <h4>AI 作为生产力倍增器</h4>
+                <p>日常编码 / 运维 / 数据清洗 / 文案都走 AI 协作；Dify AI 攒批串行降低 API 成本；本地脚本能跑就让本地跑,云端调用只用在刀刃上。</p>
+              </div>
+              <div class="pillar">
+                <span class="pillar-icon">📦</span>
+                <h4>工具链独立成包</h4>
+                <p>20 个城市的爬虫各自打包成独立 skill；ETL 三段式(ODS→DWD→DWS)每个阶段独立可被替换；进度文件断点续传、索引命名规范、数据流透明。</p>
+              </div>
+              <div class="pillar">
+                <span class="pillar-icon">🔓</span>
+                <h4>开放 + 可复用</h4>
+                <p>全部 MIT 开源、每个环节都能 fork / 改造 / 嵌入到自己的项目里。不只是“交付一个网站”,而是“交付一套可扩展的工具链”。</p>
+              </div>
+              <div class="pillar">
+                <span class="pillar-icon">🧭</span>
+                <h4>OPC(One Person Company)</h4>
+                <p>一个人走的远,但走得轻。 用工具把自己变成一个公司——开发 / 产品 / 运维 / 客服一体化,不强求团队规模,用代码与 AI 承担重复劳动。</p>
+              </div>
             </div>
-            <div class="workflow-arrow">↓</div>
-            <div class="workflow-step highlight">
-              <h4>⚙️ ETL Pipeline</h4>
-              <p>gov-price-etl · 20 个城市技能包 · 三段式 ODS→DWD→DWS + Dify AI 攒批</p>
-            </div>
-            <div class="workflow-arrow">↓</div>
-            <div class="workflow-step">
-              <h4>🌐 数据聚合</h4>
-              <p>L1 字段净化 · L2 单位 · L3 期号 · L4 跨城映射 · 8,845 个品种统一口径</p>
-            </div>
-            <div class="workflow-arrow">↓</div>
-            <div class="workflow-step highlight">
-              <h4>📊 Dashboard</h4>
-              <p>FastAPI + Vue3 + ECharts · 即开即用 /market · 公开 · 鉴权 API 可对接</p>
+
+            <div class="mode-flow">
+              <span class="flow-step">📡 源数据</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-step">⚙️ ETL 三段式</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-step">🌐 L1~L4 跨城归一</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-step highlight">📊 Dashboard</span>
             </div>
           </div>
         </div>
+      </el-carousel-item>
 
-        <div class="workflow-bottom">
-          <p>每个环节独立成包、可独立部署、可被 fork。</p>
-          <p>数据流透明 · 索引命名规范 · 进度文件断点续传 · Dify AI 串行攒批。</p>
-          <p><strong style="color: #00d9ff;">不只是个网站,是一套可复用的工程造价数据聚合工具链——1 人 + OpenClaw + AI 全程运维,开放协作,每段都能 fork、改造、嵌入到你的项目里。</strong></p>
+      <!-- Slide 2: 案例(以前 vs 现在) -->
+      <el-carousel-item name="case">
+        <div class="slide-container slide-case">
+          <div class="section-marker">
+            <span class="section-num">02</span>
+            <span class="section-divider"></span>
+            <span class="section-tagline">CASE STUDY</span>
+          </div>
+          <div class="container">
+            <h2>它能做什么</h2>
+            <p class="section-subtitle">
+              线上部署:<a href="/market" class="case-link">pengfit.cn/market</a>
+              · 即开即用,开放便捷 · 鉴权 API 可对接
+            </p>
+
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>🕐 以前</th>
+                  <th>⚡ 现在</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="before">人工汇总 20 个数据源</td>
+                  <td class="after">凌晨自动抓取,0 干预</td>
+                </tr>
+                <tr>
+                  <td class="before">跨城口径不一</td>
+                  <td class="after">8,845 品种跨城数据聚合</td>
+                </tr>
+                <tr>
+                  <td class="before">期刊滞后查询</td>
+                  <td class="after">秒级跨城检索</td>
+                </tr>
+                <tr>
+                  <td class="before">历史趋势缺失</td>
+                  <td class="after">时序趋势可追溯</td>
+                </tr>
+                <tr>
+                  <td class="before">需要登录查数据</td>
+                  <td class="after">公开数据,即开即用</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p class="case-tail">
+              1 人 + OpenClaw + AI 全程运维,开放协作,覆盖数据采集 → 清洗 → 聚合 → 可视化全生命周期。
+            </p>
+            <div class="case-cta-wrap">
+              <router-link to="/market" class="case-cta">
+                查看实时市场行情 →
+              </router-link>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </el-carousel-item>
+    </el-carousel>
 
 
   </div>
@@ -449,68 +528,205 @@ h3 {
   margin-bottom: 48px;
 }
 
-/* === 工作模式 === */
-.workflow {
-  background: #1a1a1a;
+/* === 2026-07-28 首页轮播图样式(el-carousel,2 slides 默认) === */
+.home-carousel {
+  /* el-carousel 本身提供 arrow + indicator */
+  padding: 32px 0 80px;  /* 底部给 indicator + arrow 留位 */
+  background: #0a0a0a;
 }
 
-.workflow-diagram {
-  background: #0f0f0f;
-  border-radius: 16px;
-  padding: 48px;
-  margin: 40px 0;
-  border: 1px solid #2a2a2a;
+.home-carousel :deep(.el-carousel__container) {
+  min-height: 520px;
 }
 
-.workflow-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  align-items: center;
+.home-carousel :deep(.el-carousel__arrow) {
+  background: rgba(0, 217, 255, 0.15);
+  border: 1px solid rgba(0, 217, 255, 0.4);
+  color: #00d9ff;
+  width: 48px;
+  height: 48px;
 }
-
-.workflow-step {
-  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f0f 100%);
-  padding: 24px 32px;
-  border-radius: 12px;
-  border: 1px solid #2a2a2a;
-  width: 100%;
-  max-width: 600px;
-  text-align: center;
-}
-
-.workflow-step.highlight {
+.home-carousel :deep(.el-carousel__arrow:hover) {
+  background: rgba(0, 217, 255, 0.3);
   border-color: #00d9ff;
-  box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+}
+.home-carousel :deep(.el-carousel__indicators) {
+  padding-top: 24px;
+}
+.home-carousel :deep(.el-carousel__indicator button) {
+  background: rgba(255, 255, 255, 0.3);
+}
+.home-carousel :deep(.el-carousel__indicator.is-active button) {
+  background: #00d9ff;
 }
 
-.workflow-step h4 {
+/* 单 slide 容器 */
+.slide-container {
+  padding: 40px 24px 24px;
+}
+.slide-mode {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+}
+.slide-case {
+  background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
+}
+
+/* === Slide 1: Pengfit 工作模式 === */
+/* 4 个支柱 card grid */
+.mode-pillars {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin: 36px 0;
+}
+
+.pillar {
+  background: rgba(26, 26, 26, 0.7);
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 22px 24px;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.pillar:hover {
+  border-color: #00d9ff;
+  transform: translateY(-2px);
+}
+.pillar-icon {
+  font-size: 28px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+.pillar h4 {
+  font-size: 1.05rem;
   color: #00d9ff;
   margin-bottom: 8px;
-  font-size: 1.2rem;
+  font-weight: 600;
+}
+.pillar p {
+  color: #a0a0a0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
 }
 
-.workflow-step p {
-  color: #a0a0a0;
+/* 数据流一行(4 步 + 箭头) */
+.mode-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 16px;
+  background: rgba(15, 15, 15, 0.6);
+  border-radius: 12px;
+  border: 1px solid #2a2a2a;
+  flex-wrap: wrap;
+  margin-top: 32px;
+}
+.flow-step {
+  padding: 8px 16px;
+  background: #1a1a2e;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  color: #f7f7f7;
+  border: 1px solid #2a2a2a;
+}
+.flow-step.highlight {
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.25), rgba(0, 153, 204, 0.25));
+  border-color: #00d9ff;
+  color: #00d9ff;
+}
+.flow-arrow {
+  color: #00d9ff;
+  font-size: 1.1rem;
+}
+
+/* === Slide 2: 案例(以前 vs 现在) === */
+.case-link {
+  color: #00d9ff;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0, 217, 255, 0.4);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.case-link:hover {
+  color: #e94560;
+  border-bottom-color: #e94560;
+  border-bottom-style: solid;
+}
+
+.comparison-table {
+  width: 100%;
+  margin: 36px 0 28px;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.comparison-table th {
+  background: #1a1a2e;
+  padding: 14px 18px;
+  text-align: left;
+  font-weight: 600;
+  color: #00d9ff;
   font-size: 0.95rem;
 }
-
-.workflow-arrow {
-  font-size: 2rem;
+.comparison-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #2a2a2a;
+  color: #f7f7f7;
+  font-size: 0.9rem;
+}
+.comparison-table tr:nth-child(even) {
+  background: #1a1a1a;
+}
+.comparison-table .before {
+  color: #e94560;
+}
+.comparison-table .after {
   color: #00d9ff;
 }
 
-.workflow-bottom {
+.case-tail {
   text-align: center;
-  margin-top: 48px;
   color: #a0a0a0;
-  line-height: 1.8;
+  margin-top: 28px;
+  font-size: 0.9rem;
+}
+
+.case-cta-wrap {
+  text-align: center;
+  margin-top: 24px;
+}
+.case-cta {
+  display: inline-block;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #00d9ff 0%, #0099cc 100%);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.case-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
+}
+
+/* 响应式:小屏 4 pillars 变 1 列 */
+@media (max-width: 768px) {
+  .mode-pillars { grid-template-columns: 1fr; gap: 14px; }
+  .home-carousel :deep(.el-carousel__arrow) { width: 36px; height: 36px; }
+  .mode-flow { font-size: 0.85rem; gap: 6px; padding: 16px 8px; }
+  .flow-step { padding: 6px 10px; font-size: 0.85rem; }
+  .flow-arrow { font-size: 0.9rem; }
 }
 
 /* === 全局可访问性:焦点环(青色光晕) === */
 /* 2026-07-27 删:Pricing/FAQ/Contact 三个模块的 CSS 死代码(模板 2026-07-25 重构已删) */
 /* 2026-07-28 删:case-cta / case-link 也随 02 案例段一并清理 */
-.cta-button:focus-visible {
+.cta-button:focus-visible,
+.case-cta:focus-visible,
+.case-link:focus-visible {
   outline: 2px solid #00d9ff;
   outline-offset: 3px;
 }
