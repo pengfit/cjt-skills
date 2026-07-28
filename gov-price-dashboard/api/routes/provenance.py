@@ -53,18 +53,20 @@ from api.paths import GOV_PRICE_ETL_ROOT as ETL_PROJECT_ROOT  # noqa: E402
 sys.path.insert(0, str(ETL_PROJECT_ROOT))  # 让 `import gov_price_etl` 可用
 sys.path.insert(0, os.path.join(str(ETL_PROJECT_ROOT), "gov_price_etl", "parse_spec", "rules"))  # 保留旧 import 路径
 
-# DB 路径全部从 etl 的 paths.py 读（单一来源）
-# 2026-07-18：只保留 dashboard 实际使用的 _RULES_DB_SPEC
-# 删 _RULES_DB_CAT_V2 / _RULES_DB_CAT_V3（v2/v3 分类法已废，dashboard 不读）
-try:
-    from gov_price_etl.paths import (
-        SPEC_RULES_DB as _RULES_DB_SPEC,
-        PROJECT_ROOT as _ETL_PROJECT_ROOT,
-    )
-except Exception as _e:
-    print(f"⚠️ etl paths 加载失败: {_e}")
-    _RULES_DB_SPEC = None
-    _ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
+# DB 路径全部从 api.paths 本地读(避免跨包依赖 gov_price_etl — 后者需 sys.path 注入,
+# 生产 Docker 镜像若 ETL 包路径异常/未挂载,导入失败会返 None → os.path.exists(None) → 500)
+# 2026-07-28 修复:rules-vector 在生产返 500,根因是 _RULES_DB_SPEC = None
+# 改为 BREED_SPEC_RULES_DB(api.paths 定义,跟 SKILLS_ROOT/env 走,生产路径 /app/skills/data/...)
+from api.paths import (
+    BREED_SPEC_RULES_DB as _RULES_DB_SPEC,  # 保留别名,所有内部调用不改动
+    CATEGORY_DB as _CATEGORY_DB,
+    CATEGORY_V3_RULES_DB as _CATEGORY_V3_RULES_DB,
+    DATA_DIR as _DATA_DIR,
+)
+# 2026-07-28: _ETL_PROJECT_ROOT 仍被 3 处代码引用(ETL_CMD_DIR / _attrs_file / testset_path)
+# 原从 gov_price_etl.paths.PROJECT_ROOT 拿,现 ETL_PROJECT_ROOT(= api.paths.GOV_PRICE_ETL_ROOT)
+# 与原值已验证等价(/Users/pengfit/.../skills/gov-price-etl),直接复用
+_ETL_PROJECT_ROOT = ETL_PROJECT_ROOT
 
 try:
     from gov_price_etl.parse_spec.rules.vector_store import get_vec_store
