@@ -1637,25 +1637,25 @@ def related_breeds(
 def random_breeds(
     count: int = Query(20, ge=1, le=50, description="返回品种数,默认 20 与源城市数相当"),
 ):
-    """2026-07-25 三改分层采样 — 每城 1-2 个 + 大池。
+    """2026-07-28 v0.4: 跨城 dedup + 跨 index 聚合 records/cities。
 
     历史:
-      v1: count=12 + 全池 terms agg size=200,数据少的小城(吉林/呼和浩特/菏泽)
-          doc_count << chongqing/jiangxi,top-200 都是大宗主材,长尾品种进不去
-      v2: 每城 terms agg size=per_city*3+5(=8),每城 random 1 个 — 但池子还是太浅
-          吉林的「数码水表」「数码雷管」排名 50+ 之外,8 个名额永远轮不到
-      v3 (当前): 每城 size=120,每城 random 1-2 个 — 长尾品种进池,数据少的小城
-          也能展示多样品种(钢筋/水泥/数码水表都有机会)
-
-    两阶段:
-      Phase 1: 每城从大池 random 1-2 个(打乱城顺序,random.sample 不重复)
-      Phase 2: 还差 count → 全池 random 补
+      v1: 全池 size=200 → 小城长尾进不去
+      v2: 每城 size=8 → 池子太浅
+      v3 (v0.35, 2026-07-26): 每城 size=120 + Phase 1 不 dedup,每城强取 #1
+          保证小城品种进热力图,但商品混凝土/钢筋等大宗主材在 15+ 城都出现,
+          列表严重重复
+      v4 (当前, 2026-07-28 配合 build_norm_index.py 全 20 城重建):
+          - dedup by normalized_breed:同一品种只出现一次
+          - records = Σ该 breed 在所有 NORM 索引中的 doc_count(跨 index 求和)
+          - city_index 改为 list[str]:列出该 breed 出现的所有 NORM 索引
+          - 长尾品种仍能进(每城 pool=120,dedup 后总池数百个 breed,
+            random.sample 覆盖长尾;小城品种排在 100+ 也能被 random 到)
     """
     norm_list = _norm_indices()
-    n_cities = len(norm_list)
-    if not n_cities:
+    if not norm_list:
         return {"results": [], "total": 0, "count": count}
-    # 大池 size:小城(吉林/呼和浩特)品种总数常 < 200,120 已能覆盖长尾品种
+    # 大池 size:小城品种总数常 < 200,120 已能覆盖长尾品种
     # 大城(重庆 4000+)120 只取前 1.5%,random 在这 120 内仍能拿到冷门品类
     pool_size = 120
 
@@ -1686,7 +1686,8 @@ def random_breeds(
         except Exception:
             return []
 
-    def _to_result(b, norm_idx):
+    def _to_result(b, cities, records_sum):
+        """组装单条结果;cities/records_sum 由 dedup 阶段聚合后传入"""
         breed = b["key"]
         l3 = b["l3"]["buckets"][0]["key"] if b["l3"]["buckets"] else ""
         spec_attrs = {}
@@ -1697,44 +1698,39 @@ def random_breeds(
             "category_name_l3": l3,
             "spec_attrs": spec_attrs,
             "spec_summary": _summarize_specs(spec_attrs),
-            "records": b["doc_count"],
-            "city_index": norm_idx,  # 前端展示来源城
+            "records": records_sum,           # 跨城 NORM 求和
+            "city_index": cities,             # list[str]: 该 breed 出现的所有 NORM 索引
         }
 
-    results = []
-    picked = set()
-    # Phase 1: 每城强制取 #1 (v0.35, 2026-07-26)
-    # - v0.34 逻辑: dedup 会让 jilin/huhehaote 落到稀有品种(如稀土铝合金电缆),
-    #   这些品种往往只有 1 期数据,热力图 cell 始终 null
-    # - v0.35 改: Phase 1 完全跳过 dedup,每城强取 doc_count #1(即使与其他城重复)
-    #   保证 jilin 商品混凝土、huhehaote 商品混凝土 都能进热力图。
-    #   重复品种在前端用 city_index 列差异化展示。
+    # 2026-07-28 v0.4: dedup by normalized_breed + 跨 index 聚合
+    # 收集每城 pool_size buckets,聚合到 breed_pool(同一 breed 跨城汇总)
+    breed_pool = {}  # breed_name -> {first_bucket, records_sum, cities}
     for norm_idx in random.sample(norm_list, len(norm_list)):
         buckets = _fetch_one(norm_idx)
-        if not buckets:
-            continue
-        # 直接取 buckets[0](doc_count 最高),不去重
-        picked.add(buckets[0]["key"])
-        results.append(_to_result(buckets[0], norm_idx))
-    # Phase 2: 还差多少条,从全池 random 补
-    # 优先从各城大池 random,保证多样性;再不够才不重复
-    if len(results) < count:
-        all_buckets = []
-        for norm_idx in norm_list:
-            for b in _fetch_one(norm_idx):
-                if b["key"] not in picked:
-                    all_buckets.append((norm_idx, b))
-        random.shuffle(all_buckets)
-        for norm_idx, b in all_buckets:
-            if len(results) >= count:
-                break
-            picked.add(b["key"])
-            results.append(_to_result(b, norm_idx))
-    # Phase 3: count 小于 20 城全覆盖(默认 30 >= 20,正常走不到这里)
-    if len(results) > count:
-        results = results[:count]
-    random.shuffle(results)
+        for b in buckets:
+            breed_name = b["key"]
+            if breed_name not in breed_pool:
+                breed_pool[breed_name] = {
+                    "first_bucket": b,
+                    "records": 0,
+                    "cities": [],
+                }
+            entry = breed_pool[breed_name]
+            entry["records"] += b["doc_count"]
+            if norm_idx not in entry["cities"]:
+                entry["cities"].append(norm_idx)
 
+    # dedup 后 random.sample 取 count 个,覆盖长尾品种
+    if not breed_pool:
+        return {"results": [], "total": 0, "count": count}
+    selected_names = random.sample(list(breed_pool.keys()), min(count, len(breed_pool)))
+
+    results = []
+    for breed_name in selected_names:
+        entry = breed_pool[breed_name]
+        results.append(_to_result(entry["first_bucket"], entry["cities"], entry["records"]))
+
+    random.shuffle(results)
     return {"results": results, "total": len(results), "count": count}
 
 

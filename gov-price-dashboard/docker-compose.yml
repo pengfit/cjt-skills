@@ -37,6 +37,9 @@ services:
     # 不然容器里 API 走 fallback,只看到“洞察正在生成中”。
     volumes:
       - ../../data/showcase:/data/showcase:ro
+      # 2026-07-28:宿主机 ETL 库挂入容器,避免每次 ETL 写库后需重建镜像
+      # SKILLS_ROOT=/app/skills, DATA_DIR=/app/skills/data → 覆盖 Dockerfile COPY 进去的旧镜像
+      - ../../skills/data:/app/skills/data:ro
       # cron 状态目录持久卷 (宿主机 cron + 容器 API 共享)
       # 卷内结构: /var/lib/openclaw/{gov-check-status, gov-price-summary, showcase-insight, ...}
       - gov-data:/var/lib/openclaw
