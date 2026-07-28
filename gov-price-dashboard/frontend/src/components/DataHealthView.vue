@@ -239,8 +239,7 @@ import StatGrid from './data-health/StatGrid.vue'
 // P1-10:统一 PageHeader
 import PageHeader from './PageHeader.vue'
 
-// 2026-07-28 Step 3 顺手删:StatCard 已被 StatGrid 取代,本页无其它引用
-// const API = import.meta.env.VITE_API_URL || '/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 const fmt = useFormatNumber()
 const loading = ref(false)
 const error = ref('')
