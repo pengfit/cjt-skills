@@ -37,50 +37,45 @@
           本期截止 {{ overview.latest_period_end }} · 对比 {{ overview.prev_period_end || '上期' }}
         </p>
 
-        <!-- 2026-07-28: 定位状态条 — GPS 成功显省份,失败/拒绝显 dropdown -->
+        <!-- 2026-07-28: 定位状态条 — dropdown 永远可见,用户随时能切地区 -->
         <div class="m-geo-bar">
           <span class="m-geo-status" :class="`m-geo-${geoStatus}`">
-            <template v-if="geoStatus === 'prompting'">
-              <span class="m-geo-icon">📍</span>
-              <span>正在准备定位…</span>
-            </template>
-            <template v-else-if="geoStatus === 'locating'">
-              <span class="m-geo-icon">📍</span>
-              <span>正在定位中…</span>
-            </template>
-            <template v-else-if="geoStatus === 'located'">
-              <span class="m-geo-icon">📍</span>
-              <span class="m-geo-province">{{ userProvince || '全国' }}</span>
-              <span class="m-geo-source" v-if="geoSource === 'cache'">(本地缓存)</span>
-              <button class="m-geo-reset" type="button" @click="resetGeo" title="重新请求浏览器定位">
-                ↻ 重新定位
-              </button>
-            </template>
-            <template v-else-if="geoStatus === 'denied'">
-              <span class="m-geo-icon">📍</span>
-              <span>定位未授权 · 请选择省份:</span>
-              <select v-model="userProvince" class="m-geo-select" @change="onProvinceSelect">
-                <option value="">全国</option>
-                <option v-for="p in availableProvinces" :key="p" :value="p">{{ p }}</option>
-              </select>
-            </template>
-            <template v-else-if="geoStatus === 'unsupported'">
-              <span class="m-geo-icon">📍</span>
-              <span>浏览器不支持定位 · 请选择省份:</span>
-              <select v-model="userProvince" class="m-geo-select" @change="onProvinceSelect">
-                <option value="">全国</option>
-                <option v-for="p in availableProvinces" :key="p" :value="p">{{ p }}</option>
-              </select>
-            </template>
-            <template v-else-if="geoStatus === 'error'">
-              <span class="m-geo-icon">📍</span>
-              <span>定位失败 · 请选择省份:</span>
-              <select v-model="userProvince" class="m-geo-select" @change="onProvinceSelect">
-                <option value="">全国</option>
-                <option v-for="p in availableProvinces" :key="p" :value="p">{{ p }}</option>
-              </select>
-              <button class="m-geo-reset" type="button" @click="resetGeo">↻ 重试</button>
-            </template>
+            <span class="m-geo-icon">📍</span>
+            <span class="m-geo-status-text">
+              <template v-if="geoStatus === 'prompting'">准备定位</template>
+              <template v-else-if="geoStatus === 'locating'">定位中…</template>
+              <template v-else-if="geoStatus === 'located'">
+                当前地区
+                <span v-if="geoSource === 'cache'" class="m-geo-source">(本地缓存)</span>
+                <span v-else-if="geoSource === 'manual'" class="m-geo-source">(手动)</span>
+              </template>
+              <template v-else-if="geoStatus === 'denied'">定位未授权 · 选择地区</template>
+              <template v-else-if="geoStatus === 'unsupported'">浏览器不支持定位 · 选择地区</template>
+              <template v-else-if="geoStatus === 'error'">定位失败 · 选择地区</template>
+            </span>
+
+            <!-- 地区切换 dropdown:永远可见,定位中禁用(避免定位结果覆盖用户选择) -->
+            <select
+              v-model="userProvince"
+              class="m-geo-select"
+              :disabled="geoStatus === 'prompting' || geoStatus === 'locating'"
+              @change="onProvinceSelect"
+              title="切换地区"
+            >
+              <option value="">全国</option>
+              <option v-for="p in availableProvinces" :key="p" :value="p">{{ p }}</option>
+            </select>
+
+            <!-- 重新定位/重试按钮:定位中不显示(避免重复请求) -->
+            <button
+              v-if="geoStatus !== 'prompting' && geoStatus !== 'locating'"
+              class="m-geo-reset"
+              type="button"
+              @click="resetGeo"
+              :title="geoStatus === 'located' ? '重新请求浏览器定位' : '重试定位'"
+            >
+              ↻ {{ geoStatus === 'located' ? '重新定位' : '重试' }}
+            </button>
           </span>
         </div>
       </section>
