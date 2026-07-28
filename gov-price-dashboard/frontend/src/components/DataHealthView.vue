@@ -9,29 +9,14 @@
     >
       <template #icon>❤️</template>
       <template #right>
-        <!-- 2026-07-28:Phase 2 — StatCard 迁 Element Plus <el-statistic> -->
-        <div class="health-cards">
-          <el-card shadow="never" class="health-stat-card">
-            <el-statistic :value="data.total_docs" title="总数据量" suffix=" 条">
-              <template #prefix><el-icon><Document /></el-icon></template>
-            </el-statistic>
-          </el-card>
-          <el-card shadow="never" class="health-stat-card">
-            <el-statistic :value="skillStats.total" title="抓取任务" suffix=" 个">
-              <template #prefix><el-icon><Files /></el-icon></template>
-            </el-statistic>
-          </el-card>
-          <el-card shadow="never" class="health-stat-card">
-            <el-statistic :value="skillStats.avgFreshness" title="平均新鲜度" suffix=" 天前">
-              <template #prefix><el-icon><Timer /></el-icon></template>
-            </el-statistic>
-          </el-card>
-          <el-card shadow="never" class="health-stat-card" :class="{ 'is-danger': anomalyStats.total > 0 }">
-            <el-statistic :value="anomalyStats.total" :title="anomalyStats.total > 0 ? '异常告警' : '全部正常'" :suffix="anomalyStats.total > 0 ? ' 个 skill' : ' 个'">
-              <template #prefix><el-icon><Warning /></el-icon></template>
-            </el-statistic>
-          </el-card>
-        </div>
+        <!-- 2026-07-28:Step 3 — 顶部 4 张 stat cards 抽出 data-health/StatGrid.vue
+             Props 透传,不暴露内部 computed(单一职责) -->
+        <StatGrid
+          :total-docs="data.total_docs"
+          :skill-total="skillStats.total"
+          :avg-freshness="skillStats.avgFreshness"
+          :anomaly-total="anomalyStats.total"
+        />
       </template>
     </PageHeader>
 
@@ -249,11 +234,13 @@ import { useFormatNumber } from '../composables/useFormatNumber.js'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import SectionHeader from './SectionHeader.vue'
-import StatCard from './StatCard.vue'
+// 2026-07-28 Step 3:拆出 data-health/StatGrid.vue,DataHealthView 顶部 4 张统计卡独立组件
+import StatGrid from './data-health/StatGrid.vue'
 // P1-10:统一 PageHeader
 import PageHeader from './PageHeader.vue'
 
-const API = import.meta.env.VITE_API_URL || '/api'
+// 2026-07-28 Step 3 顺手删:StatCard 已被 StatGrid 取代,本页无其它引用
+// const API = import.meta.env.VITE_API_URL || '/api'
 const fmt = useFormatNumber()
 const loading = ref(false)
 const error = ref('')
