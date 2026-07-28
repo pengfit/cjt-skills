@@ -329,7 +329,7 @@ def _dify_call_batch(breed_cleans: list, retries: int = 2) -> dict:
                     "breeds_json": json.dumps(breed_cleans, ensure_ascii=False),
                     "n": len(breed_cleans),
                 },
-                user="norm-build-with-dify",
+                user=f"norm-build-with-dify-{int(time.time()*1000)}",
                 timeout_s=180,
             )
             if resp.ok and resp.outputs:
