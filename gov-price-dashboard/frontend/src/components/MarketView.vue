@@ -101,12 +101,45 @@
             </p>
           </div>
           <div class="m-trend-toolbar-actions">
+            <!-- 2026-07-28: 搜索品种加进图表(用户选定的品种 sticky,直到"🎲 换一组") -->
+            <div class="m-trend-search-wrap">
+              <input
+                v-model="breedSearch"
+                type="text"
+                class="m-trend-search-input"
+                placeholder="🔍 搜索品种加进图…"
+                @input="onBreedSearchInput"
+                @keydown.enter="onBreedSearchEnter"
+                @focus="breedSearchOpen = breedSearchResults.length > 0"
+              />
+              <div
+                v-if="breedSearchOpen && breedSearchResults.length > 0"
+                class="m-trend-search-dropdown"
+                @mousedown.prevent
+              >
+                <button
+                  v-for="r in breedSearchResults"
+                  :key="r.breed"
+                  type="button"
+                  class="m-trend-search-result"
+                  :class="{ selected: selectedBreeds.includes(r.breed) }"
+                  :disabled="selectedBreeds.includes(r.breed)"
+                  @mousedown.prevent="addBreedFromSearch(r)"
+                >
+                  <span class="m-trend-search-name">{{ r.breed }}</span>
+                  <span v-if="r.category_name_l3" class="m-trend-search-l3">{{ r.category_name_l3 }}</span>
+                  <span class="m-trend-search-docs">{{ r.records || 0 }}</span>
+                  <span v-if="selectedBreeds.includes(r.breed)" class="m-trend-search-tag">已加</span>
+                </button>
+              </div>
+              <div v-if="breedSearchLoading" class="m-trend-search-loading">搜索中…</div>
+            </div>
             <button
               class="m-trend-refresh-btn"
               type="button"
               :disabled="refreshingBreeds"
               @click="refreshRandomBreeds"
-              title="随机换 10 个品种"
+              title="随机换一组(清空用户选择)"
             >
               <span class="m-trend-refresh-icon" :class="{ spinning: refreshingBreeds }">🎲</span>
               换一组品种
@@ -315,6 +348,21 @@ const trendChartRef = ref(null)
 const trendChart = ref(null)
 const trendLoading = ref(false)
 const refreshingBreeds = ref(false)
+// 2026-07-28: 用户搜的品种(sticky,直到"🎲 换一组"或省份切换)
+const selectedBreeds = ref([])
+// 搜索框状态
+const breedSearch = ref('')
+const breedSearchResults = ref([])
+const breedSearchLoading = ref(false)
+const breedSearchOpen = ref(false)
+let breedSearchTimer = null
+
+// 文档点击关闭 dropdown(搜索框内点击不算)
+function _onDocMousedown(e) {
+  const wrap = document.querySelector('.m-trend-search-wrap')
+  if (wrap && wrap.contains(e.target)) return
+  breedSearchOpen.value = false
+}
 const registerGovPriceThemeOnce = (() => {
   let done = false
   return async () => { if (!done) { await registerGovPriceTheme(); done = true; } }
@@ -473,15 +521,94 @@ function onProvinceSelect() {
 }
 
 // ── 半年价格趋势(10 品种 × 6 月均价,单图多线) ──────────────────────────────────────────────────
+// 2026-07-28: 搜索品种(300ms debounce → /api/market/breed-search)
+function onBreedSearchInput() {
+  const q = breedSearch.value.trim()
+  if (breedSearchTimer) clearTimeout(breedSearchTimer)
+  if (!q) {
+    breedSearchResults.value = []
+    breedSearchOpen.value = false
+    return
+  }
+  breedSearchTimer = setTimeout(() => searchBreeds(q), 300)
+}
+
+async function searchBreeds(q) {
+  breedSearchLoading.value = true
+  try {
+    const data = await fetchJson(`/api/market/breed-search?q=${encodeURIComponent(q)}&limit=15`)
+    // 客户端排序:exact > prefix > contains > 其他(ES wildcard 不算 relevance)
+    const qLower = q.toLowerCase()
+    const scored = (data.results || []).map(r => {
+      const name = r.breed.toLowerCase()
+      let score = 3
+      if (name === qLower) score = 0
+      else if (name.startsWith(qLower)) score = 1
+      else if (name.includes(qLower)) score = 2
+      return { r, score }
+    })
+    scored.sort((a, b) => a.score - b.score || (b.r.records || 0) - (a.r.records || 0))
+    breedSearchResults.value = scored.map(s => s.r)
+    breedSearchOpen.value = breedSearchResults.value.length > 0
+  } catch (e) {
+    console.error('[breed-search]', e)
+    breedSearchResults.value = []
+  } finally {
+    breedSearchLoading.value = false
+  }
+}
+
+function addBreedFromSearch(r) {
+  if (selectedBreeds.value.includes(r.breed)) {
+    // 已加,仅清空输入框
+    breedSearch.value = ''
+    breedSearchResults.value = []
+    breedSearchOpen.value = false
+    return
+  }
+  selectedBreeds.value = [...selectedBreeds.value, r.breed]
+  breedSearch.value = ''
+  breedSearchResults.value = []
+  breedSearchOpen.value = false
+  loadProvinceTrend()
+}
+
+function onBreedSearchEnter() {
+  if (breedSearchTimer) {
+    clearTimeout(breedSearchTimer)
+    breedSearchTimer = null
+  }
+  const q = breedSearch.value.trim()
+  if (!q) return
+  if (breedSearchResults.value.length > 0) {
+    addBreedFromSearch(breedSearchResults.value[0])
+    return
+  }
+  searchBreeds(q).then(() => {
+    if (breedSearchResults.value.length > 0) {
+      addBreedFromSearch(breedSearchResults.value[0])
+    }
+  })
+}
+
 async function loadProvinceTrend() {
   trendLoading.value = true
   try {
     const params = new URLSearchParams()
     if (userProvince.value) params.set('province', userProvince.value)
     params.set('months', '6')
-    params.set('limit', '10')
+    if (selectedBreeds.value.length > 0) {
+      // 用户已选品种 → 后端按用户顺序返回(不随机)
+      params.set('breeds', selectedBreeds.value.join(','))
+    } else {
+      params.set('limit', '10')
+    }
     const r = await fetchJson(`/api/market/province-trend?${params.toString()}`)
     provinceTrend.value = r
+    // 同步 selectedBreeds — 后端可能过滤了无数据的品种
+    if (r.breeds?.length) {
+      selectedBreeds.value = r.breeds.map(b => b.breed)
+    }
     await nextTick()
     renderTrendChart()
   } catch (e) {
@@ -496,6 +623,7 @@ async function refreshRandomBreeds() {
   if (refreshingBreeds.value) return
   refreshingBreeds.value = true
   try {
+    selectedBreeds.value = []  // 清空用户选择 → 走 random 10
     await loadProvinceTrend()
   } finally {
     refreshingBreeds.value = false
@@ -565,12 +693,14 @@ async function renderTrendChart() {
 //   我们在 onMounted 里手动调一次 loadProvinceTrend,所以这里 watch 用来响应后续变化
 watch(userProvince, (newP, oldP) => {
   if (newP !== oldP) {
+    selectedBreeds.value = []  // 2026-07-28: 切省份时清空,避免旧品种在新省份没数据
     loadProvinceTrend()
   }
 })
 
 onUnmounted(() => {
   if (trendChart.value) trendChart.value.dispose()
+  document.removeEventListener('mousedown', _onDocMousedown)
 })
 
 // ── 阅读进度 + KPI 动画 ──────────────────────────────────────────────────
@@ -652,6 +782,8 @@ onMounted(async () => {
   await loadAll()
   await requestGeoLocation()
   await loadProvinceTrend()  // 首次加载,后续 watch 触发
+  // 2026-07-28: 文档点击关闭品种搜索 dropdown
+  document.addEventListener('mousedown', _onDocMousedown)
   // 阅读进度 + KPI 数字动画
   window.addEventListener('scroll', _onScrollForProgress, { passive: true })
   _onScrollForProgress()
@@ -900,6 +1032,107 @@ onUnmounted(() => {
 }
 .m-trend-toolbar-actions {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+/* 2026-07-28: 搜索品种 dropdown — 加选品种进图表 */
+.m-trend-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.m-trend-search-input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  min-width: 200px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  color: #111827;
+  font-family: inherit;
+}
+.m-trend-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.m-trend-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: 3px solid #3b82f6;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 50;
+  min-width: 280px;
+}
+.m-trend-search-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: #111827;
+  transition: background .12s;
+}
+.m-trend-search-result:hover:not(:disabled) {
+  background: #f0f9ff;
+}
+.m-trend-search-result:disabled,
+.m-trend-search-result.selected {
+  background: #dbeafe;
+  color: #1d4ed8;
+  cursor: default;
+}
+.m-trend-search-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-trend-search-l3 {
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.m-trend-search-docs {
+  font-size: 11px;
+  color: #9ca3af;
+  font-family: ui-monospace, monospace;
+  flex-shrink: 0;
+}
+.m-trend-search-tag {
+  font-size: 10px;
+  color: #1e40af;
+  background: #bfdbfe;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.m-trend-search-loading {
+  position: absolute;
+  top: 50%; right: 10px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255,255,255,0.9);
+  padding: 0 4px;
+  pointer-events: none;
 }
 /* 换一组品种按钮(主操作色,显眼) */
 .m-trend-refresh-btn {

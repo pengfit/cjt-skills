@@ -2022,7 +2022,8 @@ def attr_keys(
 def province_trend(
     province: Optional[str] = Query(None, description="省份(中文,如 '山东');空=全国"),
     months: int = Query(6, ge=1, le=24, description="往前几个月"),
-    limit: int = Query(10, ge=1, le=30, description="随机品种数"),
+    limit: int = Query(10, ge=1, le=30, description="随机品种数(breeds 未指定时生效)"),
+    breeds: Optional[str] = Query(None, description="2026-07-28: 指定品种列表(逗号分隔),按用户顺序返回(不随机);空=随机 limit 个"),
 ):
     """单省份多品种半年价趋势(给 /market GPS 定位后展示)
 
@@ -2102,18 +2103,24 @@ def province_trend(
                     continue
                 breed_data.setdefault(breed_name, {})[period_idx] = round(float(avg), 4)
 
-        # 按覆盖度(多少个月有数据)排序,再 random.sample 取 limit 个保多样性
-        candidates = sorted(
-            [(b, len(pts)) for b, pts in breed_data.items()],
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        # 优先覆盖度 ≥1 的所有品种,random.sample 出 limit 个
-        candidate_names = [b for b, c in candidates if c >= 1]
-        if len(candidate_names) > limit:
-            selected_names = random.sample(candidate_names, limit)
+        # 2026-07-28: breeds 参数 — 用户指定品种时按用户顺序返回(不随机),否则保持原 random 逻辑
+        if breeds:
+            target = [b.strip() for b in breeds.split(",") if b.strip()][:limit]
+            # 静默跳过无数据的品种(避免 500)
+            selected_names = [b for b in target if b in breed_data]
         else:
-            selected_names = candidate_names
+            # 按覆盖度(多少个月有数据)排序,再 random.sample 取 limit 个保多样性
+            candidates = sorted(
+                [(b, len(pts)) for b, pts in breed_data.items()],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            # 优先覆盖度 ≥1 的所有品种,random.sample 出 limit 个
+            candidate_names = [b for b, c in candidates if c >= 1]
+            if len(candidate_names) > limit:
+                selected_names = random.sample(candidate_names, limit)
+            else:
+                selected_names = candidate_names
 
         breeds_out = []
         for breed_name in selected_names:
@@ -2121,7 +2128,9 @@ def province_trend(
             points = [{"period_idx": pidx, "avg_price": pts[pidx]} for pidx in sorted(pts.keys())]
             breeds_out.append({"breed": breed_name, "points": points})
 
-        random.shuffle(breeds_out)
+        # 用户指定品种时保持顺序(便于视觉追踪),随机时打乱
+        if not breeds:
+            random.shuffle(breeds_out)
         return {
             "province": province or "",
             "periods": periods,
