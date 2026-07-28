@@ -69,9 +69,9 @@ ENV ES_HOST=http://host.docker.internal:59200 \
 
 EXPOSE 5200
 
-# 健康检查（用容器内 localhost，避免反向代理干扰）
+# 健康检查(2026-07-28 修:用 /healthz 不用 /api/health —后者已迁出 /api/)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS http://localhost:5200/api/health || exit 1
+    CMD curl -fsS http://localhost:5200/healthz || exit 1
 
 # 启动（多 worker）
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "5200", "--workers", "2", "--proxy-headers"]

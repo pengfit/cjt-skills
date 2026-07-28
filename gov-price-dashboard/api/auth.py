@@ -4,7 +4,7 @@
   - 单 admin(env 注入 ADMIN_USER / ADMIN_HASH,无 db)
   - JWT HS256,默认 24h 过期
   - 全局 dependency:get_current_user 验证 Authorization Bearer
-  - 公开路由仅 /api/auth/login 与 /api/health(后者给 docker healthcheck)
+  - 公开路由仅 /api/auth/login 与 /healthz(后者给 docker healthcheck;2026-07-28 修:/api/health 已迁出)
 
 依赖(已加 requirements.txt):
   python-jose[cryptography]>=3.3
