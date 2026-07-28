@@ -24,6 +24,8 @@ if ('scrollRestoration' in history) {
 //   在 /market 路由下,只允许调用 /api/market/* 接口,其他 /api/* 一律拒绝并 console.warn
 //   隔离范围:防止误调 /api/list/* /api/skill-updates 等非 /market 接口
 //   注意:必须在 Vue 应用创建前安装,才能拦截所有 fetch 调用
+// 2026-07-28 v3: 恢复原状 — /market 双卡片改走新建的 /api/market/{price-trend,trend-table}
+//   不再放行 /api/norm/*, 保持 /api/market/* 单白名单
 const _originalFetch = window.fetch.bind(window)
 window.fetch = function (input, init) {
   const isMarketRoute =

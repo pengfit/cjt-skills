@@ -85,6 +85,12 @@ _PUBLIC_PATHS = {
     "/api/market/sparkline",
     # 2026-07-27:趋势卡专用,单品种按城绝对价,公开(/market 页用)
     "/api/market/breed-trend",
+    # 2026-07-28 v3:/market 双卡片公开端点(价格走势 + 时序数据表)
+    #   与 /api/norm/price-trend 同源 NORM 数据, 但 /market/ 前缀 + 收紧参数
+    "/api/market/price-trend",
+    "/api/market/trend-table",
+    # 2026-07-28 v3.1:/market 双卡片 toolbar 下拉用 — 列出 NORM 已 ETL 城市
+    "/api/market/cities",
     # 2026-07-28:浏览器 GPS 反查中国省份名(Nominatim 代理),公开(/market 首屏定位用)
     "/api/market/geo-locate",
     # 2026-07-28:GPS 定位后展示用 — 单省份多品种 × 月度均价趋势(单 query 拿 10 品种 × 6 月),公开
@@ -180,6 +186,8 @@ app.include_router(list_router, **_PROTECTED)
 from api.routes.norm_distribution import router as norm_distribution_router
 app.include_router(norm_distribution_router, **_PROTECTED)
 # 2026-07-23: /trend 页专用路由组 (NORM via norm_{city}_price,无 DWS fallback)
+# 2026-07-28 v3: 恢复 _PROTECTED — /market 双卡片改走新建的 /api/market/{price-trend,trend-table}
+#   /api/norm/price-trend 仍归 /trend 页专用,鉴权后访问
 from api.routes.norm_trend import router as norm_trend_router
 app.include_router(norm_trend_router, **_PROTECTED)
 

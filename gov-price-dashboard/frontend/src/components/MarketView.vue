@@ -84,68 +84,128 @@
       <div v-if="loading" class="m-loading">加载中…</div>
       <div v-else-if="loadError" class="m-error">⚠️ {{ loadError }}</div>
 
-      <!-- 2026-07-28 v1.0: 半年价格趋势卡(单图 10 品种 × 6 月均价)— 替代原热力图 -->
-      <section v-if="provinceTrend.breeds?.length || trendLoading" class="m-card m-card-trend">
-        <header class="m-trend-toolbar">
-          <div class="m-trend-toolbar-info">
-            <h2 class="m-trend-title">📈 {{ userProvince || '全国' }} · 半年价格趋势</h2>
-            <p class="m-trend-toolbar-sub">
-              近 {{ provinceTrend.periods?.length || 6 }} 期(月度) ·
-              {{ provinceTrend.breeds?.length || 0 }} 个品种 ·
-              每条线 = 该品种在{{ userProvince || '全国' }}所有城市的均价
-            </p>
+      <!-- 2026-07-28 v3.1: /market 嵌 2 张真卡片 — 价格走势 + 时序数据表 (仿 /trend 页) -->
+      <!-- 卡片 1：价格走势 多线折线图 — top 8 品种 × top 3 规格 × N 期 (N 由 toolbar 选) -->
+      <section v-if="trendCard.data?.series?.length || trendCard.loading" class="m-card m-trend-chart-card">
+        <header class="m-card-head">
+          <div class="m-trend-chart-info">
+            <h2 class="m-trend-chart-title">📈 价格走势 · {{ trendCard.cityLabel }}</h2>
           </div>
-          <div class="m-trend-toolbar-actions">
-            <!-- 2026-07-28: 搜索品种加进图表(用户选定的品种 sticky,直到"🎲 换一组") -->
+          <!-- 2026-07-28 v3.1: toolbar — 城市下拉 + 期数下拉 + 品种输入框搜索 -->
+          <div class="m-trend-toolbar">
+            <select v-model="trendCard.cityKey" class="m-trend-select" :disabled="trendCard.citiesLoading" @change="onTrendCityChange">
+              <option v-if="trendCard.citiesLoading" value="">加载城市中…</option>
+              <option v-for="c in (trendCard.cities || [])" :key="c.key" :value="c.key">{{ c.label }}</option>
+            </select>
+            <select v-model="trendCard.periodsLimit" class="m-trend-select" @change="onTrendFilterChange">
+              <option v-for="p in trendPeriodOptions" :key="p.v" :value="p.v">{{ p.label }}</option>
+            </select>
             <div class="m-trend-search-wrap">
               <input
-                v-model="breedSearch"
+                v-model="trendCard.searchQuery"
                 type="text"
                 class="m-trend-search-input"
                 placeholder="🔍 搜索品种加进图…"
-                @input="onBreedSearchInput"
-                @keydown.enter="onBreedSearchEnter"
-                @focus="breedSearchOpen = breedSearchResults.length > 0"
+                @input="onTrendSearchInput"
+                @keydown.enter="onTrendSearchEnter"
+                @focus="trendCard.searchOpen = trendCard.searchResults.length > 0"
               />
               <div
-                v-if="breedSearchOpen && breedSearchResults.length > 0"
+                v-if="trendCard.searchOpen && trendCard.searchResults.length > 0"
                 class="m-trend-search-dropdown"
                 @mousedown.prevent
               >
                 <button
-                  v-for="r in breedSearchResults"
+                  v-for="r in trendCard.searchResults"
                   :key="r.breed"
                   type="button"
                   class="m-trend-search-result"
-                  :class="{ selected: selectedBreeds.includes(r.breed) }"
-                  :disabled="selectedBreeds.includes(r.breed)"
+                  :class="{ selected: trendCard.selectedBreeds.includes(r.breed) }"
+                  :disabled="trendCard.selectedBreeds.includes(r.breed)"
                   @mousedown.prevent="addBreedFromSearch(r)"
                 >
                   <span class="m-trend-search-name">{{ r.breed }}</span>
                   <span v-if="r.category_name_l3" class="m-trend-search-l3">{{ r.category_name_l3 }}</span>
-                  <span class="m-trend-search-docs">{{ r.records || 0 }}</span>
-                  <span v-if="selectedBreeds.includes(r.breed)" class="m-trend-search-tag">已加</span>
+                  <span class="m-trend-search-docs">{{ r.records || 0 }} 文档</span>
+                  <span v-if="trendCard.selectedBreeds.includes(r.breed)" class="m-trend-search-tag">已加</span>
                 </button>
               </div>
-              <div v-if="breedSearchLoading" class="m-trend-search-loading">搜索中…</div>
+              <div v-if="trendCard.searchLoading" class="m-trend-search-loading">搜索中…</div>
             </div>
             <button
+              v-if="trendCard.selectedBreeds.length"
               class="m-trend-refresh-btn"
               type="button"
-              :disabled="refreshingBreeds"
-              @click="refreshRandomBreeds"
-              title="随机换一组(清空用户选择)"
+              @click="resetBreedSelection"
+              :title="`清空 ${trendCard.selectedBreeds.length} 个已选品种 — 回到随机 top 8`"
             >
-              <span class="m-trend-refresh-icon" :class="{ spinning: refreshingBreeds }">🎲</span>
-              换一组品种
+              🎲 重选 ({{ trendCard.selectedBreeds.length }})
             </button>
           </div>
         </header>
-        <div ref="trendChartRef" class="m-trend-chart"></div>
-        <div v-if="trendLoading && !provinceTrend.breeds?.length" class="m-trend-loading">加载中…</div>
-        <div v-if="!provinceTrend.breeds?.length && !trendLoading" class="m-trend-empty">
-          {{ userProvince ? `${userProvince} 暂无历史价数据` : '全国暂无历史价数据' }}
-          (月度聚合 ≥ 1 条才出图)
+        <div ref="trendChartEl" class="m-trend-chart"></div>
+        <div v-if="trendCard.loading && !trendCard.data?.series?.length" class="m-trend-status">加载中…</div>
+        <div v-if="!trendCard.loading && !trendCard.data?.series?.length" class="m-trend-status">
+          该城市暂无趋势数据
+        </div>
+      </section>
+
+      <!-- 卡片 2：时序数据表 — 每品种 × 每规格 × 每期均价 -->
+      <section v-if="trendTable.rows.length || trendCard.loading" class="m-card m-trend-table-card">
+        <header class="m-card-head">
+          <div>
+            <h2 class="m-trend-chart-title">📊 时序数据表 · 按规格拆分</h2>
+            <p class="m-trend-chart-sub">
+              共 {{ trendTable.rows.length }} 条规格行 ·
+              同材料不同规格价差可达数百倍，已拆分展示 ·
+              「环比」取首末两期
+            </p>
+          </div>
+        </header>
+        <div class="m-trend-table-scroll">
+          <table class="m-trend-table">
+            <thead>
+              <tr>
+                <th>材料</th>
+                <th>规格</th>
+                <th>单位</th>
+                <th v-for="p in trendTable.periods" :key="p.start" :title="`${p.start} ~ ${p.end}`">
+                  {{ p.label }}
+                </th>
+                <th class="m-trend-th-trend">环比</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in trendTable.rows" :key="`${r.material}__${r.spec}`">
+                <td class="m-trend-cell-material">{{ r.material }}</td>
+                <td class="m-trend-cell-spec" :title="r.spec">{{ r.spec }}</td>
+                <td class="m-trend-cell-unit">{{ r.unit || '—' }}</td>
+                <td v-for="p in trendTable.periods" :key="p.start" class="m-trend-cell-price">
+                  <template v-if="r.prices[p.start] != null">
+                    <div class="m-trend-price-val">{{ r.prices[p.start].toFixed(2) }}</div>
+                    <div class="m-trend-price-meta">{{ r.pricesN[p.start] }}条</div>
+                  </template>
+                  <span v-else class="m-trend-no-data">—</span>
+                </td>
+                <td class="m-trend-cell-trend">
+                  <template v-if="r.trendPct != null">
+                    <div :class="['m-trend-pct', trendClassOf(r.trendPct, r.trendAbs)]">
+                      {{ r.trendPct >= 0 ? '↑' : '↓' }} {{ Math.abs(r.trendPct).toFixed(1) }}%
+                    </div>
+                    <div class="m-trend-abs">
+                      {{ r.trendAbs >= 0 ? '+' : '' }}{{ r.trendAbs.toFixed(1) }}
+                    </div>
+                  </template>
+                  <span v-else class="m-trend-no-data">—</span>
+                </td>
+              </tr>
+              <tr v-if="!trendTable.rows.length && !trendCard.loading">
+                <td :colspan="trendTable.periods.length + 4" class="m-trend-no-data" style="padding: 30px;">
+                  暂无数据
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -256,11 +316,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useEcharts } from '../composables/useEcharts'
-import { registerGovPriceTheme, GOV_PRICE_PALETTE } from '../composables/useEchartsTheme'
+// 2026-07-28 v2: 重加 useEcharts — /market 嵌入价格走势 + 时序数据表 2 张卡片需要 echarts
+//   (不再需 registerGovPriceTheme / GOV_PRICE_PALETTE,内联颜色池足够)
 
 // SEO: /market 页面级 head — 长尾词关键词
 const SITE_URL = 'https://pengfit.cn'
@@ -337,40 +398,23 @@ const geoStatus = ref('prompting')
 const geoSource = ref('')  // 'gps' | 'cache' | 'manual'
 const availableProvinces = ref([])  // 从 data-quality 推 — 不需新端点
 
-// 半年价格趋势
-const provinceTrend = ref({ province: '', periods: [], breeds: [] })
-const trendChartRef = ref(null)
-const trendChart = ref(null)
-const trendLoading = ref(false)
-const refreshingBreeds = ref(false)
-// 2026-07-28: 用户搜的品种(sticky,直到"🎲 换一组"或省份切换)
-const selectedBreeds = ref([])
-// 搜索框状态
-const breedSearch = ref('')
-const breedSearchResults = ref([])
-const breedSearchLoading = ref(false)
-const breedSearchOpen = ref(false)
-let breedSearchTimer = null
-
-// 文档点击关闭 dropdown(搜索框内点击不算)
-function _onDocMousedown(e) {
-  const wrap = document.querySelector('.m-trend-search-wrap')
-  if (wrap && wrap.contains(e.target)) return
-  breedSearchOpen.value = false
-}
-const registerGovPriceThemeOnce = (() => {
-  let done = false
-  return async () => { if (!done) { await registerGovPriceTheme(); done = true; } }
-})()
+// 半年价格趋势(2026-07-28 整段删除 — 功能已迁移到 /trend 页,MarketView 不再持有趋势状态)
+//   删除清单:
+//     provinceTrend / trendChartRef / trendChart / trendLoading / refreshingBreeds
+//     selectedBreeds / breedSearch / breedSearchResults / breedSearchLoading / breedSearchOpen / breedSearchTimer
+//     _onDocMousedown / registerGovPriceThemeOnce
+//     onBreedSearchInput / searchBreeds / addBreedFromSearch / onBreedSearchEnter
+//     loadProvinceTrend / refreshRandomBreeds / renderTrendChart
+//     watch(userProvince, ...) / onMounted 的 loadProvinceTrend / onUnmounted 的 dispose
 
 const loading = ref(true)
 const loadError = ref('')
 
 // ── fetch helper ──────────────────────────────────────────────────
 async function fetchJson(path) {
-  // 公开页守卫: /market 只能调 /api/market/*
-  if (!path.startsWith('/api/market/')) {
-    throw new Error(`[market-view-guard] /market 页面禁止调用 ${path}\n允许范围: /api/market/*`)
+  // 公开页守卫: /market 只能调 /api/market/* 和 /api/norm/price-trend (后者由后端 _PUBLIC_PATHS 放开)
+  if (!path.startsWith('/api/market/') && !path.startsWith('/api/norm/')) {
+    throw new Error(`[market-view-guard] /market 页面禁止调用 ${path}\n允许范围: /api/market/* /api/norm/*`)
   }
   const finalPath = withCacheBuster(path)
   const r = await fetch(finalPath, { headers: { Accept: 'application/json' } })
@@ -515,29 +559,183 @@ function onProvinceSelect() {
   }
 }
 
-// ── 半年价格趋势(10 品种 × 6 月均价,单图多线) ──────────────────────────────────────────────────
-// 2026-07-28: 搜索品种(300ms debounce → /api/market/breed-search)
-function onBreedSearchInput() {
-  const q = breedSearch.value.trim()
-  if (breedSearchTimer) clearTimeout(breedSearchTimer)
-  if (!q) {
-    breedSearchResults.value = []
-    breedSearchOpen.value = false
-    return
-  }
-  breedSearchTimer = setTimeout(() => searchBreeds(q), 300)
+// ── 半年价格趋势(2026-07-28 整段删除 — 已迁移到 /trend 页) ──────────────────────────────────────
+//   删除清单:
+//     onBreedSearchInput / searchBreeds / addBreedFromSearch / onBreedSearchEnter
+//     loadProvinceTrend / refreshRandomBreeds / renderTrendChart
+//     watch(userProvince, ...) / onMounted 的 loadProvinceTrend / onUnmounted 的 dispose
+
+// ── 价格走势 + 时序数据表(2026-07-28 v3.2 — /market 嵌 /trend 双卡片 + toolbar) ──────────────────────
+//   数据源: /api/market/price-trend + /api/market/trend-table (公开, 2026-07-28 v3 新增)
+//   toolbar: 城市下拉 + 期数下拉 + 品种输入框搜索 (仿 /trend 页交互)
+//   默认参数: city=qingdao (NORM 索引已 ETL), 近 6 期 (v3.2 默认收紧), top 8 品种, top 3 规格
+const trendCard = reactive({
+  data: null,
+  loading: false,
+  cityLabel: '青岛',  // 默认; 响应返回后覆盖
+  cityKey: 'qingdao',
+  cities: [],           // /api/market/cities 返回 (按 docs_count 倒序)
+  citiesLoading: false,
+  periodsLimit: '6',    // v3.2: 默认近 6 期 (之前是 12); '6' | '12' | '18' | '24'
+  searchQuery: '',      // 品种输入框
+  searchLoading: false,
+  searchOpen: false,
+  searchResults: [],    // /api/market/breed-search 返回
+  selectedBreeds: [],   // 用户显式选择的品种 (sticky, 随 toolbar 展示)
+})
+const trendPeriodOptions = [
+  { v: '6',  label: '近 6 期' },
+  { v: '12', label: '近 12 期' },
+  { v: '18', label: '近 18 期' },
+  { v: '24', label: '近 24 期' },
+]
+const trendChartEl = ref(null)
+let trendChartInstance = null
+let _trendSearchTimer = null
+const trendTable = reactive({
+  periods: [],
+  rows: [],
+})
+
+// 趋势阈值(与 /trend 页一致) — 强信号/弱信号/持平 三档
+const TREND_THRESHOLD = {
+  strong_pct: 5.0,   // |Δ%| ≥ 5% 视为强信号
+  strong_abs: 30,    // |Δ元| ≥ 30 视为强信号
+  mild_pct: 2.0,     // |Δ%| ≥ 2% 视为弱信号
+  mild_abs: 10,      // |Δ元| ≥ 10 视为弱信号
 }
 
-async function searchBreeds(q) {
-  breedSearchLoading.value = true
+function trendClassOf(pct, abs) {
+  if (pct == null) return ''
+  const dir = pct >= 0 ? 'up' : 'down'
+  const strong = Math.abs(pct) >= TREND_THRESHOLD.strong_pct
+                 || Math.abs(abs || 0) >= TREND_THRESHOLD.strong_abs
+  const mild = Math.abs(pct) >= TREND_THRESHOLD.mild_pct
+                 || Math.abs(abs || 0) >= TREND_THRESHOLD.mild_abs
+  if (strong) return `m-trend-strong m-trend-${dir}`
+  if (mild) return `m-trend-mild m-trend-${dir}`
+  return 'm-trend-flat'
+}
+
+async function loadTrendCards() {
+  trendCard.loading = true
   try {
-    // 2026-07-28: 带当前定位省份,搜索只在该省数据池里挑(避免搜出异地品种)
+    // 2026-07-28 v3: 改调 /api/market/price-trend + /api/market/trend-table
+    //   不再复用 /api/norm/price-trend (那是 /trend 页专用,鉴权后访问)
+    const commonParams = new URLSearchParams()
+    commonParams.set('city', trendCard.cityKey)
+    commonParams.set('periods', trendCard.periodsLimit)
+    commonParams.set('top_specs', '3')
+    commonParams.set('max_breeds', '8')
+    // v3.1: 用户选了品种 → 后端按用户顺序返 (不随机 top 8)
+    if (trendCard.selectedBreeds.length > 0) {
+      commonParams.set('materials', trendCard.selectedBreeds.join(','))
+    }
+    // 双端点并发拉,后端复用同一份 ES 数据,前端各吃各的 shape
+    const [chartR, tableR] = await Promise.all([
+      fetchJson(`/api/market/price-trend?${commonParams.toString()}`),
+      fetchJson(`/api/market/trend-table?${commonParams.toString()}`),
+    ])
+    if (!chartR.ok) {
+      console.warn('[market-trend]', chartR.error)
+      trendCard.data = { series: [], periods: [], total_docs: 0 }
+      trendTable.rows = []
+      trendTable.periods = []
+      return
+    }
+    trendCard.data = chartR
+    trendCard.cityLabel = chartR.label || trendCard.cityLabel
+    trendTable.periods = chartR.periods || []
+
+    // tableR 已后端预处理好(rows + prices + trend_pct/trend_abs),前端只适配字段名
+    if (tableR.ok) {
+      trendTable.rows = (tableR.rows || []).map(r => ({
+        material: r.material,
+        spec: r.spec,
+        unit: r.unit,
+        prices: r.prices || {},
+        pricesN: r.prices_n || {},
+        trendPct: r.trend_pct,
+        trendAbs: r.trend_abs,
+      }))
+      // totalSpecs = 后端返回的 rows 数
+      trendCard.totalSpecs = trendTable.rows.length
+    } else {
+      trendTable.rows = []
+      trendCard.totalSpecs = 0
+    }
+
+    await nextTick()
+    await renderTrendChart()
+  } catch (e) {
+    console.error('[market-trend]', e)
+    trendCard.data = { series: [], periods: [], total_docs: 0 }
+    trendTable.rows = []
+    trendTable.periods = []
+  } finally {
+    trendCard.loading = false
+  }
+}
+
+// ── 2026-07-28 v3.1: toolbar 交互 ──────────────────────────────────────
+// 加载城市列表 (进页面首次拉)
+//   v3.2: 传 userProvince 参数,后端只返该省 NORM 城市; 该省无 NORM 时 fallback 全国
+async function loadMarketCities() {
+  trendCard.citiesLoading = true
+  try {
+    const params = new URLSearchParams()
+    if (userProvince.value) params.set('province', userProvince.value)
+    let r = await fetchJson(`/api/market/cities?${params.toString()}`)
+    // 该省无 NORM 数据 → fallback 全国(避免空下拉 + 默认青岛不在列里)
+    if ((!r.cities || r.cities.length === 0) && userProvince.value) {
+      console.warn(`[market-cities] ${userProvince.value} 无 NORM 城市, fallback 全国`)
+      r = await fetchJson('/api/market/cities')
+    }
+    if (r.ok && r.cities) {
+      trendCard.cities = r.cities
+      const cur = trendCard.cities.find(c => c.key === trendCard.cityKey)
+      if (cur) trendCard.cityLabel = cur.label
+    }
+  } catch (e) {
+    console.warn('[market-cities]', e)
+  } finally {
+    trendCard.citiesLoading = false
+  }
+}
+
+// 城市变更 → 重拉 (可能城市无 NORM 数据, 后端返 ok=False)
+function onTrendCityChange() {
+  const cur = trendCard.cities.find(c => c.key === trendCard.cityKey)
+  if (cur) trendCard.cityLabel = cur.label
+  loadTrendCards()
+}
+
+// 期数变更 → 重拉
+function onTrendFilterChange() {
+  loadTrendCards()
+}
+
+// 品种输入框 debounce 300ms → /api/market/breed-search
+function onTrendSearchInput() {
+  const q = trendCard.searchQuery.trim()
+  if (_trendSearchTimer) clearTimeout(_trendSearchTimer)
+  if (!q) {
+    trendCard.searchResults = []
+    trendCard.searchOpen = false
+    return
+  }
+  _trendSearchTimer = setTimeout(() => searchTrendBreeds(q), 300)
+}
+
+async function searchTrendBreeds(q) {
+  trendCard.searchLoading = true
+  try {
     const params = new URLSearchParams()
     params.set('q', q)
     params.set('limit', '15')
-    if (userProvince.value) params.set('province', userProvince.value)
+    if (trendCard.cityKey) params.set('province', trendCard.cityKey)
     const data = await fetchJson(`/api/market/breed-search?${params.toString()}`)
-    // 客户端排序:exact > prefix > contains > 其他(ES wildcard 不算 relevance)
+    // 客户端排序:exact > prefix > contains > 其他
     const qLower = q.toLowerCase()
     const scored = (data.results || []).map(r => {
       const name = r.breed.toLowerCase()
@@ -548,131 +746,131 @@ async function searchBreeds(q) {
       return { r, score }
     })
     scored.sort((a, b) => a.score - b.score || (b.r.records || 0) - (a.r.records || 0))
-    breedSearchResults.value = scored.map(s => s.r)
-    breedSearchOpen.value = breedSearchResults.value.length > 0
+    trendCard.searchResults = scored.map(s => s.r)
+    trendCard.searchOpen = trendCard.searchResults.length > 0
   } catch (e) {
-    console.error('[breed-search]', e)
-    breedSearchResults.value = []
+    console.error('[trend-breed-search]', e)
+    trendCard.searchResults = []
   } finally {
-    breedSearchLoading.value = false
+    trendCard.searchLoading = false
   }
+}
+
+function onTrendSearchEnter() {
+  if (_trendSearchTimer) {
+    clearTimeout(_trendSearchTimer)
+    _trendSearchTimer = null
+  }
+  const q = trendCard.searchQuery.trim()
+  if (!q) return
+  if (trendCard.searchResults.length > 0) {
+    addBreedFromSearch(trendCard.searchResults[0])
+    return
+  }
+  searchTrendBreeds(q).then(() => {
+    if (trendCard.searchResults.length > 0) {
+      addBreedFromSearch(trendCard.searchResults[0])
+    }
+  })
 }
 
 function addBreedFromSearch(r) {
-  if (selectedBreeds.value.includes(r.breed)) {
-    // 已加,仅清空输入框
-    breedSearch.value = ''
-    breedSearchResults.value = []
-    breedSearchOpen.value = false
+  if (trendCard.selectedBreeds.includes(r.breed)) {
+    trendCard.searchQuery = ''
+    trendCard.searchResults = []
+    trendCard.searchOpen = false
     return
   }
-  selectedBreeds.value = [...selectedBreeds.value, r.breed]
-  breedSearch.value = ''
-  breedSearchResults.value = []
-  breedSearchOpen.value = false
-  loadProvinceTrend()
+  trendCard.selectedBreeds = [...trendCard.selectedBreeds, r.breed]
+  trendCard.searchQuery = ''
+  trendCard.searchResults = []
+  trendCard.searchOpen = false
+  loadTrendCards()
 }
 
-function onBreedSearchEnter() {
-  if (breedSearchTimer) {
-    clearTimeout(breedSearchTimer)
-    breedSearchTimer = null
-  }
-  const q = breedSearch.value.trim()
-  if (!q) return
-  if (breedSearchResults.value.length > 0) {
-    addBreedFromSearch(breedSearchResults.value[0])
-    return
-  }
-  searchBreeds(q).then(() => {
-    if (breedSearchResults.value.length > 0) {
-      addBreedFromSearch(breedSearchResults.value[0])
-    }
-  })
+function resetBreedSelection() {
+  trendCard.selectedBreeds = []
+  loadTrendCards()
 }
 
-async function loadProvinceTrend() {
-  trendLoading.value = true
-  try {
-    const params = new URLSearchParams()
-    if (userProvince.value) params.set('province', userProvince.value)
-    params.set('months', '6')
-    if (selectedBreeds.value.length > 0) {
-      // 用户已选品种 → 后端按用户顺序返回(不随机)
-      params.set('breeds', selectedBreeds.value.join(','))
-    } else {
-      params.set('limit', '10')
+// 2026-07-28 v3.2: 当前地区 userProvince 变动 → 联动查询
+//   1) loadMarketCities(按新省份过滤, fallback 全国)
+//   2) 同步 cityKey — 若当前不在新城市列表里, 切到列表中第一个
+//   3) loadTrendCards(重拉价格走势 + 时序数据表)
+watch(userProvince, async (newP, oldP) => {
+  if (newP === oldP) return
+  await loadMarketCities()
+  // 同步 cityKey — 若当前 cityKey 不在新城市列表里, 切到第一个
+  if (trendCard.cities.length > 0) {
+    const exists = trendCard.cities.find(c => c.key === trendCard.cityKey)
+    if (!exists) {
+      const first = trendCard.cities[0]
+      trendCard.cityKey = first.key
+      trendCard.cityLabel = first.label
     }
-    const r = await fetchJson(`/api/market/province-trend?${params.toString()}`)
-    provinceTrend.value = r
-    // 同步 selectedBreeds — 后端可能过滤了无数据的品种
-    if (r.breeds?.length) {
-      selectedBreeds.value = r.breeds.map(b => b.breed)
-    }
-    await nextTick()
-    renderTrendChart()
-  } catch (e) {
-    console.error('[market] province-trend 失败', e)
-    provinceTrend.value = { province: userProvince.value || '', periods: [], breeds: [] }
-  } finally {
-    trendLoading.value = false
   }
+  await loadTrendCards()
+})
+
+// 文档点击关闭品种搜索 dropdown(搜索框内点击不算)
+function _onTrendDocMousedown(e) {
+  const wrap = document.querySelector('.m-trend-search-wrap')
+  if (wrap && wrap.contains(e.target)) return
+  trendCard.searchOpen = false
 }
 
-async function refreshRandomBreeds() {
-  if (refreshingBreeds.value) return
-  refreshingBreeds.value = true
-  try {
-    selectedBreeds.value = []  // 清空用户选择 → 走 random 10
-    await loadProvinceTrend()
-  } finally {
-    refreshingBreeds.value = false
-  }
-}
+const COLOR_POOL = [
+  '#dc2626', '#2563eb', '#16a34a', '#ea580c', '#7c3aed',
+  '#0891b2', '#db2777', '#65a30d', '#9333ea', '#0d9488',
+  '#e11d48', '#4f46e5', '#059669', '#d97706', '#a21caf',
+  '#b45309', '#0369a1', '#15803d', '#a16207',
+]
 
 async function renderTrendChart() {
-  if (!trendChartRef.value) return
-  await registerGovPriceThemeOnce()
-  if (!trendChart.value) {
-    const echarts = await useEcharts()
-    trendChart.value = echarts.init(trendChartRef.value, 'govPrice')
+  if (!trendChartEl.value) return
+  const echarts = await useEcharts()
+  if (!trendChartInstance) {
+    trendChartInstance = echarts.init(trendChartEl.value, null, { renderer: 'canvas' })
   }
-  const data = provinceTrend.value
-  if (!data || !data.periods?.length || !data.breeds?.length) {
-    trendChart.value.clear()
+  const data = trendCard.data
+  if (!data?.series?.length) {
+    trendChartInstance.clear()
     return
   }
-  const periodLabels = data.periods.map(p => p.label)
-  const numPeriods = periodLabels.length
-  const series = data.breeds.map((b, i) => {
-    // 把 points 映射到 numPeriods 长度数组(缺失补 null, connectNulls 自动连)
-    const values = new Array(numPeriods).fill(null)
-    for (const p of b.points) {
-      if (p.period_idx >= 0 && p.period_idx < numPeriods) {
-        values[p.period_idx] = +p.avg_price.toFixed(2)
+  const periods = data.periods || []
+  const periodLabels = periods.map(p => p.label)
+  const series = []
+  let colorIdx = 0
+  for (const s of data.series) {
+    for (const sp of (s.specs || [])) {
+      // 把 sp.points 映射到 periods 长度数组(缺失补 null, connectNulls 自动连)
+      const values = new Array(periods.length).fill(null)
+      for (const p of (sp.points || [])) {
+        const idx = periods.findIndex(period => period.start === p.period_start)
+        if (idx >= 0) values[idx] = +p.avg.toFixed(2)
       }
+      series.push({
+        name: `${s.normalized_breed} / ${sp.spec}`,
+        type: 'line',
+        data: values,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { width: 1.6, color: COLOR_POOL[colorIdx % COLOR_POOL.length] },
+        itemStyle: { color: COLOR_POOL[colorIdx % COLOR_POOL.length] },
+        emphasis: { focus: 'series' },
+        connectNulls: true,
+      })
+      colorIdx++
     }
-    return {
-      name: b.breed,
-      type: 'line',
-      data: values,
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 5,
-      lineStyle: { width: 1.8, color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
-      itemStyle: { color: GOV_PRICE_PALETTE[i % GOV_PRICE_PALETTE.length] },
-      emphasis: { focus: 'series' },
-      connectNulls: true,
-    }
-  })
-
-  trendChart.value.setOption({
-    grid: { left: 60, right: 20, top: 50, bottom: 40 },
+  }
+  trendChartInstance.setOption({
+    grid: { left: 60, right: 20, top: 30, bottom: 40 },
     tooltip: {
       trigger: 'axis',
       valueFormatter: v => v != null ? `¥${v.toFixed(2)}` : '—',
     },
-    legend: { type: 'scroll', top: 5, textStyle: { fontSize: 11 } },
+    legend: { type: 'scroll', top: 0, textStyle: { fontSize: 10 } },
     xAxis: {
       type: 'category',
       data: periodLabels,
@@ -687,21 +885,6 @@ async function renderTrendChart() {
     series,
   }, true)
 }
-
-// userProvince 变化 → 重拉趋势(初次 mounted 不触发,因为 watch 立即触发一次)
-//   实际上 watch 默认 lazy,只有 userProvince 从非空变非空、或初次赋值才触发
-//   我们在 onMounted 里手动调一次 loadProvinceTrend,所以这里 watch 用来响应后续变化
-watch(userProvince, (newP, oldP) => {
-  if (newP !== oldP) {
-    selectedBreeds.value = []  // 2026-07-28: 切省份时清空,避免旧品种在新省份没数据
-    loadProvinceTrend()
-  }
-})
-
-onUnmounted(() => {
-  if (trendChart.value) trendChart.value.dispose()
-  document.removeEventListener('mousedown', _onDocMousedown)
-})
 
 // ── 阅读进度 + KPI 动画 ──────────────────────────────────────────────────
 const readProgress = ref(0)
@@ -781,9 +964,10 @@ function changeClass(pct) {
 onMounted(async () => {
   await loadAll()
   await requestGeoLocation()
-  await loadProvinceTrend()  // 首次加载,后续 watch 触发
-  // 2026-07-28: 文档点击关闭品种搜索 dropdown
-  document.addEventListener('mousedown', _onDocMousedown)
+  await loadMarketCities()  // 2026-07-28 v3.1: 加载城市列表到 toolbar 下拉
+  await loadTrendCards()  // 2026-07-28 v2: 价格走势 + 时序数据表 双卡片
+  // 2026-07-28 v3.1: 文档点击关闭品种搜索 dropdown
+  document.addEventListener('mousedown', _onTrendDocMousedown)
   // 阅读进度 + KPI 数字动画
   window.addEventListener('scroll', _onScrollForProgress, { passive: true })
   _onScrollForProgress()
@@ -805,6 +989,11 @@ onUnmounted(() => {
     _kpiObserver.disconnect()
     _kpiObserver = null
   }
+  if (trendChartInstance) {
+    trendChartInstance.dispose()
+    trendChartInstance = null
+  }
+  document.removeEventListener('mousedown', _onTrendDocMousedown)
 })
 </script>
 
@@ -1057,37 +1246,71 @@ onUnmounted(() => {
   margin: 0 0 4px 0;
 }
 
-/* ── 趋势卡(2026-07-28 v1.0:替代原热力图) ── */
-.m-card-trend { /* 复用 .m-card 通用样式 */ }
+/* ── 价格走势 + 时序数据表 双卡片(2026-07-28 v2 — /market 嵌 /trend 简化版) ── */
+.m-card-head {
+  margin-bottom: 16px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.m-trend-chart-card,
+.m-trend-table-card { /* 复用 .m-card 通用样式 */ }
+.m-trend-chart-title {
+  font-size: 18px; font-weight: 700; color: #111827;
+  margin: 0; letter-spacing: -0.2px;
+}
+.m-trend-chart-sub {
+  font-size: 13px; color: #6b7280;
+  margin: 0; line-height: 1.5;
+}
+/* 2026-07-28 v3.1: toolbar — 城市/期数 select + 品种搜索 input + 重选按钮 */
 .m-trend-toolbar {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
-.m-trend-toolbar-info { flex: 1; min-width: 0; }
-.m-trend-title {
-  color: #111827; letter-spacing: -.3px; margin: 0 0 4px;
-  font-size: 18px; font-weight: 700;
+.m-trend-select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23475569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M2.5 4.5l3.5 3.5 3.5-3.5'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1e40af;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  min-width: 90px;
 }
-.m-trend-toolbar-sub {
-  color: #6b7280; margin: 0; font-size: 13px; line-height: 1.5;
+.m-trend-select:hover { border-color: #93c5fd; }
+.m-trend-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
-.m-trend-toolbar-actions {
-  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+.m-trend-select:disabled {
+  background-color: #f3f4f6; color: #9ca3af; cursor: wait;
 }
-/* 2026-07-28: 搜索品种 dropdown — 加选品种进图表 */
 .m-trend-search-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 .m-trend-search-input {
-  height: 36px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 13px;
   background: #fff;
-  min-width: 200px;
+  min-width: 220px;
   outline: none;
   transition: border-color .15s, box-shadow .15s;
   color: #111827;
@@ -1104,7 +1327,7 @@ onUnmounted(() => {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-top: 3px solid #3b82f6;
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
   max-height: 320px;
   overflow-y: auto;
@@ -1126,9 +1349,7 @@ onUnmounted(() => {
   color: #111827;
   transition: background .12s;
 }
-.m-trend-search-result:hover:not(:disabled) {
-  background: #f0f9ff;
-}
+.m-trend-search-result:hover:not(:disabled) { background: #f0f9ff; }
 .m-trend-search-result:disabled,
 .m-trend-search-result.selected {
   background: #dbeafe;
@@ -1136,30 +1357,25 @@ onUnmounted(() => {
   cursor: default;
 }
 .m-trend-search-name {
-  flex: 1;
-  min-width: 0;
+  flex: 1; min-width: 0;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .m-trend-search-l3 {
-  font-size: 11px;
-  color: #6b7280;
+  font-size: 11px; color: #6b7280;
   background: #f3f4f6;
   padding: 1px 6px;
   border-radius: 4px;
   flex-shrink: 0;
 }
 .m-trend-search-docs {
-  font-size: 11px;
-  color: #9ca3af;
+  font-size: 11px; color: #9ca3af;
   font-family: ui-monospace, monospace;
   flex-shrink: 0;
 }
 .m-trend-search-tag {
-  font-size: 10px;
-  color: #1e40af;
+  font-size: 10px; color: #1e40af;
   background: #bfdbfe;
   padding: 1px 6px;
   border-radius: 4px;
@@ -1175,48 +1391,151 @@ onUnmounted(() => {
   padding: 0 4px;
   pointer-events: none;
 }
-/* 换一组品种按钮(主操作色,显眼) */
 .m-trend-refresh-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0 12px;
+  height: 32px;
   background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
   color: #fff;
-  border: none; border-radius: 8px;
-  font-size: 13px; font-weight: 600;
+  border: none; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(30, 64, 175, 0.2);
   transition: transform .15s ease, box-shadow .15s ease;
   white-space: nowrap;
 }
-.m-trend-refresh-btn:hover:not(:disabled) {
+.m-trend-refresh-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
 }
-.m-trend-refresh-btn:disabled {
-  opacity: .7; cursor: not-allowed; box-shadow: none;
+.m-trend-refresh-btn:active { transform: translateY(0); }
+@media (max-width: 640px) {
+  .m-trend-toolbar { width: 100%; }
+  .m-trend-search-input { min-width: 0; flex: 1; }
+  .m-trend-select { min-width: 0; flex: 1; }
 }
-.m-trend-refresh-icon {
-  font-size: 14px; display: inline-block; line-height: 1;
-}
-.m-trend-refresh-icon.spinning {
-  animation: m-refresh-spin .8s linear infinite;
-}
-@keyframes m-refresh-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
+.m-trend-chart-info { flex: 1; min-width: 0; }
 .m-trend-chart {
-  width: 100%; height: 360px;
+  width: 100%; height: 380px;
 }
-.m-trend-loading {
-  text-align: center; color: #6b7280;
-  padding: 20px; font-size: 13px;
-}
-.m-trend-empty {
+.m-trend-status {
   text-align: center; color: #9ca3af;
   background: #fafbfc; border: 1px dashed #e5e7eb; border-radius: 8px;
   padding: 40px 20px; font-size: 13px;
+  margin-top: 12px;
+}
+
+/* 时序数据表 */
+.m-trend-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.m-trend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+.m-trend-table thead {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+.m-trend-table th {
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #475569;
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  border-right: 1px solid #f1f5f9;
+  position: sticky; top: 0;
+  background: #f8fafc;
+}
+.m-trend-table th:last-child { border-right: none; }
+.m-trend-th-trend { color: #1e40af !important; }
+.m-trend-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background .12s;
+}
+.m-trend-table tbody tr:hover { background: #f8fafc; }
+.m-trend-table tbody tr:last-child { border-bottom: none; }
+.m-trend-cell-material {
+  font-weight: 600; color: #111827;
+  padding: 10px 12px;
+  border-right: 1px solid #f1f5f9;
+  position: sticky; left: 0;
+  background: inherit;
+}
+.m-trend-cell-spec {
+  padding: 10px 12px;
+  color: #1e40af;
+  font-weight: 500;
+  border-right: 1px solid #f1f5f9;
+  max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.m-trend-cell-unit {
+  padding: 10px 12px;
+  color: #6b7280;
+  font-size: 12px;
+  border-right: 1px solid #f1f5f9;
+}
+.m-trend-cell-price {
+  padding: 8px 12px;
+  text-align: right;
+  border-right: 1px solid #f1f5f9;
+  min-width: 78px;
+}
+.m-trend-price-val {
+  color: #111827;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.m-trend-price-meta {
+  color: #9ca3af;
+  font-size: 10px;
+  margin-top: 1px;
+  letter-spacing: 0.2px;
+}
+.m-trend-cell-trend {
+  padding: 8px 12px;
+  text-align: right;
+  border-right: 1px solid #f1f5f9;
+  min-width: 88px;
+  background: #fafbfc;
+}
+.m-trend-pct {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.m-trend-up { color: #dc2626; }
+.m-trend-down { color: #16a34a; }
+.m-trend-flat { color: #6b7280; }
+.m-trend-strong { font-weight: 700; }
+.m-trend-mild { font-weight: 600; }
+.m-trend-abs {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 1px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.m-trend-no-data {
+  color: #d1d5db;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .m-trend-chart { height: 280px; }
+  .m-trend-table { font-size: 12px; }
+  .m-trend-cell-price, .m-trend-cell-trend { min-width: 64px; padding: 6px 8px; }
 }
 
 /* ── 数据来源 + 新鲜度 合并卡(2026-07-28)— 替代原两张卡 ── */

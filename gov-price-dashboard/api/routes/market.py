@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.skill_registry import get_all as _registry_get_all
+from api.routes.norm_trend import norm_price_trend as _norm_price_trend_inner  # 2026-07-28: /market 双卡片复用 /trend 的 NORM 取数逻辑
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
@@ -2212,3 +2213,163 @@ def spec_fingerprints(
         return {"data": results[:limit]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── 价格走势 + 时序数据表 双卡片接口(2026-07-28 v3 — /market 公开页专用) ──────────
+#   与 /trend 页同源 NORM 数据, 复用 norm_trend.norm_price_trend 内部函数
+#   公开, 不需 JWT(_PUBLIC_PATHS 通过 /api/market/* 前缀默认放行)
+#   参数比 /api/norm/price-trend 更严: 公开页防止被滥用
+@router.get("/price-trend")
+def market_price_trend(
+    city: str = Query("qingdao", description="城市 key (公开页默认 qingdao — NORM 索引已 ETL)"),
+    periods: int = Query(12, ge=1, le=12, description="期数, 公开页限制最多 12"),
+    top_specs: int = Query(3, ge=1, le=5, description="每品种规格数, 公开页限制最多 5"),
+    max_breeds: int = Query(8, ge=1, le=10, description="品种数, 公开页限制最多 10"),
+):
+    """公开页价格走势 chart 数据(简化版 /api/norm/price-trend)
+
+    返回结构与 /api/norm/price-trend 同形: {periods, series, total_docs, ...}
+    /market 价格走势卡片直接吃这个 shape。
+
+    设计:
+      - city 默认 qingdao (与 norm_trend hardcoded 一致, 已 ETL)
+      - 参数上限收紧, 防公开页被滥用拉全量
+      - materials='*' (走 top N 品种路径)
+      - date_from/to 空 (走 periods 路径)
+      - attr_keys 空 (不过滤)
+    """
+    return _norm_price_trend_inner(
+        city=city,
+        materials='*',
+        periods=periods,
+        date_from='',
+        date_to='',
+        top_specs=top_specs,
+        max_breeds=max_breeds,
+        attr_keys='',
+    )
+
+
+@router.get("/trend-table")
+def market_trend_table(
+    city: str = Query("qingdao", description="城市 key (公开页默认 qingdao)"),
+    periods: int = Query(12, ge=1, le=12, description="期数, 公开页限制最多 12"),
+    top_specs: int = Query(3, ge=1, le=5, description="每品种规格数, 公开页限制最多 5"),
+    max_breeds: int = Query(8, ge=1, le=10, description="品种数, 公开页限制最多 10"),
+):
+    """公开页时序数据表(扁平行, 每行 = 一品种 × 一规格)
+
+    返回结构:
+      {
+        ok: true,
+        city, label,
+        periods: [{start, end, label}],
+        rows: [{material, spec, unit, prices: {period_start: avg}, prices_n: {...},
+                trend_pct, trend_abs}],
+        total_docs
+      }
+
+    /market 时序数据表卡片直接吃这个 shape, 无需前端二次 transform。
+
+    设计:
+      - 内部复用 _norm_price_trend_inner (避免与 price-trend 重复 ES 查询逻辑)
+      - 同样的参数上限, 与 price-trend 同源数据
+      - 趋势%与绝对额在服务端算好(首末两期), 前端只渲染
+    """
+    data = _norm_price_trend_inner(
+        city=city,
+        materials='*',
+        periods=periods,
+        date_from='',
+        date_to='',
+        top_specs=top_specs,
+        max_breeds=max_breeds,
+        attr_keys='',
+    )
+    if not data.get('ok'):
+        return data
+
+    rows = []
+    for s in (data.get('series') or []):
+        for sp in (s.get('specs') or []):
+            prices = {}
+            prices_n = {}
+            for p in (sp.get('points') or []):
+                prices[p['period_start']] = p['avg']
+                prices_n[p['period_start']] = p['n']
+            pts = sp.get('points') or []
+            trend_pct = None
+            trend_abs = None
+            if len(pts) >= 2 and pts[0].get('avg', 0) > 0:
+                first = pts[0]['avg']
+                last = pts[-1]['avg']
+                trend_pct = ((last - first) / first) * 100
+                trend_abs = last - first
+            rows.append({
+                'material': s.get('normalized_breed', ''),
+                'spec': sp.get('spec', ''),
+                'unit': sp.get('unit') or s.get('unit') or '',
+                'prices': prices,
+                'prices_n': prices_n,
+                'trend_pct': trend_pct,
+                'trend_abs': trend_abs,
+            })
+
+    return {
+        'ok': True,
+        'city': data.get('city', city),
+        'label': data.get('label', ''),
+        'periods': data.get('periods', []),
+        'rows': rows,
+        'total_docs': data.get('total_docs', 0),
+    }
+
+
+# ── 城市列表(2026-07-28 v3.1 — /market 双卡片 toolbar 下拉用) ────────────────────────────
+#   公开,只返 NORM 已 ETL 的城市(key + 标签),无敏感数据
+#   数据源: 扫 _registry_get_all() 的所有 skill, 过滤 NORM 索引真实存在的
+# 2026-07-28 v3.2: 接受 province 参数,只返该省的 NORM 城市
+#   - province 为空 / '全国' → 返全国 (与旧行为一致)
+#   - province 为省名(如 '山东') → 只返 _skill_keys_by_province(province) 里的城市
+@router.get("/cities")
+def market_cities(
+    province: str = Query("", description="省份名, 空或'全国'= 全国 NORM 城市, 如'山东'仅返山东 NORM 城市"),
+):
+    """公开页 /market 工具栏下拉(城市选择)用 — 列出 NORM 已 ETL 的城市
+
+    返回: {ok, cities: [{key, label, docs_count}], province}
+      - docs_count: 该城市 NORM 索引文档总数 (totals 聚合, 1 次轻量 ES 查询)
+      - 按 docs_count 倒序, 数据多的城市排前面
+      - province 非空时仅返该省内的城市(配合前端 GPS 定位)
+    """
+    from api.dependencies import es
+    # v3.2: 省份过滤 — 空 / '全国' 走全国路径,否则只过该省的 skill keys
+    province_keys = None
+    if province and province != '全国':
+        try:
+            province_keys = set(_skill_keys_by_province(province))
+        except Exception:
+            province_keys = set()
+    cities = []
+    for skill in _registry_get_all() or []:
+        key = skill.get('key')
+        label = skill.get('label', key)
+        if not key:
+            continue
+        # v3.2: 省份过滤
+        if province_keys is not None and key not in province_keys:
+            continue
+        norm_idx = f"norm_{key}_price"
+        # 校验 NORM 索引真实存在(轻量 head 请求)
+        try:
+            if not es.indices.exists(index=norm_idx, ignore_unavailable=True):
+                continue
+            # 一次轻量聚合拿文档数
+            r = es.count(index=norm_idx, ignore_unavailable=True, allow_no_indices=True)
+            docs = r.get('count', 0)
+        except Exception:
+            continue
+        if docs == 0:
+            continue
+        cities.append({'key': key, 'label': label, 'docs_count': docs})
+    cities.sort(key=lambda x: x['docs_count'], reverse=True)
+    return {'ok': True, 'cities': cities, 'province': province or '全国'}
