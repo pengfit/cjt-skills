@@ -287,7 +287,7 @@ useHead({
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'Dataset',
-        name: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊',
+        name: 'ChinaJT · 工程材料价格数据 · 17 城住建局官方期刊',
         description: '17 城住建局官方造价信息期刊数据 · 跨城归一品类 9,000+ · 钢筋 / 水泥 / 给水管 / 电缆 等材料价格行情',
         url: `${SITE_URL}/market`,
         inLanguage: 'zh-CN',

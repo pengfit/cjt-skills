@@ -5,7 +5,7 @@
     <PageHeader
       variant="flat"
       title="价格走势"
-      :subtitle="`${cityLabel} · 工程造价材料价格时序曲线，按业务期聚合 · 按规格拆分`"
+      :subtitle="`${cityLabel} · 工程材料价格时序曲线，按业务期聚合 · 按规格拆分`"
       :stats="topStats"
     >
       <template #icon>📈</template>
