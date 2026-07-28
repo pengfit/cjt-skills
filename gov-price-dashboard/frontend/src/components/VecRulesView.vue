@@ -124,13 +124,15 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
 
 import PageHeader from './PageHeader.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
+import { useFetch } from '../composables/useFetch.js'  // 2026-07-28: 统一 fetch composable (Step 2)
 
-const API = import.meta.env.VITE_API_URL || '/api'
 const fmt = useFormatNumber()
+// 2026-07-28: 用 useFetch 取代手写 loading/axios.get/catch/finally 模板
+//   vecLoading 由 composable 自动管理,vecFetch() 内部带 abort 防止 stale 覆盖
+const { data: vecRulesData, loading: vecLoading, fetch: vecFetch } = useFetch()
 
 // ── 表格 CSS Grid 列模板 (fr 比例，等宽分布) ──
 const GRID_COLS = '52px minmax(110px, 1.4fr) minmax(90px, 1fr) minmax(110px, 1.1fr) minmax(150px, 1.6fr) minmax(260px, 2.4fr) minmax(120px, 1fr) minmax(150px, 1fr)'
@@ -143,7 +145,7 @@ const vecJumpPage = ref(1)
 
 const vecSearch = ref('')
 const vecOrder = ref('desc')
-const vecLoading = ref(false)
+// vecLoading 由 useFetch composable 管理(已从 line 134 解构)
 const showHelp = ref(false)
 
 // ── 衍生统计 ──
@@ -192,19 +194,12 @@ function goToVecPage() {
   }
 }
 
-// ── 网络 ──
+// ── 网络(2026-07-28 Step 2:用 useFetch 统一) ──
 async function loadVecRules(page = 1) {
-  vecLoading.value = true
-  try {
-    const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
-    if (vecSearch.value) params.search = vecSearch.value
-    const res = await axios.get(`${API}/stats/rules-vector`, { params })
-    vecRules.value = res.data || {}
-    } catch (e) {
-    console.warn('rules-vector failed', e)
-  } finally {
-    vecLoading.value = false
-  }
+  const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
+  if (vecSearch.value) params.search = vecSearch.value
+  const result = await vecFetch('/stats/rules-vector', { params })
+  vecRules.value = result || { total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [], l3_options: [] }
 }
 
 // ── URL query 同步 (search 直达链接) ──
