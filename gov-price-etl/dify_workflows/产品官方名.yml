@@ -144,46 +144,146 @@ workflow:
         model:
           completion_params:
             temperature: 0.7
+            thinking: adaptive
           mode: chat
           name: minimax-m3
           provider: langgenius/minimax/minimax
         prompt_template:
         - id: 099db72b-b800-4eca-9e64-345d95e00a37
           role: system
-          text: "你是一名工程造价行业的产品命名规范化专家，职责是把全国各地源站五花八门\n的建材名称统一为\"产品官方名\"，用于跨城市价格对比。\n\
-            \n# 核心目标\n\n源站同一产品的写法通常有多个变体：\n  - 括号差异:    \"热轧光圆钢筋（高线）\" / \"热轧光圆钢筋(高线)\"\
-            \ / \"热轧光圆钢筋\"\n  - 含牌号:      \"热轧带肋钢筋 HRB400\" / \"热轧带肋钢筋(HRB400)\" /\
-            \ \"热轧带肋钢筋\"\n  - 全/半角:     \"球墨铸铁管 DN150\" / \"球墨铸铁管dn150\"\n  - 多余修饰:\
-            \    \"国标Ⅱ级钢筋 Φ20\" / \"钢筋 Φ20\"\n  - 命名差异:    \"PE给水管\" / \"PE给水管道\"\
-            \ / \"聚乙烯给水管\"\n\n你的工作：识别这些变体，合并到\"一个产品 = 一个官方名\"。\n\n# 命名规则\n\n1. 官方名\
-            \ = 行业通用、最简洁、无括号修饰、不带牌号/规格的\"产品本质名\"。\n   ✅ \"热轧光圆钢筋\"\n   ❌ \"热轧光圆钢筋（高线）\"\
-            \   (括号是源站加的描述，应去掉)\n   ❌ \"热轧光圆钢筋 HRB300\"    (牌号属于规格维度，不进产品名)\n\n2.\
-            \ 牌号是产品身份的一部分时，保留在产品名里（HRB400/E 是钢筋牌号，\n   不是规格）:\n   ✅ \"HRB400钢筋\" \
-            \ (如果产品名以牌号开头)\n   ✅ \"HPB300钢筋\"\n\n3. 同物异名：判断为同一产品时输出同一个官方名。\n   ✅ \"\
-            PE给水管\" / \"聚乙烯给水管\" / \"PE给水管道\" → 都映射到 \"PE给水管\"\n\n4. 同名异物：判断不是同一产品时（行业子类不同），分别给官方名。\n\
-            \   ✅ \"热轧光圆钢筋\" 和 \"热轧带肋钢筋\" → 不同的两个官方名\n\n5. 不确定的输入（看不懂 / 明显错字 / 业务外词条）：\n\
-            \   原样返回 normalized_breed = 原 breed_clean，confidence ≤ 0.6，note 写\"未识别\"\
-            。\n\n# 必填输出字段\n\n对每条 breed_clean，必须返回：\n  - normalized_breed:  string\
-            \  (官方名；不确定时原样返回)\n  - confidence:        float   0.0-1.0\n  - note: \
-            \             string  (≤40 字，说明依据；空串可)\n\n# 置信度标准\n\n  1.00 写法完全等价（仅括号/全半角/空格差异）\n\
-            \  0.95 行业可识别为同一产品（如同物异名）\n  0.85 较确定但有轻微风险（命名变体略多）\n  0.70 存在歧义（可能是同物也可能不是）\n\
-            \  ≤0.60 看不懂 / 跨语义（如含特殊符号、错字、业务外词）\n\n# 强约束（违反则视为错误结果，必须重做）\n\n  1. 输出\
-            \ N 条之前不要停止。N 是输入长度。\n  2. 输入顺序 = 输出顺序（key 顺序对齐）\n  3. normalized_breed\
-            \ 必填、不可空字符串\n  4. 不得返回 markdown、解释、注释、代码块标记\n  5. 不得编造输入中不存在的字段\n  6.\
-            \ normalized_breed 总 distinct 数必须显著小于输入条数（合并生效），\n     若 = 输入条数（未合并），说明\
-            \ AI 没识别变体，需重做\n\n\n待规范化的品种列表（{{#1783515953780.n#}} 条）：\n\n{{#1783515953780.breeds_json#}}\n\
-            \n输出要求（严格遵守）：\n1. 仅返回以下 JSON，禁止任何额外文字\n2. results 的 key 与输入顺序完全一致\n3.\
-            \ 数量一致：results.length === 输入.length\n4. normalized_breed 去重后数量应 < 输入条数（合并）\n\
-            \n{\n  \"ok\": true,\n  \"results\": {\n    \"热轧光圆钢筋（高线）\": {\"normalized_breed\"\
-            : \"热轧光圆钢筋\", \"confidence\": 1.0,  \"note\": \"去括号修饰\"},\n    \"热轧光圆钢筋(高线)\"\
-            :   {\"normalized_breed\": \"热轧光圆钢筋\", \"confidence\": 1.0,  \"note\"\
-            : \"括号全/半角等价\"},\n    \"热轧光圆钢筋\":         {\"normalized_breed\": \"热轧光圆钢筋\"\
-            , \"confidence\": 0.95, \"note\": \"无修饰\"},\n    \"PE给水管\":          \
-            \   {\"normalized_breed\": \"PE给水管\",     \"confidence\": 0.95, \"note\"\
-            : \"\"},\n    \"聚乙烯给水管\":         {\"normalized_breed\": \"PE给水管\",  \
-            \   \"confidence\": 0.95, \"note\": \"同物异名\"},\n    \"球磨铸铁管\":       \
-            \    {\"normalized_breed\": \"球墨铸铁管\",   \"confidence\": 0.85, \"note\"\
-            : \"疑似错字'磨→墨'\"}\n  }\n}\n"
+          text: '你是一名工程造价行业的产品命名规范化专家，职责是把全国各地源站五花八门的建材名称统一为 "产品官方名"，用于跨城市价格对比。
+
+            核心目标
+
+            源站同一产品的写法通常有多个变体：
+
+            括号差异: "热轧光圆钢筋（高线）" / "热轧光圆钢筋 (高线)" / "热轧光圆钢筋"
+
+            含牌号: "热轧带肋钢筋 HRB400" / "热轧带肋钢筋 (HRB400)" / "热轧带肋钢筋"
+
+            全 / 半角: "球墨铸铁管 DN150" / "球墨铸铁管 dn150"
+
+            多余修饰: "国标 Ⅱ 级钢筋 Φ20" / "钢筋 Φ20"
+
+            命名差异: "PE 给水管" / "PE 给水管道" / "聚乙烯给水管"
+
+            你的工作：识别这些真实的同物变体，合并到 "一个产品 = 一个官方名"。如果输入品种本身就是不同的产品，1:1 输出就是正确结果，不要为了
+            "凑合并" 强行归一不同产品。
+
+            命名规则
+
+            官方名 = 行业通用、最简洁、无括号修饰、不带牌号 / 规格的 "产品本质名"。
+
+            ✅ "热轧光圆钢筋"
+
+            ❌ "热轧光圆钢筋（高线）" (括号是源站加的描述，应去掉)
+
+            ❌ "热轧光圆钢筋 HRB300" (牌号属于规格维度，不进产品名)
+
+            牌号是产品身份的一部分时，保留在产品名里（HRB400/E 是钢筋牌号，不是规格）:
+
+            ✅ "HRB400 钢筋" (如果产品名以牌号开头)
+
+            ✅ "HPB300 钢筋"
+
+            同物异名：判断为同一产品时输出同一个官方名。
+
+            ✅ "PE 给水管" / "聚乙烯给水管" / "PE 给水管道" → 都映射到 "PE 给水管"
+
+            同名异物：判断不是同一产品时（行业子类不同），分别给官方名。
+
+            ✅ "热轧光圆钢筋" 和 "热轧带肋钢筋" → 不同的两个官方名
+
+            不确定的输入（看不懂 / 明显错字 / 业务外词条）：
+
+            原样返回 normalized_breed = 原 breed_clean，confidence ≤ 0.6，note 写 "未识别"。
+
+            必填输出字段
+
+            对每条 breed_clean，必须返回：
+
+            normalized_breed: string (官方名；不确定时原样返回)
+
+            confidence: float 0.0-1.0
+
+            note: string (≤40 字，说明依据；空串可)
+
+            置信度标准
+
+            1.00 写法完全等价（仅括号 / 全半角 / 空格差异）
+
+            0.95 行业可识别为同一产品（如同物异名）
+
+            0.85 较确定但有轻微风险（命名变体略多）
+
+            0.70 存在歧义（可能是同物也可能不是）
+
+            ≤0.60 看不懂 / 跨语义（如含特殊符号、错字、业务外词）
+
+            强约束（违反视为错误）
+
+            输出 N 条之前不要停止。N 是输入长度。
+
+            输入顺序 = 输出顺序（key 顺序对齐）
+
+            normalized_breed 必填、不可空字符串
+
+            不得返回 markdown、解释、注释、代码块标记
+
+            不得编造输入中不存在的字段
+
+            真正可合并的同物异名才合并；不同产品 1:1 输出完全合法。不要为了凑合并数把不同产品强行归一。下游 CLI 会拦截 normalized
+            == breed_clean 的 1:1 echo，你不必在本层担心。
+
+            防死循环红线（违反直接判错）
+
+            不要纠结 "该不该合并"。每个 breed_clean 独立判断：能找到等价 / 同物异名就合并，找不到就直接 1:1。20 条全独立 =
+            20 条 distinct = 合法输出。
+
+            不要展开推理 "是否要去前缀"" 是否要剥离修饰词 "。判断标准就一条：行业通用、最简洁、无括号修饰、不带牌号 / 规格的本质名。
+
+            不要复盘 / 反思 / 解释你的判断。判断完立即输出 JSON，禁止继续推理。
+
+            待规范化的品种列表（{{#1783515953780.n#}} 条）：
+
+            {{#1783515953780.breeds_json#}}
+
+            输出要求（严格遵守）：
+
+            仅返回以下 JSON，禁止任何额外文字
+
+            results 的 key 与输入顺序完全一致
+
+            数量一致：results.length === 输入.length
+
+            真正可合并的同物异名才合并；本就是不同产品就 1:1 输出
+
+            不可以任意发挥添加新字段
+
+            {
+
+            "ok": true,
+
+            "results": {
+
+            "热轧光圆钢筋（高线）": {"normalized_breed": "热轧光圆钢筋", "confidence": 1.0, "note":
+            "去括号修饰"},
+
+            "热轧光圆钢筋 (高线)": {"normalized_breed": "热轧光圆钢筋", "confidence": 1.0, "note":
+            "括号全 / 半角等价"},
+
+            "热轧光圆钢筋": {"normalized_breed": "热轧光圆钢筋", "confidence": 0.95, "note": "无修饰"},
+
+            "PE 给水管": {"normalized_breed": "PE 给水管", "confidence": 0.95, "note": ""},
+
+            "聚乙烯给水管": {"normalized_breed": "PE 给水管", "confidence": 0.95, "note": "同物异名"},
+
+            "球磨铸铁管": {"normalized_breed": "球墨铸铁管", "confidence": 0.85, "note": "疑似错字
+            '' 磨→墨 ''"}
+
+            }
+
+            }'
         selected: true
         title: LLM
         type: llm
@@ -203,28 +303,43 @@ workflow:
       type: custom
       width: 242
     - data:
-        code: "import json\n\ndef main(llm_output: str) -> dict:\n    try:\n     \
-          \   parsed = json.loads(llm_output)\n    except Exception as e:\n      \
-          \  return {\"ok\": False, \"results\": f\"JSON parse failed: {e}\"}\n\n\
-          \    if not isinstance(parsed, dict) or parsed.get(\"ok\") is not True:\n\
-          \        return {\"ok\": False, \"results\": \"top-level ok != true\"}\n\
-          \n    results = parsed.get(\"results\", {})\n    if not isinstance(results,\
-          \ dict):\n        return {\"ok\": False, \"results\": \"results not a dict\"\
-          }\n\n    # 校验每条\n    cleaned = {}\n    for k, v in results.items():\n  \
-          \      nb = (v.get(\"normalized_breed\") or \"\").strip()\n        cf =\
-          \ v.get(\"confidence\", 0.0)\n        nt = (v.get(\"note\") or \"\").strip()[:40]\n\
-          \        if not nb:\n            return {\"ok\": False, \"results\": f\"\
-          empty normalized_breed for {k!r}\"}\n        if not (0.0 <= float(cf) <=\
-          \ 1.0):\n            return {\"ok\": False, \"results\": f\"bad confidence\
-          \ for {k!r}: {cf}\"}\n        cleaned[k] = {\"normalized_breed\": nb, \"\
-          confidence\": float(cf), \"note\": nt}\n\n    # 强约束：去重数 < 输入数（合并必须生效）\n\
-          \    distinct_out = len(set(v[\"normalized_breed\"] for v in cleaned.values()))\n\
-          \    if distinct_out >= len(cleaned):\n        return {\n            \"\
-          ok\": False,\n            \"results\": f\"未合并: distinct_out={distinct_out}\
-          \ >= inputs={len(cleaned)}，\"\n                       f\"说明 AI 没识别变体，疑似全量\
-          \ 1:1 返回\",\n        }\n\n    return {\"ok\": True, \"results\": cleaned}"
+        code: "import json\nimport re\n\ndef _extract_json(text: str) -> str:\n  \
+          \  \"\"\"健壮提取 JSON 字符串：处理 ```json``` / 前缀说明 / 尾部注释。\"\"\"\n    text = (text\
+          \ or \"\").strip()\n    # 抠 ```json ... ``` 块\n    if text.startswith(\"\
+          ```\"):\n        parts = text.split(\"```\")\n        if len(parts) >= 3:\n\
+          \            text = parts[1]\n            if text.startswith(\"json\"):\n\
+          \                text = text[4:]\n    # 找第一个完整 {...} 或 [...] 块（用 stack 计数）\n\
+          \    starts = [i for i, c in enumerate(text) if c in \"[{\"]\n    for s\
+          \ in starts:\n        opener = text[s]\n        closer = \"}\" if opener\
+          \ == \"{\" else \"]\"\n        depth = 0\n        in_str = False\n     \
+          \   esc = False\n        for i in range(s, len(text)):\n            c =\
+          \ text[i]\n            if esc:\n                esc = False\n          \
+          \      continue\n            if c == \"\\\\\":\n                esc = True\n\
+          \                continue\n            if c == '\"':\n                in_str\
+          \ = not in_str\n                continue\n            if in_str:\n     \
+          \           continue\n            if c == opener:\n                depth\
+          \ += 1\n            elif c == closer:\n                depth -= 1\n    \
+          \            if depth == 0:\n                    return text[s : i + 1]\n\
+          \    return text\n\ndef main(llm_output):\n    \"\"\"解析 LLM 输出为结构化 dict。\n\
+          \n    返回 3 个字段（与 Code 节点 outputs 字典 key 严格对应）：\n    - ok (bool): 解析是否成功\n\
+          \    - results (dict): breed → {normalized_breed, confidence, note}\n  \
+          \  - err_msg (str): 错误信息（成功时空字符串）— 不用 error（Dify 保留字）\n\n    注：docstring\
+          \ 里曾提到的 raw 字段不在 return 里（Dify 只认 outputs 声明的 key，\n    多塞一个未声明字段反而触发 \"\
+          Not all output parameters are validated\"）。\n    \"\"\"\n    out = {\"ok\"\
+          : False, \"results\": {}, \"err_msg\": \"\"}    # ← [] 改 {}，对齐 Code outputs\
+          \ schema\n    raw = _extract_json(llm_output or \"\")\n    if not raw:\n\
+          \        out[\"err_msg\"] = \"empty LLM output\"\n        return out\n \
+          \   try:\n        data = json.loads(raw)\n    except Exception as e:\n \
+          \       out[\"err_msg\"] = f\"json.loads failed: {e}\"\n        return out\n\
+          \    if isinstance(data, dict) and isinstance(data.get(\"results\"), dict):\n\
+          \        out[\"ok\"] = True\n        out[\"results\"] = data[\"results\"\
+          ]\n        return out\n    out[\"err_msg\"] = \"results not a dict\"\n \
+          \   return out"
         code_language: python3
         outputs:
+          err_msg:
+            children: null
+            type: string
           ok:
             children: null
             type: boolean
@@ -265,10 +380,15 @@ workflow:
           - ok
           value_type: string
           variable: ok
+        - value_selector:
+          - '1783516093067'
+          - err_msg
+          value_type: string
+          variable: err_msg
         selected: false
         title: 输出
         type: end
-      height: 114
+      height: 140
       id: '1783516251093'
       position:
         x: 1013
@@ -282,7 +402,7 @@ workflow:
       type: custom
       width: 242
     viewport:
-      x: -156.25295620361385
-      y: 234.61659529050473
+      x: 31.747043796386038
+      y: 93.77256900121517
       zoom: 0.9930924954370359
   rag_pipeline_variables: []
