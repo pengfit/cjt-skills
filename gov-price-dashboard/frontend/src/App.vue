@@ -11,7 +11,12 @@
   <NotFoundView v-else-if="route.name === 'not-found'" />
   <!-- 2026-07-25: 移动端拦截页 — 不需鉴权,放在 LoginView 前面优先渲染 -->
   <MobileBlockedView v-else-if="route.name === 'mobile-blocked'" />
-  <LoginView v-else-if="!isAuthed" />
+  <!-- 2026-07-29 BUG 修: 访问 / 时 LoginView 闪现
+       原因:Vue Router 初次渲染的瞬间 route.name 可能是 undefined,导致上面 4 个公开页 v-else-if 全部不命中,
+       落到 !isAuthed → 登录框闪现 → route 解析完变 'home' → HomeView 覆盖
+       修复:加 route.name 守卫 —— 路由未解析时不显示登录框(也不显示后台)
+            这种瞬间通常 < 1 帧,肉眼看到的"闪现"被消掉 -->
+  <LoginView v-else-if="route.name && !isAuthed" />
   <DashboardView v-else />
 </template>
 

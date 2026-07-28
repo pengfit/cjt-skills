@@ -105,32 +105,16 @@
                 v-model="trendCard.searchQuery"
                 type="text"
                 class="m-trend-search-input"
-                placeholder="🔍 搜索品种加进图…"
-                @input="onTrendSearchInput"
+                placeholder="🔍 输入品种名 (例:HRB400) 回车搜索"
                 @keydown.enter="onTrendSearchEnter"
-                @focus="trendCard.searchOpen = trendCard.searchResults.length > 0"
               />
-              <div
-                v-if="trendCard.searchOpen && trendCard.searchResults.length > 0"
-                class="m-trend-search-dropdown"
-                @mousedown.prevent
-              >
-                <button
-                  v-for="r in trendCard.searchResults"
-                  :key="r.breed"
-                  type="button"
-                  class="m-trend-search-result"
-                  :class="{ selected: trendCard.selectedBreeds.includes(r.breed) }"
-                  :disabled="trendCard.selectedBreeds.includes(r.breed)"
-                  @mousedown.prevent="addBreedFromSearch(r)"
-                >
-                  <span class="m-trend-search-name">{{ r.breed }}</span>
-                  <span v-if="r.category_name_l3" class="m-trend-search-l3">{{ r.category_name_l3 }}</span>
-                  <span class="m-trend-search-docs">{{ r.records || 0 }} 文档</span>
-                  <span v-if="trendCard.selectedBreeds.includes(r.breed)" class="m-trend-search-tag">已加</span>
-                </button>
-              </div>
-              <div v-if="trendCard.searchLoading" class="m-trend-search-loading">搜索中…</div>
+              <button
+                v-if="trendCard.searchQuery"
+                class="m-trend-search-clear"
+                type="button"
+                @click="clearTrendSearchInput"
+                title="清空输入框"
+              >×</button>
             </div>
             <button
               v-if="trendCard.selectedBreeds.length"
@@ -141,6 +125,9 @@
             >
               🎲 重选 ({{ trendCard.selectedBreeds.length }})
             </button>
+            <div v-if="trendCard.searchError" class="m-trend-search-error">
+              {{ trendCard.searchError }}
+            </div>
           </div>
         </header>
         <div ref="trendChartEl" class="m-trend-chart"></div>
@@ -565,9 +552,10 @@ function onProvinceSelect() {
 //     loadProvinceTrend / refreshRandomBreeds / renderTrendChart
 //     watch(userProvince, ...) / onMounted 的 loadProvinceTrend / onUnmounted 的 dispose
 
-// ── 价格走势 + 时序数据表(2026-07-28 v3.2 — /market 嵌 /trend 双卡片 + toolbar) ──────────────────────
+// ── 价格走势 + 时序数据表(2026-07-28 v3.3 — /market 嵌 /trend 双卡片 + toolbar) ──────────────────────
 //   数据源: /api/market/price-trend + /api/market/trend-table (公开, 2026-07-28 v3 新增)
-//   toolbar: 城市下拉 + 期数下拉 + 品种输入框搜索 (仿 /trend 页交互)
+//   toolbar: 城市下拉 + 期数下拉 + 品种输入框 (仿 /trend 页交互)
+//   v3.3: 输入框回车搜索 — 页面同步刷新, 只保留搜索后的品种数据, 清旧数据
 //   默认参数: city=qingdao (NORM 索引已 ETL), 近 6 期 (v3.2 默认收紧), top 8 品种, top 3 规格
 const trendCard = reactive({
   data: null,
@@ -578,10 +566,8 @@ const trendCard = reactive({
   citiesLoading: false,
   periodsLimit: '6',    // v3.2: 默认近 6 期 (之前是 12); '6' | '12' | '18' | '24'
   searchQuery: '',      // 品种输入框
-  searchLoading: false,
-  searchOpen: false,
-  searchResults: [],    // /api/market/breed-search 返回
-  selectedBreeds: [],   // 用户显式选择的品种 (sticky, 随 toolbar 展示)
+  searchError: '',      // 搜索错误提示(未找到品种等)
+  selectedBreeds: [],   // 用户显式选择的品种 (v3.3: 1 个 — 搜索后 只留这个品种)
 })
 const trendPeriodOptions = [
   { v: '6',  label: '近 6 期' },
@@ -715,29 +701,27 @@ function onTrendFilterChange() {
   loadTrendCards()
 }
 
-// 品种输入框 debounce 300ms → /api/market/breed-search
-function onTrendSearchInput() {
+// 品种输入框 → 回车提交, 页面同步刷新(清旧数据, 只留搜索后的品种)
+async function onTrendSearchEnter() {
   const q = trendCard.searchQuery.trim()
-  if (_trendSearchTimer) clearTimeout(_trendSearchTimer)
-  if (!q) {
-    trendCard.searchResults = []
-    trendCard.searchOpen = false
-    return
-  }
-  _trendSearchTimer = setTimeout(() => searchTrendBreeds(q), 300)
-}
-
-async function searchTrendBreeds(q) {
-  trendCard.searchLoading = true
+  if (!q) return
+  trendCard.searchError = ''
+  // 用 /api/market/breed-search 验证品种存在 + 拿到归一名字
+  // 然后设 selectedBreeds = [normalized_breed], loadTrendCards 走 materials= 路径
   try {
     const params = new URLSearchParams()
     params.set('q', q)
-    params.set('limit', '15')
-    if (trendCard.cityKey) params.set('province', trendCard.cityKey)
+    params.set('limit', '5')
+    if (trendCard.cityKey) params.set('city', trendCard.cityKey)
     const data = await fetchJson(`/api/market/breed-search?${params.toString()}`)
+    const results = data.results || []
+    if (results.length === 0) {
+      trendCard.searchError = `未找到品种 "${q}"`
+      return
+    }
     // 客户端排序:exact > prefix > contains > 其他
     const qLower = q.toLowerCase()
-    const scored = (data.results || []).map(r => {
+    const scored = results.map(r => {
       const name = r.breed.toLowerCase()
       let score = 3
       if (name === qLower) score = 0
@@ -746,50 +730,24 @@ async function searchTrendBreeds(q) {
       return { r, score }
     })
     scored.sort((a, b) => a.score - b.score || (b.r.records || 0) - (a.r.records || 0))
-    trendCard.searchResults = scored.map(s => s.r)
-    trendCard.searchOpen = trendCard.searchResults.length > 0
+    const best = scored[0].r
+    // 清旧数据, 只留这一个品种
+    trendCard.selectedBreeds = [best.breed]
+    await loadTrendCards()
   } catch (e) {
-    console.error('[trend-breed-search]', e)
-    trendCard.searchResults = []
-  } finally {
-    trendCard.searchLoading = false
+    trendCard.searchError = `搜索失败: ${e.message}`
   }
 }
 
-function onTrendSearchEnter() {
-  if (_trendSearchTimer) {
-    clearTimeout(_trendSearchTimer)
-    _trendSearchTimer = null
-  }
-  const q = trendCard.searchQuery.trim()
-  if (!q) return
-  if (trendCard.searchResults.length > 0) {
-    addBreedFromSearch(trendCard.searchResults[0])
-    return
-  }
-  searchTrendBreeds(q).then(() => {
-    if (trendCard.searchResults.length > 0) {
-      addBreedFromSearch(trendCard.searchResults[0])
-    }
-  })
-}
-
-function addBreedFromSearch(r) {
-  if (trendCard.selectedBreeds.includes(r.breed)) {
-    trendCard.searchQuery = ''
-    trendCard.searchResults = []
-    trendCard.searchOpen = false
-    return
-  }
-  trendCard.selectedBreeds = [...trendCard.selectedBreeds, r.breed]
+function clearTrendSearchInput() {
   trendCard.searchQuery = ''
-  trendCard.searchResults = []
-  trendCard.searchOpen = false
-  loadTrendCards()
+  trendCard.searchError = ''
 }
 
 function resetBreedSelection() {
   trendCard.selectedBreeds = []
+  trendCard.searchQuery = ''
+  trendCard.searchError = ''
   loadTrendCards()
 }
 
@@ -966,8 +924,6 @@ onMounted(async () => {
   await requestGeoLocation()
   await loadMarketCities()  // 2026-07-28 v3.1: 加载城市列表到 toolbar 下拉
   await loadTrendCards()  // 2026-07-28 v2: 价格走势 + 时序数据表 双卡片
-  // 2026-07-28 v3.1: 文档点击关闭品种搜索 dropdown
-  document.addEventListener('mousedown', _onTrendDocMousedown)
   // 阅读进度 + KPI 数字动画
   window.addEventListener('scroll', _onScrollForProgress, { passive: true })
   _onScrollForProgress()
@@ -993,7 +949,6 @@ onUnmounted(() => {
     trendChartInstance.dispose()
     trendChartInstance = null
   }
-  document.removeEventListener('mousedown', _onTrendDocMousedown)
 })
 </script>
 
@@ -1056,6 +1011,10 @@ onUnmounted(() => {
   color: #111827;
   letter-spacing: -0.5px;
 }
+/* 2026-07-28: hero h1 三档响应式 — 桌面 26 / 平板 22 / 手机 19 / 小屏 17 */
+@media (max-width: 768px) { .m-hero h1 { font-size: 22px; } }
+@media (max-width: 480px) { .m-hero h1 { font-size: 19px; } }
+@media (max-width: 360px) { .m-hero h1 { font-size: 17px; } }
 .m-hero-sub {
   font-size: 14px;
   color: #6b7280;
@@ -1074,6 +1033,12 @@ onUnmounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+/* 2026-07-28: 小屏 (<480px) geo-bar 单列堆, dropdown 拉满 */
+@media (max-width: 480px) {
+  .m-geo-status { width: 100%; justify-content: space-between; }
+  .m-geo-select { flex: 1; }
+  .m-geo-reset { flex: 0 0 auto; }
 }
 /* 控制条 pill — 浅渐变 + 轻阴影,统一按钮视觉 */
 .m-geo-status {
@@ -1198,6 +1163,12 @@ onUnmounted(() => {
   gap: 14px;
   margin-bottom: 24px;
 }
+@media (max-width: 768px) {
+  .m-kpi { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .m-kpi-item { padding: 12px 12px; }
+  .m-kpi-value { font-size: 20px; }
+  .m-kpi-label, .m-kpi-sub { font-size: 11px; }
+}
 .m-kpi-item {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -1320,76 +1291,37 @@ onUnmounted(() => {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
-.m-trend-search-dropdown {
+/* v3.3: 输入框右侧 × 清空按钮 */
+.m-trend-search-clear {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0; right: 0;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-top: 3px solid #3b82f6;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
-  max-height: 320px;
-  overflow-y: auto;
-  z-index: 50;
-  min-width: 280px;
-}
-.m-trend-search-result {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  color: #111827;
-  transition: background .12s;
-}
-.m-trend-search-result:hover:not(:disabled) { background: #f0f9ff; }
-.m-trend-search-result:disabled,
-.m-trend-search-result.selected {
-  background: #dbeafe;
-  color: #1d4ed8;
-  cursor: default;
-}
-.m-trend-search-name {
-  flex: 1; min-width: 0;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.m-trend-search-l3 {
-  font-size: 11px; color: #6b7280;
-  background: #f3f4f6;
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.m-trend-search-docs {
-  font-size: 11px; color: #9ca3af;
-  font-family: ui-monospace, monospace;
-  flex-shrink: 0;
-}
-.m-trend-search-tag {
-  font-size: 10px; color: #1e40af;
-  background: #bfdbfe;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-.m-trend-search-loading {
-  position: absolute;
-  top: 50%; right: 10px;
+  right: 6px;
+  top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #f3f4f6;
   color: #6b7280;
-  background: rgba(255,255,255,0.9);
-  padding: 0 4px;
-  pointer-events: none;
+  border: none; border-radius: 50%;
+  font-size: 16px; line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.m-trend-search-clear:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+/* v3.3: 搜索错误提示 */
+.m-trend-search-error {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 4px;
+  width: 100%;
 }
 .m-trend-refresh-btn {
   display: inline-flex; align-items: center; gap: 4px;

@@ -104,15 +104,18 @@ def _ensure_norm_index(es, city: str) -> bool:
 
 
 def _scan_dws(es, city: str, since: Optional[str] = None, size: int = 1000):
-    """扫描 dws_{city}_price，可选按 period_start 过滤。"""
+    """扫描 dws_{city}_price，可选按 period_start 过滤。
+
+    2026-07-29 修复：elasticsearch-py 8.x+ scan() 签名变了——
+    - query 走 body（query=... kwarg 会报 'Unknown key for a START_OBJECT in [range]'）
+    - size 走顶层参数（body 里再放会报 'multiple values for size'）
+    debug 验证：body={'query': ...}, size=kwarg OK；query=kwarg FAIL；body+size=kwarg FAIL。
+    """
     idx = _dws_index(city)
-    query: dict = {}
+    body: dict = {}
     if since:
-        query = {"range": {"period_start": {"gte": since}}}
-    kwargs: dict = {"index": idx, "size": size, "preserve_order": True, "request_timeout": 120}
-    if query:
-        kwargs["query"] = query
-    return scan(es, **kwargs)
+        body["query"] = {"range": {"period_start": {"gte": since}}}
+    return scan(es, index=idx, body=body, size=size, preserve_order=True, request_timeout=120)
 
 
 def _normalize_doc(dws_doc: dict, city: str) -> dict:

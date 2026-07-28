@@ -1452,17 +1452,25 @@ def breed_search(
     q: str = Query(..., min_length=1, max_length=50, description="产品名搜索词,wildcard 匹配 normalized_breed"),
     limit: int = Query(30, ge=1, le=100, description="返回品种数上限"),
     province: Optional[str] = Query(None, description="2026-07-28: 省份过滤(中文,如 '山东'),只在该省 NORM 数据池里搜;空=全池"),
+    city: Optional[str] = Query(None, description="2026-07-28 v3.3: city 过滤(skill key 如 'jinan'),只在该城市 NORM 数据池里搜;空=全省或全池"),
 ):
     norm_list = _norm_indices()
     if not norm_list:
-        return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province or ""}
-    # 2026-07-28: province 过滤 — 限定到该省份的 NORM 数据池(避免山东用户搜出黑龙江品种)
-    if province:
+        return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province or "", "city": city or ""}
+    # 2026-07-28 v3.3: city 过滤 — 限定到该单个城市的 NORM 索引(避免山东用户搜出黑龙江品种)
+    #   city 优先级高于 province — city 存在时只搜该城市
+    if city:
+        norm_list = [idx for idx in norm_list
+                     if idx.replace("norm_", "").replace("_price", "") == city]
+        if not norm_list:
+            return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province or "", "city": city}
+    # province 过滤 — 只在未指定 city 时生效
+    elif province:
         prov_keys = set(_skill_keys_by_province(province))
         norm_list = [idx for idx in norm_list
                      if idx.replace("norm_", "").replace("_price", "") in prov_keys]
         if not norm_list:
-            return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province}
+            return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province, "city": city or ""}
 
     import re
     body = {
@@ -2224,6 +2232,10 @@ def market_price_trend(
     periods: int = Query(12, ge=1, le=12, description="期数, 公开页限制最多 12"),
     top_specs: int = Query(3, ge=1, le=5, description="每品种规格数, 公开页限制最多 5"),
     max_breeds: int = Query(8, ge=1, le=10, description="品种数, 公开页限制最多 10"),
+    materials: str = Query(
+        '*',
+        description="逗号分隔的 normalized_breed 列表; '*'= 走 top N 品种 (受 max_breeds 限制). 公开页限制最多 5 个品种防止滥用",
+    ),
 ):
     """公开页价格走势 chart 数据(简化版 /api/norm/price-trend)
 
@@ -2233,13 +2245,19 @@ def market_price_trend(
     设计:
       - city 默认 qingdao (与 norm_trend hardcoded 一致, 已 ETL)
       - 参数上限收紧, 防公开页被滥用拉全量
-      - materials='*' (走 top N 品种路径)
+      - materials 支持用户选择品种(前端搜索后 selectedBreeds.join(',')传入)
       - date_from/to 空 (走 periods 路径)
       - attr_keys 空 (不过滤)
     """
+    # v3.4: materials 参数生效 — 前端品种搜索后 selectedBreeds 直接传入
+    #   安全: 逗号分隔转 list, 限最多 5 个(对应 top_specs *5)
+    breeds = []
+    if materials and materials != '*':
+        breeds = [b.strip() for b in materials.split(',') if b.strip()][:5]
+        materials = ','.join(breeds) if breeds else '*'
     return _norm_price_trend_inner(
         city=city,
-        materials='*',
+        materials=materials,
         periods=periods,
         date_from='',
         date_to='',
@@ -2255,6 +2273,10 @@ def market_trend_table(
     periods: int = Query(12, ge=1, le=12, description="期数, 公开页限制最多 12"),
     top_specs: int = Query(3, ge=1, le=5, description="每品种规格数, 公开页限制最多 5"),
     max_breeds: int = Query(8, ge=1, le=10, description="品种数, 公开页限制最多 10"),
+    materials: str = Query(
+        '*',
+        description="同 /api/market/price-trend: 逗号分隔 normalized_breed; '*'= top N (受 max_breeds 限制); 限 5 个品种",
+    ),
 ):
     """公开页时序数据表(扁平行, 每行 = 一品种 × 一规格)
 
@@ -2272,12 +2294,17 @@ def market_trend_table(
 
     设计:
       - 内部复用 _norm_price_trend_inner (避免与 price-trend 重复 ES 查询逻辑)
-      - 同样的参数上限, 与 price-trend 同源数据
+      - 同样的参数上限, 与 price-trend 同源数据 (materials 参数同步生效)
       - 趋势%与绝对额在服务端算好(首末两期), 前端只渲染
     """
+    # v3.4: materials 参数生效 — 与 price-trend 同步过滤品种
+    breeds = []
+    if materials and materials != '*':
+        breeds = [b.strip() for b in materials.split(',') if b.strip()][:5]
+        materials = ','.join(breeds) if breeds else '*'
     data = _norm_price_trend_inner(
         city=city,
-        materials='*',
+        materials=materials,
         periods=periods,
         date_from='',
         date_to='',

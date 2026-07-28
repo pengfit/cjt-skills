@@ -56,7 +56,7 @@ import requests
 
 # ── 默认配置 ────────────────────────────────────────────────────────
 DEFAULT_BASE_URL = "http://localhost"  # Dify Docker 默认端口 80
-DEFAULT_TIMEOUT_S = 120
+DEFAULT_TIMEOUT_S = 600  # 2026-07-28 调：120→600。Dify workflow 处理量大（300+ 行/批），默认 90s 调用 timeout 不够
 
 # 路径：dify/dify.config.local.json（不进 git，存 api_key）
 # 优先级：env (DIFY_CONFIG_PATH) > 本地 (dify/dify.config.local.json) > 全局 (~/.openclaw/dify.json，向后兼容)

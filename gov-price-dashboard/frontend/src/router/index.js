@@ -32,7 +32,7 @@ const routes = [
   // 2026-07-19 鉴权:登录页放在最前,公开
   { path: '/login', name: 'login', component: () => import('../components/LoginView.vue'), meta: { public: true } },
   // 2026-07-21: /showcase 改名为 /home; HomeView.vue (公开 landing), /index → /cockpit (主应用)
-  { path: '/home', name: 'home', component: () => import('../components/HomeView.vue'), meta: { public: true } },
+  { path: '/home', alias: '/', name: 'home', component: () => import('../components/HomeView.vue'), meta: { public: true } },
   // 2026-07-21: /market 市场行情公开页 (涨跌幅 / 热门品类 / 热力图), 不鉴权
   { path: '/market', name: 'market', component: () => import('../components/MarketView.vue'), meta: { public: true } },
   // 2026-07-21: /showcase 301 跳 /home (旧链接兼容)
@@ -53,16 +53,6 @@ const routes = [
   { path: '/breed-detail', name: 'breed-detail', component: () => import('../components/BreedDetailView.vue'), meta: { standalone: true } },
   // 2026-07-25 P0: 移动端访问 admin 非驾驶舱页的拦截页
   { path: '/mobile-blocked', name: 'mobile-blocked', component: () => import('../components/MobileBlockedView.vue'), meta: { public: true } },
-  { path: '/', redirect: () => {
-      // 2026-07-25: 移动端(<768px)默认落 /cockpit(后台驾驶舱);
-      // 桌面端保持 /home(对外落地页)。
-      // /market 公开页 + /home 都还可手动访问。
-      if (typeof window !== 'undefined' && window.matchMedia &&
-          window.matchMedia('(max-width: 768px)').matches) {
-        return '/cockpit';
-      }
-      return '/home';
-    } },
   // 2026-07-20 #19 友好 404 页: catch-all 渲染 NotFoundView 组件 (替代原 redirect)
   // 注: NotFoundView 路由已在前面 /showcase 路由旁注册
 ] 

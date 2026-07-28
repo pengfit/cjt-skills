@@ -191,7 +191,7 @@ def _call_dify_workflow(app_id: str, inputs: dict, user: str,
 # 调用方：classify_v3_batch / parse_spec_batch。
 # 只需传 dify_inputs（对应 Dify workflow start 节点的变量），user 用于会话隔离。
 def _ai_invoke(task: str, *, dify_inputs: dict, user: str,
-               timeout: int = 90, **_) -> Tuple[bool, str]:
+               timeout: int = 600, **_) -> Tuple[bool, str]:
     """统一 AI 调用入口（仅 Dify workflow）。
 
     Args:
