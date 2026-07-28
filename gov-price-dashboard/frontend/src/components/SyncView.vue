@@ -41,12 +41,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import axios from 'axios'  // 2026-07-28 Step 2 删:已被 useFetch 取代
 import ScrapeView from './ScrapeView.vue'
 import PageHeader from './PageHeader.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
+import { useFetch } from '../composables/useFetch.js'  // 2026-07-28 Step 2 扩 SyncView
 
-const API = import.meta.env.VITE_API_URL || '/api'
+// 2026-07-28 Step 2:const API 已被 useFetch 取代(api 实例自带 baseURL + 鉴权)
+const { data: _provData, fetch: fetchProvenance } = useFetch()
 const subTab = ref('etl')
 // D.2026-07-12 统一数字格式化
 const fmt = useFormatNumber()
@@ -64,9 +66,10 @@ const stats = ref({
 })
 
 async function loadStats() {
-  try {
-    // 1. 顶层 stats（各城 ODS 总量、过去 7 天趋势）
-    const { data: prov } = await axios.get(`${API}/stats/provenance`)
+  // 2026-07-28 Step 2:用 useFetch 取代 axios.get(自带 loading/error/鉴权)
+  const prov = await fetchProvenance('/stats/provenance')
+  if (!prov) return  // 错误已由 useFetch 打 warn + 设 error ref,这里静默退出
+  // 顶层 stats（各城 ODS 总量、过去 7 天趋势）
     const allCities = prov?.all_cities || {}
     const cities = Object.keys(allCities).length
     const odsDocs = Object.values(allCities)
@@ -87,7 +90,7 @@ async function loadStats() {
       cleanRate,
       odsDelta: recent7d,
     }
-  } catch (e) { console.error(e) }
+  // 2026-07-28 Step 2:try/catch 删 — useFetch 已接管错误处理
 }
 
 onMounted(loadStats)
