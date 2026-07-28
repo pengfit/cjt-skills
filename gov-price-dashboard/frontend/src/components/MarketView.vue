@@ -156,65 +156,43 @@
         </div>
       </section>
 
-      <!-- 数据治理透明卡 — 每城新鲜度 -->
-      <section class="m-card m-card-quality" v-if="quality.cities.length">
+      <!-- 2026-07-28: 数据来源 + 新鲜度 合并卡(原数据治理透明卡 + 数据来源)— 每个省/市一卡,点进住建局 -->
+      <section class="m-card m-card-quality" v-if="mergedCities.length">
         <header class="m-quality-toolbar">
           <div class="m-quality-toolbar-info">
-            <h2 class="m-quality-title">📊 数据治理透明卡</h2>
+            <h2 class="m-quality-title">📊 数据来源与新鲜度</h2>
             <p class="m-quality-toolbar-sub">
-              {{ quality.cities.length }} 城 · 🟢 ≤90d · 🟡 90-180d · 🔴 ≥180d · 按新鲜度倒序(异常在前)
+              {{ mergedCities.length }} 城 · 点击进入各省/市住建局官方期刊 ·
+              🟢 ≤90d · 🟡 90-180d · 🔴 ≥180d · 按新鲜度倒序(异常在前)
             </p>
           </div>
         </header>
         <div class="m-quality-grid">
-          <div
-            v-for="c in quality.cities"
+          <a
+            v-for="c in mergedCities"
             :key="c.key"
+            :href="c.site_url || '#'"
+            :target="c.site_url ? '_blank' : undefined"
+            rel="noopener noreferrer"
             class="m-quality-card"
-            :class="`m-quality-${c.tone}`"
-            :title="`${c.label} · ${c.docs.toLocaleString()} 文档 · 最新期 ${c.latest_end || '—'}`"
+            :class="[`m-quality-${c.tone}`, c.site_url ? 'm-quality-link' : 'm-quality-nolink']"
+            :title="`${c.label} · ${c.province || ''} · ${c.docs.toLocaleString()} 文档 · 最新期 ${c.latest_end || '—'}${c.site_url ? ' · 点击进入住建局' : ''}`"
           >
             <span class="m-quality-emoji">{{ c.emoji }}</span>
-            <span class="m-quality-label">{{ c.label }}</span>
-            <span class="m-quality-meta">
-              <span class="m-quality-age">{{ c.age_days < 0 ? '?' : c.age_days }}d</span>
-              <span class="m-quality-date">{{ c.latest_end || '—' }}</span>
-            </span>
-            <span class="m-quality-province">{{ c.province }}</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 数据来源模块 — /api/market/sources 平铺展示全量源站链接 -->
-      <section class="m-card m-card-sources" v-if="sources.sources.length">
-        <header class="m-sources-toolbar">
-          <div class="m-sources-toolbar-info">
-            <h2 class="m-sources-title">🔗 数据来源 · 各省/市住建局官方造价信息</h2>
-            <p class="m-sources-toolbar-sub">
-              共 <strong>{{ sources.total_skills }}</strong> 个源站 · 覆盖 <strong>{{ sources.total_cities }}</strong> 个城市/区县
-              · 点击进入源网站查看原始期刊
-            </p>
-          </div>
-        </header>
-        <div class="m-sources-grid">
-          <a
-            v-for="sk in sources.sources"
-            :key="sk.key"
-            :href="sk.site_url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="m-source-card"
-            :title="`${sk.label} — ${sk.province || ''}${sk.cities.length ? ' · ' + sk.cities.slice(0, 6).join(' / ') + (sk.cities.length > 6 ? ' …' : '') : ''}`"
-          >
-            <span class="m-source-card-icon">🌐</span>
-            <span class="m-source-card-info">
-              <span class="m-source-card-label">{{ sk.label }}</span>
-              <span class="m-source-card-meta">
-                <span v-if="sk.province" class="m-source-card-province">{{ sk.province }}</span>
-                <span class="m-source-card-cities">{{ sk.cities.length }} 城</span>
-              </span>
-            </span>
-            <span class="m-source-card-arrow">↗</span>
+            <div class="m-quality-info">
+              <div class="m-quality-row1">
+                <span class="m-quality-label">{{ c.label }}</span>
+                <span class="m-quality-province" v-if="c.province">{{ c.province }}</span>
+                <span class="m-quality-arrow" v-if="c.site_url">↗</span>
+              </div>
+              <div class="m-quality-row2">
+                <span class="m-quality-age">{{ c.age_days < 0 ? '?' : c.age_days }}d</span>
+                <span class="m-quality-sep">·</span>
+                <span class="m-quality-date">{{ c.latest_end || '—' }}</span>
+                <span class="m-quality-sep">·</span>
+                <span class="m-quality-docs">{{ formatNumber(c.docs) }} 文档</span>
+              </div>
+            </div>
           </a>
         </div>
       </section>
@@ -392,6 +370,26 @@ async function loadAll() {
   } finally {
     loading.value = false
   }
+}
+
+// 2026-07-28: 数据来源 + 新鲜度 合并 — quality.cities 按 key 拼 sources.site_url
+const mergedCities = computed(() => {
+  const sourcesByKey = {}
+  for (const sk of sources.value.sources || []) {
+    sourcesByKey[sk.key] = sk
+  }
+  return (quality.value.cities || []).map(c => ({
+    ...c,
+    site_url: sourcesByKey[c.key]?.site_url || null,
+  }))
+})
+
+// 千/万格式化(给质量卡片的文档数用)
+function formatNumber(n) {
+  if (n == null) return '—'
+  if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return Math.round(n).toString()
 }
 
 // ── 浏览器定位流程 ──────────────────────────────────────────────────
@@ -947,7 +945,7 @@ onUnmounted(() => {
   padding: 40px 20px; font-size: 13px;
 }
 
-/* ── 数据治理透明卡 ── */
+/* ── 数据来源 + 新鲜度 合并卡(2026-07-28)— 替代原两张卡 ── */
 .m-card-quality { /* 复用 .m-card */ }
 .m-quality-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -958,85 +956,63 @@ onUnmounted(() => {
 .m-quality-toolbar-sub { font-size: 13px; color: #6b7280; margin: 0; line-height: 1.5; }
 .m-quality-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 8px;
 }
 .m-quality-card {
-  display: flex; flex-direction: column; align-items: flex-start;
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: 8px;
   background: #f9fafb; border: 1px solid #e5e7eb;
   font-size: 12px;
-  transition: border-color .15s, box-shadow .15s;
-}
-.m-quality-card:hover { border-color: #d1d5db; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
-.m-quality-emoji { font-size: 14px; margin-bottom: 4px; }
-.m-quality-label { font-weight: 600; color: #111827; }
-.m-quality-meta {
-  display: flex; gap: 6px; align-items: baseline;
-  font-size: 11px; color: #6b7280;
-  margin-top: 2px;
-}
-.m-quality-age { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
-.m-quality-date { color: #9ca3af; }
-.m-quality-province {
-  font-size: 10px; color: #9ca3af;
-  margin-top: 4px;
-  padding: 1px 6px;
-  background: #f3f4f6;
-  border-radius: 4px;
-}
-.m-quality-ok .m-quality-emoji { color: #16a34a; }
-.m-quality-warn .m-quality-emoji { color: #d97706; }
-.m-quality-alert .m-quality-emoji { color: #dc2626; }
-
-/* ── 数据来源卡 ── */
-.m-card-sources { /* 复用 .m-card */ }
-.m-sources-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
-}
-.m-sources-toolbar-info { flex: 1; min-width: 0; }
-.m-sources-title { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; color: #111827; }
-.m-sources-toolbar-sub { font-size: 13px; color: #6b7280; margin: 0; line-height: 1.5; }
-.m-sources-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-}
-.m-source-card {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
   text-decoration: none;
-  color: #111827;
+  color: inherit;
   transition: border-color .15s, background .15s, box-shadow .15s;
 }
-.m-source-card:hover {
+.m-quality-link:hover {
   border-color: #3b82f6;
   background: #eff6ff;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
 }
-.m-source-card-icon { font-size: 16px; flex-shrink: 0; }
-.m-source-card-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.m-source-card-label { font-weight: 600; font-size: 13px; }
-.m-source-card-meta {
-  display: flex; gap: 6px; align-items: baseline;
-  font-size: 11px; color: #6b7280; margin-top: 2px;
-}
-.m-source-card-province {
-  background: #fff; padding: 0 6px; border-radius: 4px;
-  border: 1px solid #e5e7eb;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 10px;
-}
-.m-source-card-cities { color: #9ca3af; }
-.m-source-card-arrow {
-  font-size: 14px; color: #6b7280;
+.m-quality-nolink { cursor: default; }
+.m-quality-emoji {
+  font-size: 16px;
   flex-shrink: 0;
+  width: 20px;
+  text-align: center;
 }
-.m-source-card:hover .m-source-card-arrow { color: #3b82f6; }
+.m-quality-info {
+  display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px;
+}
+.m-quality-row1 {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+}
+.m-quality-row2 {
+  display: flex; align-items: baseline; gap: 4px;
+  font-size: 11px; color: #6b7280;
+}
+.m-quality-label {
+  font-weight: 600; color: #111827; font-size: 13px;
+}
+.m-quality-province {
+  font-size: 10px; color: #6b7280;
+  padding: 1px 6px; background: #f3f4f6;
+  border-radius: 4px;
+}
+.m-quality-arrow {
+  font-size: 13px; color: #6b7280;
+  margin-left: auto; flex-shrink: 0;
+}
+.m-quality-link:hover .m-quality-arrow { color: #3b82f6; }
+.m-quality-age {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+}
+.m-quality-date { color: #9ca3af; }
+.m-quality-docs { color: #9ca3af; }
+.m-quality-sep { color: #d1d5db; }
+.m-quality-ok .m-quality-emoji { color: #16a34a; }
+.m-quality-warn .m-quality-emoji { color: #d97706; }
+.m-quality-alert .m-quality-emoji { color: #dc2626; }
 
 /* ── 加载 / 错误 ── */
 .m-loading,
