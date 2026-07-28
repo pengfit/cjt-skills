@@ -9,17 +9,28 @@
     >
       <template #icon>❤️</template>
       <template #right>
+        <!-- 2026-07-28:Phase 2 — StatCard 迁 Element Plus <el-statistic> -->
         <div class="health-cards">
-          <StatCard icon="📄" label="总数据量" :value="data.total_docs" unit="条" />
-          <StatCard icon="🧩" label="抓取任务" :value="skillStats.total" unit="个" />
-          <StatCard icon="⏱" label="平均新鲜度" :value="skillStats.avgFreshness" unit="天前" />
-          <StatCard
-            icon="⚠"
-            label="异常告警"
-            :value="anomalyStats.total"
-            :unit="anomalyStats.total > 0 ? '个 skill 有异常' : '个'"
-            :variant="anomalyStats.total > 0 ? 'danger' : 'default'"
-          />
+          <el-card shadow="never" class="health-stat-card">
+            <el-statistic :value="data.total_docs" title="总数据量" suffix=" 条">
+              <template #prefix><el-icon><Document /></el-icon></template>
+            </el-statistic>
+          </el-card>
+          <el-card shadow="never" class="health-stat-card">
+            <el-statistic :value="skillStats.total" title="抓取任务" suffix=" 个">
+              <template #prefix><el-icon><Files /></el-icon></template>
+            </el-statistic>
+          </el-card>
+          <el-card shadow="never" class="health-stat-card">
+            <el-statistic :value="skillStats.avgFreshness" title="平均新鲜度" suffix=" 天前">
+              <template #prefix><el-icon><Timer /></el-icon></template>
+            </el-statistic>
+          </el-card>
+          <el-card shadow="never" class="health-stat-card" :class="{ 'is-danger': anomalyStats.total > 0 }">
+            <el-statistic :value="anomalyStats.total" :title="anomalyStats.total > 0 ? '异常告警' : '全部正常'" :suffix="anomalyStats.total > 0 ? ' 个 skill' : ' 个'">
+              <template #prefix><el-icon><Warning /></el-icon></template>
+            </el-statistic>
+          </el-card>
         </div>
       </template>
     </PageHeader>
@@ -53,29 +64,30 @@
       </SectionHeader>
 
       <!-- 汇总卡：4 维度速读 -->
+      <!-- 2026-07-28:Phase 2 — daily-summary 自研 div 迁 ElCard + ElStatistic -->
       <div class="daily-summary">
-        <div class="summary-cell">
-          <div class="summary-label">近 30 日新增</div>
-          <div class="summary-value">{{ fmt.int(dailyStats.totalCount) }}<span class="summary-unit"> 条</span></div>
-        </div>
-        <div class="summary-cell">
-          <div class="summary-label">活跃天数</div>
-          <div class="summary-value">
-            {{ dailyStats.activeDays }}<span class="summary-unit"> / 30 天</span>
-          </div>
+        <el-card shadow="never" class="daily-stat-card">
+          <el-statistic :value="fmt.int(dailyStats.totalCount)" title="近 30 日新增">
+            <template #suffix><span style="font-size: 14px; color: #94a3b8"> 条</span></template>
+          </el-statistic>
+        </el-card>
+        <el-card shadow="never" class="daily-stat-card">
+          <el-statistic :value="dailyStats.activeDays" title="活跃天数 / 30 天">
+            <template #suffix><span style="font-size: 14px; color: #94a3b8"> 天</span></template>
+          </el-statistic>
           <div class="summary-sub" v-if="dailyStats.activeDays > 0">覆盖率 {{ dailyStats.coverage }}%</div>
-        </div>
-        <div class="summary-cell">
-          <div class="summary-label">日均（仅活跃日）</div>
-          <div class="summary-value">{{ fmt.int(dailyStats.avgPerActiveDay) }}<span class="summary-unit"> 条</span></div>
-        </div>
-        <div class="summary-cell">
-          <div class="summary-label">最大单日</div>
-          <div class="summary-value">
-            {{ fmt.int(dailyStats.maxCount) }}<span class="summary-unit"> 条</span>
-          </div>
+        </el-card>
+        <el-card shadow="never" class="daily-stat-card">
+          <el-statistic :value="fmt.int(dailyStats.avgPerActiveDay)" title="日均（仅活跃日）">
+            <template #suffix><span style="font-size: 14px; color: #94a3b8"> 条</span></template>
+          </el-statistic>
+        </el-card>
+        <el-card shadow="never" class="daily-stat-card">
+          <el-statistic :value="fmt.int(dailyStats.maxCount)" title="最大单日">
+            <template #suffix><span style="font-size: 14px; color: #94a3b8"> 条</span></template>
+          </el-statistic>
           <div class="summary-sub" v-if="dailyStats.maxDate">{{ dailyStats.maxDate }}</div>
-        </div>
+        </el-card>
       </div>
 
       <div id="dailyTrendChart" class="chart-area"></div>
@@ -172,56 +184,49 @@
           </div>
         </div>
       </div>
-      <div class="health-table-scroll">
-        <div class="grid-table">
-          <!-- Sticky header — subgrid 继承父列 -->
-          <div class="grid-header">
-            <div class="grid-head-cell col-task text-left">抓取任务</div>
-            <div class="grid-head-cell col-pinyin">拼音</div>
-            <div class="grid-head-cell col-scope text-left">覆盖范围</div>
-            <div class="grid-head-cell col-total-docs text-right">文档总数</div>
-            <div class="grid-head-cell col-last-updated">最后抓取</div>
-            <div class="grid-head-cell col-days-ago text-right">距今</div>
-            <div class="grid-head-cell col-health">健康度</div>
-            <div class="grid-head-cell col-spec-rate text-right">规格解析率</div>
-          </div>
-
-          <div
-            v-for="s in skillHealthRows"
-            :key="s.key"
-            class="grid-row data-row"
-            :class="rowClass(s)"
-          >
-            <div class="grid-cell col-task text-left">
-              <span class="skill-tag" :class="`tag-${s.barClass}`">{{ s.label }}</span>
-            </div>
-            <div class="grid-cell col-pinyin">{{ s.key }}</div>
-            <div class="grid-cell col-scope text-left">{{ s.scope }}</div>
-            <div class="grid-cell col-total-docs text-right">{{ fmt.int(s.total_docs || 0) }}</div>
-            <div class="grid-cell col-last-updated">{{ s.last_updated || '—' }}</div>
-            <div class="grid-cell col-days-ago text-right">{{ s.daysAgo === null ? '—' : s.daysAgo + ' 天' }}</div>
-            <div class="grid-cell col-health">
-              <span v-if="s.status === 'error'" class="health-pill pill-down">✗ 出错</span>
-              <span v-else-if="s.status === 'interrupted'" class="health-pill pill-stale">⚠ 中断</span>
-              <span v-else-if="s.status === 'down'" class="health-pill pill-down">● 停更</span>
-              <span v-else-if="s.daysAgo === null" class="health-pill pill-gray">— 无记录</span>
-              <span v-else-if="s.daysAgo > 7" class="health-pill pill-stale">⚠ 停滞</span>
-              <span v-else-if="s.daysAgo > 3" class="health-pill pill-warn">● 一般</span>
-              <span v-else class="health-pill pill-fresh">✓ 新鲜</span>
-            </div>
-            <div class="grid-cell col-spec-rate text-right">
-              <span v-if="s.spec_rate === null" class="cell-muted">—</span>
-              <span v-else :class="rateClass(s.spec_rate)" class="rate-pill">{{ s.spec_rate }}%</span>
-              <span v-if="s.spec_total" class="cell-muted cell-muted-small">({{ s.spec_total }} 类)</span>
-            </div>
-          </div>
-
-          <!-- Empty state -->
-          <div v-if="!skillHealthRows.length" class="grid-row grid-row-empty">
-            <div class="grid-cell" style="grid-column: 1 / -1;">尚无 skill 数据</div>
-          </div>
-        </div>
-      </div>
+      <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 表格迁 Element Plus <el-table> -->
+      <el-table
+        :data="skillHealthRows"
+        class="health-el-table"
+        :row-class-name="rowClass"
+        :row-key="(s) => s.key"
+        stripe
+      >
+        <el-table-column label="抓取任务" min-width="140">
+          <template #default="{ row }">
+            <span class="skill-tag" :class="`tag-${row.barClass}`">{{ row.label }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="key" label="拼音" width="120" />
+        <el-table-column prop="scope" label="覆盖范围" min-width="200" show-overflow-tooltip />
+        <el-table-column label="文档总数" width="120" align="right">
+          <template #default="{ row }">{{ fmt.int(row.total_docs || 0) }}</template>
+        </el-table-column>
+        <el-table-column label="最后抓取" width="160">
+          <template #default="{ row }">{{ row.last_updated || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="距今" width="80" align="right">
+          <template #default="{ row }">{{ row.daysAgo === null ? '—' : row.daysAgo + ' 天' }}</template>
+        </el-table-column>
+        <el-table-column label="健康度" width="120" align="center">
+          <template #default="{ row }">
+            <span v-if="row.status === 'error'" class="health-pill pill-down">✗ 出错</span>
+            <span v-else-if="row.status === 'interrupted'" class="health-pill pill-stale">⚠ 中断</span>
+            <span v-else-if="row.status === 'down'" class="health-pill pill-down">● 停更</span>
+            <span v-else-if="row.daysAgo === null" class="health-pill pill-gray">— 无记录</span>
+            <span v-else-if="row.daysAgo > 7" class="health-pill pill-stale">⚠ 停滞</span>
+            <span v-else-if="row.daysAgo > 3" class="health-pill pill-warn">● 一般</span>
+            <span v-else class="health-pill pill-fresh">✓ 新鲜</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="规格解析率" width="140" align="right">
+          <template #default="{ row }">
+            <span v-if="row.spec_rate === null" class="cell-muted">—</span>
+            <span v-else :class="rateClass(row.spec_rate)" class="rate-pill">{{ row.spec_rate }}%</span>
+            <span v-if="row.spec_total" class="cell-muted cell-muted-small">({{ row.spec_total }} 类)</span>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <div v-if="loading" class="health-loading">
@@ -608,7 +613,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* === 亮色版 === */
+/* 2026-07-28 Phase 2 cleanup:
+   表格迁 <el-table> / 汇总卡迁 <el-statistic> / 健康度 .row-* class 仍由 rowClass 设置但 CSS 不再绑 .grid-row。
+   已删除: .text-up/.text-down / .legend-item(遗留) / .page-header / .health-table-scroll /
+            .grid-table / .grid-header / .grid-row / .grid-cell / .grid-head-cell / .grid-row-empty /
+            .grid-row.row-* / .col-pinyin / .col-scope / .col-total-docs / .col-last-updated /
+            .col-days-ago / .col-spec-rate / .skill-key / .cell-pinyin / .text-left / .text-right /
+            .summary-cell / .summary-cell::before / .summary-label / .summary-value / .summary-unit /
+            裸 .legend-count / 移动端旧 fallback 等。
+   保留: .health-* / .chart-panel / .chart-legend / .legend-pill* / .legend-dot(.line/.fresh/.warn/.stale/.down) /
+         .daily-summary / .summary-sub / .chart-area / .daily-empty-hint / .rule-* / .health-pill* / 
+         .rate-pill* / .cell-muted* / .skill-tag* / .legend-dot.inline / @media .rule-grid 单列覆盖。 */
+
 .health-page {
   display: flex;
   flex-direction: column;
@@ -623,24 +639,13 @@ onUnmounted(() => {
   color: var(--surface);
 }
 
-/* ===== 顶部汇总指标卡（已迁移至 StatCard 组件） ===== */
+/* ===== 顶部汇总指标卡(已迁 StatCard + 本页 4 el-statistic) ===== */
 .health-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-bottom: 14px;
 }
-
-/* PageHeader 位置与 /taxonomy 对齐 (2026-07-15):
-   /health 原本 .health-page { padding-top: 16px } 推下去 16px,补偿之 */
-.page-header {
-  margin-top: -16px;
-  margin-bottom: 16px;
-}
-
-/* ===== 表格内文字辅助颜色 ===== */
-.text-up   { color: var(--status-ok); }
-.text-down { color: var(--danger); }
 
 /* ===== 图表面板 ===== */
 .chart-panel {
@@ -695,72 +700,20 @@ onUnmounted(() => {
 .legend-pill-fresh { border-left: 2px solid var(--status-ok); padding-left: 8px; }
 .legend-pill-warn  { border-left: 2px solid var(--status-warn); padding-left: 8px; }
 .legend-pill-down  { border-left: 2px solid var(--status-alert); padding-left: 8px; }
-/* 兼容保留旧 class */
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--primary), var(--indigo)); flex-shrink: 0; }
 .chart-area { width: 100%; height: 320px; }
 
-/* ===== 近 30 日汇总卡 ===== */
+/* ===== 近 30 日汇总卡(el-statistic 容器外壳) ===== */
 .daily-summary {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin: 4px 0 14px;
 }
-.summary-cell {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 14px;
-  position: relative;
-  overflow: hidden;
-}
-.summary-cell::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--primary);
-  border-radius: 10px 0 0 10px;
-}
-.summary-label {
-  font-size: 11px;
-  color: var(--text-3);
-  margin-bottom: 4px;
-  letter-spacing: 0.2px;
-}
-.summary-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-.summary-unit {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-3);
-  margin-left: 2px;
-}
 .summary-sub {
   font-size: 11px;
   color: var(--text-3);
   margin-top: 2px;
-}
-
-/* 图例计数 */
-.legend-count {
-  display: inline-block;
-  min-width: 18px;
-  padding: 0 5px;
-  margin-left: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-2);
-  background: rgba(15, 23, 42, 0.06);
-  border-radius: 8px;
-  text-align: center;
-  line-height: 16px;
 }
 
 /* 空状态提示 */
@@ -775,108 +728,15 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* 7 城同步卡片已从本视图移除（避免与同步页抓取任务重复），卡片逻辑迁到 components/SyncCard.vue 仅供其他视图使用 */
+/* 7 城同步卡片已从本视图移除(避免与同步页抓取任务重复),卡片逻辑迁到 components/SyncCard.vue 仅供其他视图使用 */
 
-/* ===== 技能数据健康表（以 skill 为中心）===== */
+/* ===== 技能数据健康表(以 skill 为中心,el-table)===== */
 .legend-fresh { background: #16a34a; }
 .legend-warn { background: #ea580c; }
 .legend-stale { background: #ea580c; }
 .legend-down  { background: #dc2626; }
 
-.health-table-scroll {
-  /* 不要让表格容器自身产生滚动条——让表格自然撑开，页面整体滚 */
-  overflow-x: auto;
-}
-
-/* ───────────── CSS Grid 表格 (2026-07-15 改造) ─────────────
-   与 /list / /spec-rules 同架构: subgrid 继承父列, max-content 跨多行求最大
-   列定义依据列内最长文本 + 数据业务性（希望右对齐的数字列定宽、视觉 chip 列自适应）
-*/
-.grid-table {
-  display: grid;
-  grid-template-columns:
-    minmax(110px, 1fr)            /* task flex 吃剩余 */
-    minmax(70px,  max-content)    /* pinyin */
-    minmax(80px,  max-content)    /* scope  */
-    minmax(90px,  max-content)    /* total_docs */
-    minmax(140px, max-content)    /* last_updated */
-    minmax(70px,  max-content)    /* days_ago */
-    minmax(95px,  max-content)    /* health */
-    minmax(120px, max-content);   /* spec_rate */
-  grid-auto-rows: auto;
-  width: 100%;
-}
-.grid-table > .grid-header,
-.grid-table > .grid-row {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: stretch;
-}
-.grid-header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  background: var(--surface-2);
-  box-shadow: 0 1px 0 var(--border);
-}
-.grid-head-cell,
-.grid-cell {
-  display: flex;
-  align-items: center;
-  padding: 8px 10px;
-  border-right: 1px solid var(--border);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--text);
-  box-sizing: border-box;
-  justify-content: center;
-}
-.grid-head-cell:last-child,
-.grid-cell:last-child { border-right: none; }
-.grid-head-cell {
-  font-weight: 700;
-  font-size: 11.5px;
-  color: var(--text-2);
-}
-.grid-head-cell.text-left,
-.grid-cell.text-left     { justify-content: flex-start; text-align: left; }
-.grid-head-cell.text-right,
-.grid-cell.text-right    { justify-content: flex-end; padding-right: 14px; }
-
-.grid-row {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  transition: background 0.1s;
-}
-.grid-row:hover { background: rgba(37,99,235,0.04); }
-.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
-.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
-.grid-row-empty { cursor: default; }
-.grid-row-empty:hover { background: var(--surface); }
-.grid-row.grid-row-empty { background: var(--surface); }
-
-/* 行状态高亮 - 左侧 3px 色条（替代原 td:first-child） */
-.grid-row.row-fresh  { box-shadow: inset 3px 0 0 #16a34a; }
-.grid-row.row-warn   { box-shadow: inset 3px 0 0 #ea580c; }
-.grid-row.row-stale  { box-shadow: inset 3px 0 0 #ea580c; }
-.grid-row.row-down   { box-shadow: inset 3px 0 0 #dc2626; background: rgba(220,38,38,0.04); }
-.grid-row.row-down:nth-child(even) { background: rgba(220,38,38,0.06); }
-
-.grid-cell.col-pinyin,
-.grid-cell.col-last-updated { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11.5px; color: var(--text-2); }
-.grid-cell.col-pinyin { white-space: nowrap; }
-.grid-cell.col-scope { color: var(--text-2); }
-.grid-cell.col-total-docs,
-.grid-cell.col-spec-rate { font-variant-numeric: tabular-nums; }
-.grid-cell.col-total-docs { justify-content: flex-end; padding-right: 14px; }
-.grid-cell.col-spec-rate { justify-content: flex-end; padding-right: 14px; }
-.grid-cell.col-days-ago { justify-content: flex-end; padding-right: 14px; }
-.grid-cell.col-last-updated { justify-content: flex-start; }
-
+/* el-table 列内容排版 */
 .skill-tag {
   display: inline-block;
   padding: 2px 8px;
@@ -892,19 +752,6 @@ onUnmounted(() => {
 .tag-rz { background: #f0fdfa; color: #0f766e; }
 .tag-hz { background: #faf5ff; color: #7e22ce; }
 .tag-hn { background: #fef2f2; color: #b91c1c; }
-
-.skill-key {
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 11px;
-  color: var(--text-3);
-}
-
-.cell-pinyin {
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 11.5px;
-  color: var(--text-2);
-  white-space: nowrap;
-}
 
 .health-pill {
   display: inline-block;
@@ -935,7 +782,7 @@ onUnmounted(() => {
 .cell-muted { color: var(--text-3); font-size: 11px; }
 .cell-muted-small { font-size: 10px; margin-left: 2px; }
 
-/* ===== 规则说明面板（折叠）===== */
+/* ===== 规则说明面板(折叠)===== */
 .rule-toggle {
   font-size: 11px;
   font-weight: 600;
@@ -1003,22 +850,4 @@ onUnmounted(() => {
 @media (max-width: 1100px) {
   .rule-grid { grid-template-columns: 1fr; }
 }
-/* ── 移动端 UI (2026-07-25 P1-fix) ── */
-@media (max-width: 768px) {
-  /* 健康卡片网格:4 列 → 2 列 */
-  [class*="stat-grid"], [class*="health-grid"] { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
-  /* 大卡片 → 单列堆叠 */
-  [class*="grid"][class*="4"], [class*="grid"][class*="3"] { grid-template-columns: 1fr !important; }
-  /* 表格转卡片 */
-  table, thead, tbody, tr, td, th { display: block; width: 100%; }
-  thead { display: none; }
-  tr { margin-bottom: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
-  td { padding: 4px 0 !important; border: none !important; }
-  /* 字号 */
-  h1 { font-size: 1.1rem !important; }
-  h2 { font-size: 1rem !important; }
-  .big-num { font-size: 1.5rem !important; }
-  .health-card { padding: 14px 12px !important; }
-}
-
 </style>

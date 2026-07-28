@@ -1,65 +1,92 @@
 <template>
+  <!-- 2026-07-28:Phase 1 迁移 Element Plus — 侧栏改用 <el-menu> + <el-sub-menu> + <el-menu-item>
+       保留 4 模块分组、icon、currentTab 高亮、路由跳转、响应式(mobile drawer + tablet 64px) -->
+
   <!-- 移动端 backdrop（桌面端不渲染） -->
   <div v-if="open" class="mobile-sidebar-backdrop" @click="$emit('close')"></div>
 
-  <aside
+  <el-aside
     class="sidebar"
     :class="{ 'mobile-open': open }"
     role="navigation"
     aria-label="主导航"
   >
-    <div
-      v-for="group in groups"
-      :key="group.key"
-      class="sidebar-group"
-      :data-module="group.key"
+    <el-menu
+      class="sidebar-menu"
+      :default-active="currentTab"
+      background-color="transparent"
+      text-color="var(--text-2)"
+      active-text-color="var(--primary)"
+      :unique-opened="true"
+      @select="onMenuSelect"
     >
-      <div class="sidebar-group-label">{{ group.label }}</div>
-      <RouterLink
-        v-for="item in group.items"
-        :key="item.key"
-        :to="item.path"
-        class="sidebar-item"
-        :class="{ active: currentTab === item.key }"
-        :aria-keyshortcuts="item.shortcut ? item.shortcut : undefined"
-        @click="$emit('navigate')"
+      <el-sub-menu
+        v-for="group in groups"
+        :key="group.key"
+        :index="group.key"
+        :data-module="group.key"
+        class="sidebar-group"
       >
-        <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
-        <span class="sidebar-item-label">{{ item.label }}</span>
-      </RouterLink>
-    </div>
-  </aside>
+        <template #title>
+          <span class="sidebar-group-label">{{ group.label }}</span>
+        </template>
+        <el-menu-item
+          v-for="item in group.items"
+          :key="item.key"
+          :index="item.key"
+          class="sidebar-item"
+        >
+          <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
+          <template #title>{{ item.label }}</template>
+        </el-menu-item>
+      </el-sub-menu>
+    </el-menu>
+  </el-aside>
 </template>
 
 <script setup>
 /**
- * 侧栏导航（统一组件）
- * 由父级传入 `groups`(完整路由+元信息),内部用 RouterLink 渲染。
+ * 侧栏导航（Element Plus 版本,2026-07-28）
+ * 由父级传入 `groups`(完整路由+元信息),内部用 el-menu 渲染,点击触发 router.push。
  * `open` 控制移动端 drawer 状态,父级监听 `close` / `navigate`。
  *
  * @example
  *   const groups = computed(() => [
- *     { key: 'view',    label: '数据浏览',   items: [...] },
- *     { key: 'collect', label: '数据采集',   items: [...] },
+ *     { key: 'collect', label: '数据采集', items: [...] },
  *   ])
- *   <Sidebar
- *     :groups="groups"
- *     :current-tab="route.name"
- *     :open="mobileSidebarOpen"
- *     @close="mobileSidebarOpen = false"
- *     @navigate="mobileSidebarOpen = false"
- *   />
+ *   <Sidebar :groups="groups" :current-tab="route.name" :open="mobileSidebarOpen" />
  */
-defineProps({
+import { useRouter } from 'vue-router'
+
+const props = defineProps({
   groups:      { type: Array,  required: true },  // [{ key, label, items: [{key, label, path, icon, shortcut?}] }]
   currentTab:  { type: String, required: true },  // 当前路由 name
   open:        { type: Boolean, default: false }, // 移动端 drawer 开关
 })
 
 defineEmits(['close', 'navigate'])
+
+const router = useRouter()
+
+function onMenuSelect(index) {
+  // 找到对应 item 并跳转
+  for (const g of props.groups) {
+    const item = g.items.find(it => it.key === index)
+    if (item) {
+      router.push(item.path)
+      break
+    }
+  }
+}
 </script>
 
 <style scoped>
+/* === Element Plus 深度穿透:覆盖 el-menu / el-sub-menu / el-menu-item 默认样式 === */
+:deep(.el-menu) {
+  border-right: none !important;
+  background: transparent !important;
+}
+
 .mobile-sidebar-backdrop {
   position: fixed;
   inset: 0;
@@ -72,9 +99,7 @@ defineEmits(['close', 'navigate'])
   transition: opacity 0.2s ease;
   animation: backdrop-fade-in 0.2s ease forwards;
 }
-@keyframes backdrop-fade-in {
-  to { opacity: 1; }
-}
+@keyframes backdrop-fade-in { to { opacity: 1; } }
 
 .sidebar {
   width: 210px;
@@ -87,75 +112,55 @@ defineEmits(['close', 'navigate'])
   align-self: flex-start;
   height: calc(100vh - var(--topbar-h, 56px));
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* ── 模块分组 ── */
-.sidebar-group {
-  margin-bottom: 14px;
-  position: relative;
-}
-
-/* 第二个及之后分组:顶部细线分隔 */
-.sidebar-group + .sidebar-group {
-  border-top: 1px solid var(--border);
-  margin-top: 6px;
-  padding-top: 4px;
-}
+/* ── el-sub-menu 模块分组 ── */
+.sidebar-group { margin-bottom: 6px !important; }
 
 .sidebar-group-label {
   font-size: 12px;
   font-weight: 700;
   color: var(--text-2);
   letter-spacing: 0.3px;
-  padding: 14px 16px 8px 22px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-/* 左侧色条标识 */
-.sidebar-group-label::before {
+/* 第二个及之后分组:顶部细线分隔 */
+:deep(.sidebar-group + .sidebar-group .el-sub-menu__title) {
+  border-top: 1px solid var(--border);
+}
+
+/* 4 模块色条:左侧 3px */
+:deep(.sidebar-group[data-module="view"] .el-sub-menu__title::before)    { background: var(--primary); }
+:deep(.sidebar-group[data-module="collect"] .el-sub-menu__title::before) { background: var(--warning); }
+:deep(.sidebar-group[data-module="govern"] .el-sub-menu__title::before)  { background: #7c3aed; }
+:deep(.sidebar-group[data-module="viz"] .el-sub-menu__title::before)     { background: var(--success); }
+:deep(.sidebar-group .el-sub-menu__title::before) {
   content: '';
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  display: inline-block;
   width: 3px;
   height: 12px;
   border-radius: 2px;
-  background: var(--text-3);
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
-/* 4 模块色条 */
-.sidebar-group[data-module="view"]    .sidebar-group-label::before { background: var(--primary); }
-.sidebar-group[data-module="collect"] .sidebar-group-label::before { background: var(--warning); }
-.sidebar-group[data-module="govern"]  .sidebar-group-label::before { background: #7c3aed; }
-.sidebar-group[data-module="viz"]     .sidebar-group-label::before { background: var(--success); }
-
-/* 第一个分组(数据浏览)label 顶部紧凑些 */
-.sidebar-group[data-module="view"] .sidebar-group-label {
-  padding-top: 10px;
+/* ── el-menu-item 单项 ── */
+:deep(.sidebar-item) {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  margin: 0 !important;
 }
-
-/* ── 单项 ── */
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-  border-radius: 0;
-  text-decoration: none;
+:deep(.sidebar-item .el-menu-item__content) {
+  padding-left: 36px !important;
+  border-radius: 0 !important;
+}
+:deep(.sidebar-item.is-active .el-menu-item__content) {
+  background: rgba(var(--primary-rgb), 0.08) !important;
+  border-left: 3px solid var(--primary);
+  font-weight: 600 !important;
 }
 
 .sidebar-item-icon {
@@ -163,69 +168,20 @@ defineEmits(['close', 'navigate'])
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: 24px;
-  border-radius: 6px;
   font-size: 14px;
-  flex-shrink: 0;
-  background: transparent;
-  transition: all var(--transition-fast);
-}
-
-.sidebar-item-label {
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-item-key {
-  display: none;  /* 2026-07-28:隐藏数字快捷键徽章 */
-}
-
-.sidebar-item:hover {
-  color: var(--text);
-  background: var(--primary-light);
-}
-
-.sidebar-item:hover .sidebar-item-icon {
-  background: var(--primary-dim);
-}
-
-.sidebar-item.active {
-  color: var(--primary);
-  background: rgba(var(--primary-rgb), 0.08);
-  font-weight: 600;
-  border-left: 3px solid var(--primary);
-  padding-left: 13px;
-}
-
-.sidebar-item.active .sidebar-item-icon {
-  background: rgba(var(--primary-rgb), 0.12);
-}
-
-.sidebar-item.active .sidebar-item-key {
-  display: none;  /* 2026-07-28:同上 */
+  margin-right: 8px;
 }
 
 /* ── 移动端 drawer — 全面 UI 优化 (2026-07-25) ── */
 @media (max-width: 768px) {
-  /* 抽屉从左滑入,占满屏宽(默认 280,小屏 92%) */
   .sidebar {
     width: 92vw !important;
     max-width: 360px !important;
     padding: 16px 0 !important;
   }
-  /* drawer 项目:大触摸目标 + 文字更清晰 */
-  .sidebar-item {
-    padding: 14px 20px !important;
-    min-height: 48px;
-    font-size: 15px !important;
-  }
-  .sidebar-item-icon { font-size: 18px !important; }
-  .sidebar-group-label {
-    padding: 14px 20px 6px !important;
-    font-size: 11px !important;
-    letter-spacing: 1.5px !important;
-  }
-  /* 主区 backdrop */
+  :deep(.sidebar-item) { font-size: 15px !important; height: 48px !important; line-height: 48px !important; }
+  :deep(.sidebar-item .el-menu-item__content) { padding-left: 44px !important; }
+
   .mobile-sidebar-backdrop { display: block; }
 
   .sidebar {
@@ -239,51 +195,23 @@ defineEmits(['close', 'navigate'])
     box-shadow: 4px 0 24px rgba(15, 23, 42, 0.2);
     will-change: transform;
   }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
+  .sidebar.mobile-open { transform: translateX(0); }
+
   /* 抽屉打开时锁住 body 滚动,避免双滚动条 */
-  .dashboard.mobile-sidebar-open {
-    overflow: hidden;
-  }
+  .dashboard.mobile-sidebar-open { overflow: hidden; }
 }
 
 /* ── 平板:收起为图标列 ── */
 @media (min-width: 769px) and (max-width: 1100px) {
-  .sidebar {
-    width: 64px;
-    flex: 0 0 64px;
-    padding: 12px 0;
-  }
-  .sidebar-group-label {
-    display: none;
-  }
-  .sidebar-item {
-    padding: 10px 20px;
-    justify-content: center;
-  }
-  .sidebar-item-label,
-  .sidebar-item-key {
-    display: none;
-  }
-  .sidebar-item.active {
+  .sidebar { width: 64px; flex: 0 0 64px; padding: 12px 0; }
+  :deep(.sidebar-item .el-menu-item__content) { padding-left: 20px !important; padding-right: 8px !important; }
+  :deep(.sidebar-item.is-active .el-menu-item__content) {
     border-left: none;
     border-bottom: 3px solid var(--primary);
-    padding-left: 16px;
   }
-  .sidebar-item.active .sidebar-item-icon {
-    background: var(--primary);
-    color: #fff;
-  }
-  /* 模块色条在折叠态变为整行左侧 */
-  .sidebar-group-label::before {
-    display: block;
-    width: 60%;
-    height: 2px;
-    left: 20%;
-    top: 0;
-    transform: none;
-    margin: 0 auto;
-  }
+  :deep(.sidebar-group .el-sub-menu__title) { padding-left: 16px !important; }
+  :deep(.sidebar-group .el-sub-menu__title span:first-child) { display: none; }
+  :deep(.sidebar-item .el-menu-item__content > *) { display: none; }
+  :deep(.sidebar-item .sidebar-item-icon) { display: inline-flex !important; margin-right: 0 !important; font-size: 18px !important; }
 }
 </style>

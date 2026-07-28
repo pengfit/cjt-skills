@@ -7,121 +7,117 @@
   - 列宽按内容自适应：5 列都用 minmax(min, max-content)，但 max-content 在整列跨所有行求最大值
 -->
 <template>
-  <!-- Filter Drawer (slide-in from right) -->
-  <Transition name="drawer">
-    <div class="drawer" v-if="showDrawer">
-      <div class="drawer-header">
-        <span>更多筛选</span>
-        <span class="drawer-close" @click="showDrawer = false" role="button" aria-label="关闭筛选抽屉" tabindex="0">✕</span>
-      </div>
-      <div class="drawer-body">
-        <div class="filter-group">
-          <label class="filter-label">省份</label>
-          <CustomSelect
-            v-model="searchProvince"
-            :options="provinceOptions.map(p => ({ key: p.key, count: p.count }))"
-            placeholder="全部省份"
-            :searchable="true"
-            @change="onProvinceChange"
-          />
+  <!-- 2026-07-28:Phase 2 — 自研 drawer+CustomSelect 迁 Element Plus <el-drawer> + <el-form> + <el-select> -->
+  <el-drawer
+    v-model="showDrawer"
+    direction="rtl"
+    size="420px"
+    title="更多筛选"
+    :with-header="true"
+  >
+    <el-form label-position="top" class="list-filter-form">
+      <el-form-item label="省份">
+        <el-select
+          v-model="searchProvince"
+          placeholder="全部省份"
+          filterable
+          clearable
+          style="width: 100%"
+          @change="onProvinceChange"
+        >
+          <el-option v-for="p in provinceOptions" :key="p.key" :label="`${p.key} (${p.count})`" :value="p.key" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="城市">
+        <el-select
+          v-model="searchCity"
+          placeholder="全部城市"
+          filterable
+          clearable
+          :disabled="!searchProvince"
+          style="width: 100%"
+          @change="onCityChange"
+        >
+          <el-option v-for="c in filteredCities" :key="c.key" :label="`${c.key} (${c.count})`" :value="c.key" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="区县">
+        <el-select
+          v-model="searchCounty"
+          placeholder="全部区县"
+          filterable
+          clearable
+          :disabled="!searchProvince || !searchCity"
+          style="width: 100%"
+        >
+          <el-option v-for="c in filteredCounties" :key="c.key" :label="`${c.key} (${c.count})`" :value="c.key" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="日期范围">
+        <div class="date-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <el-tag
+            v-for="preset in datePresets"
+            :key="preset.label"
+            :type="dateRangeKey === preset.key ? 'primary' : 'info'"
+            effect="plain"
+            style="cursor: pointer"
+            @click="applyDatePreset(preset)"
+          >{{ preset.label }}</el-tag>
+          <el-tag
+            v-if="dateRangeKey === 'custom'"
+            type="primary"
+            effect="plain"
+            style="cursor: pointer"
+            @click="dateRangeKey = 'all'"
+          >自定义 ✓</el-tag>
         </div>
-        <div class="filter-group">
-          <label class="filter-label">城市</label>
-          <CustomSelect
-            v-model="searchCity"
-            :options="filteredCities.map(c => ({ key: c.key, count: c.count }))"
-            :disabled="!searchProvince"
-            placeholder="全部城市"
-            :searchable="true"
-            @change="onCityChange"
-          />
+        <el-date-picker
+          v-model="dateRangeModel"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+          @change="onDateRangeChange"
+        />
+      </el-form-item>
+      <el-form-item label="价格区间">
+        <div class="price-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <el-tag
+            v-for="preset in pricePresets"
+            :key="preset.label"
+            :type="isPresetActive(preset) ? 'primary' : 'info'"
+            effect="plain"
+            style="cursor: pointer"
+            @click="isPresetActive(preset) ? expandRange() : applyPreset(preset);"
+          >{{ preset.label }}</el-tag>
         </div>
-        <div class="filter-group">
-          <label class="filter-label">区县</label>
-          <CustomSelect
-            v-model="searchCounty"
-            :options="filteredCounties.map(c => ({ key: c.key, count: c.count }))"
-            :disabled="!searchProvince || !searchCity"
-            placeholder="全部区县"
-            :searchable="true"
-          />
+        <div style="display:flex;align-items:center;gap:8px">
+          <el-input-number v-model="priceMin" placeholder="最低价" :min="0" :step="0.01" :precision="2" style="flex:1" @keyup.enter="doSearch()" />
+          <span style="color:#94a3b8">-</span>
+          <el-input-number v-model="priceMax" placeholder="最高价" :min="0" :step="0.01" :precision="2" style="flex:1" @keyup.enter="doSearch()" />
         </div>
-        <div class="filter-group">
-          <label class="filter-label">日期范围</label>
-          <div class="date-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
-            <span
-              v-for="preset in datePresets"
-              :key="preset.label"
-              class="preset-chip"
-              :class="{ active: dateRangeKey === preset.key }"
-              @click="applyDatePreset(preset)"
-            >{{ preset.label }}</span>
-            <span
-              v-if="dateRangeKey === 'custom'"
-              class="preset-chip active"
-              @click="dateRangeKey = 'all'"
-              title="清除自定义"
-            >自定义 ✓</span>
-          </div>
-          <div class="date-range-row" style="display:flex;align-items:center;gap:6px">
-            <input
-              class="price-input filter-input"
-              type="date"
-              v-model="dateFrom"
-              :max="dateTo || undefined"
-              style="width:130px"
-              @change="dateRangeKey = 'custom'"
-            />
-            <span class="price-dash">-</span>
-            <input
-              class="price-input filter-input"
-              type="date"
-              v-model="dateTo"
-              :min="dateFrom || undefined"
-              style="width:130px"
-              @change="dateRangeKey = 'custom'"
-            />
-          </div>
+      </el-form-item>
+      <el-form-item v-if="searchHistory.length && !searchKeyword" label="搜索历史">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <el-tag
+            v-for="h in searchHistory.slice(0,8)"
+            :key="h"
+            type="info"
+            effect="plain"
+            style="cursor: pointer"
+            @click="searchKeyword = h; doSearch()"
+          >{{ h }}</el-tag>
+          <el-button text type="primary" @click="clearHistory()">清空</el-button>
         </div>
-        <div class="filter-group">
-          <label class="filter-label">价格区间</label>
-          <div class="price-presets">
-            <span
-              v-for="preset in pricePresets"
-              :key="preset.label"
-              class="preset-chip"
-              :class="{ active: isPresetActive(preset) }"
-              @click="isPresetActive(preset) ? expandRange() : applyPreset(preset);"
-            >{{ preset.label }}</span>
-          </div>
-          <div class="price-range-row" style="margin-top:6px">
-            <input class="price-input filter-input" v-model="priceMin" placeholder="最低价" @keyup.enter="doSearch()" style="width:78px" />
-            <span class="price-dash">-</span>
-            <input class="price-input filter-input" v-model="priceMax" placeholder="最高价" @keyup.enter="doSearch()" style="width:78px" />
-          </div>
-        </div>
-        <div class="filter-group">
-          <label class="filter-label">搜索历史</label>
-          <div class="search-history-bar" v-if="searchHistory.length && !searchKeyword">
-            <span
-              v-for="h in searchHistory.slice(0,8)"
-              :key="h"
-              class="history-chip"
-              @click="searchKeyword = h; doSearch()"
-            >{{ h }}</span>
-            <button class="history-clear-btn" @click="clearHistory()">清空</button>
-          </div>
-        </div>
-      </div>
-      <div class="drawer-footer">
-        <button class="btn-primary" @click="() => { showDrawer = false; doSearch(); }">🔍 确定</button>
-        <button class="btn-ghost" @click="resetSearch">重置</button>
-      </div>
-    </div>
-  </Transition>
-  <Transition name="fade">
-    <div class="drawer-backdrop" v-if="showDrawer" @click="showDrawer = false"></div>
-  </Transition>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="resetSearch">重置</el-button>
+      <el-button type="primary" @click="() => { showDrawer = false; doSearch(); }">🔍 确定</el-button>
+    </template>
+  </el-drawer>
 
     <div class="list-tree-layout">
       <main class="content-area">
@@ -249,130 +245,130 @@
           </div>
         </div>
 
-        <!-- Data Grid (subgrid 列对齐像素级精准,列宽由内容自适应) -->
+        <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 表格(含行展开)迁 Element Plus <el-table type="expand"> -->
         <div class="content-card table-desktop" v-else>
-          <div class="grid-scroll">
-            <div class="grid-table" :data-cols="visibleColumns.length">
-              <!-- Sticky header — 第 1 行 -->
-              <div class="grid-header">
-                <div
-                  v-for="col in visibleColumns"
-                  :key="'h-' + col.key"
-                  :class="['grid-cell', 'grid-head-cell', 'col-' + col.key, { sorted: sortKey === col.key, sortable: col.sortable }]"
-                  @click="col.sortable && sortBy(col.key)"
-                >
-                  {{ col.label }}
-                  <span v-if="col.sortable" class="sort-icon">
-                    {{ sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Body rows + 展开详情 — 都是 .grid-table 的直接子节点，参与同一 subgrid -->
-              <template v-for="(item, idx) in sortedData" :key="item.id || idx">
-                <div
-                  class="grid-row data-row"
-                  :class="{ 'stale-row': isStale(item.date), 'row-expanded': expandedRow === (item.id || idx) }"
-                  @click="toggleRow(item, idx)"
-                >
-                  <div
-                    v-for="col in visibleColumns"
-                    :key="item.id + '-' + col.key"
-                    :class="['grid-cell', 'col-' + col.key, getCellClass(col.key, item)]"
-                    :title="col.key === 'breed' ? item.breed : col.key === 'spec' ? item.spec_clean : undefined"
-                  >
-                    <template v-if="col.key === 'breed'">
-                      <div class="breed-cell">
-                        <span
-                          class="breed-name ctx-breed-link"
-                          :title="`${item.breed_clean || item.breed} (点击查看详情)`"
-                          @click.stop="openBreedDetail(item)"
-                          v-html="highlightKeyword(item.breed)"
-                        ></span>
-                        <div class="breed-meta">
-                          <AttrTags :attr="item.attr" />
-                          <span class="meta-sep" v-if="item.city">·</span>
-                          <span class="meta-tag city-tag" v-if="item.city">{{ item.city }}</span>
-                        </div>
-                      </div>
-                    </template>
-                    <template v-else-if="col.key === 'unit'">{{ item.unit }}</template>
-                    <template v-else-if="col.key === 'price'">
-                      <div class="price-main">{{ fmtCell(item.price) }}</div>
-                      <div class="price-change" v-if="getPriceChange(item)" :class="getPriceChange(item).cls" style="pointer-events:none">{{ getPriceChange(item).text }}</div>
-                    </template>
-                    <template v-else-if="col.key === 'tax_price'">
-                      <div class="price-main" v-if="item.tax_price && Number(item.tax_price) > 0">{{ fmtCell(item.tax_price) }}</div>
-                      <div class="price-empty" v-else>—</div>
-                    </template>
-                    <template v-else-if="col.key === 'attr'">
-                      <div class="attr-cell">
-                        <AttrTags :attr="item.attr" />
-                      </div>
-                    </template>
-                    <template v-else-if="col.key === 'date'">
-                      <span :class="{ 'stale-date': isStale(item.date) }">{{ staleText(item.date) || item.date || '-' }}</span>
-                    </template>
-                    <template v-else-if="col.key === 'category'">
-                      <span class="cat-badge" :title="item.category || ''">{{ item.category || '-' }}</span>
-                    </template>
-                    <template v-else>{{ item[col.key] ?? '-' }}</template>
-                  </div>
-                </div>
-                <!-- 展开详情行 — 跨满所有列，不是 subgrid（详情面板用内部 auto-fit grid） -->
-                <div v-if="expandedRow === (item.id || idx)" class="grid-detail-row" @click.stop>
-                  <div class="detail-panel">
-                    <div class="detail-panel-grid">
-                      <div class="detail-field full-width">
-                        <span class="detail-field-label">产品名称</span>
-                        <span class="detail-field-value">{{ item.breed }}</span>
-                      </div>
-                      <div class="detail-field full-width" v-if="item.spec_clean || item.spec">
-                        <span class="detail-field-label">规格型号</span>
-                        <span class="detail-field-value spec-full">{{ item.spec_clean || item.spec || '-' }}</span>
-                      </div>
-                      <div class="detail-field full-width" v-if="item.attr && Object.keys(item.attr).length">
-                        <span class="detail-field-label">规格属性</span>
-                        <span class="detail-field-value"><AttrTags :attr="item.attr" /></span>
-                      </div>
-                      <div class="detail-field">
-                        <span class="detail-field-label">价格</span>
-                        <span class="detail-field-value price-em">{{ fmtCell(item.price) }} 元</span>
-                      </div>
-                      <div class="detail-field" v-if="item.tax_price && Number(item.tax_price) > 0">
-                        <span class="detail-field-label">含税价</span>
-                        <span class="detail-field-value">{{ fmtCell(item.tax_price) }} 元</span>
-                      </div>
-                      <div class="detail-field">
-                        <span class="detail-field-label">单位</span>
-                        <span class="detail-field-value">{{ item.unit || '-' }}</span>
-                      </div>
-                      <div class="detail-field">
-                        <span class="detail-field-label">日期</span>
-                        <span class="detail-field-value">{{ item.date || '-' }}</span>
-                      </div>
-                      <div class="detail-field">
-                        <span class="detail-field-label">省份</span>
-                        <span class="detail-field-value">{{ item.province || '-' }}</span>
-                      </div>
-                      <div class="detail-field">
-                        <span class="detail-field-label">城市</span>
-                        <span class="detail-field-value">{{ item.city || '-' }}</span>
-                      </div>
-                      <div class="detail-field" v-if="item.county">
-                        <span class="detail-field-label">区县</span>
-                        <span class="detail-field-value">{{ item.county }}</span>
-                      </div>
-                      <div class="detail-field" v-if="item.category">
-                        <span class="detail-field-label">分类</span>
-                        <span class="detail-field-value"><span class="cat-badge">{{ item.category }}</span></span>
-                      </div>
+          <el-table
+            :data="sortedData"
+            :row-key="(item) => item.id"
+            :expand-row-keys="expandedRow ? [expandedRow] : []"
+            @row-click="toggleRow"
+            @expand-change="onExpandChange"
+            stripe
+            class="list-el-table"
+          >
+            <el-table-column type="expand" width="40">
+              <template #default="{ row }">
+                <div class="detail-panel">
+                  <div class="detail-panel-grid">
+                    <div class="detail-field full-width">
+                      <span class="detail-field-label">产品名称</span>
+                      <span class="detail-field-value">{{ row.breed }}</span>
+                    </div>
+                    <div class="detail-field full-width" v-if="row.spec_clean || row.spec">
+                      <span class="detail-field-label">规格型号</span>
+                      <span class="detail-field-value spec-full">{{ row.spec_clean || row.spec || '-' }}</span>
+                    </div>
+                    <div class="detail-field full-width" v-if="row.attr && Object.keys(row.attr).length">
+                      <span class="detail-field-label">规格属性</span>
+                      <span class="detail-field-value"><AttrTags :attr="row.attr" /></span>
+                    </div>
+                    <div class="detail-field">
+                      <span class="detail-field-label">价格</span>
+                      <span class="detail-field-value price-em">{{ fmtCell(row.price) }} 元</span>
+                    </div>
+                    <div class="detail-field" v-if="row.tax_price && Number(row.tax_price) > 0">
+                      <span class="detail-field-label">含税价</span>
+                      <span class="detail-field-value">{{ fmtCell(row.tax_price) }} 元</span>
+                    </div>
+                    <div class="detail-field">
+                      <span class="detail-field-label">单位</span>
+                      <span class="detail-field-value">{{ row.unit || '-' }}</span>
+                    </div>
+                    <div class="detail-field">
+                      <span class="detail-field-label">日期</span>
+                      <span class="detail-field-value">{{ row.date || '-' }}</span>
+                    </div>
+                    <div class="detail-field">
+                      <span class="detail-field-label">省份</span>
+                      <span class="detail-field-value">{{ row.province || '-' }}</span>
+                    </div>
+                    <div class="detail-field">
+                      <span class="detail-field-label">城市</span>
+                      <span class="detail-field-value">{{ row.city || '-' }}</span>
+                    </div>
+                    <div class="detail-field" v-if="row.county">
+                      <span class="detail-field-label">区县</span>
+                      <span class="detail-field-value">{{ row.county }}</span>
+                    </div>
+                    <div class="detail-field" v-if="row.category">
+                      <span class="detail-field-label">分类</span>
+                      <span class="detail-field-value"><span class="cat-badge">{{ row.category }}</span></span>
                     </div>
                   </div>
                 </div>
               </template>
-            </div>
-          </div>
+            </el-table-column>
+
+            <el-table-column label="品种" min-width="280" sortable="custom">
+              <template #default="{ row }">
+                <div class="breed-cell">
+                  <span
+                    class="breed-name ctx-breed-link"
+                    :title="`${row.breed_clean || row.breed} (点击查看详情)`"
+                    @click.stop="openBreedDetail(row)"
+                    v-html="highlightKeyword(row.breed)"
+                  ></span>
+                  <div class="breed-meta">
+                    <AttrTags :attr="row.attr" />
+                    <span class="meta-sep" v-if="row.city">·</span>
+                    <span class="meta-tag city-tag" v-if="row.city">{{ row.city }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="规格" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.spec_clean || row.spec || '-' }}</template>
+            </el-table-column>
+
+            <el-table-column label="价格" width="120" align="right" sortable="custom">
+              <template #default="{ row }">
+                <div class="price-main">{{ fmtCell(row.price) }}</div>
+                <div class="price-change" v-if="getPriceChange(row)" :class="getPriceChange(row).cls" style="pointer-events:none">{{ getPriceChange(row).text }}</div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="含税价" width="110" align="right">
+              <template #default="{ row }">
+                <div class="price-main" v-if="row.tax_price && Number(row.tax_price) > 0">{{ fmtCell(row.tax_price) }}</div>
+                <div class="price-empty" v-else>—</div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="单位" prop="unit" width="80" align="center" />
+
+            <el-table-column label="属性" min-width="200">
+              <template #default="{ row }">
+                <div class="attr-cell"><AttrTags :attr="row.attr" /></div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="日期" width="120" sortable="custom" align="center">
+              <template #default="{ row }">
+                <span :class="{ 'stale-date': isStale(row.date) }">{{ staleText(row.date) || row.date || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="分类" width="140">
+              <template #default="{ row }">
+                <span class="cat-badge" :title="row.category || ''">{{ row.category || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="省份" prop="province" width="100" show-overflow-tooltip />
+            <el-table-column label="城市" prop="city" width="100" show-overflow-tooltip />
+          </el-table>
+        </div>
 
           <!-- 移动端卡片视图（保留） -->
           <div class="table-mobile">
@@ -437,7 +433,6 @@
               <span>条</span>
             </div>
           </div>
-        </div>
 
         <!-- 列配置弹层 -->
         <div v-if="showColConfig" ref="colConfigRef" class="col-config-popover" @click.stop>
@@ -486,6 +481,31 @@ function openBreedDetail(item) {
   })
 }
 
+// 2026-07-28:Phase 2 — <el-table type="expand"> 行点击 + 展开状态同步
+function onRowClick(row) {
+  expandedRow.value = expandedRow.value === row.id ? null : row.id
+}
+function onExpandChange(row, expandedRows) {
+  // 同步 el-table 内部 expand-row-keys 到外部 expandedRow
+  expandedRow.value = expandedRows.length ? row.id : null
+}
+
+// 2026-07-28:Phase 2 — <el-date-picker daterange> v-model 适配(dateFrom + dateTo → 数组)
+const dateRangeModel = computed({
+  get: () => (dateFrom.value && dateTo.value) ? [dateFrom.value, dateTo.value] : [],
+  set: (val) => {
+    if (val && val[0] && val[1]) {
+      dateFrom.value = val[0]
+      dateTo.value = val[1]
+      dateRangeKey.value = 'custom'
+    } else {
+      dateFrom.value = ''
+      dateTo.value = ''
+      dateRangeKey.value = 'all'
+    }
+  }
+})
+
 const props = defineProps({
   bundle: { type: Object, required: true },
   // categoryPanelCollapsed: { type: Boolean, default: false }, // 2026-07-28 删除 list-tree-panel
@@ -528,56 +548,34 @@ defineExpose({ loadCategoryOptions })
 </script>
 
 <style scoped>
-/* ===========================================================================
-   列表页 CSS Grid + subgrid 表格 (2026-07-15 改造 v2)
-   - .grid-table 为根 grid container,定义 grid-template-columns (5 列内容感知)
-     max-content 在整列跨 header + 所有 body rows 求最大值 → 列宽严格一致
-   - .grid-row / .grid-header 走 subgrid: display:grid + grid-template-columns:subgrid
-   - 列下界保护: minmax(min, max-content) — 极少内容(如单位「个」)不塌缩,极多内容自适应
-   =========================================================================== */
+/* 2026-07-28 Phase 2 cleanup:
+   桌面端表格已迁 <el-table>,以下自研 CSS Grid 样式仅骨架屏继续用 .grid-table/.grid-row/.grid-cell。
+   已删除: .page-header / .grid-scroll / .grid-head-cell* / .grid-cell.col-* /
+            .grid-row.stale-row / .grid-row.row-expanded / .grid-detail-row /
+            .grid-table > .grid-detail-row / .price-tax / @media 内 .quick-filters 等死代码。 */
 .table-desktop { padding: 0; }
 
-/* PageHeader 位置与 /taxonomy 对齐 (2026-07-15 P-排错):
-   /taxonomy 的 .ctx-page 是 padding: 0 28px 64px（无 top padding）,
-   /list 被全局 .content-area 的 `padding: 16px 20px 20px` 推下去 16px。
-   补偿方案：margin-top: -16px 让 PageHeader 顶边贴合表格顶部参考线。
-   （全局 rules.css 不能动,这里用 scoped 限定仅 /list 生效） */
-.page-header {
-  margin-top: -16px;
-  margin-bottom: 16px;
-}
-.grid-scroll {
-  overflow-x: auto;
-  overflow-y: visible;
-  max-height: calc(100vh - 320px);
-}
-
-/* 根 grid container — 7 列定义 (2026-07-19: 价格拆为不含税/含税两列) */
+/* 骨架屏 grid container — 7 列定义(2026-07-19: 价格拆为不含税/含税两列,Phase 2 后实际数据表用 el-table,这里仅给 skeleton 用) */
 .grid-table {
   display: grid;
   grid-template-columns:
-    minmax(180px, 1fr)            /* 产品名称 flex 吃剩余 */
-    minmax(100px, max-content)    /* 不含税 */
-    minmax(100px, max-content)    /* 含税 */
-    minmax(40px,  max-content)    /* 单位 */
-    minmax(80px,  max-content)    /* 日期 */
-    minmax(110px, max-content);   /* 分类 */
+    minmax(180px, 1fr)
+    minmax(100px, max-content)
+    minmax(100px, max-content)
+    minmax(40px,  max-content)
+    minmax(80px,  max-content)
+    minmax(110px, max-content);
   grid-auto-rows: auto;
   width: 100%;
 }
 
-/* 每一行(表头/数据/骨架)继承父列模板 — subgrid 关键（行必须是 .grid-table 的直接子节点） */
+/* 骨架行继承父列模板 — subgrid */
 .grid-table > .grid-header,
 .grid-table > .grid-row {
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-items: stretch;
-}
-
-/* 详情行不参与 subgrid（自身内部 grid 自适应），仅占满一行宽度 */
-.grid-table > .grid-detail-row {
-  grid-column: 1 / -1;
 }
 
 .grid-header {
@@ -604,27 +602,7 @@ defineExpose({ loadCategoryOptions })
 }
 .grid-cell:last-child { border-right: none; }
 
-.grid-head-cell {
-  font-weight: 700;
-  font-size: 11.5px;
-  color: var(--text-2);
-  text-transform: none;
-  letter-spacing: 0;
-}
-.grid-head-cell.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
-.grid-head-cell.sortable:hover { background: var(--surface-3, #f1f5f9); }
-.grid-head-cell.sorted { color: var(--primary); background: rgba(37,99,235,0.06); }
-.grid-head-cell .sort-icon { margin-left: 4px; font-size: 10px; opacity: 0.6; }
-.grid-head-cell.sorted .sort-icon { opacity: 1; }
-
-.grid-cell.col-price   { justify-content: flex-end; padding-right: 14px; }
-.grid-cell.col-tax_price { justify-content: flex-end; padding-right: 14px; }
-.grid-cell.col-unit    { justify-content: center; }
-.grid-cell.col-date    { justify-content: center; }
-.grid-cell.col-category { justify-content: center; }
-.grid-cell.col-breed   { white-space: normal; }
-
-/* 行 */
+/* 骨架行(在 skeleton-card 内,真实数据表用 el-table 接管) */
 .grid-row {
   border-bottom: 1px solid var(--border);
   cursor: pointer;
@@ -632,19 +610,8 @@ defineExpose({ loadCategoryOptions })
   background: var(--surface);
 }
 .grid-row:hover { background: rgba(37,99,235,0.04); }
-.grid-row.stale-row { background: rgba(245,158,11,0.04); }
-.grid-row.row-expanded { background: rgba(37,99,235,0.05); }
 .grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
 .grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
-.grid-row:nth-child(even).stale-row { background: rgba(245,158,11,0.06); }
-.grid-row.stale-row:hover { background: rgba(245,158,11,0.1); }
-
-/* 展开详情行(跨满所有列) */
-.grid-detail-row {
-  background: var(--surface-2, #f8fafc);
-  border-bottom: 1px solid var(--border);
-  padding: 0;
-}
 
 /* 骨架屏 — 复用同一 grid-table */
 .skel .grid-cell { background: transparent; }
@@ -668,7 +635,7 @@ defineExpose({ loadCategoryOptions })
 }
 .skeleton-footer { text-align: center; color: var(--text-3); font-size: 12px; padding: 16px; }
 
-/* detail panel(沿用原样式) */
+/* detail panel(el-table expand 行用) */
 .detail-panel { padding: 14px 18px; }
 .detail-panel-grid {
   display: grid;
@@ -682,10 +649,10 @@ defineExpose({ loadCategoryOptions })
 .detail-field-value.spec-full { white-space: pre-wrap; }
 .detail-field-value.price-em { font-weight: 700; color: var(--primary); font-family: 'Courier New', monospace; }
 
-/* 内容排版 */
+/* el-table 列内容排版 */
 .breed-cell { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; }
 .breed-name { font-weight: 600; font-size: 13px; color: var(--text); }
-/* 跨页详情中心跳转链接样式 (2026-07-15 A) */
+/* 跨页详情中心跳转链接样式 */
 .ctx-breed-link {
   cursor: pointer;
   border-bottom: 1px dashed transparent;
@@ -703,7 +670,6 @@ defineExpose({ loadCategoryOptions })
 .meta-tag.city-tag { color: var(--text-3); }
 .price-main { font-family: 'Courier New', monospace; font-weight: 700; font-size: 13px; color: var(--text); }
 .price-empty { font-size: 12px; color: var(--text-3); font-family: 'Courier New', monospace; }
-.price-tax { font-size: 11px; color: var(--text-3); font-family: 'Courier New', monospace; }
 .price-change { font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600; }
 .price-change.up { color: var(--status-alert, #ef4444); }
 .price-change.down { color: var(--status-ok, #16a34a); }
@@ -717,22 +683,15 @@ defineExpose({ loadCategoryOptions })
 }
 .attr-cell { font-size: 11px; color: var(--text-3); }
 
-/* 2026-07-25 P0-fix: 移动端 — 注意所有规则都要在 @media 块内! 
-   (之前 bug:Python 拼接时把规则放到了 @media 块外面,
-    导致 .grid-table { display: block !important } 变成全局样式,
-    桌面端表格也变成卡片,布局紊乱。) */
+/* 移动端适配 — 桌面端走 el-table,移动端走 .table-mobile 卡片栈 */
 @media (max-width: 768px) {
   .table-desktop { display: none; }
   .table-mobile  { display: block; }
-  /* grid-table / filter sheet 适配 */
+  /* skeleton grid-table 适配移动端块级布局 */
   .grid-table { display: block !important; }
-  .grid-table thead { display: none !important; }
   .grid-table tbody, .grid-table .grid-row, .grid-table tr { display: block !important; width: 100% !important; }
-  .grid-table tr { margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
   .grid-table td, .grid-table .grid-cell { display: flex !important; justify-content: space-between !important; padding: 4px 0 !important; border: none !important; word-break: break-word; }
   .filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px !important; }
   .filter-bar-input, .filter-bar-select { width: 100% !important; min-height: 44px !important; font-size: 15px !important; }
-  .quick-filters { flex-wrap: wrap !important; gap: 6px !important; }
 }
-
 </style>

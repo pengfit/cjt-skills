@@ -13,7 +13,8 @@
     - 全局轮询 / 告警 / 时间显示 / 键盘快捷键
 -->
 <template>
-  <div class="dashboard with-sidebar" :class="{ 'mobile-sidebar-open': mobileSidebarOpen }">
+  <!-- 2026-07-28:Phase 1 Element Plus — 顶层换 el-container 壳(竖向:topbar + body) -->
+  <el-container class="dashboard with-sidebar" direction="vertical" :class="{ 'mobile-sidebar-open': mobileSidebarOpen }">
 
     <!-- ========== SKIP LINK (a11y 2026-07-12 P2-3) ========== -->
     <a href="#main-content" class="skip-link">跳到主内容</a>
@@ -34,7 +35,8 @@
     />
 
     <!-- ========== DASHBOARD BODY (sidebar + main) ========== -->
-    <div class="dashboard-body">
+    <!-- 2026-07-28:Phase 1 — body 改 el-container(横向:aside + main) -->
+    <el-container class="dashboard-body" direction="horizontal">
 
       <!-- ========== SIDEBAR(统一 Sidebar.vue) ========== -->
       <Sidebar
@@ -46,7 +48,7 @@
       />
 
       <!-- ========== MAIN CONTENT ========== -->
-      <main id="main-content" class="main-content" tabindex="-1">
+      <el-main id="main-content" class="main-content" tabindex="-1">
 
         <!-- 全部数据(list)tab — 抽到 ListView.vue(2026-07-13) -->
         <template v-if="currentTab === 'list'">
@@ -118,8 +120,8 @@
           <div v-else class="scroll-panel"><BreedL3MapView /></div>
         </template>
 
-      </main>
-    </div>
+      </el-main>
+    </el-container>
 
     <!-- 命令面板 ⌘K -->
     <CmdPalette
@@ -129,7 +131,7 @@
       @close="showCmdPalette = false"
       @select="onCmdSelect"
     />
-  </div>
+  </el-container>
 </template>
 
 <script setup>

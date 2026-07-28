@@ -25,71 +25,78 @@
     </div>
   </Transition>
 
-  <!-- Main table (CSS Grid) -->
+  <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 表格改 Element Plus <el-table> -->
   <div class="canon-table-wrap">
-    <div v-if="loading" class="canon-loading">
-      <div class="canon-spinner"></div>
-      <span>加载中…</span>
-    </div>
-
-    <div v-else class="canon-table" :style="{ gridTemplateColumns: GRID_COLS }">
-      <div class="canon-row canon-row-head">
-        <div class="canon-cell col-id">#</div>
-        <div class="canon-cell col-breed text-left">breed_clean</div>
-        <div class="canon-cell col-l3">l3</div>
-        <div class="canon-cell col-source">source</div>
-        <div class="canon-cell col-conf">confidence</div>
-        <div class="canon-cell col-date">updated_at</div>
-      </div>
-
-      <div v-for="(r, idx) in rows" :key="r.breed_clean" class="canon-row canon-row-data" @click="openDrawer(r)">
-        <div class="canon-cell col-id">{{ (page - 1) * size + idx + 1 }}</div>
-        <div class="canon-cell col-breed text-left canon-cell-strong" :title="r.breed_clean">{{ r.breed_clean }}</div>
-        <div class="canon-cell col-l3">
-          <span v-if="r.l3" class="canon-l3-pill">{{ r.l3 }}</span>
+    <el-table
+      v-loading="loading"
+      :data="rows"
+      stripe
+      class="canon-el-table"
+      empty-text="暂无映射"
+      :row-key="(r) => r.breed_clean"
+      @row-click="openDrawer"
+    >
+      <el-table-column type="index" :index="(i) => (page - 1) * size + i + 1" label="#" width="60" align="center" />
+      <el-table-column prop="breed_clean" label="breed_clean" min-width="220" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span class="canon-cell-strong">{{ row.breed_clean }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="l3" width="110" align="center">
+        <template #default="{ row }">
+          <span v-if="row.l3" class="canon-l3-pill">{{ row.l3 }}</span>
           <span v-else class="canon-l3-pill canon-l3-pill-warn">UNCLASSIFIED</span>
-        </div>
-        <div class="canon-cell col-source">
-          <span class="canon-source-tag">{{ r.source }}</span>
-        </div>
-        <div class="canon-cell col-conf">
-          <span class="canon-conf" :class="confClass(r.confidence)">{{ r.confidence.toFixed(2) }}</span>
-        </div>
-        <div class="canon-cell col-date">{{ r.updated_at ? r.updated_at.slice(0, 19) : '—' }}</div>
-      </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="source" width="140" align="center">
+        <template #default="{ row }">
+          <span class="canon-source-tag">{{ row.source }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="confidence" width="110" align="center">
+        <template #default="{ row }">
+          <span class="canon-conf" :class="confClass(row.confidence)">{{ row.confidence.toFixed(2) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="updated_at" width="180">
+        <template #default="{ row }">
+          {{ row.updated_at ? row.updated_at.slice(0, 19) : '—' }}
+        </template>
+      </el-table-column>
+    </el-table>
 
-      <div v-if="!loading && !rows.length" class="canon-empty">
-        <div class="canon-empty-icon">📭</div>
-        <div class="canon-empty-title">{{ hasFilter ? '没有匹配当前筛选的映射' : '暂无映射' }}</div>
-        <div class="canon-empty-hint">{{ hasFilter ? '点击【全部清除】或单独移除筛选条件' : 'check category_v3_rules.db 是否存在 / 是否有数据' }}</div>
-      </div>
-    </div>
+    <!-- 分页 (Phase 2:沿用 vec-pagination 全局 .page-btn 样式) -->
     <div class="canon-pagination" v-if="pages > 1">
       <button class="page-btn nav" :disabled="page <= 1" @click="reload(page - 1)">‹</button>
-    <button
-      v-for="p in pageRange" :key="p"
-      class="page-btn" :class="{ active: p === page, ellipsis: p === '...' }"
-      :disabled="p === '...'" @click="p !== '...' && reload(p)"
-    >{{ p }}</button>
-    <button class="page-btn nav" :disabled="page >= pages" @click="reload(page + 1)">›</button>
-    <div class="page-jump-wrap">
-      <span>跳至</span>
-      <input class="page-jump" v-model.number="jumpPage" @keyup.enter="goToPage" type="number" min="1" :max="pages" />
-      <span>页</span>
+      <button
+        v-for="p in pageRange" :key="p"
+        class="page-btn" :class="{ active: p === page, ellipsis: p === '...' }"
+        :disabled="p === '...'" @click="p !== '...' && reload(p)"
+      >{{ p }}</button>
+      <button class="page-btn nav" :disabled="page >= pages" @click="reload(page + 1)">›</button>
+      <div class="page-jump-wrap">
+        <span>跳至</span>
+        <input class="page-jump" v-model.number="jumpPage" @keyup.enter="goToPage" type="number" min="1" :max="pages" />
+        <span>页</span>
+      </div>
+      <div class="page-size-wrap">
+        <span>每页</span>
+        <select class="page-size-select" v-model.number="size" @change="reload(1)">
+          <option v-for="s in pageSizeOptions" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <span>条</span>
+      </div>
     </div>
-    <div class="page-size-wrap">
-      <span>每页</span>
-      <select class="page-size-select" v-model.number="size" @change="reload(1)">
-        <option v-for="s in pageSizeOptions" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <span>条</span>
-    </div>
-  </div>
   </div>
 
-  <!-- Row detail drawer -->
-  <div v-if="drawerRow" class="ctx-drawer-mask" @click.self="drawerRow = null">
-    <div class="ctx-drawer">
+  <!-- 2026-07-28:Phase 2 — 自研 mask+div 抽屉改 Element Plus <el-drawer> -->
+  <el-drawer
+    v-model="drawerVisible"
+    direction="rtl"
+    size="460px"
+    :with-header="false"
+  >
+    <div v-if="drawerRow" class="ctx-drawer">
       <div class="ctx-drawer-header">
         <div>
           <div class="ctx-drawer-title">品种映射详情</div>
@@ -98,7 +105,7 @@
             <span class="ctx-drawer-name">{{ drawerRow.breed_clean }}</span>
           </div>
         </div>
-        <button class="ctx-drawer-close" @click="drawerRow = null">×</button>
+        <button class="ctx-drawer-close" @click="drawerVisible = false">×</button>
       </div>
       <div class="ctx-drawer-body">
         <div class="ctx-drawer-section">
@@ -114,7 +121,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </el-drawer>
 </template>
 
 <script setup>
@@ -135,6 +142,8 @@ const stats = ref(null)
 const loading = ref(false)
 const showHelp = ref(false)
 const drawerRow = ref(null)
+// 2026-07-28:Phase 2 — el-drawer v-model 用 boolean
+const drawerVisible = ref(false)
 
 function confClass(c) {
   if (c >= 0.95) return 'high'
@@ -182,7 +191,10 @@ function goToPage() {
   else jumpPage.value = page.value
 }
 
-function openDrawer(r) { drawerRow.value = r }
+function openDrawer(r) {
+  drawerRow.value = r
+  drawerVisible.value = true
+}
 
 let debounceTimer = null
 function debounceReload(p) {
@@ -218,6 +230,14 @@ onMounted(() => { loadStats(); reload(1) })
 </script>
 
 <style scoped>
+/* 2026-07-28 Phase 2 cleanup:
+   表格迁 <el-table> / 抽屉迁 <el-drawer> / 加载态走 el-table v-loading。
+   已删除: .canon-loading / .canon-spinner / .canon-table / .canon-row / .canon-row-head / 
+            .canon-row-data / .canon-cell / .text-left / .col-id / .col-breed / .col-date /
+            .canon-empty* / .ctx-drawer-mask / .canon-toggle / .ctx-select 等。
+   保留: .ctx-toolbar / .ctx-input / .canon-help* / .canon-l3-pill* / .canon-source-tag / 
+         .canon-conf* / .ctx-drawer* / .canon-pagination / .page-btn / .slide-down / @keyframes 等。*/
+
 /* ── Toolbar ── */
 .ctx-toolbar {
   display: flex; align-items: center; gap: 10px;
@@ -249,12 +269,7 @@ onMounted(() => { loadStats(); reload(1) })
 }
 .ctx-input:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
 .ctx-toolbar-main > .ctx-input:not(.ctx-select) { flex: 1 1 200px; max-width: 360px; min-width: 160px; }
-.ctx-select { cursor: pointer; min-width: 130px; }
-.canon-toggle {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 13px; color: var(--text-2, #475569);
-  cursor: pointer; white-space: nowrap; padding: 0 4px;
-}
+
 .canon-clear-btn {
   width: 28px; height: 30px;
   background: transparent;
@@ -299,7 +314,7 @@ onMounted(() => { loadStats(); reload(1) })
   font-size: 11px;
 }
 
-/* ── Main table (CSS Grid) ── */
+/* ── Table 容器(el-table 外壳) ── */
 .canon-table-wrap {
   background: var(--surface, #fff);
   border: 1px solid var(--border, rgba(15,23,42,0.06));
@@ -308,48 +323,8 @@ onMounted(() => { loadStats(); reload(1) })
   max-height: calc(100vh - 420px);
   box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 }
-.canon-loading {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 60px 20px;
-  color: var(--text-3);
-  font-size: 13px;
-}
-.canon-spinner {
-  width: 18px; height: 18px;
-  border: 2px solid rgba(15,23,42,0.08);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: canonSpin 0.7s linear infinite;
-}
-@keyframes canonSpin { to { transform: rotate(360deg); } }
 
-.canon-table {
-  display: grid;
-  font-size: 12.5px;
-  min-width: 1100px;
-}
-.canon-row { display: contents; }
-.canon-row-head .canon-cell {
-  font-size: 11px; font-weight: 600;
-  color: var(--text-3, #6b7280);
-  text-transform: uppercase; letter-spacing: 0.05em;
-  background: var(--surface-2, #f8fafc);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 10px;
-  position: sticky; top: 0; z-index: 2;
-}
-.canon-row-data .canon-cell {
-  padding: 10px;
-  border-bottom: 1px solid rgba(15,23,42,0.04);
-  display: flex; align-items: center;
-  min-width: 0; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
-.canon-row-data:hover .canon-cell { background: rgba(37,99,235,0.03); }
-.canon-cell { min-width: 0; }
-.text-left { justify-content: flex-start; text-align: left; }
-.col-id { justify-content: center; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text-3); }
-.col-breed { font-weight: 600; color: var(--text, #1e293b); }
+/* el-table 列内容排版 */
 .canon-cell-strong { font-weight: 600; color: #111827; }
 
 .canon-l3-pill {
@@ -390,24 +365,7 @@ onMounted(() => { loadStats(); reload(1) })
   white-space: nowrap;
 }
 
-.col-date { color: var(--text-3); font-size: 11px; font-family: 'Courier New', monospace; }
-
-.canon-empty {
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text-3);
-  grid-column: 1 / -1;
-}
-.canon-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
-.canon-empty-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
-.canon-empty-hint { font-size: 12px; color: var(--text-3); max-width: 480px; margin: 0 auto; }
-
-/* ── Drawer ── */
-.ctx-drawer-mask {
-  position: fixed; inset: 0; background: rgba(15,23,42,0.25);
-  display: flex; justify-content: flex-end; z-index: 9999;
-  backdrop-filter: blur(2px);
-}
+/* ── Drawer(el-drawer 内部内容容器) ── */
 .ctx-drawer {
   width: 460px; max-width: 90vw; height: 100vh;
   background: var(--surface); border-left: 1px solid var(--border);
@@ -444,7 +402,7 @@ onMounted(() => { loadStats(); reload(1) })
 .ctx-drawer-field span { font-size: 13px; color: var(--text, #1e293b); font-weight: 500; }
 .canon-time { font-family: 'Courier New', monospace; font-size: 12px; }
 
-/* ── Pagination ── */
+/* ── Pagination(本地定义,与 style.css 全局 .page-btn 并存,scoped 权重略高) ── */
 .canon-pagination {
   position: sticky; bottom: 0;
   display: flex; align-items: center; justify-content: center;

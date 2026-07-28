@@ -48,6 +48,9 @@ window.fetch = function (input, init) {
 // fire-and-forget：组件 init 时也会 await，主题就绪前不阻塞 UI
 registerGovPriceTheme()
 
+// 2026-07-28:Element Plus 国际化（后台页面全是中文,zh-CN）
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+
 // 旧 ?tab=xxx 兼容由 router.beforeEach 守卫处理
 const app = createApp(App)
 app.use(router)

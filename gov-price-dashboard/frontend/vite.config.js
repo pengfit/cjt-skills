@@ -1,5 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+// 2026-07-28:Phase 1 迁移 Element Plus,按需自动导入 + 主题 resolver
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -276,7 +280,13 @@ function seoBuildPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue(), seoBuildPlugin()],
+  plugins: [
+    vue(),
+    seoBuildPlugin(),
+    // 2026-07-28:Element Plus 按需注入 — <el-button> 等直接用,Vue SFC 里不用 import
+    AutoImport({ resolvers: [ElementPlusResolver()] }),
+    Components({ resolvers: [ElementPlusResolver()] }),
+  ],
   server: {
     host: true,  // 2026-07-20 19:21 修: 监听所有接口 (含 IPv4 127.0.0.1); 默认只监听 localhost (IPv6 ::1) 让 127.0.0.1 连不上
     port: 5300,

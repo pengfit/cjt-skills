@@ -8,24 +8,23 @@
     ><template #icon>📈</template></PageHeader>
 
     <!-- 统计概览 (2026-07-23: /api/stats/overview 下架后不再读 overview.*，改从 rangeData 派生) -->
+    <!-- 2026-07-28:Phase 2 — StatCard 迁 <el-card> + <el-statistic> -->
     <div class="dist-overview-stats">
-      <StatCard
-        icon="📊"
-        label="条价格数据"
-        :value="totalCount"
-      />
-      <StatCard
-        icon="📐"
-        label="主体区间 200-500元"
-        :value="dominantPct + '%'"
-        :format="'raw'"
-      />
-      <StatCard
-        icon="💰"
-        label="加权平均价格(从区间均价格合)"
-        :value="weightedAvgPrice"
-        unit="元"
-      />
+      <el-card shadow="hover" class="dist-stat-card">
+        <el-statistic :value="totalCount" title="条价格数据">
+          <template #prefix><el-icon style="vertical-align: middle"><DataLine /></el-icon></template>
+        </el-statistic>
+      </el-card>
+      <el-card shadow="hover" class="dist-stat-card">
+        <el-statistic :value="dominantPct + '%'" title="主体区间 200-500元">
+          <template #prefix><el-icon style="vertical-align: middle"><Histogram /></el-icon></template>
+        </el-statistic>
+      </el-card>
+      <el-card shadow="hover" class="dist-stat-card">
+        <el-statistic :value="weightedAvgPrice" title="加权平均价格(从区间均价格合)" suffix=" 元">
+          <template #prefix><el-icon style="vertical-align: middle"><Money /></el-icon></template>
+        </el-statistic>
+      </el-card>
     </div>
 
     <!-- Chart cards -->
@@ -390,6 +389,12 @@ onMounted(() => { mountedRef.value = true; loadData() })
 </script>
 
 <style scoped>
+/* 2026-07-28 Phase 2 cleanup:
+   统计卡片 StatCard 迁 <el-card>+<el-statistic>,价格区间仍走 echarts。
+   已删除: .province-avg(无 template 引用) / @media 内的旧 .filter-bar* / .quick-filters / 
+            .filter-drawer / table / thead / tr / td / h1 / h2 fallback 等。
+   修复: 原 .echart-canvas / .dist-card 移动端规则被误放在 @media 外,现在归位。 */
+
 .dist-page {
   display: flex;
   flex-direction: column;
@@ -402,7 +407,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
 }
 
 
-/* 统计概览卡片（已迁移至 StatCard） */
+/* 统计概览卡片(已迁 el-card + el-statistic) */
 .dist-overview-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -516,34 +521,15 @@ onMounted(() => { mountedRef.value = true; loadData() })
   text-shadow: none;
 }
 
-.province-avg {
-  font-size: 11px;
-  color: var(--text-3);
-  font-weight: 400;
-}
-
 .province-chart-box {
   width: 100%;
   height: 200px;
   min-height: 200px;
 }
 
-/* ── 移动端 (2026-07-25 P0-fix): filter-bar/table/header 全面适配 ── */
+/* ── 移动端 (原 .echart-canvas / .dist-card 移动端规则被误放在 @media 外,已归位) ── */
 @media (max-width: 768px) {
-  .filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px !important; }
-  .filter-bar-input, .filter-bar-select { width: 100% !important; min-height: 44px !important; font-size: 15px !important; }
-  .quick-filters, .chip-row { flex-wrap: wrap !important; gap: 6px !important; }
-  .filter-drawer { width: 92vw !important; max-width: 360px !important; }
-  table, thead, tbody, tr, td, th { display: block !important; width: 100% !important; }
-  thead { display: none !important; }
-  tr { margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
-  td, th { padding: 4px 0 !important; border: none !important; display: flex !important; justify-content: space-between !important; gap: 12px !important; }
-  td::before { content: attr(data-label); font-weight: 500; color: var(--text-3, #6b7280); font-size: 12px; }
-  h1 { font-size: 1.1rem !important; }
-  h2 { font-size: 1rem !important; }
-}
-
   .echart-canvas, [class*='echart'], canvas { height: 280px !important; max-height: 280px !important; }
-  .dist-card, .stat-card { padding: 12px !important; }
-
+  .dist-card { padding: 12px !important; }
+}
 </style>

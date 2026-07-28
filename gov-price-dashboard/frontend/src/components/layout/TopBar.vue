@@ -20,106 +20,106 @@
     </div>
     <div class="top-bar-meta">
       <!-- 2026-07-23:省份/城市 KPI chip 已下架(/api/stats/overview 整接口删除) -->
-      <!-- 数据新鲜度告警（fix 2026-07-12 P1-4）：stale/very_stale 城市数,点击跳数据健康 -->
-      <button
+      <!-- 2026-07-28:Phase 1 Element Plus — alert badge → el-button + el-tag -->
+      <el-button
         v-if="alerts.count > 0"
-        class="alert-badge"
-        :class="{ severe: alerts.veryStaleCount > 0 }"
+        :type="alerts.veryStaleCount > 0 ? 'danger' : 'warning'"
+        size="small"
+        round
         @click="$emit('go-health')"
         :title="`${alerts.count} 城数据待更新,点击查看`"
       >
-        <span class="alert-icon">⚠</span>
-        <span class="alert-count">{{ alerts.count }}</span>
-      </button>
-      <span v-else class="alert-ok" title="全部 18 城数据新鲜">
-        <span class="alert-ok-dot">●</span>
-        <span class="alert-ok-text">全部新鲜</span>
-      </span>
+        <el-icon><IconWarning /></el-icon>
+        <span style="margin-left: 4px">{{ alerts.count }} 城待更新</span>
+      </el-button>
+      <el-tag v-else type="success" size="small" round effect="light" title="全部 18 城数据新鲜">
+        <el-icon><IconCircleCheck /></el-icon>
+        <span style="margin-left: 4px">全部新鲜</span>
+      </el-tag>
       <!-- 最后刷新时间(同上):每分钟重算"X 分钟前" -->
       <span v-if="lastRefreshAgo" class="last-refresh" :title="`接口扫描: ${lastRefresh}`">
         {{ lastRefreshAgo }}
       </span>
-      <!-- P0-2 立即刷新(统一轮询入口) -->
-      <button
-        class="refresh-btn"
+      <!-- P0-2 立即刷新(统一轮询入口) — 2026-07-28 el-button circle -->
+      <el-button
+        circle
+        size="small"
         @click="$emit('refresh-now')"
         title="立即拉取最新数据(驾驶舱、告警同步刷新)"
       >
-        <span class="refresh-icon">↻</span>
-      </button>
-      <!-- P0-2 暂停/继续轮询 -->
-      <button
-        class="pause-btn"
-        :class="{ paused: pollingPaused }"
+        <el-icon><IconRefresh /></el-icon>
+      </el-button>
+      <!-- P0-2 暂停/继续轮询 — 2026-07-28 el-button circle -->
+      <el-button
+        circle
+        size="small"
+        :type="pollingPaused ? 'warning' : ''"
         @click="$emit('toggle-polling')"
         :title="pollingPaused ? `轮询已暂停,点击恢复(每 ${pollIntervalMin} 分钟自动刷新)` : `轮询运行中,点击暂停`"
       >
-        <span class="pause-icon">{{ pollingPaused ? '▶' : '⏸' }}</span>
-      </button>
-      <!-- 主题切换（2026-07-12 P2-5）：深浅主题,持久化到 localStorage -->
-      <button
-        class="theme-toggle"
+        <el-icon><component :is="pollingPaused ? IconPlay : IconPause" /></el-icon>
+      </el-button>
+      <!-- 主题切换 — 2026-07-28 el-button circle -->
+      <el-button
+        circle
+        size="small"
         @click="toggleTheme"
         :title="isDark ? '切换到浅色主题' : '切换到深色主题'"
         :aria-label="isDark ? '切换到浅色主题' : '切换到深色主题'"
       >
-        <span class="theme-icon">{{ isDark ? '☀️' : '🌙' }}</span>
-      </button>
-      <!-- ⌘K 命令面板入口提示（fix 2026-07-12） -->
-      <!-- P1-6 ⌘K trigger:底色提亮 + 按 / 也行 -->
-      <button
+        <el-icon><component :is="isDark ? IconSunny : IconMoon" /></el-icon>
+      </el-button>
+      <!-- ⌘K 命令面板入口提示 — 2026-07-28 el-button -->
+      <el-button
         class="cmd-palette-trigger"
+        size="small"
         @click="$emit('open-cmd-palette')"
         title="搜索页面、命令…（⌘K / Ctrl+K / /）"
       >
-        <span class="cmd-icon">🔍</span>
+        <el-icon><IconSearch /></el-icon>
         <span class="cmd-hint">搜索</span>
-        <span class="cmd-hint-sep">·</span>
-        <span class="cmd-hint-slash">/</span>
         <kbd class="cmd-kbd">⌘K</kbd>
-      </button>
+      </el-button>
 
-      <!-- 2026-07-19 鉴权:当前用户 + 退出 -->
-      <div class="user-menu" v-if="user">
-        <span class="user-name" :title="`角色: ${user.role}`">👤 {{ user.username }}</span>
-        <button
-          class="logout-btn"
-          @click="showLogoutConfirm = true"
-          title="退出登录(清除本地 token)"
-        >退出</button>
+      <!-- 2026-07-28:Phase 1 Element Plus — user menu 改 el-dropdown -->
+      <el-dropdown v-if="user" trigger="click" @command="handleUserCmd">
+        <el-button round size="small">
+          <el-icon><IconUser /></el-icon>
+          <span style="margin-left: 4px">{{ user.username }}</span>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item disabled>
+              <span style="font-size: 11px; color: #94a3b8">角色: {{ user.role }}</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="logout" divided>
+              <el-icon><IconSwitch /></el-icon>
+              <span style="margin-left: 4px">退出登录</span>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
+    <!-- 退出确认弹窗 — 2026-07-28 el-dialog 替代自定义 modal -->
+    <el-dialog
+      v-model="showLogoutConfirm"
+      title="确认退出登录?"
+      width="380"
+      center
+      :show-close="true"
+      align-center
+    >
+      <div style="text-align: center; padding: 12px 0">
+        <el-icon size="56" color="#dc2626"><IconCircleClose /></el-icon>
+        <p style="margin: 16px 0 0; color: #64748b; font-size: 13px; line-height: 1.55;">
+          退出后会清除本地 token,需重新输入用户名密码才能继续使用。
+        </p>
       </div>
-
-    <!-- 退出确认弹窗(自定义,不用浏览器原生 confirm) -->
-    <Teleport to="body">
-      <Transition name="modal-fade">
-        <div
-          v-if="showLogoutConfirm"
-          class="logout-modal-backdrop"
-          @click.self="showLogoutConfirm = false"
-          @keydown.esc="showLogoutConfirm = false"
-          tabindex="-1"
-        >
-          <div class="logout-modal" role="dialog" aria-modal="true">
-            <div class="logout-modal-icon">👋</div>
-            <h3 class="logout-modal-title">确认退出登录?</h3>
-            <p class="logout-modal-body">
-              退出后会清除本地 token,需重新输入用户名密码才能继续使用。
-            </p>
-            <div class="logout-modal-actions">
-              <button
-                class="btn-cancel"
-                @click="showLogoutConfirm = false"
-              >取消</button>
-              <button
-                class="btn-confirm"
-                @click="confirmLogout"
-                ref="confirmBtn"
-              >退出登录</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+      <template #footer>
+        <el-button @click="showLogoutConfirm = false">取消</el-button>
+        <el-button type="danger" @click="confirmLogout">退出登录</el-button>
+      </template>
+    </el-dialog>
     </div>
   </header>
 </template>
@@ -129,6 +129,22 @@ import { ref } from 'vue'
 import { useTheme } from '../../composables/useTheme'
 import { useAuth } from '../../composables/useAuth'
 import { useRouter } from 'vue-router'
+// 2026-07-28:Phase 1 Element Plus — 按需导入图标
+import {
+  Refresh as IconRefresh,
+  VideoPlay as IconPlay,
+  VideoPause as IconPause,
+  Sunny as IconSunny,
+  Moon as IconMoon,
+  Search as IconSearch,
+  Warning as IconWarning,
+  CircleCheck as IconCircleCheck,
+  User as IconUser,
+  SwitchButton as IconSwitch,
+  ArrowLeft as IconArrowLeft,
+  Menu as IconMenu,
+  CircleClose as IconCircleClose,
+} from '@element-plus/icons-vue'
 /**
  * 顶栏(统一组件)
  * 由父级传入数据(alerts / lastRefresh / lastRefreshAgo),
@@ -163,6 +179,11 @@ function toggleTheme() {
 const router = useRouter()
 const { user, logout } = useAuth()
 const showLogoutConfirm = ref(false)
+
+// 2026-07-28:Phase 1 — el-dropdown @command 入口(目前只用到 'logout')
+function handleUserCmd(cmd) {
+  if (cmd === 'logout') showLogoutConfirm.value = true
+}
 
 async function confirmLogout() {
   showLogoutConfirm.value = false

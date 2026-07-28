@@ -26,14 +26,15 @@
     <template v-if="data.all_cities">
       <!-- ============ Row 1: 总览区 = 入库总量 (大字 4列) + 3 转化率圆环 (各 2.67列) ============ -->
       <div class="gauge-row">
-        <!-- 入库总量：大字 hero，4 列宽 -->
-        <div class="gauge-card gauge-card-hero">
-          <div class="gauge-label">入库总量</div>
-          <div class="gauge-sub">ODS 原始数据量</div>
-          <div class="hero-stat">
-            <span class="hero-num mono">{{ fmt.int(kpi.ods) }}</span>
-            <span class="hero-unit">条</span>
-          </div>
+        <!-- 2026-07-28:Phase 2 — 入库总量 hero-stat 迁 <el-card> + <el-statistic> -->
+        <el-card shadow="hover" class="gauge-card gauge-card-hero cockpit-hero-card">
+          <template #header>
+            <div class="gauge-label">入库总量</div>
+            <div class="gauge-sub">ODS 原始数据量</div>
+          </template>
+          <el-statistic :value="kpi.ods" class="cockpit-hero-stat">
+            <template #suffix><span class="hero-unit"> 条</span></template>
+          </el-statistic>
           <div class="hero-meta">
             <div class="hero-meta-row">
               <span class="hero-meta-label">覆盖城市</span>
@@ -48,7 +49,7 @@
               <span class="hero-meta-value">{{ fmt.compact(kpi.dws) }} 条</span>
             </div>
           </div>
-        </div>
+        </el-card>
 
         <div class="gauge-card">
           <div class="gauge-label">清洗完成率</div>
@@ -511,6 +512,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 2026-07-28 Phase 2 cleanup:
+   入库总量 hero-stat 迁 <el-card>+<el-statistic>(保留 3 个 SVG 圆环 - 自研太精致)。
+   已删除: .hud-btn(下沉 TopBar) / .gauge-card-main / .hero-stat / .hero-num / 
+            .tag-green / .pipeline-section / .pipeline-grid / .city-card* / .city-name /
+            .city-status / .city-pipe / .city-stage / .city-arrow / .stage-num / .stage-bar / 
+            .stage-bar-fill / .city-attr / .mini-ring / .mini-track / .mini-fill / .city-attr-info /
+            .city-attr-num / .city-attr-unit / .city-sparkline-wrap / .city-sparkline / 
+            .city-sparkline-trend / .city-sparkline-empty / .grid-geo .geo-map-view / 
+            .city-table / .city-thead / .city-tbody / .city-tr / .city-td-* / .city-dot / 
+            .attr-track / .attr-fill / .attr-pct / .city-spark-empty / .spark-trend /
+            移动端内 .hero-num / h1/h2/h3 / button 兜底 等。 */
+
+/* ── 页面容器 ── */
 .cockpit {
   padding: 16px 20px;
 }
@@ -562,60 +576,17 @@ onUnmounted(() => {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-.hud-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  padding: 5px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-.hud-btn:hover {
-  background: rgba(var(--primary-rgb), 0.06);
-  color: var(--primary);
-  border-color: rgba(var(--primary-rgb), 0.25);
-}
-.hud-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── 加载 / 错误 ── */
 .cockpit-loading { padding: 60px; }
 
-/* ── 移动端适配 v2 (2026-07-25 P0-fix): 等比例缩小 + 单列 + 紧凑 ── */
-@media (max-width: 768px) {
-  /* gauge-row 1 列 */
-  .gauge-row { grid-template-columns: 1fr; gap: 10px; }
-  .gauge-card { padding: 14px 12px; }
-  /* 等比例缩(以 44→28 heroNum/22→16 普通数字) */
-  .hero-num { font-size: 28px; }
-  .hero-unit { font-size: 12px; }
-  .hero-meta-row { font-size: 13px; }
-  /* hud 头部改竖排 */
-  .hud-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
-  .hud-status { width: 100%; justify-content: space-between; }
-  .hud-prefix { font-size: 14px; }
-  .hud-prefix-sub { font-size: 11px; }
-  .hud-clock { font-size: 13px; }
-  .hud-live { font-size: 12px; }
-  /* 整页级:卡片/表格/字体 */
-  .cockpit { padding: 0 !important; }
-  .gauge-row, .geo-map-row, .crawl-grid, .stale-list { margin-bottom: 10px !important; }
-  h1, h2, h3 { font-size: 0.95rem !important; }
-  /* 视觉降级:radial 大块/背景简化,避免移动 GPU 占用 */
-  .gauge-svg { width: 140px; height: 140px; }
-  /* 触摸目标 ≥44px(button 类由 DashboardView 兜底) */
-  button { min-height: 40px; }
-}
-
-/* ── 4 个圆形仪表 ── */
+/* ── 4 个仪表 ── */
 .gauge-row {
   display: grid;
   grid-template-columns: 4fr 2.67fr 2.67fr 2.67fr;
   gap: 12px;
   margin-bottom: 14px;
-  align-items: stretch;  /* 4 卡等高：stretch 到行内最高卡 */
+  align-items: stretch;
 }
 .gauge-card {
   background: var(--surface);
@@ -627,47 +598,24 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;  /* 垂直居中让内容 */
+  justify-content: center;
 }
 .gauge-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04);
 }
-.gauge-card-main {
-  border-color: rgba(var(--primary-rgb), 0.2);
-}
 
-/* ── Hero stat card (first gauge) ── */
+/* ── Hero stat card (第一个仪表,内嵌 el-statistic) ── */
 .gauge-card-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
-.hero-stat {
-  text-align: center;
-  padding: 12px 0 8px;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 6px;
-}
-.hero-num {
-  font-size: 44px;
-  font-weight: 800;
-  color: var(--text);
-  font-family: var(--font-mono-num);
-  line-height: 1.1;
-  letter-spacing: -1px;
-}
 .hero-unit {
   font-size: 14px;
   color: var(--text-3);
   font-weight: 500;
-}
-.hero-meta {
-  width: 100%;
-  text-align: left;
 }
 .hero-meta {
   display: flex;
@@ -691,7 +639,9 @@ onUnmounted(() => {
   font-weight: 600;
   font-family: var(--font-mono-num);
 }
+.cockpit-hero-stat {}
 
+/* ── 3 个 SVG 圆环(保留,自研太精致) ── */
 .gauge-label {
   color: var(--text);
   font-size: 12px;
@@ -719,11 +669,11 @@ onUnmounted(() => {
 }
 .gauge-fill {
   fill: none;
+  stroke: var(--primary);
   stroke-width: 8;
   stroke-linecap: round;
   transition: stroke-dasharray 0.6s ease;
 }
-.gauge-fill { stroke: var(--primary); }
 .gauge-num {
   fill: var(--text);
   font-size: 30px;
@@ -753,14 +703,13 @@ onUnmounted(() => {
   color: var(--primary);
 }
 .tag-blue { background: rgba(var(--primary-rgb), 0.08); color: var(--primary); }
-.tag-green { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
 .gauge-trend {
   color: var(--text-3);
   font-family: var(--font-mono-num);
   font-size: 10px;
 }
 
-/* 属性解析覆盖率计算说明（hover 看明细） */
+/* 属性解析覆盖率计算说明(hover 看明细) */
 .gauge-formula {
   font-size: 10px;
   color: var(--text-3);
@@ -774,8 +723,7 @@ onUnmounted(() => {
   max-width: 100%;
 }
 
-/* ── 管道区 ── */
-.pipeline-section,
+/* ── Skill 更新记录区 ── */
 .skill-updates-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -793,9 +741,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
 }
-.section-icon {
-  font-size: 15px;
-}
+.section-icon { font-size: 15px; }
 .section-sub {
   font-size: 11px;
   font-weight: 400;
@@ -809,19 +755,18 @@ onUnmounted(() => {
   border-radius: 50%;
   flex-shrink: 0;
 }
+/* 第二个 .section-sub 定义:右侧带时间戳(扫描时间)的版本,margin-left:auto */
 .section-sub {
   color: var(--text-3);
   font-size: 10px;
   margin-left: auto;
   font-weight: 400;
 }
-.pipeline-grid,
 .skill-updates-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 8px;
 }
-.city-card,
 .skill-update-card {
   background: var(--surface);
   border: 1px solid var(--border-light);
@@ -829,126 +774,51 @@ onUnmounted(() => {
   padding: 8px 10px;
   transition: all var(--transition-fast);
 }
-.city-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-2px);
-}
 .skill-update-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
-.city-card.alert {
-  border-top-color: var(--danger);
-  border-color: rgba(var(--danger-rgb), 0.4);
-}
 .skill-update-card.status-fresh { border-left: 3px solid var(--success); }
 .skill-update-card.status-stale { border-left: 3px solid var(--warning); }
 .skill-update-card.status-very_stale { border-left: 3px solid var(--danger); }
 .skill-update-card.status-no_data { border-left: 3px solid var(--text-3); opacity: 0.6; }
 
-.city-header,
 .update-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
 }
-.city-name,
 .update-city {
   color: var(--text);
   font-size: 14px;
   font-weight: 700;
 }
-.city-status,
 .update-status {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: var(--radius-round);
 }
-.city-status.ok,
 .update-status.fresh { background: var(--status-ok-bg); color: var(--status-ok); }
-.city-status.warn,
 .update-status.stale { background: var(--status-warn-bg); color: var(--status-warn); }
 .update-status.very_stale { background: var(--status-alert-bg); color: var(--status-alert); }
 .update-status.no_data { background: var(--status-muted-bg); color: var(--status-muted); }
 
-.city-pipe {
+/* ── SKILL 卡片 body ── */
+.update-body { display: flex; flex-direction: column; gap: 2px; }
+.update-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-.city-stage { flex: 1; min-width: 0; }
-.city-arrow { flex-shrink: 0; color: var(--text-3); }
-.stage-num {
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-mono-num);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 4px;
-}
-.stage-bar {
-  height: 3px;
-  background: var(--surface-2);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.stage-bar-fill {
-  height: 100%;
-  background: var(--primary);
-  transition: width 0.5s;
-}
-
-.city-attr {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-light);
-}
-.mini-ring { width: 28px; height: 28px; flex-shrink: 0; }
-.mini-track { fill: none; stroke: var(--surface-2); stroke-width: 3; }
-.mini-fill {
-  fill: none;
-  stroke: var(--primary);
-  stroke-width: 3;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 18px 18px;
-  transition: stroke-dasharray 0.6s;
-}
-.city-attr-info { display: flex; align-items: baseline; gap: 4px; }
-.city-attr-num { color: var(--primary); font-size: 15px; font-weight: 700; }
-.city-attr-unit { color: var(--text-3); font-size: 10px; }
-
-.city-sparkline-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  margin-left: auto;
-  min-width: 80px;
-}
-.city-sparkline {
-  width: 80px;
-  height: 24px;
-  color: var(--primary);
-  display: block;
-}
-.city-sparkline-trend {
   font-size: 10px;
-  font-family: var(--font-mono-num);
-  font-weight: 600;
 }
-.city-sparkline-trend.trend-up   { color: var(--success); }
-.city-sparkline-trend.trend-down { color: var(--danger); }
-.city-sparkline-trend.trend-flat { color: var(--text-3); }
-.city-sparkline-empty {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: 12px;
-  font-family: var(--font-mono-num);
-  align-self: center;
+.update-label { color: var(--text-3); }
+.update-value { color: var(--text); font-weight: 600; }
+.badge-incremental {
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* ── 底部状态条(P0-1 拆组:运行 / 数据质量 / 规模) ── */
@@ -1069,181 +939,17 @@ onUnmounted(() => {
   box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
 }
 
-/* 地图 8 列 + 管道 4 列：两者高度跟 grid-row 一致（取 max(geo aspect-ratio, pipe 内容)） */
+/* 地图满宽(8/4 横排改为满宽 12 列) */
 .grid-geo {
   grid-column: span 12;
-  aspect-ratio: 1.85 / 1;  /* 满宽后更扁平 */
+  aspect-ratio: 1.85 / 1;
   min-height: 0;
-}
-.grid-geo .geo-map-view {
-  flex: 1;
-  min-height: 0;
-}
-
-/* 紧凑城市表格（4 列：城市 / 数据 / 属性 / 7d） — 跟随地图的克制蓝调风格 */
-.city-table {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.city-thead {
-  display: grid;
-  grid-template-columns: minmax(70px, 1.1fr) 1.4fr 1.1fr 1.2fr;
-  gap: 8px;
-  padding: 7px 12px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-3);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  flex-shrink: 0;
-}
-.city-tbody {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-.city-tr {
-  flex: 0 0 auto;
-  min-height: 36px;
-  display: grid;
-  grid-template-columns: minmax(70px, 1.1fr) 1.4fr 1.1fr 1.2fr;
-  gap: 8px;
-  align-items: center;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border-light);
-  transition: background var(--transition-fast);
-}
-.city-tr:last-child { border-bottom: none; }
-.city-tr:hover { background: var(--surface-2); }
-
-.city-td-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  overflow: visible;
-}
-.city-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.city-dot.ok { background: var(--primary); }
-.city-dot.warn { background: var(--warning); }
-.city-td-name .city-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  flex-shrink: 0;
-  letter-spacing: -0.2px;
-}
-
-.city-td-data {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono-num);
-  white-space: nowrap;
-}
-.city-td-data .stage-num {
-  font-weight: 700;
-  color: var(--text);
-  font-size: 12px;
-  letter-spacing: -0.2px;
-}
-.city-td-data .arrow {
-  color: var(--text-3);
-  font-size: 11px;
-}
-
-.city-td-attr {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.attr-track {
-  flex: 1;
-  height: 4px;
-  background: var(--surface-2);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.attr-fill {
-  height: 100%;
-  background: linear-gradient(to right, #93c5fd, var(--primary));
-  border-radius: 2px;
-  transition: width 0.3s;
-}
-.attr-pct {
-  font-size: 11px;
-  color: var(--text-2);
-  font-weight: 600;
-  min-width: 36px;
-  text-align: right;
-}
-
-.city-td-spark {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--primary);
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.city-td-spark .city-sparkline {
-  width: 40px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--primary);
-  opacity: 0.7;
-}
-.city-td-spark .city-spark-empty {
-  color: var(--text-3);
-  font-size: 11px;
-  width: 44px;
-}
-.city-td-spark .spark-trend {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-2);
-  font-family: var(--font-mono-num);
-  min-width: 32px;
-}
-
-/* ── SKILL 卡片 body ── */
-.update-body { display: flex; flex-direction: column; gap: 2px; }
-.update-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
-}
-.update-label { color: var(--text-3); }
-.update-value { color: var(--text); font-weight: 600; }
-.badge-incremental {
-  background: var(--status-ok-bg);
-  color: var(--status-ok);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 600;
 }
 
 /* ── 响应式 ──
-   1100px 是平板断点（侧栏已折叠为图标列 64px），4 列仪表降至 2x2 */
+   1100px 是平板断点(侧栏已折叠为图标列 64px),4 列仪表降至 2x2 */
 @media (max-width: 1100px) {
   .gauge-row { grid-template-columns: repeat(2, 1fr); }
-  /* 地图 + 管道在平板竖排，避免 8/4 横排太挤 */
   .grid-row-main {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
@@ -1253,5 +959,25 @@ onUnmounted(() => {
     aspect-ratio: auto;
     min-height: 420px;
   }
+}
+
+/* ── 移动端适配 v2 (2026-07-25 P0-fix): 等比例缩小 + 单列 + 紧凑 ── */
+@media (max-width: 768px) {
+  /* gauge-row 1 列 */
+  .gauge-row { grid-template-columns: 1fr; gap: 10px; }
+  .gauge-card { padding: 14px 12px; }
+  .hero-unit { font-size: 12px; }
+  .hero-meta-row { font-size: 13px; }
+  /* hud 头部改竖排 */
+  .hud-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+  .hud-status { width: 100%; justify-content: space-between; }
+  .hud-prefix { font-size: 14px; }
+  .hud-prefix-sub { font-size: 11px; }
+  .hud-clock { font-size: 13px; }
+  .hud-live { font-size: 12px; }
+  /* 整页级:紧凑 */
+  .cockpit { padding: 0 !important; }
+  /* 视觉降级:radial 大块/背景简化,避免移动 GPU 占用 */
+  .gauge-svg { width: 140px; height: 140px; }
 }
 </style>

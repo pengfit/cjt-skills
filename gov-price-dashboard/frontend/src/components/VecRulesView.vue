@@ -50,45 +50,49 @@
       </div>
     </Transition>
 
-    <!-- 主表格 -->
+    <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 改 Element Plus <el-table> -->
     <div class="vec-table-wrap">
-      <div v-if="vecLoading" class="vec-loading">
-        <div class="vec-spinner"></div>
-        <span>加载中...</span>
-      </div>
-
-      <div v-else class="vec-table" :style="{ gridTemplateColumns: GRID_COLS }">
-        <!-- Header -->
-        <div class="vec-row vec-row-head">
-          <div class="vec-cell col-id">#</div>
-          <div class="vec-cell col-breed">breed</div>
-          <div class="vec-cell col-attr">属性</div>
-          <div class="vec-cell col-l3">L3 分项</div>
-          <div class="vec-cell col-pattern">pattern</div>
-          <div class="vec-cell col-code">code</div>
-          <div class="vec-cell col-note">note</div>
-          <div class="vec-cell col-date">创建时间</div>
-        </div>
-
-        <!-- Data rows -->
-        <div v-for="(r, idx) in vecRules.items" :key="r.id" class="vec-row vec-row-data">
-          <div class="vec-cell col-id">{{ (vecRules.page - 1) * vecPageSize + idx + 1 }}</div>
-          <div class="vec-cell col-breed" :title="r.breed">{{ r.breed || '—' }}</div>
-          <div class="vec-cell col-attr"><span class="vec-attr-tag">{{ r.attr || '—' }}</span></div>
-          <div class="vec-cell col-l3">{{ r.l3 || '—' }}</div>
-          <div class="vec-cell col-pattern"><code class="vec-pattern" :title="r.pattern">{{ r.pattern }}</code></div>
-          <div class="vec-cell col-code"><pre class="vec-code-block" v-html="highlightPy(r.code || '')"></pre></div>
-          <div class="vec-cell col-note">{{ r.note || '—' }}</div>
-          <div class="vec-cell col-date">{{ r.created_at ? r.created_at.slice(0, 19) : '—' }}</div>
-        </div>
-
-        <!-- Empty state -->
-        <div v-if="!vecLoading && !vecRules.items?.length" class="vec-empty">
-          <div class="vec-empty-icon">📭</div>
-          <div class="vec-empty-title">{{ activeChips.length ? '没有匹配当前筛选的规则' : '暂无规则' }}</div>
-          <div class="vec-empty-hint">{{ activeChips.length ? '点击右上角【全部清除】或单独移除筛选条件' : 'sync_dws stage 3 AI 解析后会写入规则库' }}</div>
-        </div>
-      </div>
+      <el-table
+        v-loading="vecLoading"
+        :data="vecRules.items || []"
+        stripe
+        class="vec-el-table"
+        empty-text="暂无规则"
+        :row-key="(r) => r.id"
+      >
+        <el-table-column type="index" :index="(i) => (vecRules.page - 1) * vecPageSize + i + 1" label="#" width="60" align="center" />
+        <el-table-column prop="breed" label="breed" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :title="row.breed">{{ row.breed || '—' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="attr" label="属性" width="120" align="center">
+          <template #default="{ row }">
+            <span class="vec-attr-tag">{{ row.attr || '—' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="l3" label="L3 分项" width="120" align="center">
+          <template #default="{ row }">{{ row.l3 || '—' }}</template>
+        </el-table-column>
+        <el-table-column prop="pattern" label="pattern" min-width="180">
+          <template #default="{ row }">
+            <code class="vec-pattern" :title="row.pattern">{{ row.pattern }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column label="code" min-width="220">
+          <template #default="{ row }">
+            <pre class="vec-code-block" v-html="highlightPy(row.code || '')"></pre>
+          </template>
+        </el-table-column>
+        <el-table-column prop="note" label="note" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.note || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ row.created_at ? row.created_at.slice(0, 19) : '—' }}
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <!-- 分页 -->
@@ -233,105 +237,20 @@ onMounted(() => loadVecRules())
 </script>
 
 <style scoped>
-/* ── 借鉴 /taxonomy 的设计 token + 页面容器 ── */
+/* 2026-07-28 Phase 2 cleanup:
+   表格迁 <el-table> / 加载走 v-loading / 空态走 empty-text / 3 卡片删(原本是参考用,从未挂上)。
+   已删除: .vec-stat-cards / .vec-stat-card* / .vec-stat-label / .vec-stat-value /
+            .vec-stat-rows / .vec-stat-row / .vec-stat-name / .vec-stat-l3 / .vec-stat-count /
+            .vec-stat-bar / .vec-stat-bar-fill / .vec-stat-empty / .vec-stat-meta-line / .ctx-muted /
+            .vec-loading / .vec-spinner / .vec-table / .vec-row / .vec-row-head / .vec-row-data /
+            .vec-cell / .col-id / .vec-empty* / .vec-date 等。
+   保留: @keyframes spin(全局可能复用)。 */
+
+/* ── 页面容器 ── */
 .ctx-page {
   padding: 0 28px 64px;
   color: var(--text, #1e293b);
   font-size: 13px;
-}
-
-/* ── 3 卡片行（借鉴 /taxonomy .ctx-conf-cards） ── */
-.vec-stat-cards {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  margin: 16px 0;
-}
-.vec-stat-card,
-.vec-stat-card-meta {
-  background: var(--surface, #ffffff);
-  border: 1px solid var(--border, rgba(15,23,42,0.08));
-  border-radius: 10px;
-  padding: 14px 16px;
-  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
-  display: flex;
-  flex-direction: column;
-  min-height: 160px;
-}
-.vec-stat-card-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 12px;
-}
-.vec-stat-label {
-  font-size: 11px; font-weight: 600; color: var(--text-3, #64748b);
-  text-transform: uppercase; letter-spacing: 0.05em;
-}
-.vec-stat-value {
-  font-size: 22px; font-weight: 700; color: var(--text, #1e293b);
-  font-family: 'Courier New', monospace;
-}
-.vec-stat-rows { flex: 1; overflow-y: auto; max-height: 220px; }
-.vec-stat-row {
-  display: grid;
-  grid-template-columns: 1fr auto 50px;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 0;
-  font-size: 12px;
-  border-bottom: 1px dashed rgba(15,23,42,0.04);
-}
-.vec-stat-row:last-child { border-bottom: none; }
-.vec-stat-name,
-.vec-stat-l3 {
-  color: var(--text, #1e293b);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vec-stat-l3 {
-  font-family: 'Courier New', monospace;
-  font-size: 11.5px;
-  color: var(--primary, #2563eb);
-}
-.vec-stat-count {
-  font-family: 'Courier New', monospace;
-  font-weight: 700;
-  font-size: 12px;
-  text-align: right;
-}
-.vec-stat-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--surface-3, #e2e8f0);
-  overflow: hidden;
-  opacity: 0.6;
-}
-.vec-stat-bar-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary, #2563eb), rgba(37,99,235,0.6));
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-.vec-stat-empty,
-.vec-stat-meta-line,
-.ctx-muted {
-  color: var(--text-3, #64748b);
-  font-size: 12px;
-  padding: 5px 0;
-}
-.vec-stat-meta-line code {
-  background: rgba(37,99,235,0.1);
-  color: var(--primary, #2563eb);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 11.5px;
-  font-weight: 600;
-  display: inline-block;
-  margin-right: 4px;
 }
 
 /* ── 激活筛选 chips ── */
@@ -421,13 +340,6 @@ onMounted(() => loadVecRules())
 }
 .vec-input:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
 .vec-input:not(.vec-date) { flex: 1 1 200px; max-width: 380px; min-width: 140px; }
-.vec-date {
-  width: 132px;
-  font-size: 12px;
-  color: var(--text-3);
-  cursor: pointer;
-}
-input.vec-input.vec-date { background: var(--surface, #ffffff); }
 .vec-clear-btn {
   width: 28px; height: 30px;
   background: transparent;
@@ -477,7 +389,7 @@ input.vec-input.vec-date { background: var(--surface, #ffffff); }
   font-size: 11px;
 }
 
-/* ── 主表格 ── */
+/* ── 主表格(el-table 容器外壳) ── */
 .vec-table-wrap {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, rgba(15,23,42,0.06));
@@ -485,58 +397,8 @@ input.vec-input.vec-date { background: var(--surface, #ffffff); }
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 }
-.vec-loading {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 60px 20px;
-  color: var(--text-3);
-  font-size: 13px;
-}
-.vec-spinner {
-  width: 18px; height: 18px;
-  border: 2px solid rgba(15,23,42,0.08);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
-.vec-table {
-  display: grid;
-  font-size: 12.5px;
-  overflow-x: auto;
-}
-.vec-row {
-  display: contents;
-}
-.vec-row-head .vec-cell {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--surface-2, #f8fafc);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 10px;
-  position: sticky; top: 0;
-  z-index: 2;
-}
-.vec-row-data .vec-cell {
-  padding: 10px;
-  border-bottom: 1px solid var(--surface-2, rgba(15,23,42,0.04));
-  display: flex; align-items: center;
-  min-width: 0;
-  overflow: hidden;
-}
-.vec-row-data:hover .vec-cell {
-  background: rgba(37,99,235,0.03);
-}
-.vec-cell {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.col-id { justify-content: center; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text-3); }
+/* el-table 列内容排版 */
 .vec-attr-tag {
   display: inline-block;
   background: rgba(37,99,235,0.1);
@@ -581,18 +443,7 @@ input.vec-input.vec-date { background: var(--surface, #ffffff); }
 .vec-code-block .cm-keyword { color: #ff7b72; font-weight: 600; }
 .vec-code-block .cm-number { color: #79c0ff; }
 
-/* ── 空态 ── */
-.vec-empty {
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text-3);
-  grid-column: 1 / -1;
-}
-.vec-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
-.vec-empty-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
-.vec-empty-hint { font-size: 12px; color: var(--text-3); max-width: 480px; margin: 0 auto; }
-
-/* ── 分页 — 沿用全局 .pagination / .page-btn ── */
+/* ── 分页 — 沿用全局 .page-btn ── */
 .vec-pagination {
   position: sticky;
   bottom: 0;
@@ -610,13 +461,8 @@ input.vec-input.vec-date { background: var(--surface, #ffffff); }
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
 
-/* ── 响应式 ── */
-@media (max-width: 1200px) {
-  .vec-stat-cards { grid-template-columns: 1fr 1fr; }
-  .vec-stat-card-meta { grid-column: 1 / -1; }
-}
+/* ── 响应式(沿用 @media 框架,内仅保留 .vec-toolbar-main 移动端规则) ── */
 @media (max-width: 768px) {
-  .vec-stat-cards { grid-template-columns: 1fr; }
   .vec-toolbar-main { width: 100%; }
 }
 </style>

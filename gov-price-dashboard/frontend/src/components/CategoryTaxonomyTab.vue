@@ -55,87 +55,72 @@
     </div>
   </Transition>
 
-  <!-- Grid Table (CSS Grid 列对齐像素级精准) -->
+  <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 改 Element Plus <el-table> + <el-table-column> -->
   <div class="ctx-card">
-    <div class="grid-scroll">
-      <div class="grid-table">
-        <!-- Sticky header -->
-        <div class="grid-header">
-          <div class="grid-head-cell col-l1 sortable" :class="{ active: sort.col==='l1' }" @click="setTaxSort('l1')">
-            L1 <span class="sort-icon">{{ sortIcon('l1') }}</span>
+    <el-table
+      v-loading="taxLoading"
+      :data="taxRows"
+      stripe
+      class="taxonomy-el-table"
+      empty-text="暂无分类条目"
+      :row-key="(r) => `${r.l1}-${r.l2}-${r.l3}`"
+      @row-click="openDrawer"
+      @sort-change="onTaxSortChange"
+      :default-sort="taxDefaultSort"
+    >
+      <el-table-column prop="l1" label="L1" width="60" sortable="custom" align="center">
+        <template #default="{ row }">
+          <span class="ctx-l1-tag" :class="`ctx-l1-${row.l1}`">{{ row.l1 }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="l2" label="L2" width="80" sortable="custom" align="center">
+        <template #default="{ row }">
+          <span class="ctx-code-text">{{ row.l2 }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="l3" label="L3" width="100" sortable="custom" align="center">
+        <template #default="{ row }">
+          <span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(row.l3)" :title="`查看 ${row.l3} 关联品种`">
+            {{ row.l3 }} <span class="ctx-l3-arrow">→</span>
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="gb_50500" label="GB50500" width="110" align="center">
+        <template #default="{ row }">
+          <span class="ctx-code-text ctx-gb">{{ row.gb_50500 || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="standard_name" label="国标" min-width="140" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span class="ctx-std-name">{{ row.standard_name || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="name_l3" label="分类名称" min-width="180" sortable="custom" show-overflow-tooltip>
+        <template #default="{ row }">
+          <div class="ctx-name-stack">
+            <span class="ctx-name-l1">› {{ row.name_l1 || '—' }}</span>
+            <span class="ctx-name-l3">{{ row.name_l3 || row.name_l2 || row.l3 }}</span>
           </div>
-          <div class="grid-head-cell col-l2 sortable" :class="{ active: sort.col==='l2' }" @click="setTaxSort('l2')">
-            L2 <span class="sort-icon">{{ sortIcon('l2') }}</span>
-          </div>
-          <div class="grid-head-cell col-l3 sortable" :class="{ active: sort.col==='l3' }" @click="setTaxSort('l3')">
-            L3 <span class="sort-icon">{{ sortIcon('l3') }}</span>
-          </div>
-          <div class="grid-head-cell col-gb">GB50500</div>
-          <div class="grid-head-cell col-stdn text-left">国标</div>
-          <div class="grid-head-cell col-name text-left sortable" :class="{ active: sort.col==='name_l3' }" @click="setTaxSort('name_l3')">
-            分类名称 <span class="sort-icon">{{ sortIcon('name_l3') }}</span>
-          </div>
-          <div class="grid-head-cell col-part">工程部位</div>
-          <div class="grid-head-cell col-aux">主辅材</div>
-          <div class="grid-head-cell col-unit">单位</div>
-          <div class="grid-head-cell col-ifc text-left">IFC</div>
-          <div class="grid-head-cell col-uni text-left">Uniclass</div>
-        </div>
-
-        <!-- Body -->
-        <div class="grid-body">
-          <div v-if="taxLoading" class="grid-row grid-row-empty">
-            <div class="grid-cell" style="grid-column: 1 / -1;">加载中...</div>
-          </div>
-          <div v-else-if="!taxRows.length" class="grid-row grid-row-empty">
-            <div class="grid-cell" style="grid-column: 1 / -1;">
-              <div class="ctx-empty">
-                <div class="ctx-empty-art">🗂️</div>
-                <div class="ctx-empty-title">暂无分类条目</div>
-                <div class="ctx-empty-hint">试试调整搜索条件</div>
-              </div>
-            </div>
-          </div>
-          <div
-            v-for="r in taxRows"
-            v-else
-            :key="`${r.l1}-${r.l2}-${r.l3}`"
-            class="grid-row"
-            @click="drawerRow = r"
-            style="cursor: pointer"
-          >
-            <div class="grid-cell col-l1">
-              <span class="ctx-l1-tag" :class="`ctx-l1-${r.l1}`">{{ r.l1 }}</span>
-            </div>
-            <div class="grid-cell col-l2"><span class="ctx-code-text">{{ r.l2 }}</span></div>
-            <div class="grid-cell col-l3">
-              <span class="ctx-code-text ctx-l3-code ctx-l3-link" @click.stop="emitJump(r.l3)" :title="`查看 ${r.l3} 关联品种`">
-                {{ r.l3 }} <span class="ctx-l3-arrow">→</span>
-              </span>
-            </div>
-            <div class="grid-cell col-gb"><span class="ctx-code-text ctx-gb">{{ r.gb_50500 || '—' }}</span></div>
-            <div class="grid-cell col-stdn text-left">
-              <span class="ctx-std-name" :title="r.standard_name || ''">{{ r.standard_name || '—' }}</span>
-            </div>
-            <div class="grid-cell col-name text-left">
-              <div class="ctx-name-stack">
-                <span class="ctx-name-l1">› {{ r.name_l1 || '—' }}</span>
-                <span class="ctx-name-l3">{{ r.name_l3 || r.name_l2 || r.l3 }}</span>
-              </div>
-            </div>
-            <div class="grid-cell col-part">
-              <span class="ctx-tag" :class="`ctx-tag-part-${r.eng_part}`">{{ r.eng_part || '—' }}</span>
-            </div>
-            <div class="grid-cell col-aux">
-              <span class="ctx-main-aux" :class="`ctx-ma-${r.main_or_aux}`">{{ r.main_or_aux || '—' }}</span>
-            </div>
-            <div class="grid-cell col-unit"><span class="ctx-unit">{{ r.unit || '—' }}</span></div>
-            <div class="grid-cell col-ifc text-left" :title="r.ifc_class">{{ r.ifc_class || '—' }}</div>
-            <div class="grid-cell col-uni text-left" :title="r.uniclass_ss">{{ r.uniclass_ss || '—' }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="eng_part" label="工程部位" width="100" align="center">
+        <template #default="{ row }">
+          <span class="ctx-tag" :class="`ctx-tag-part-${row.eng_part}`">{{ row.eng_part || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="main_or_aux" label="主辅材" width="80" align="center">
+        <template #default="{ row }">
+          <span class="ctx-main-aux" :class="`ctx-ma-${row.main_or_aux}`">{{ row.main_or_aux || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="unit" label="单位" width="80" align="center">
+        <template #default="{ row }">
+          <span class="ctx-unit">{{ row.unit || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="ifc_class" label="IFC" min-width="140" show-overflow-tooltip />
+      <el-table-column prop="uniclass_ss" label="Uniclass" min-width="140" show-overflow-tooltip />
+    </el-table>
 
     <AppPagination
       :current="taxPage"
@@ -149,9 +134,14 @@
     />
   </div>
 
-  <!-- Row Detail Drawer -->
-  <div v-if="drawerRow" class="ctx-drawer-mask" @click.self="drawerRow = null">
-    <div class="ctx-drawer">
+  <!-- 2026-07-28:Phase 2 — 自研 mask+div 抽屉改 Element Plus <el-drawer> -->
+  <el-drawer
+    v-model="drawerVisible"
+    direction="rtl"
+    size="500px"
+    :with-header="false"
+  >
+    <div v-if="drawerRow" class="ctx-drawer">
       <div class="ctx-drawer-header">
         <div>
           <div class="ctx-drawer-title">分类详情</div>
@@ -161,7 +151,7 @@
             <span class="ctx-drawer-name">{{ drawerRow.name_l3 }}</span>
           </div>
         </div>
-        <button class="ctx-drawer-close" @click="drawerRow = null">×</button>
+        <button class="ctx-drawer-close" @click="drawerVisible = false">×</button>
       </div>
       <div class="ctx-drawer-body">
         <div class="ctx-drawer-section">
@@ -196,11 +186,11 @@
           </div>
         </div>
         <div class="ctx-drawer-actions">
-          <button class="ctx-btn ctx-btn-cyan" @click="emitJump(drawerRow.l3); drawerRow = null">→ 查看关联品种</button>
+          <button class="ctx-btn ctx-btn-cyan" @click="emitJump(drawerRow.l3); drawerVisible = false">→ 查看关联品种</button>
         </div>
       </div>
     </div>
-  </div>
+  </el-drawer>
 </template>
 
 <script setup>
@@ -213,6 +203,21 @@ const API = import.meta.env.VITE_API_URL || '/api'
 
 const showHelp = ref(false)
 const drawerRow = ref(null)
+// 2026-07-28:Phase 2 — el-drawer v-model
+const drawerVisible = ref(false)
+const taxDefaultSort = ref({ prop: 'l3', order: 'ascending' })
+
+function openDrawer(r) {
+  drawerRow.value = r
+  drawerVisible.value = true
+}
+
+function onTaxSortChange({ prop, order }) {
+  // el-table 传 {prop, order:'ascending'|'descending'|null},映射回 {col, dir:'asc'|'desc'}
+  sort.value.col = prop
+  sort.value.dir = order === 'descending' ? 'desc' : 'asc'
+  loadTaxonomy(1)
+}
 const taxKeyword = ref('')
 const taxPageSize = ref(50)
 const taxPageSizeOptions = [50, 100, 200]
@@ -271,6 +276,14 @@ onMounted(() => { loadTaxonomy(1) })
 </script>
 
 <style scoped>
+/* 2026-07-28 Phase 2 cleanup:
+   表格迁 <el-table> / 抽屉迁 <el-drawer> / 空态走 el-table empty-text。
+   已删除: .grid-scroll / .grid-table / .grid-header / .grid-head-cell* / .grid-row / .grid-cell /
+            .text-left / .col-name / .col-stdn / .grid-row-empty / .ctx-empty* / 
+            .ctx-drawer-mask / @media 内的旧 .filter-bar* / .quick-filters / .filter-drawer / 
+            table / thead / tr / td / h1 / h2 / .t-header / .taxonomy-header / .tree-pane / .detail-pane 等。
+   修复: 原 .ctx-drawer 移动端覆盖规则被误放在 @media 外,现在归位。 */
+
 /* Toolbar */
 .ctx-toolbar {
   display: flex; justify-content: space-between; align-items: center;
@@ -366,97 +379,7 @@ onMounted(() => { loadTaxonomy(1) })
   z-index: 5;
 }
 
-/* ─────────────────────────────────────────
-   CSS Grid 表格 — 11 列对齐像素级精准（2026-07-15 重构)
-   ───────────────────────────────────────── */
-.grid-scroll {
-  overflow-x: auto;
-  overflow-y: visible;
-  max-height: calc(100vh - 280px);
-}
-
-.grid-table {
-  width: 100%;
-  min-width: 1100px;
-}
-
-.grid-table .grid-header,
-.grid-table .grid-row {
-  display: grid;
-  grid-template-columns:
-    50px                  /* col-l1   */
-    70px                  /* col-l2   */
-    100px                 /* col-l3   */
-    80px                  /* col-gb   */
-    140px                 /* col-stdn */
-    minmax(220px, 1fr)    /* col-name */
-    80px                  /* col-part */
-    80px                  /* col-aux  */
-    60px                  /* col-unit */
-    150px                 /* col-ifc  */
-    150px;                /* col-uni  */
-  align-items: stretch;
-}
-
-.grid-header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  background: var(--surface-2, #f8fafc);
-  box-shadow: 0 1px 0 var(--border);
-}
-
-.grid-head-cell,
-.grid-cell {
-  display: flex;
-  align-items: center;
-  padding: 10px 8px;
-  border-right: 1px solid var(--border);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--text, #0f172a);
-  box-sizing: border-box;
-  justify-content: center;
-}
-.grid-head-cell:last-child,
-.grid-cell:last-child { border-right: none; }
-
-.grid-head-cell {
-  font-weight: 700;
-  color: var(--text-2);
-}
-.grid-head-cell.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
-.grid-head-cell.sortable:hover { background: var(--surface-3, #f1f5f9); }
-.grid-head-cell.active { color: var(--primary); background: rgba(37,99,235,0.06); }
-.grid-head-cell .sort-icon { margin-left: 3px; font-size: 10px; opacity: 0.6; }
-.grid-head-cell.active .sort-icon { opacity: 1; }
-
-.text-left { justify-content: flex-start !important; text-align: left; }
-.col-name, .col-stdn { white-space: normal; }  /* 名称两行可换行 */
-
-.grid-row {
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.1s;
-  background: var(--surface);
-}
-.grid-row:last-child { border-bottom: none; }
-.grid-row:hover { background: rgba(37,99,235,0.04); }
-/* zebra */
-.grid-row:nth-child(even) { background: var(--surface-2, #f8fafc); }
-.grid-row:nth-child(even):hover { background: rgba(37,99,235,0.06); }
-
-.grid-row-empty { cursor: default; background: var(--surface) !important; }
-.grid-row-empty:hover { background: var(--surface) !important; }
-.ctx-empty { text-align: center; color: var(--text-2, #475569); padding: 48px 36px; width: 100%; }
-.ctx-empty-art { font-size: 48px; opacity: 0.6; margin-bottom: 12px; }
-.ctx-empty-title { font-size: 14px; font-weight: 600; color: var(--text, #0f172a); margin-bottom: 6px; }
-.ctx-empty-hint { font-size: 12px; color: var(--text-3, #94a3b8); }
-
-/* Taxonomy-specific */
+/* Taxonomy-specific 列内容排版(el-table 列插槽用) */
 .ctx-l1-tag {
   display: inline-block; min-width: 32px; padding: 2px 8px;
   border-radius: 4px; font-size: 11px; font-weight: 700;
@@ -504,12 +427,7 @@ onMounted(() => { loadTaxonomy(1) })
   font-weight: 600; color: var(--text-2);
 }
 
-/* Drawer */
-.ctx-drawer-mask {
-  position: fixed; inset: 0; background: rgba(15,23,42,0.25);
-  display: flex; justify-content: flex-end; z-index: 9999;
-  backdrop-filter: blur(2px);
-}
+/* Drawer(el-drawer 内部内容容器) */
 .ctx-drawer {
   width: 460px; max-width: 90vw; height: 100vh;
   background: var(--surface); border-left: 1px solid var(--border);
@@ -550,23 +468,9 @@ onMounted(() => { loadTaxonomy(1) })
 .ctx-drawer-field span { font-size: 13px; color: var(--text, #0f172a); font-weight: 500; }
 .ctx-drawer-actions { padding-top: 8px; border-top: 1px solid var(--border); }
 
-/* ── 移动端 (2026-07-25 P0-fix): filter-bar/table/header 全面适配 ── */
+/* ── 移动端(el-drawer / ctx-drawer-grid 单列) ── */
 @media (max-width: 768px) {
-  .filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px !important; }
-  .filter-bar-input, .filter-bar-select { width: 100% !important; min-height: 44px !important; font-size: 15px !important; }
-  .quick-filters, .chip-row { flex-wrap: wrap !important; gap: 6px !important; }
-  .filter-drawer { width: 92vw !important; max-width: 360px !important; }
-  table, thead, tbody, tr, td, th { display: block !important; width: 100% !important; }
-  thead { display: none !important; }
-  tr { margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
-  td, th { padding: 4px 0 !important; border: none !important; display: flex !important; justify-content: space-between !important; gap: 12px !important; }
-  td::before { content: attr(data-label); font-weight: 500; color: var(--text-3, #6b7280); font-size: 12px; }
-  h1 { font-size: 1.1rem !important; }
-  h2 { font-size: 1rem !important; }
-}
-
-  .t-header, .taxonomy-header, .ctx-drawer-grid { grid-template-columns: 1fr !important; flex-direction: column !important; }
   .ctx-drawer { width: 92vw !important; max-width: 360px !important; }
-  .tree-pane, .detail-pane { width: 100% !important; max-width: 100% !important; }
-
+  .ctx-drawer-grid { grid-template-columns: 1fr !important; }
+}
 </style>
