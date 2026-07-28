@@ -536,7 +536,12 @@ function onBreedSearchInput() {
 async function searchBreeds(q) {
   breedSearchLoading.value = true
   try {
-    const data = await fetchJson(`/api/market/breed-search?q=${encodeURIComponent(q)}&limit=15`)
+    // 2026-07-28: 带当前定位省份,搜索只在该省数据池里挑(避免搜出异地品种)
+    const params = new URLSearchParams()
+    params.set('q', q)
+    params.set('limit', '15')
+    if (userProvince.value) params.set('province', userProvince.value)
+    const data = await fetchJson(`/api/market/breed-search?${params.toString()}`)
     // 客户端排序:exact > prefix > contains > 其他(ES wildcard 不算 relevance)
     const qLower = q.toLowerCase()
     const scored = (data.results || []).map(r => {

@@ -1450,10 +1450,18 @@ def change_heatmap(
 def breed_search(
     q: str = Query(..., min_length=1, max_length=50, description="产品名搜索词,wildcard 匹配 normalized_breed"),
     limit: int = Query(30, ge=1, le=100, description="返回品种数上限"),
+    province: Optional[str] = Query(None, description="2026-07-28: 省份过滤(中文,如 '山东'),只在该省 NORM 数据池里搜;空=全池"),
 ):
     norm_list = _norm_indices()
     if not norm_list:
-        return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q}
+        return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province or ""}
+    # 2026-07-28: province 过滤 — 限定到该省份的 NORM 数据池(避免山东用户搜出黑龙江品种)
+    if province:
+        prov_keys = set(_skill_keys_by_province(province))
+        norm_list = [idx for idx in norm_list
+                     if idx.replace("norm_", "").replace("_price", "") in prov_keys]
+        if not norm_list:
+            return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province}
 
     import re
     body = {
@@ -1523,6 +1531,7 @@ def breed_search(
             "total_breeds": len(results),
             "matched_docs": matched["doc_count"],
             "query": q,
+            "province": province or "",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
