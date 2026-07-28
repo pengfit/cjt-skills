@@ -226,11 +226,12 @@
 <script setup>
 import ErrorState from './ErrorState.vue'
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import axios from 'axios'
 import { getGovPriceTheme } from '../composables/useEchartsTheme'
 import { markRaw } from 'vue'
 import { useEcharts } from '../composables/useEcharts'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
+import { useFetch } from '../composables/useFetch.js'  // 2026-07-28 Step 2 扩 DataHealthView
+import { api as _api } from '../composables/useApi.js'  // inner skill 循环用 api 实例(自带 baseURL + 鉴权)
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
 import SectionHeader from './SectionHeader.vue'
@@ -239,10 +240,25 @@ import StatGrid from './data-health/StatGrid.vue'
 // P1-10:统一 PageHeader
 import PageHeader from './PageHeader.vue'
 
-const API = import.meta.env.VITE_API_URL || '/api'
+// 2026-07-28 Step 2:const API 已被 useFetch/api 实例取代(api 自带 baseURL)
+// 2 个主 fetch 走 useFetch composable(自动 loading/error/abort),inner skill 循环用 api 实例
+const {
+  data: healthRaw,
+  loading: _healthLoading,
+  error: _healthErr,
+  fetch: fetchHealth,
+} = useFetch()
+const {
+  data: regRaw,
+  loading: _regLoading,
+  fetch: fetchRegistry,
+} = useFetch()
+// 兼容原代码中的 error.value (ErrorState 用)— 合并 2 个 useFetch 的 error
+const error = computed(() => _healthErr.value?.message || '')
 const fmt = useFormatNumber()
 const loading = ref(false)
-const error = ref('')
+// error 走 useFetch composable 的 _healthErr.computed(见上)
+// const error = ref('') // 2026-07-28 Step 2 删:重复声明
 const data = ref({
   total_docs: 0, province_count: 0,
   daily: [], provinces: []
@@ -401,62 +417,55 @@ function rateClass(rate) {
 }
 
 async function loadData() {
-  loading.value = true
-  error.value = ''
-  try {
-    const [healthRes, regRes] = await Promise.allSettled([
-      axios.get(`${API}/stats/data-health`),
-      axios.get(`${API}/skill-registry`),
-    ])
-    if (healthRes.status === 'fulfilled') {
-      data.value = healthRes.value.data || {}
-    } else {
-      console.warn('data-health 加载失败:', healthRes.reason?.message)
-    }
-    if (regRes.status === 'fulfilled') {
-      skills.value = regRes.value.data?.skills || []
-    }
-    // 并行拉取每个 skill 的同步进度 + 规格质量
-    if (skills.value.length) {
-      const [syncResults, qualityResults] = await Promise.all([
-        Promise.allSettled(
-          skills.value.map(s =>
-            axios.get(`${API}/stats/${s.key}-sync-progress`, { timeout: 15000 })
-              .then(r => ({ key: s.key, data: r.data || {} }))
-          )
-        ),
-        Promise.allSettled(
-          skills.value.map(s =>
-            axios.get(`${API}/stats/spec-quality`, {
-              params: { city: s.key, _sample: false, sample_size: 0 },
-              timeout: 20000,
-            }).then(r => ({ key: s.key, coverage: r.data?.coverage || [] }))
-              .catch(() => ({ key: s.key, coverage: [] }))
-          )
-        ),
-      ])
-      const newMap = {}
-      for (const r of syncResults) {
-        if (r.status === 'fulfilled' && r.value.data) {
-          newMap[r.value.key] = r.value.data
-        }
-      }
-      syncDataMap.value = newMap
-      const qMap = {}
-      for (const r of qualityResults) {
-        if (r.status === 'fulfilled') {
-          const cov = r.value.coverage || []
-          const avg = cov.length ? Math.round(cov.reduce((a, b) => a + (b.rate || 0), 0) / cov.length * 10) / 10 : null
-          qMap[r.value.key] = { avg_rate: avg, total_categories: cov.length }
-        }
-      }
-      qualityMap.value = qMap
-    }
-  } catch (e) {
-    console.warn('data-health 加载失败:', e.message)
+  // 2026-07-28 Step 2:2 个主端点走 useFetch(自动 loading + 401 跳登录)
+  // inner skill 循环保留 axios.get 但走 api 实例(自带 baseURL + 鉴权)
+  const [healthRes, regRes] = await Promise.allSettled([
+    fetchHealth('/stats/data-health'),
+    fetchRegistry('/skill-registry'),
+  ])
+  if (healthRes.status === 'fulfilled' && healthRes.value) {
+    data.value = healthRes.value || {}
+  } else {
+    console.warn('data-health 加载失败:', healthRes.reason?.message)
   }
-  error.value = ''
-  loading.value = false
+  if (regRes.status === 'fulfilled' && regRes.value) {
+    skills.value = regRes.value?.skills || []
+  }
+  if (skills.value.length) {
+    const [syncResults, qualityResults] = await Promise.all([
+      Promise.allSettled(
+        skills.value.map(s =>
+          _api.get(`/stats/${s.key}-sync-progress`, { timeout: 15000 })
+            .then(r => ({ key: s.key, data: r.data || {} }))
+        )
+      ),
+      Promise.allSettled(
+        skills.value.map(s =>
+          _api.get(`/stats/spec-quality`, {
+            params: { city: s.key, _sample: false, sample_size: 0 },
+            timeout: 20000,
+          }).then(r => ({ key: s.key, coverage: r.data?.coverage || [] }))
+            .catch(() => ({ key: s.key, coverage: [] }))
+        )
+      ),
+    ])
+    const newMap = {}
+    for (const r of syncResults) {
+      if (r.status === 'fulfilled' && r.value.data) {
+        newMap[r.value.key] = r.value.data
+      }
+    }
+    syncDataMap.value = newMap
+    const qMap = {}
+    for (const r of qualityResults) {
+      if (r.status === 'fulfilled') {
+        const cov = r.value.coverage || []
+        const avg = cov.length ? Math.round(cov.reduce((a, b) => a + (b.rate || 0), 0) / cov.length * 10) / 10 : null
+        qMap[r.value.key] = { avg_rate: avg, total_categories: cov.length }
+      }
+    }
+    qualityMap.value = qMap
+  }
   await nextTick()
   renderDailyChart()
 }
