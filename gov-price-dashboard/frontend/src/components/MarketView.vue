@@ -371,6 +371,31 @@ import { useEcharts } from '../composables/useEcharts'
 // 2026-07-28 v2: 重加 useEcharts — /market 嵌入价格走势 + 时序数据表 2 张卡片需要 echarts
 //   (不再需 registerGovPriceTheme / GOV_PRICE_PALETTE,内联颜色池足够)
 
+// 2026-07-29 GEO B 阶段:方法论段 20 城市清单 — 与 vite.config.js CITY_AUTHORITIES 同步
+//   (两处 hand-curated,如有更新需同时改)
+const methodologyCities = [
+  { code: 'chongqing', label: '重庆',     authority: '重庆市住房和城乡建设委员会',     url: 'http://www.cqsgczjxx.org' },
+  { code: 'guizhou',   label: '贵州',     authority: '贵州省住房和城乡建设厅',           url: 'http://www.gzszj.com' },
+  { code: 'hainan',    label: '海南',     authority: '海南省住房和城乡建设厅',           url: 'https://zjt.hainan.gov.cn' },
+  { code: 'henan',     label: '河南',     authority: '河南省住房和城乡建设厅',           url: 'http://www.hncost.com' },
+  { code: 'heze',      label: '菏泽',     authority: '菏泽市住房和城乡建设局',           url: 'http://hzszjj.heze.gov.cn' },
+  { code: 'huhehaote', label: '呼和浩特', authority: '呼和浩特市住房和城乡建设局',       url: 'http://zfcxjsj.huhhot.gov.cn' },
+  { code: 'hunan',     label: '湖南',     authority: '湖南省住房和城乡建设厅',           url: 'https://zjt.hunan.gov.cn' },
+  { code: 'jiangxi',   label: '江西',     authority: '江西省住房和城乡建设厅',           url: 'https://zjt.jiangxi.gov.cn' },
+  { code: 'jilin',     label: '吉林',     authority: '吉林省住房和城乡建设厅',           url: 'http://www.jlszjw.com' },
+  { code: 'jinan',     label: '济南',     authority: '济南市工程建设造价协会',           url: 'http://jnxxj.jngczjxh.com:5020' },
+  { code: 'ningxia',   label: '宁夏',     authority: '宁夏回族自治区住房和城乡建设厅',   url: 'https://jst.nx.gov.cn' },
+  { code: 'qingdao',   label: '青岛',     authority: '青岛市住房和城乡建设局',           url: 'https://sjw.qingdao.gov.cn' },
+  { code: 'qinghai',   label: '青海',     authority: '青海省住房和城乡建设厅',           url: 'http://zjt.qinghai.gov.cn' },
+  { code: 'rizhao',    label: '日照',     authority: '日照市住房和城乡建设局',           url: 'http://58.59.43.227:81' },
+  { code: 'shaanxi',   label: '陕西',     authority: '陕西省住房和城乡建设厅',           url: 'https://js.shaanxi.gov.cn' },
+  { code: 'shanxi',    label: '山西',     authority: '山西省住房和城乡建设厅',           url: 'https://zjt.shanxi.gov.cn' },
+  { code: 'sichuan',   label: '四川',     authority: '四川省住房和城乡建设厅',           url: 'http://202.61.90.35:8032' },
+  { code: 'weihai',    label: '威海',     authority: '威海市住房和城乡建设局',           url: 'https://zjj.weihai.gov.cn' },
+  { code: 'xian',      label: '西安',     authority: '西安市住房和城乡建设局',           url: 'https://zjj.xa.gov.cn' },
+  { code: 'xinjiang',  label: '新疆',     authority: '新疆维吾尔自治区住房和城乡建设厅', url: 'https://www.xjzj.com' },
+]
+
 // SEO: /market 页面级 head — 长尾词关键词
 const SITE_URL = 'https://pengfit.cn'
 useHead({
@@ -1746,4 +1771,152 @@ onUnmounted(() => {
   font-size: 12px;
   font-family: ui-monospace, 'SF Mono', monospace;
 }
-.m-faq-a strong { color: var(--text, #0f172a); }</style>
+.m-faq-a strong { color: var(--text, #0f172a); }
+
+/* ── 2026-07-29 GEO B 阶段:面包屑 ── */
+.m-breadcrumb {
+  font-size: 13px;
+  color: var(--text-2, #475569);
+  margin: 0 auto 14px;
+  max-width: 1200px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+.m-breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.m-breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.m-breadcrumb-item:not(:last-child)::after {
+  content: '›';
+  color: #94a3b8;
+  font-size: 14px;
+}
+.m-breadcrumb-item a {
+  color: var(--primary, #2563eb);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.m-breadcrumb-item a:hover { color: #1e40af; text-decoration: underline; }
+.m-breadcrumb-current { color: #475569; font-weight: 500; }
+
+/* ── 2026-07-29 GEO B 阶段:方法论段 ── */
+.m-methodology { scroll-margin-top: 80px; }
+.m-methodology-title {
+  font-size: 19px;
+  margin: 0 0 6px;
+  color: var(--text, #0f172a);
+  font-weight: 700;
+}
+.m-methodology-sub {
+  font-size: 13px;
+  color: var(--text-2, #64748b);
+  margin: 0 0 18px;
+}
+.m-methodology-steps {
+  list-style: none;
+  counter-reset: meth;
+  padding: 0;
+  margin: 0 0 24px;
+  display: grid;
+  gap: 14px;
+}
+.m-methodology-step {
+  position: relative;
+  padding: 14px 16px 14px 50px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 3px solid #3b82f6;
+  border-radius: 8px;
+  counter-increment: meth;
+}
+.m-methodology-step::before {
+  content: counter(meth);
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.m-methodology-step h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+  color: #1e293b;
+  font-weight: 700;
+}
+.m-methodology-step p {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #475569;
+  margin: 0;
+}
+.m-methodology-step p code {
+  background: #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: #1e293b;
+}
+.m-methodology-cities-heading {
+  font-size: 15px;
+  margin: 20px 0 10px;
+  color: #1e293b;
+  font-weight: 700;
+}
+.m-methodology-cities {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 6px 14px;
+}
+.m-methodology-cities li {
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.06);
+}
+.m-methodology-cities li a {
+  color: var(--primary, #2563eb);
+  text-decoration: none;
+}
+.m-methodology-cities li a:hover { text-decoration: underline; }
+.m-methodology-city-label {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-left: 4px;
+}
+.m-methodology-note {
+  font-size: 12.5px;
+  color: #92400e;
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin: 0;
+}
+.m-methodology-note a { color: #b45309; }
+
+@media (max-width: 640px) {
+  .m-methodology-step { padding-left: 44px; }
+  .m-methodology-step::before { left: 10px; width: 22px; height: 22px; font-size: 12px; }
+  .m-methodology-cities { grid-template-columns: 1fr; }
+}</style>

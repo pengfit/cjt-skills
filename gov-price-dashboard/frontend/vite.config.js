@@ -32,6 +32,32 @@ const FALLBACK_META = {
   total_records_label: '80 万+ 条材料数据',
 }
 
+// 2026-07-29 GEO B 阶段:20 城住建局/造价协会清单 — schema.org GovernmentOrganization 数组
+//   数据源 = 这些机构每月/每季度发布的《建设工程造价信息》期刊
+//   URL 走实际抓取入口(部分省份在厅局子站,部分在造价协会子站)
+const CITY_AUTHORITIES = [
+  { code: 'chongqing', label: '重庆',     authority: '重庆市住房和城乡建设委员会',         url: 'http://www.cqsgczjxx.org' },
+  { code: 'guizhou',   label: '贵州',     authority: '贵州省住房和城乡建设厅',               url: 'http://www.gzszj.com' },
+  { code: 'hainan',    label: '海南',     authority: '海南省住房和城乡建设厅',               url: 'https://zjt.hainan.gov.cn' },
+  { code: 'henan',     label: '河南',     authority: '河南省住房和城乡建设厅',               url: 'http://www.hncost.com' },
+  { code: 'heze',      label: '菏泽',     authority: '菏泽市住房和城乡建设局',               url: 'http://hzszjj.heze.gov.cn' },
+  { code: 'huhehaote', label: '呼和浩特', authority: '呼和浩特市住房和城乡建设局',           url: 'http://zfcxjsj.huhhot.gov.cn' },
+  { code: 'hunan',     label: '湖南',     authority: '湖南省住房和城乡建设厅',               url: 'https://zjt.hunan.gov.cn' },
+  { code: 'jiangxi',   label: '江西',     authority: '江西省住房和城乡建设厅',               url: 'https://zjt.jiangxi.gov.cn' },
+  { code: 'jilin',     label: '吉林',     authority: '吉林省住房和城乡建设厅',               url: 'http://www.jlszjw.com' },
+  { code: 'jinan',     label: '济南',     authority: '济南市工程建设造价协会',               url: 'http://jnxxj.jngczjxh.com:5020' },
+  { code: 'ningxia',   label: '宁夏',     authority: '宁夏回族自治区住房和城乡建设厅',       url: 'https://jst.nx.gov.cn' },
+  { code: 'qingdao',   label: '青岛',     authority: '青岛市住房和城乡建设局',               url: 'https://sjw.qingdao.gov.cn' },
+  { code: 'qinghai',   label: '青海',     authority: '青海省住房和城乡建设厅',               url: 'http://zjt.qinghai.gov.cn' },
+  { code: 'rizhao',    label: '日照',     authority: '日照市住房和城乡建设局',               url: 'http://58.59.43.227:81' },
+  { code: 'shaanxi',   label: '陕西',     authority: '陕西省住房和城乡建设厅',               url: 'https://js.shaanxi.gov.cn' },
+  { code: 'shanxi',    label: '山西',     authority: '山西省住房和城乡建设厅',               url: 'https://zjt.shanxi.gov.cn' },
+  { code: 'sichuan',   label: '四川',     authority: '四川省住房和城乡建设厅',               url: 'http://202.61.90.35:8032' },
+  { code: 'weihai',    label: '威海',     authority: '威海市住房和城乡建设局',               url: 'https://zjj.weihai.gov.cn' },
+  { code: 'xian',      label: '西安',     authority: '西安市住房和城乡建设局',               url: 'https://zjj.xa.gov.cn' },
+  { code: 'xinjiang',  label: '新疆',     authority: '新疆维吾尔自治区住房和城乡建设厅',     url: 'https://www.xjzj.com' },
+]
+
 // —— fetch helpers ——
 async function _fetchJson(url, opts = {}) {
   const ctrl = new AbortController()
@@ -173,14 +199,53 @@ function buildJsonLd(kind, meta) {
           isAccessibleForFree: true,
           keywords: ['工程造价', '材料价格', '钢筋价格', '水泥价格', '给水管价格', '电缆价格', '住建局', '政府数据', '跨城归一'],
           spatialCoverage: { '@type': 'Place', name: '中华人民共和国' },
-          temporalCoverage: '2024-01-01/..',
+          temporalCoverage: `2024-01-01/${meta.latest_period_end || '..'}`,
+          // 2026-07-29 GEO B 阶段:测量方法论(指向 /market#methodology 锚点段)+ 受测变量声明
+          //   让 AI 引擎知道数据怎么测的、覆盖哪些字段、抓取频率如何
+          measurementTechnique: {
+            '@type': 'DefinedTerm',
+            name: 'GB 50500 + Dify AI 三段式 ETL',
+            description: 'ODS 抓取官方期刊(每城每月/季 1 期) → DWD 字段抽取校验去重 → DWS 按 GB 50500 国标同义别名映射 + Dify AI 置信度校核(≥0.85 才入档) → NORM 跨城归一。',
+            url: `${SITE_URL}/market#methodology`,
+          },
+          variableMeasured: [
+            { '@type': 'PropertyValue', name: 'material_price', description: '材料单价(元)' },
+            { '@type': 'PropertyValue', name: 'specification',  description: '规格型号(如 HRB400 Φ20)' },
+            { '@type': 'PropertyValue', name: 'unit',          description: '计量单位(t/m/根/张)' },
+            { '@type': 'PropertyValue', name: 'period_end',    description: '价格所属期刊截止日期' },
+            { '@type': 'PropertyValue', name: 'confidence',    description: 'AI 校核置信度(0-1)' },
+            { '@type': 'PropertyValue', name: 'city',          description: '所在城市(住建局辖区)' },
+            { '@type': 'PropertyValue', name: 'normalized_breed', description: 'GB 50500 跨城归一品类 ID' },
+          ],
           provider: { '@type': 'Organization', name: 'Pengfit', url: 'https://github.com/pengfit/cjt-skills' },
+          author:   { '@type': 'Organization', name: 'Pengfit', url: 'https://github.com/pengfit/cjt-skills' },
+          publisher:{ '@type': 'Organization', name: 'Pengfit', url: 'https://github.com/pengfit/cjt-skills' },
+          dateModified: meta.latest_period_end || new Date().toISOString().slice(0, 10),
           distribution: {
             '@type': 'DataDownload',
             encodingFormat: 'application/json',
             contentUrl: `${SITE_URL}/api/market/overview`,
             license: 'https://opensource.org/licenses/MIT',
           },
+        },
+        // 2026-07-29 GEO B 阶段:20 城住建局 / 造价协会 — schema.org GovernmentOrganization 数组
+        //   让 AI 引擎知道数据来自哪些官方机构,反向链接到机构主页(可验证性)
+        ...CITY_AUTHORITIES.map((c) => ({
+          '@type': 'GovernmentOrganization',
+          '@id': `${SITE_URL}/#gov-${c.code}`,
+          name: c.authority,
+          url: c.url,
+          areaServed: { '@type': 'AdministrativeArea', name: `${c.label}市` },
+          parentOrganization: { '@type': 'GovernmentOrganization', name: '中华人民共和国住房和城乡建设部', url: 'https://www.mohurd.gov.cn' },
+          publishingPrinciples: `${SITE_URL}/market#methodology`,
+        })),
+        // 2026-07-29 GEO B 阶段:BreadcrumbList — 面包屑(屏读 + 搜索结果展示)
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '首页',     item: `${SITE_URL}/home` },
+            { '@type': 'ListItem', position: 2, name: '市场行情', item: `${SITE_URL}/market` },
+          ],
         },
         {
           '@type': 'FAQPage',
