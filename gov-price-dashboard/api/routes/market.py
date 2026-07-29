@@ -15,7 +15,10 @@ import time
 import math
 import random
 import requests
+import sqlite3
+import threading
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -2400,3 +2403,80 @@ def market_cities(
         cities.append({'key': key, 'label': label, 'docs_count': docs})
     cities.sort(key=lambda x: x['docs_count'], reverse=True)
     return {'ok': True, 'cities': cities, 'province': province or '全国'}
+
+
+# ── /market 页面 PV 计数器(2026-07-29) ────────────────────────────────────────
+# 设计:
+#   - POST /api/market/visit → +1 + 返回当前 PV(每次挂载 /market 时由前端调用 1 次)
+#   - GET  /api/market/stats → 只读,返回当前 PV(供 SEO / 其他场景读取,不自增)
+#   - 单表 SQLite: api/data/market_stats.db,market_pv(id=1 单行)
+#   - 并发安全: threading.Lock 串行化事务;SQLite WAL + timeout=5
+#   - 不引入 Redis/外部依赖,纯文件持久化,重启 API 计数不丢
+_PV_LOCK = threading.Lock()
+_PV_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "market_stats.db"
+
+
+def _pv_get_conn() -> sqlite3.Connection:
+    """获取 SQLite 连接并保证表存在。autocommit 关闭 → 用 with 事务显式 commit"""
+    _PV_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(_PV_DB_PATH), timeout=5)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS market_pv (
+            id         INTEGER PRIMARY KEY CHECK (id = 1),
+            count      INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT    NOT NULL
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+@router.post("/visit")
+def market_visit():
+    """+1 累计 PV,返回当前计数。公开 — /market 页面挂载时调用 1 次。
+
+    失败不抛出(公开页不能因为计数器故障报错):出错时静默返 ok=False,pv=-1,
+    前端可忽略不显示。
+    """
+    now = datetime.utcnow().isoformat() + "Z"
+    try:
+        with _PV_LOCK:
+            conn = _pv_get_conn()
+            try:
+                row = conn.execute("SELECT count FROM market_pv WHERE id = 1").fetchone()
+                if row is None:
+                    conn.execute(
+                        "INSERT INTO market_pv (id, count, updated_at) VALUES (1, 1, ?)",
+                        (now,),
+                    )
+                    new_count = 1
+                else:
+                    new_count = row[0] + 1
+                    conn.execute(
+                        "UPDATE market_pv SET count = ?, updated_at = ? WHERE id = 1",
+                        (new_count, now),
+                    )
+                conn.commit()
+                return {"ok": True, "pv": new_count}
+            finally:
+                conn.close()
+    except Exception:
+        return {"ok": False, "pv": -1}
+
+
+@router.get("/stats")
+def market_stats():
+    """只读,返回当前 PV(不增加)。公开 — 用于 SEO 渲染或其他场景读取计数。"""
+    try:
+        with _PV_LOCK:
+            conn = _pv_get_conn()
+            try:
+                row = conn.execute("SELECT count, updated_at FROM market_pv WHERE id = 1").fetchone()
+                if row is None:
+                    return {"ok": True, "pv": 0, "updated_at": None}
+                return {"ok": True, "pv": row[0], "updated_at": row[1]}
+            finally:
+                conn.close()
+    except Exception:
+        return {"ok": False, "pv": 0}

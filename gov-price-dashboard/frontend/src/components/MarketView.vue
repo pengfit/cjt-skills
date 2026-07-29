@@ -361,6 +361,11 @@
         </details>
       </section>
 
+    <!-- 2026-07-29: /market 页面底部居中 PV 计数 — 低调小字,作为「可信度背书」 -->
+    <footer v-if="pv > 0" class="m-pv-footer" aria-label="累计访问量">
+      累计访问 <strong>{{ pv.toLocaleString() }}</strong> 次
+    </footer>
+
 </template>
 
 <script setup>
@@ -471,6 +476,10 @@ const geoStatus = ref('prompting')
 const geoSource = ref('')  // 'gps' | 'cache' | 'manual'
 const availableProvinces = ref([])  // 从 data-quality 推 — 不需新端点
 
+// 2026-07-29: /market 页面 PV 累计计数 — POST /api/market/visit 后端 +1 返当前 PV
+//   仅在 recordVisit() 成功后赋值,初始 0 → footer v-if="pv > 0" 隐藏
+const pv = ref(0)
+
 // 半年价格趋势(2026-07-28 整段删除 — 功能已迁移到 /trend 页,MarketView 不再持有趋势状态)
 //   删除清单:
 //     provinceTrend / trendChartRef / trendChart / trendLoading / refreshingBreeds
@@ -493,6 +502,24 @@ async function fetchJson(path) {
   const r = await fetch(finalPath, { headers: { Accept: 'application/json' } })
   if (!r.ok) throw new Error(`${finalPath} → HTTP ${r.status}`)
   return r.json()
+}
+
+// 2026-07-29: /market 页面 PV 累计计数 — POST /api/market/visit (后端 +1 返当前 PV)
+//   不复用 fetchJson(那是 GET);直接 fetch + 静默兜底 — PV 是装饰元素,失败不影响主功能
+async function recordVisit() {
+  try {
+    const r = await fetch('/api/market/visit', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    })
+    if (!r.ok) return
+    const data = await r.json()
+    if (data && data.ok && typeof data.pv === 'number' && data.pv > 0) {
+      pv.value = data.pv
+    }
+  } catch {
+    // 静默 — PV 失败不冒泡到主流程
+  }
 }
 
 // ── 数据加载 ──────────────────────────────────────────────────
@@ -1006,6 +1033,8 @@ function changeClass(pct) {
 
 // ── 启动 ──────────────────────────────────────────────────
 onMounted(async () => {
+  // 2026-07-29: PV 计数 — 不 await,fire-and-forget,不阻塞主渲染链路
+  recordVisit()
   await loadAll()
   await requestGeoLocation()
   await loadMarketCities()  // 2026-07-28 v3.1: 加载城市列表到 toolbar 下拉
@@ -1919,4 +1948,23 @@ onUnmounted(() => {
   .m-methodology-step { padding-left: 44px; }
   .m-methodology-step::before { left: 10px; width: 22px; height: 22px; font-size: 12px; }
   .m-methodology-cities { grid-template-columns: 1fr; }
+}
+
+/* 2026-07-29: /market 页面 PV 累计计数器 — 底部居中,低调小字 */
+.m-pv-footer {
+  margin-top: 32px;
+  padding: 18px 16px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8; /* slate-400, 不抢主信息视线 */
+  letter-spacing: 0.02em;
+}
+.m-pv-footer strong {
+  font-weight: 600;
+  color: #475569; /* slate-600 — 数字略深,可读但不刺眼 */
+  font-variant-numeric: tabular-nums;
+  margin: 0 2px;
+}
+@media (max-width: 640px) {
+  .m-pv-footer { margin-top: 20px; padding: 14px 12px 20px; font-size: 12px; }
 }</style>

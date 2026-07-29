@@ -104,6 +104,9 @@ _PUBLIC_PATHS = {
     "/api/market/province-trend",
     # 2026-07-27:品种归一后台(只读 breed_canonical.db,只返脱敏字段,公开)
     "/api/canon/breeds/stats",
+    # 2026-07-29:/market 页面 PV 计数器(POST 自增 + GET 只读,公开)
+    "/api/market/visit",
+    "/api/market/stats",
     "/api/canon/breeds",
     # 2026-07-27:分类映射后台(只读 breed_l3_map_v3,只返 breed_clean/l3/source/confidence,公开)
     "/api/stats/breed-l3-map/stats",
