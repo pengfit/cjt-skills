@@ -1,5 +1,5 @@
 <template>
-  <div class="ctx-page">
+  <div class="admin-page">
     <!-- PageHeader (纯分类映射统计) -->
     <PageHeader
       variant="flat"
@@ -39,16 +39,16 @@ function fmt(v) { return (v ?? 0).toLocaleString() }
 </script>
 
 <style scoped>
-.ctx-page { padding: 0 28px 64px; }
+.admin-page { padding: 0 28px 64px; }
 
 .ctx-subtitle code,
-.ctx-page :deep(.page-header-subtitle code) {
+.admin-page :deep(.page-header-subtitle code) {
   font-family: 'Courier New', monospace; font-size: 10px;
   color: var(--primary); background: rgba(37,99,235,0.08);
   border-radius: 3px; padding: 1px 4px; font-weight: 500;
 }
 
 @media (max-width: 768px) {
-  .ctx-page { padding: 0 12px 40px; }
+  .admin-page { padding: 0 12px 40px; }
 }
 </style>

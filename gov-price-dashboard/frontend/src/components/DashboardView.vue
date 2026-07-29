@@ -26,7 +26,9 @@
       :last-refresh-ago="lastRefreshAgo"
       :polling-paused="pollingPaused"
       :poll-interval-min="POLL_INTERVAL_MS / 60000"
+      :sidebar-collapsed="sidebarCollapsed"
       @toggle-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
+      @toggle-sidebar-collapse="toggleSidebarCollapsed"
       @open-cmd-palette="showCmdPalette = true"
       @go-health="goHealth"
       @go-list="goList"
@@ -43,6 +45,7 @@
         :groups="sidebarGroups"
         :current-tab="currentTab"
         :open="mobileSidebarOpen"
+        :collapsed="sidebarCollapsed"
         @close="mobileSidebarOpen = false"
         @navigate="mobileSidebarOpen = false"
       />
@@ -50,75 +53,30 @@
       <!-- ========== MAIN CONTENT ========== -->
       <el-main id="main-content" class="main-content" tabindex="-1">
 
-        <!-- 全部数据(list)tab — 抽到 ListView.vue(2026-07-13) -->
-        <template v-if="currentTab === 'list'">
-          <ListView
-            :bundle="listSearch"
+        <!-- 2026-07-29 v2 布局重构 (修了 v1 的 panel-堆叠 bug):
+             v1 写法把 12 个 AdminTabPanel 都渲染在 DOM 里,导致 11 个 EMPTY panel 占满视口,
+             真正的 SyncView 内容被埋在第 7 行,用户看到一片空白 → "admin-tab-panel 没有数据"。
+             修复: 改成单 AdminTabPanel + 内部分支互斥渲染,
+             任何时刻 DOM 里只有 1 个 panel (要么 loading, 要么 active tab 内容) -->
+        <AdminTabPanel :loading="tabLoading">
+          <ListView v-if="currentTab === 'list'" :bundle="listSearch" />
+          <BreedDetailView v-else-if="currentTab === 'breed-detail'" />
+          <DistributionChart
+            v-else-if="currentTab === 'dist'"
+            :keyword="searchKeyword"
+            :province="searchProvince"
+            :city="searchCity"
           />
-        </template>
-
-        <!-- 跨页详情中心 (2026-07-15 改造 A) — 走 currentTab === 'breed-detail' 路由 -->
-        <template v-if="currentTab === 'breed-detail'">
-          <BreedDetailView />
-        </template>
-
-        <template v-if="currentTab === 'dist'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel">
-            <DistributionChart
-              :keyword="searchKeyword"
-              :province="searchProvince"
-              :city="searchCity"
-            />
-          </div>
-        </template>
-
-        <template v-if="currentTab === 'trend'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><PriceTrendView /></div>
-        </template>
-
-        <template v-if="currentTab === 'cockpit'">
-          <div class="scroll-panel">
-            <CockpitView />
-          </div>
-        </template>
-
-        <template v-if="currentTab === 'category'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><CategoryView /></div>
-        </template>
-
-        <template v-if="currentTab === 'sync'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><SyncView /></div>
-        </template>
-
-        <template v-if="currentTab === 'health'">
-          <div class="scroll-panel"><DataHealthView /></div>
-        </template>
-
-        <template v-if="currentTab === 'rules'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><VecRulesView /></div>
-        </template>
-
-        <template v-if="currentTab === 'taxonomy'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><CategoryTaxonomyView /></div>
-        </template>
-
-        <!-- 2026-07-27:品种归一后台 - 浏览 breed_canonical.db -->
-        <template v-if="currentTab === 'canon'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><BreedCanonicalView /></div>
-        </template>
-
-        <!-- 2026-07-27:分类映射后台 - 浏览 breed_l3_map_v3 表 -->
-        <template v-if="currentTab === 'breed-map'">
-          <div v-if="tabLoading" class="tab-loading"><div class="loading-spinner"></div><span>加载中...</span></div>
-          <div v-else class="scroll-panel"><BreedL3MapView /></div>
-        </template>
+          <PriceTrendView v-else-if="currentTab === 'trend'" />
+          <CockpitView v-else-if="currentTab === 'cockpit'" />
+          <CategoryView v-else-if="currentTab === 'category'" />
+          <SyncView v-else-if="currentTab === 'sync'" />
+          <DataHealthView v-else-if="currentTab === 'health'" />
+          <VecRulesView v-else-if="currentTab === 'rules'" />
+          <CategoryTaxonomyView v-else-if="currentTab === 'taxonomy'" />
+          <BreedCanonicalView v-else-if="currentTab === 'canon'" />
+          <BreedL3MapView v-else-if="currentTab === 'breed-map'" />
+        </AdminTabPanel>
 
       </el-main>
     </el-container>
@@ -166,6 +124,8 @@ const BreedDetailView = defineAsyncComponent(() => import('./BreedDetailView.vue
 import CmdPalette from './CmdPalette.vue'
 import Sidebar from './layout/Sidebar.vue'
 import TopBar from './layout/TopBar.vue'
+// 2026-07-29 布局重构: 后台 tab 统一 wrapper
+import AdminTabPanel from './layout/AdminTabPanel.vue'
 import { TAB_ROUTES, legacyTabPath } from '../router'
 
 const route = useRoute()
@@ -212,6 +172,27 @@ const sidebarGroups = computed(() => ([
 
 const mobileSidebarOpen = ref(false)
 const showCmdPalette = ref(false)
+
+// 2026-07-29:侧栏收起状态 — 桌面端 64px ↔ 210px,刷新保留(localStorage)
+const SIDEBAR_COLLAPSED_KEY = 'cjt.sidebar.collapsed'
+function _loadSidebarCollapsed() {
+  try {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+  } catch { return false }
+}
+function _saveSidebarCollapsed(v) {
+  try {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, v ? 'true' : 'false')
+  } catch { /* quota / disabled storage — ignore */ }
+}
+const sidebarCollapsed = ref(_loadSidebarCollapsed())
+function toggleSidebarCollapsed() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  _saveSidebarCollapsed(sidebarCollapsed.value)
+}
+
 // const categoryPanelCollapsed = ref(false) // 2026-07-28 删除 list-tree-panel
 watch(() => route.name, () => { mobileSidebarOpen.value = false })
 
@@ -376,7 +357,9 @@ const tabLoading = ref(false)
 .dashboard {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;             /* 改:不用 min-height — 否则 100vh 不是 definite height,
+                                 .main-content { flex:1 } 会算成 auto 而不撑高 */
+  overflow: hidden;          /* 锁住页面级滚动,内容溢出走 .main-content 的 overflow-y:auto */
   background: var(--bg-primary, #f8fafc);
   color: var(--text-primary, #0f172a);
 }
@@ -397,6 +380,7 @@ const tabLoading = ref(false)
 .main-content {
   flex: 1;
   min-width: 0;
+  min-height: 0;             /* 关键:flex item 默认 min-height:auto 会拒绝缩小,这里关掉让 overflow-y 能滚 */
   padding: 20px 28px;
   overflow-y: auto;
   outline: none;

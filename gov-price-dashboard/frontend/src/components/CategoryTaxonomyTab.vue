@@ -10,50 +10,7 @@
         @input="debounceLoadTaxonomy(1)"
       />
     </div>
-    <div class="ctx-toolbar-right">
-      <button class="ctx-btn ctx-btn-cyan" @click="showHelp = !showHelp">
-        {{ showHelp ? '🔼 收起' : '📖 使用说明' }}
-      </button>
-    </div>
   </div>
-
-  <div class="ctx-filter-chips" v-if="taxKeyword">
-    <span class="ctx-chip">
-      搜索: "{{ taxKeyword }}"
-      <button class="ctx-chip-x" @click="taxKeyword=''; debounceLoadTaxonomy(1)" title="移除">×</button>
-    </span>
-  </div>
-
-  <!-- 使用说明 -->
-  <Transition name="ctx-slide">
-    <div class="ctx-help" v-if="showHelp">
-      <div class="ctx-help-title">📖 分类体系说明</div>
-      <div class="ctx-help-grid">
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">是什么</span>
-          <span class="ctx-help-val">
-            3 级分类法（<code>L1</code> 大类 / <code>L2</code> 分部 / <code>L3</code> 分项）<br/>
-            附 <strong>GB50500</strong> 国标编码 · <strong>IFC</strong> BIM 分类 · <strong>Uniclass</strong> 代码
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">数据源</span>
-          <span class="ctx-help-val">
-            分类骨架读 <code>skills/data/category_v3_rules.db</code> · 表 <code>category_v3</code><br/>
-            （DWD→DWS ETL live 写入，不依赖 breed_canonical.db 快照）<br/>
-            <strong>9 L1</strong> 大类 · <strong>57 L2</strong> 分部 · <strong>191 L3</strong> 分项
-          </span>
-        </div>
-        <div class="ctx-help-item">
-          <span class="ctx-help-key">本页能做什么</span>
-          <span class="ctx-help-val">
-            <strong>只读查询</strong>：名称/编码/IFC 搜索 · 升降序 · 分页<br/>
-            点 <code>L3</code> 单元格跳到「品种映射」页并定位关联品种
-          </span>
-        </div>
-      </div>
-    </div>
-  </Transition>
 
   <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 改 Element Plus <el-table> + <el-table-column> -->
   <div class="ctx-card">
@@ -194,14 +151,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import AppPagination from './AppPagination.vue'
 
 const emit = defineEmits(['jump-to-breed-map'])
 const API = import.meta.env.VITE_API_URL || '/api'
 
-const showHelp = ref(false)
 const drawerRow = ref(null)
 // 2026-07-28:Phase 2 — el-drawer v-model
 const drawerVisible = ref(false)
@@ -219,8 +175,8 @@ function onTaxSortChange({ prop, order }) {
   loadTaxonomy(1)
 }
 const taxKeyword = ref('')
-const taxPageSize = ref(50)
-const taxPageSizeOptions = [50, 100, 200]
+const taxPageSize = ref(20)
+const taxPageSizeOptions = [20, 50, 100]
 const taxRows = ref([])
 const taxTotal = ref(0)
 const taxPage = ref(1)
@@ -322,48 +278,6 @@ onMounted(() => { loadTaxonomy(1) })
 }
 .ctx-btn-cyan { background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); }
 .ctx-btn-cyan:hover { background: rgba(37,99,235,0.2); }
-
-.ctx-filter-chips {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px;
-}
-.ctx-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 4px 3px 10px;
-  background: rgba(37,99,235,0.08);
-  color: var(--primary, #2563eb);
-  border: 1px solid rgba(37,99,235,0.18);
-  border-radius: 14px;
-  font-size: 11px; font-weight: 600;
-}
-.ctx-chip-x {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(37,99,235,0.15); color: var(--primary);
-  border: none; cursor: pointer; font-size: 12px; line-height: 1;
-}
-.ctx-chip-x:hover { background: var(--primary, #2563eb); color: white; }
-
-.ctx-help {
-  background: rgba(241,245,249,0.8); border: 1px solid rgba(37,99,235,0.12);
-  border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
-}
-.ctx-help-title { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 14px; }
-.ctx-help-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px 24px;
-}
-.ctx-help-item { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.7; }
-.ctx-help-key { color: var(--primary); font-weight: 600; white-space: nowrap; min-width: 80px; }
-.ctx-help-val { color: var(--text-3); }
-.ctx-help-val code {
-  font-family: 'Courier New', monospace; font-size: 10px;
-  color: var(--primary); background: rgba(37,99,235,0.08);
-  border-radius: 3px; padding: 1px 4px; font-weight: 500;
-}
-.ctx-help-val strong { color: var(--text, #0f172a); font-weight: 600; }
-
-.ctx-slide-enter-active, .ctx-slide-leave-active { transition: all 0.2s ease; overflow: hidden; }
-.ctx-slide-enter-from, .ctx-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 
 .ctx-card {
   background: var(--surface); border: 1px solid var(--border);

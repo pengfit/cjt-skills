@@ -1,5 +1,5 @@
 <template>
-  <div class="ctx-page">
+  <div class="admin-page">
     <!-- Header (纯分类骨架,完全不依赖 breed_canonical.db) -->
     <PageHeader
       variant="flat"
@@ -38,10 +38,10 @@ onMounted(() => loadStats())
 </script>
 
 <style scoped>
-.ctx-page { padding: 0 28px 64px; }
+.admin-page { padding: 0 28px 64px; }
 
 .ctx-subtitle code,
-.ctx-page :deep(.page-header-subtitle code) {
+.admin-page :deep(.page-header-subtitle code) {
   font-family: 'Courier New', monospace; font-size: 10px;
   color: var(--primary); background: rgba(37,99,235,0.08);
   border-radius: 3px; padding: 1px 4px; font-weight: 500;
@@ -49,7 +49,7 @@ onMounted(() => loadStats())
 
 /* ── 移动端 (2026-07-25 P0-fix,2026-07-27 进一步简化) ── */
 @media (max-width: 768px) {
-  .ctx-page { padding: 0 12px 40px; }
+  .admin-page { padding: 0 12px 40px; }
   .t-header, .taxonomy-header, .ctx-drawer-grid { grid-template-columns: 1fr !important; flex-direction: column !important; }
   .ctx-drawer { width: 92vw !important; max-width: 360px !important; }
   .tree-pane, .detail-pane { width: 100% !important; max-width: 100% !important; }

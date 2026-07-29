@@ -1,5 +1,5 @@
 <template>
-  <div class="cat-page">
+  <div class="admin-page">
     <!-- Page header -->
     <PageHeader
       title="产品类别分析"
@@ -652,7 +652,7 @@ onMounted(() => loadCategories())
 </script>
 
 <style scoped>
-.cat-page {
+.admin-page {
   display: flex;
   flex-direction: column;
   gap: 16px;

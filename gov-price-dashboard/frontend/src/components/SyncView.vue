@@ -1,5 +1,5 @@
 <template>
-  <div class="sync-page">
+  <div class="admin-page">
     <!-- Page Header -->
     <PageHeader
       variant="flat"
@@ -26,30 +26,20 @@
       ]"
     ><template #icon>🔄</template></PageHeader>
 
-    <!-- 2026-07-20 修改: 数据处理链路已并入 ScrapeView 城市卡, 此处只保留抓取视图 -->
-    <div class="sync-subtabs">
-      <button class="sync-subtab" :class="{ active: subTab === 'etl' }" @click="subTab = 'etl'">
-        <span class="sync-subtab-dot"></span>
-        ETL 清洗
-        <span class="sync-subtab-hint">各城市 ODS 抓取进度 · 链路口径进卡</span>
-      </button>
-    </div>
-
-    <ScrapeView v-if="subTab === 'etl'" />
+    <!-- 2026-07-29 改造: 删 sync-subtabs(原单 tab 占位冗余),<ScrapeView /> 直挂 -->
+    <ScrapeView />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'  // 2026-07-28 Step 2 删:已被 useFetch 取代
 import ScrapeView from './ScrapeView.vue'
 import PageHeader from './PageHeader.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 import { useFetch } from '../composables/useFetch.js'  // 2026-07-28 Step 2 扩 SyncView
 
 // 2026-07-28 Step 2:const API 已被 useFetch 取代(api 实例自带 baseURL + 鉴权)
-const { data: _provData, fetch: fetchProvenance } = useFetch()
-const subTab = ref('etl')
+const { fetch: fetchProvenance } = useFetch()
 // D.2026-07-12 统一数字格式化
 const fmt = useFormatNumber()
 
@@ -97,98 +87,18 @@ onMounted(loadStats)
 </script>
 
 <style scoped>
-.sync-page {
+.admin-page {
   padding: 0 28px 28px;
   min-height: 100vh;
   color: var(--text);
 }
 
 /* Header（已迁移至 PageHeader flat 变体） */
-.sync-page :deep(.delta) {
+.admin-page :deep(.delta) {
   display: inline-block; margin-left: 4px; padding: 1px 5px;
   background: rgba(34,197,94,0.12); color: #16a34a;
   border-radius: 3px; font-size: 9px; font-weight: 600;
 }
-
-.sync-subtabs {
-  display: flex;
-  flex-wrap: wrap;  /* fix 2026-07-12：防 hint 文字被裁 */
-  gap: 4px;
-  padding: 14px 20px 2px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.sync-subtab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 18px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: transparent;
-  color: var(--text-2);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.18s;
-}
-
-.sync-subtab:hover {
-  color: var(--text);
-  background: var(--surface-2);
-  border-color: var(--border);
-}
-
-/* P1-7:激活态加左侧 3px primary 竖条,跟 Sidebar 风格统一 */
-.sync-subtab.active {
-  color: var(--primary);
-  background: var(--surface);
-  border-color: var(--border);
-  border-bottom-color: var(--surface);
-  margin-bottom: -1px;
-  position: relative;
-}
-.sync-subtab.active::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  background: var(--primary);
-  border-radius: 0 2px 2px 0;
-}
-
-/* P1-7:默认态 dot 用浅 primary 占位,激活态变深 */
-.sync-subtab-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(30,64,175,0.20);
-  transition: all 0.2s;
-}
-.sync-subtab:hover .sync-subtab-dot {
-  background: rgba(30,64,175,0.45);
-}
-.sync-subtab.active .sync-subtab-dot {
-  background: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
-}
-
-.sync-subtab-hint {
-  font-size: 11px;
-  color: var(--text-3);
-  font-weight: 400;
-  margin-left: 4px;
-}
-.sync-subtab.active .sync-subtab-hint {
-  color: var(--primary-light, var(--primary));
-}
-
-
 
 /* ── 移动端 UI (2026-07-25 P1-fix) ── */
 @media (max-width: 768px) {

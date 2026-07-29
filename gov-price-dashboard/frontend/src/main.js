@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import './style.css'
+// 2026-07-29 后台布局重构: 统一 .admin-page 等基类
+import './styles/layout.css'
 import { registerGovPriceTheme } from './composables/useEchartsTheme'
 import router from './router'
 // 2026-07-19 鉴权：注册全局 axios 拦截器(side-effect import)

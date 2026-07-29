@@ -179,6 +179,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import SkeletonCard from './SkeletonCard.vue'
 import EmptyState from './EmptyState.vue'
+// 2026-07-29 BUG 修: <el-icon><CircleClose /></el-icon> 在 line 16 使用但未 import,Vue 警告 Failed to resolve component
+import { CircleCheck, CircleClose, Warning } from '@element-plus/icons-vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 
 const API = import.meta.env.VITE_API_URL || '/api'

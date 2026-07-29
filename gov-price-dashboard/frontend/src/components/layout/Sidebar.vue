@@ -7,39 +7,31 @@
 
   <el-aside
     class="sidebar"
-    :class="{ 'mobile-open': open }"
+    :class="{ 'mobile-open': open, 'sidebar--collapsed': collapsed }"
     role="navigation"
     aria-label="主导航"
   >
+    <!-- 2026-07-29 v3:改用 Element Plus 原生 <el-menu :collapse="collapsed"> + <el-menu-item :title>
+         取代手写 collapsed CSS hack(EP 自动:64px 宽 / icon-only / 折叠 tooltip / active 高亮) -->
     <el-menu
       class="sidebar-menu"
+      :collapse="collapsed"
       :default-active="currentTab"
       background-color="transparent"
       text-color="var(--text-2)"
       active-text-color="var(--primary)"
-      :unique-opened="true"
       @select="onMenuSelect"
     >
-      <el-sub-menu
-        v-for="group in groups"
-        :key="group.key"
-        :index="group.key"
-        :data-module="group.key"
-        class="sidebar-group"
+      <el-menu-item
+        v-for="item in flatItems"
+        :key="item.key"
+        :index="item.key"
+        :title="item.label"
+        class="sidebar-item"
       >
-        <template #title>
-          <span class="sidebar-group-label">{{ group.label }}</span>
-        </template>
-        <el-menu-item
-          v-for="item in group.items"
-          :key="item.key"
-          :index="item.key"
-          class="sidebar-item"
-        >
-          <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
-          <template #title>{{ item.label }}</template>
-        </el-menu-item>
-      </el-sub-menu>
+        <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
+        <span class="sidebar-item-label">{{ item.label }}</span>
+      </el-menu-item>
     </el-menu>
   </el-aside>
 </template>
@@ -56,17 +48,23 @@
  *   ])
  *   <Sidebar :groups="groups" :current-tab="route.name" :open="mobileSidebarOpen" />
  */
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
   groups:      { type: Array,  required: true },  // [{ key, label, items: [{key, label, path, icon, shortcut?}] }]
   currentTab:  { type: String, required: true },  // 当前路由 name
   open:        { type: Boolean, default: false }, // 移动端 drawer 开关
+  // 2026-07-29 v2:侧栏是否收起(64px ↔ 210px)。B 方案 — 无 sub-menu 概念,
+  // 折叠态直接是 11 个 menu-item 图标单列
+  collapsed:   { type: Boolean, default: false },
 })
 
 defineEmits(['close', 'navigate'])
 
 const router = useRouter()
+// 2026-07-29 v2 B 方案:把 4 个 group 的 items 平铺到一层(无 sub-menu)
+const flatItems = computed(() => props.groups.flatMap(g => g.items))
 
 function onMenuSelect(index) {
   // 找到对应 item 并跳转
@@ -113,36 +111,52 @@ function onMenuSelect(index) {
   height: calc(100vh - var(--topbar-h, 56px));
   overflow-y: auto;
   overflow-x: hidden;
+  /* 2026-07-29 v3.2:折叠宽度回归 .sidebar--collapsed 显式管 —
+     EP 的 --el-menu-collapse-width 只管内层 el-menu,父级 <el-aside> 必须自己收缩。
+     之前我误以为 EP 接管,删了这条 → 父级 210px 不变,看着像折叠失败 */
+  transition: width 0.22s ease, flex-basis 0.22s ease;
 }
 
-/* ── el-sub-menu 模块分组 ── */
-.sidebar-group { margin-bottom: 6px !important; }
-
-.sidebar-group-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-2);
-  letter-spacing: 0.3px;
+/* 2026-07-29 v3.2:回归 .sidebar--collapsed 显式宽 64px(EP 内部会同步 — EP 处理内部布局,
+   这条管外层 .sidebar 容器宽。两者一起,210px ↔ 64px 平滑过渡) */
+.sidebar.sidebar--collapsed {
+  width: 64px;
+  flex: 0 0 64px;
 }
 
-/* 第二个及之后分组:顶部细线分隔 */
-:deep(.sidebar-group + .sidebar-group .el-sub-menu__title) {
-  border-top: 1px solid var(--border);
+/* ── 2026-07-29 v3:折叠态 — 大部分交给 EP 内部,这里只补 2 件不自动的事:
+     ① active 项加左侧 3px primary 竖条 + 浅蓝背景(EP 默认 active 是简单蓝色背景)
+     ② icon 在折叠态稍大一点(EP 默认 16px,改 18px 看清楚) ── */
+.sidebar.sidebar--collapsed :deep(.el-menu-item.is-active .el-menu-item__content) {
+  background: rgba(var(--primary-rgb), 0.10) !important;
 }
-
-/* 4 模块色条:左侧 3px */
-:deep(.sidebar-group[data-module="view"] .el-sub-menu__title::before)    { background: var(--primary); }
-:deep(.sidebar-group[data-module="collect"] .el-sub-menu__title::before) { background: var(--warning); }
-:deep(.sidebar-group[data-module="govern"] .el-sub-menu__title::before)  { background: #7c3aed; }
-:deep(.sidebar-group[data-module="viz"] .el-sub-menu__title::before)     { background: var(--success); }
-:deep(.sidebar-group .el-sub-menu__title::before) {
-  content: '';
-  display: inline-block;
-  width: 3px;
-  height: 12px;
-  border-radius: 2px;
-  margin-right: 8px;
-  vertical-align: middle;
+.sidebar.sidebar--collapsed :deep(.sidebar-item .sidebar-item-icon) {
+  font-size: 18px !important;
+  margin-right: 0 !important;
+}
+/* 2026-07-29 v3.1 修复:展开态要有中文 label(此前误删了,只有 icon 一列);
+   折叠态再藏 label,只露 icon */
+.sidebar-item-label {
+  margin-left: 8px;
+  font-size: inherit;
+}
+.sidebar.sidebar--collapsed :deep(.sidebar-item-label) {
+  display: none !important;
+}
+/* 2026-07-29 v3:展开态(默认) — 保留 4 样历史样式:210px 宽 / padding-left 36px / active 竖条 */
+:deep(.sidebar-item .el-menu-item__content) {
+  padding-left: 36px !important;
+  border-radius: 0 !important;
+}
+:deep(.sidebar-item.is-active .el-menu-item__content) {
+  background: rgba(var(--primary-rgb), 0.08) !important;
+  border-left: 3px solid var(--primary);
+  font-weight: 600 !important;
+}
+/* 折叠态:item 高度也压低一点 — 64px 宽 sidebar 装 11 个图标,过密不耐看 */
+.sidebar.sidebar--collapsed :deep(.sidebar-item) {
+  height: 36px !important;
+  line-height: 36px !important;
 }
 
 /* ── el-menu-item 单项 ── */
@@ -201,17 +215,16 @@ function onMenuSelect(index) {
   .dashboard.mobile-sidebar-open { overflow: hidden; }
 }
 
-/* ── 平板:收起为图标列 ── */
+/* ── 平板:收起为图标列(响应式备用,已迁主要样式到 .sidebar--collapsed) ── */
 @media (min-width: 769px) and (max-width: 1100px) {
   .sidebar { width: 64px; flex: 0 0 64px; padding: 12px 0; }
-  :deep(.sidebar-item .el-menu-item__content) { padding-left: 20px !important; padding-right: 8px !important; }
+  /* 残存样式 — 与 .sidebar--collapsed 等价,窄屏强压以兼容历史 */
   :deep(.sidebar-item.is-active .el-menu-item__content) {
-    border-left: none;
-    border-bottom: 3px solid var(--primary);
+    background: rgba(var(--primary-rgb), 0.10) !important;
   }
-  :deep(.sidebar-group .el-sub-menu__title) { padding-left: 16px !important; }
-  :deep(.sidebar-group .el-sub-menu__title span:first-child) { display: none; }
-  :deep(.sidebar-item .el-menu-item__content > *) { display: none; }
+  :deep(.sidebar-item .el-menu-item__content) {
+    padding-left: 0 !important; padding-right: 0 !important; justify-content: center !important;
+  }
   :deep(.sidebar-item .sidebar-item-icon) { display: inline-flex !important; margin-right: 0 !important; font-size: 18px !important; }
 }
 </style>

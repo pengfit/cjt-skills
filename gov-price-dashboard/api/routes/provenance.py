@@ -1603,7 +1603,7 @@ def reload_prompts():
 def _get_ref_attr_names_from_db() -> list[str]:
     """从 breed_spec_rules.db 读取已有属性名（去 attr_ 前缀）"""
     try:
-        conn = sqlite3.connect(_RULES_DB_SPEC)
+        conn = sqlite3.connect(f"file:{_RULES_DB_SPEC}?mode=ro", uri=True, timeout=30)
         cur = conn.cursor()
         cur.execute("SELECT DISTINCT attr FROM breed_spec_rules")
         names = [r[0] for r in cur.fetchall()]
@@ -1926,7 +1926,7 @@ def stats_rules_vector(
         raise HTTPException(status_code=404, detail="breed_spec_rules.db 不存在")
 
     import sqlite3
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=30)
     c = conn.cursor()
 
     where_clauses = []
@@ -1979,7 +1979,7 @@ def stats_rules_vector(
             "created_at": r[8],
         })
 
-    conn2 = sqlite3.connect(db_path)
+    conn2 = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=30)
     c2 = conn2.cursor()
     c2.execute("SELECT attr, COUNT(*) FROM breed_spec_rules GROUP BY attr ORDER BY attr")
     attr_options = [{"key": row[0], "count": row[1]} for row in c2.fetchall()]
@@ -1990,8 +1990,8 @@ def stats_rules_vector(
     category_options = []
     try:
         if CATEGORY_V3_RULES_DB.exists():
-            conn3 = sqlite3.connect(db_path)
-            conn_cat = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+            conn3 = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=30)
+            conn_cat = sqlite3.connect(f"file:{str(CATEGORY_V3_RULES_DB)}?mode=ro", uri=True, timeout=30)
             l2_rows = conn_cat.execute(
                 "SELECT l3, l2 FROM category_v3 WHERE l3 IS NOT NULL AND l3 != ''"
             ).fetchall()
@@ -2013,7 +2013,7 @@ def stats_rules_vector(
         category_options = []
 
     # v0.7+: L3 列表(供前端下拉)
-    conn4 = sqlite3.connect(db_path)
+    conn4 = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=30)
     c4 = conn4.cursor()
     c4.execute("SELECT l3, COUNT(*) FROM breed_spec_rules WHERE l3 IS NOT NULL AND l3 != '' "
                "GROUP BY l3 ORDER BY l3")
@@ -2821,7 +2821,7 @@ def _canon_db_ready() -> bool:
     if not _PROV_CANON_DB.exists():
         return False
     try:
-        con = sqlite3.connect(str(_PROV_CANON_DB))
+        con = sqlite3.connect(f"file:{str(_PROV_CANON_DB)}?mode=ro", uri=True, timeout=30)
         names = {r[0] for r in con.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}
@@ -2836,7 +2836,7 @@ def _v3_rules_db_ready() -> bool:
     if not CATEGORY_V3_RULES_DB.exists():
         return False
     try:
-        con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+        con = sqlite3.connect(f"file:{str(CATEGORY_V3_RULES_DB)}?mode=ro", uri=True, timeout=30)
         names = {r[0] for r in con.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}
@@ -2879,7 +2879,7 @@ def category_v2_stats():
     if not _v3_rules_db_ready():
         return {"ok": False, "message": "category_v3_rules.db 不存在或无法访问"}
 
-    v3_con = sqlite3.connect(str(CATEGORY_V3_RULES_DB))
+    v3_con = sqlite3.connect(f"file:{str(CATEGORY_V3_RULES_DB)}?mode=ro", uri=True, timeout=30)
     v3_con.row_factory = sqlite3.Row
     v3_cur = v3_con.cursor()
 

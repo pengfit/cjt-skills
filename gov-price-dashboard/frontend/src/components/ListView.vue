@@ -7,6 +7,7 @@
   - 列宽按内容自适应：5 列都用 minmax(min, max-content)，但 max-content 在整列跨所有行求最大值
 -->
 <template>
+  <div class="admin-page">
   <!-- 2026-07-28:Phase 2 — 自研 drawer+CustomSelect 迁 Element Plus <el-drawer> + <el-form> + <el-select> -->
   <el-drawer
     v-model="showDrawer"
@@ -451,6 +452,7 @@
         </Transition>
       </main>
       </div>
+  </div>
 </template>
 
 <script setup>

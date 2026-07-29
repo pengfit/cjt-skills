@@ -12,6 +12,17 @@
       >
         <span></span><span></span><span></span>
       </button>
+      <!-- 2026-07-29:侧栏展开/收起切换(桌面端 64px ↔ 210px,移动端不展示)— 状态存 localStorage -->
+      <button
+        class="sidebar-fold-btn"
+        :class="{ 'is-collapsed': sidebarCollapsed }"
+        @click="$emit('toggle-sidebar-collapse')"
+        :title="sidebarCollapsed ? '展开侧栏(显示完整菜单)' : '收起侧栏(只留图标,内容区更宽)'"
+        :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+        :aria-pressed="sidebarCollapsed"
+      >
+        <el-icon><component :is="sidebarCollapsed ? IconExpand : IconFold" /></el-icon>
+      </button>
       <!-- 2026-07-21 /showcase 改名为 /home -->
       <router-link to="/home" class="showcase-link" title="返回对外展示首页 /home">
         <span class="showcase-link-icon">←</span>
@@ -144,6 +155,8 @@ import {
   ArrowLeft as IconArrowLeft,
   Menu as IconMenu,
   CircleClose as IconCircleClose,
+  Expand as IconExpand,
+  Fold as IconFold,
 } from '@element-plus/icons-vue'
 /**
  * 顶栏(统一组件)
@@ -168,9 +181,10 @@ defineProps({
   lastRefreshAgo:   { type: String, default: '' },       // "更新于 3 分钟前" 等动态文案
   pollingPaused:    { type: Boolean, default: false },  // P0-2 全局轮询暂停状态
   pollIntervalMin:  { type: Number, default: 15 },       // P0-2 轮询周期(分钟)
+  sidebarCollapsed: { type: Boolean, default: false },   // 2026-07-29:侧栏是否收起(桌面端 64px ↔ 210px)
 })
 
-defineEmits(['toggle-sidebar', 'open-cmd-palette', 'go-health', 'go-list', 'toggle-polling', 'refresh-now'])
+defineEmits(['toggle-sidebar', 'toggle-sidebar-collapse', 'open-cmd-palette', 'go-health', 'go-list', 'toggle-polling', 'refresh-now'])
 
 const { isDark, toggle } = useTheme()
 function toggleTheme() {
@@ -290,6 +304,44 @@ async function confirmLogout() {
   transition: background var(--transition-fast);
 }
 .hamburger:hover { background: rgba(var(--primary-rgb), 0.06); }
+
+/* 2026-07-29:侧栏折叠按钮(挨 hamburger,桌面端 64px ↔ 210px)— 移动端隐藏 */
+.sidebar-fold-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+.sidebar-fold-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--primary);
+}
+.sidebar-fold-btn.is-collapsed {
+  background: rgba(var(--primary-rgb), 0.08);
+  border-color: rgba(var(--primary-rgb), 0.25);
+  color: var(--primary);
+}
+/* 收起态:icon 旋转 180° 提示"展开" */
+.sidebar-fold-btn .el-icon {
+  transition: transform 0.22s ease;
+}
+.sidebar-fold-btn.is-collapsed .el-icon {
+  transform: rotate(180deg);
+}
+@media (max-width: 768px) {
+  .sidebar-fold-btn { display: none; }  /* 移动端用 drawer 即可,收起按钮冗余 */
+}
 .hamburger span {
   display: block;
   width: 100%;

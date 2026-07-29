@@ -1,0 +1,105 @@
+/* ============================================================
+ * src/styles/layout.css — 2026-07-29 重构
+ * 
+ * 后台页面统一布局基础类（替换散落在各 View 的 -page 类）
+ * 
+ * 设计目标：
+ *   1. 消除 padding 双层嵌套 (.main-content 已 20px 28px, 各 -page 又写自己 padding)
+ *   2. 统一 9 个后台页面的 wrapper 类名 (.admin-page)
+ *   3. 统一加载/空/错误态的样式（不重复在每个 View 里定义）
+ *   4. 给 DashboardView tab 切换提供统一切换容器
+ * 
+ * 用法：
+ *   每个后台 View 顶层：<div class="admin-page"><div class="admin-page__header">...</div><div class="admin-page__body">...</div></div>
+ *   DashboardView tab 切换：<AdminTabPanel><Component /></AdminTabPanel>
+ * ============================================================ */
+
+/* ========== 基础页面 wrapper ========== */
+
+.admin-page {
+  /* 宽度撑满 + 上下 padding 0(由 .main-content 负责),左右让出滚动条空间 */
+  width: 100%;
+  min-height: 100%;
+  /* 关键:不再写 padding! padding 由 .main-content 统一管,避免双层 */
+}
+
+/* ========== 页面 header(原 PageHeader 的容器基类) ========== */
+
+.admin-page__header {
+  margin-bottom: 20px;
+}
+
+/* ========== 页面 body(主要内容区) ========== */
+
+.admin-page__body {
+  position: relative;
+  /* 子组件自行管 padding */
+}
+
+/* ========== 加载态(替换散落的 .tab-loading / .cockpit-loading) ========== */
+
+.admin-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(100, 116, 139, 0.25);
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: admin-loading-spin 0.8s linear infinite;
+}
+
+@keyframes admin-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== 空态/错误态基础(各 View 复用) ========== */
+
+.admin-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.admin-empty__icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.admin-empty__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.admin-empty__message {
+  font-size: 14px;
+  color: #94a3b8;
+  max-width: 400px;
+}
+
+/* ========== 移动端适配(原 .main-content @media 块迁出) ========== */
+
+@media (max-width: 768px) {
+  .admin-page {
+    /* 移动端 padding 由 .main-content 收窄到 12px 14px,这里不用再设 */
+  }
+
+  .admin-page__header {
+    margin-bottom: 14px;
+  }
+}

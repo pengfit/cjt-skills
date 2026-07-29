@@ -1,5 +1,5 @@
 <template>
-  <div class="ctx-page">
+  <div class="admin-page">
     <!-- PageHeader (matching /taxonomy flat variant) -->
     <PageHeader
       variant="flat"
@@ -11,44 +11,18 @@
       ]"
     />
 
-    <!-- 3-column stat cards (Top attrs / Top L3 / Query context) — 借鉴 /taxonomy 的 .ctx-conf-cards -->
-    <!-- 激活筛选 chips (横条) — 借鉴 /taxonomy 的 source tag 样式 -->
-    <Transition name="slide-down">
-      <div class="vec-chips" v-if="activeChips.length">
-        <span class="vec-chips-label">当前筛选</span>
-        <span
-          v-for="chip in activeChips" :key="chip.key"
-          class="vec-chip" @click="clearOne(chip)"
-          :title="`移除 ${chip.label}`"
-        >{{ chip.label }}<span class="vec-chip-x">×</span></span>
-        <button class="vec-chips-clear-all" @click="clearAllFilters" title="一键清除所有筛选">全部清除</button>
-      </div>
-    </Transition>
-
-    <!-- Toolbar -->
-    <div class="vec-toolbar">
-      <div class="vec-toolbar-main">
-        <input class="vec-input" v-model="vecSearch" placeholder="🔍 搜索 pattern / note / code..." @input="loadVecRules(1)" />
-        <button v-if="vecSearch" class="vec-clear-btn" @click="vecSearch = ''; loadVecRules(1)" title="清除搜索">×</button>
-      </div>
-      <div class="vec-toolbar-side">
-        <button class="vec-help-btn" :class="{ active: showHelp }" @click="showHelp = !showHelp">
-          {{ showHelp ? '🔼 收起说明' : '📖 使用说明' }}
-        </button>
+    <!-- Toolbar(2026-07-29 彻底统一:与 /taxonomy 同款 .ctx-search-wrap,删 chips / 📖 / × 输入清空按钮) -->
+    <div class="ctx-toolbar">
+      <div class="ctx-search-wrap">
+        <span class="ctx-search-icon">🔍</span>
+        <input
+          class="ctx-input"
+          v-model="vecSearch"
+          placeholder="搜索 pattern / note / code..."
+          @input="loadVecRules(1)"
+        />
       </div>
     </div>
-
-    <!-- 帮助区 (collapsible) -->
-    <Transition name="slide-down">
-      <div class="vec-help" v-if="showHelp">
-        <div class="vec-help-grid">
-          <div class="vec-help-row"><b>是什么</b>存储于 <code>breed_spec_rules.db</code> 的解析正则 + Python 代码，由 sync_dws stage 3 自动回写。</div>
-          <div class="vec-help-row"><b>怎么检索</b>关键字（pattern / note / code）+ 日期范围 组合查询。</div>
-          <div class="vec-help-row"><b>怎么新增</b>暂无人工入口，自动从 AI 解析成功后回写；脏数据可通过 <code>DELETE FROM breed_spec_rules</code> 清理。</div>
-          <div class="vec-help-row"><b>字段含义</b><code>attr</code> 业务属性名；<code>pattern</code> 不带 <code>r</code> 前缀的 regex；<code>code</code> 单行或 <code>\\n</code> 多行 Python；<code>l3</code> 召回 +0.40 加权。</div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- 2026-07-28:Phase 2 — 自研 CSS Grid 改 Element Plus <el-table> -->
     <div class="vec-table-wrap">
@@ -95,124 +69,51 @@
       </el-table>
     </div>
 
-    <!-- 分页 -->
-    <div class="vec-pagination" v-if="vecRules.pages > 1">
-      <button class="page-btn nav" :disabled="vecRules.page <= 1" @click="loadVecRules(vecRules.page - 1)">‹</button>
-      <button
-        v-for="p in vecPageRange" :key="p" class="page-btn"
-        :class="{ active: Number(p) === Number(vecRules.page), ellipsis: p === '...' }"
-        :disabled="p === '...'"
-        @click="p !== '...' && loadVecRules(Number(p))"
-      >{{ p }}</button>
-      <button class="page-btn nav" :disabled="vecRules.page >= vecRules.pages" @click="loadVecRules(vecRules.page + 1)">›</button>
-      <div class="page-jump-wrap">
-        <span>跳至</span>
-        <input class="page-jump" v-model.number="vecJumpPage" @keyup.enter="goToVecPage" type="number" min="1" :max="vecRules.pages" />
-        <span>页</span>
-      </div>
-      <div class="page-size-wrap">
-        <span>每页</span>
-        <select class="page-size-select" v-model.number="vecPageSize" @change="loadVecRules(1)">
-          <option v-for="s in vecPageSizeOptions" :key="s" :value="s">{{ s }}</option>
-        </select>
-        <span>条</span>
-      </div>
-    </div>
+    <!-- 分页(2026-07-29 彻底统一:换 <AppPagination> 与 /taxonomy 一致;pageSize 默认 20,options [20,50,100]) -->
+    <AppPagination
+      :current="vecRules.page"
+      :total="vecRules.total"
+      :page-size="vecPageSize"
+      :page-size-options="vecPageSizeOptions"
+      show-size-changer
+      info-template="第 {from}-{to} 条 / 共 {total} 条"
+      @change="loadVecRules"
+      @update:page-size="vecPageSize = $event; loadVecRules(1)"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 
 import PageHeader from './PageHeader.vue'
+import AppPagination from './AppPagination.vue'
 import { useFormatNumber } from '../composables/useFormatNumber.js'
 import { useFetch } from '../composables/useFetch.js'  // 2026-07-28: 统一 fetch composable (Step 2)
 
 const fmt = useFormatNumber()
 // 2026-07-28: 用 useFetch 取代手写 loading/axios.get/catch/finally 模板
 //   vecLoading 由 composable 自动管理,vecFetch() 内部带 abort 防止 stale 覆盖
-const { data: vecRulesData, loading: vecLoading, fetch: vecFetch } = useFetch()
+const { loading: vecLoading, fetch: vecFetch } = useFetch()
 
 // ── 表格 CSS Grid 列模板 (fr 比例，等宽分布) ──
 const GRID_COLS = '52px minmax(110px, 1.4fr) minmax(90px, 1fr) minmax(110px, 1.1fr) minmax(150px, 1.6fr) minmax(260px, 2.4fr) minmax(120px, 1fr) minmax(150px, 1fr)'
 
 // ── 响应式状态 ──
-const vecRules = ref({ total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [], l3_options: [] })
-const vecPageSize = ref(50)
-const vecPageSizeOptions = [50, 100, 200]
-const vecJumpPage = ref(1)
+const vecRules = ref({ total: 0, page: 1, pages: 1, items: [] })
+const vecPageSize = ref(20)
+const vecPageSizeOptions = [20, 50, 100]
 
 const vecSearch = ref('')
 const vecOrder = ref('desc')
-// vecLoading 由 useFetch composable 管理(已从 line 134 解构)
-const showHelp = ref(false)
-
-// ── 衍生统计 ──
-const vecPageRange = computed(() => {
-  const tp = vecRules.value.pages
-  const cur = vecRules.value.page
-  if (!tp) return []
-  if (tp <= 7) return Array.from({ length: tp }, (_, i) => i + 1)
-  const set = new Set([1, tp, cur, cur - 1, cur + 1])
-  const list = [...set].filter(n => n >= 1 && n <= tp).sort((a, b) => a - b)
-  const out = []
-  for (let i = 0; i < list.length; i++) {
-    if (i > 0 && list[i] - list[i - 1] > 1) out.push('...')
-    out.push(list[i])
-  }
-  return out
-})
-
-// 激活筛选条件汇总（用于顶部 chips 横条 + 卡片展示）
-const activeChips = computed(() => {
-  const cs = []
-  if (vecSearch.value) cs.push({ key: 'search', label: '🔍 「' + vecSearch.value + '」', clear: () => { vecSearch.value = '' } })
-  return cs
-})
-
-// ── 交互 ──
-function clearOne(chip) {
-  chip.clear()
-  loadVecRules(1)
-}
-
-function clearAllFilters() {
-  vecSearch.value = ''
-  loadVecRules(1)
-}
-
-function toggleOrder() {
-  vecOrder.value = vecOrder.value === 'desc' ? 'asc' : 'desc'
-  loadVecRules(1)
-}
-
-function goToVecPage() {
-  const p = Number(vecJumpPage.value)
-  if (p >= 1 && p <= vecRules.value.pages && p !== vecRules.value.page) {
-    loadVecRules(p)
-  }
-}
 
 // ── 网络(2026-07-28 Step 2:用 useFetch 统一) ──
 async function loadVecRules(page = 1) {
   const params = { page, page_size: vecPageSize.value, order: vecOrder.value }
   if (vecSearch.value) params.search = vecSearch.value
   const result = await vecFetch('/stats/rules-vector', { params })
-  vecRules.value = result || { total: 0, page: 1, pages: 1, items: [], attr_options: [], category_options: [], l3_options: [] }
+  vecRules.value = result || { total: 0, page: 1, pages: 1, items: [] }
 }
-
-// ── URL query 同步 (search 直达链接) ──
-const route = useRoute()
-const router = useRouter()
-if (route.query.search) vecSearch.value = String(route.query.search)
-
-watch([vecSearch], () => {
-  const q = { ...route.query }
-  if (vecSearch.value) q.search = vecSearch.value
-  else delete q.search
-  router.replace({ query: q })
-})
 
 // ── Python 代码染色 (高亮注释/字符串/关键字/数字) ──
 function escapeHtml(s) {
@@ -232,165 +133,69 @@ onMounted(() => loadVecRules())
 </script>
 
 <style scoped>
-/* 2026-07-28 Phase 2 cleanup:
-   表格迁 <el-table> / 加载走 v-loading / 空态走 empty-text / 3 卡片删(原本是参考用,从未挂上)。
-   已删除: .vec-stat-cards / .vec-stat-card* / .vec-stat-label / .vec-stat-value /
-            .vec-stat-rows / .vec-stat-row / .vec-stat-name / .vec-stat-l3 / .vec-stat-count /
-            .vec-stat-bar / .vec-stat-bar-fill / .vec-stat-empty / .vec-stat-meta-line / .ctx-muted /
-            .vec-loading / .vec-spinner / .vec-table / .vec-row / .vec-row-head / .vec-row-data /
-            .vec-cell / .col-id / .vec-empty* / .vec-date 等。
-   保留: @keyframes spin(全局可能复用)。 */
+/* 2026-07-29 彻底统一(与 /taxonomy 一致):
+   删: .vec-chips* / .vec-chips-label / .vec-chips-clear-all /
+       .vec-toolbar* / .vec-input / .vec-clear-btn / .vec-help-btn / .vec-help* (5 block) /
+       .slide-down-* / .vec-pagination / .page-btn* / .page-jump* / .page-size*。
+   .ctx-toolbar 改成 /taxonomy 裸版(无 padding/bg/border-radius,只保留 flex+margin-bottom) — 4 页彻底统一。
+   保留: .admin-page / .vec-table-wrap / .vec-attr-tag / .vec-pattern / .vec-code-block(.cm-*) 等列内容样式。 */
 
 /* ── 页面容器 ── */
-.ctx-page {
+.admin-page {
   padding: 0 28px 64px;
   color: var(--text, #1e293b);
   font-size: 13px;
 }
 
-/* ── 激活筛选 chips ── */
-.vec-chips {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  background: linear-gradient(180deg, rgba(37,99,235,0.05), rgba(37,99,235,0.02));
-  border: 1px solid rgba(37,99,235,0.18);
+/* ── Toolbar(与 /taxonomy 同款,仅留搜索) ── */
+.ctx-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px; gap: 12px;
+}
+.ctx-search-wrap { position: relative; }
+.ctx-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; pointer-events: none; opacity: 0.8;
+}
+.ctx-input {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--surface-3, #e2e8f0);
   border-radius: 8px;
-  font-size: 12px;
-}
-.vec-chips-label {
-  color: var(--text-3, #64748b);
-  font-weight: 600;
-  margin-right: 4px;
-}
-.vec-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px;
-  background: #ffffff;
-  color: var(--primary, #2563eb);
-  border: 1px solid rgba(37,99,235,0.25);
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s;
-}
-.vec-chip:hover {
-  background: rgba(37,99,235,0.1);
-  border-color: var(--primary, #2563eb);
-}
-.vec-chip-x {
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(37,99,235,0.5);
-}
-.vec-chip:hover .vec-chip-x { color: var(--primary, #2563eb); }
-.vec-chips-clear-all {
-  margin-left: auto;
-  padding: 4px 12px;
-  background: transparent;
-  color: var(--text-3, #64748b);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s;
-}
-.vec-chips-clear-all:hover {
-  background: rgba(220,38,38,0.08);
-  color: #dc2626;
-  border-color: rgba(220,38,38,0.3);
-}
-
-/* ── Toolbar ── */
-.vec-toolbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-  background: var(--surface-2, #f8fafc);
-  border: 1px solid var(--border, rgba(15,23,42,0.06));
-  border-radius: 10px;
-}
-.vec-toolbar-main {
-  display: flex; align-items: center; gap: 8px;
-  flex: 1; min-width: 0; flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.vec-toolbar-main::-webkit-scrollbar { height: 6px; }
-.vec-toolbar-main::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border-radius: 3px; }
-.vec-toolbar-side {
-  flex-shrink: 0;
-}
-.vec-input {
-  background: #ffffff;
-  color: var(--text, #1e293b);
-  border: 1px solid rgba(15,23,42,0.1);
-  border-radius: var(--radius-sm, 6px);
-  padding: 7px 10px;
+  padding: 0 12px;
   font-size: 13px;
+  color: var(--text, #0f172a);
   outline: none;
-  transition: all 0.15s;
   font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  height: 36px;
 }
-.vec-input:focus { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
-.vec-input:not(.vec-date) { flex: 1 1 200px; max-width: 380px; min-width: 140px; }
-.vec-clear-btn {
-  width: 28px; height: 30px;
-  background: transparent;
-  border: 1px solid rgba(15,23,42,0.1);
-  color: var(--text-3);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+.ctx-input::placeholder { color: var(--text-3, #94a3b8); }
+.ctx-input:hover { border-color: #cbd5e1; }
+.ctx-input:focus {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37,99,235,0.03);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
 }
-.vec-clear-btn:hover { background: rgba(220,38,38,0.06); color: #dc2626; border-color: rgba(220,38,38,0.3); }
-.vec-help-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 7px 12px;
-  background: rgba(37,99,235,0.06);
-  border: 1px solid rgba(37,99,235,0.18);
-  border-radius: 8px;
-  color: var(--primary, #2563eb);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.18s;
-}
-.vec-help-btn:hover { background: rgba(37,99,235,0.12); }
-.vec-help-btn.active { background: rgba(37,99,235,0.14); }
-
-/* ── 帮助区 ── */
-.vec-help {
-  background: var(--surface-2, #f8fafc);
-  border: 1px solid var(--border, rgba(15,23,42,0.06));
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--text-2, #475569);
-}
-.vec-help-grid { display: flex; flex-direction: column; gap: 8px; }
-.vec-help-row b { color: var(--text, #1e293b); margin-right: 4px; }
-.vec-help-row code {
-  background: rgba(37,99,235,0.08);
-  color: var(--primary, #2563eb);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-}
+.ctx-search-wrap .ctx-input { padding-left: 32px; width: 240px; }
 
 /* ── 主表格(el-table 容器外壳) ── */
 .vec-table-wrap {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, rgba(15,23,42,0.06));
   border-radius: 10px;
-  overflow: hidden;
+  /* 2026-07-29 跟 /taxonomy 对齐:overflow 留给 el-table 内部处理 */
+  overflow: visible;
   box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.vec-table-wrap :deep(.pagination) {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(15,23,42,0.06);
+  border-radius: 0 0 10px 10px;
+  padding: 12px 18px;
+  z-index: 5;
 }
 
 /* el-table 列内容排版 */
@@ -438,26 +243,8 @@ onMounted(() => loadVecRules())
 .vec-code-block .cm-keyword { color: #ff7b72; font-weight: 600; }
 .vec-code-block .cm-number { color: #79c0ff; }
 
-/* ── 分页 — 沿用全局 .page-btn ── */
-.vec-pagination {
-  position: sticky;
-  bottom: 0;
-  display: flex; align-items: center; justify-content: center;
-  gap: 5px;
-  padding: 12px 18px;
-  margin-top: 12px;
-  background: rgba(241,245,249,0.95);
-  backdrop-filter: blur(8px);
-  border-top: 1px solid rgba(15,23,42,0.06);
-  border-radius: 10px;
-}
-
-/* ── Transition ── */
-.slide-down-enter-active, .slide-down-leave-active { transition: all 0.2s ease; }
-.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
-
-/* ── 响应式(沿用 @media 框架,内仅保留 .vec-toolbar-main 移动端规则) ── */
+/* ── 响应式 ── */
 @media (max-width: 768px) {
-  .vec-toolbar-main { width: 100%; }
+  /* 无 vec-toolbar-main(已合并) */
 }
 </style>

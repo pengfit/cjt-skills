@@ -1,5 +1,5 @@
 <template>
-  <div class="trend-page">
+  <div class="admin-page">
 
     <!-- 顶部信息 -->
     <PageHeader
@@ -832,7 +832,7 @@ watch(periodsLimit, () => loadData())
 </script>
 
 <style scoped>
-.trend-page {
+.admin-page {
   padding: 16px 20px 80px;
   min-height: 100vh;
   color: #1e293b;

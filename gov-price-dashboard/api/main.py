@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 原 category_v3_rules.db 仍由 gov-price-etl 写入，但 dashboard 层改读 breed_canonical.db
 # 路径统一从 api.paths 推导（单一来源，只读 SKILLS_ROOT 环境变量）
 from api.paths import CATEGORY_DB  # noqa: E402
+# 2026-07-29 Task 1:统一后台错误拦截 (request_id 注入 + 4 层 exception_handler)
+from api.error_handler import setup_error_handlers, RequestIDMiddleware, _err_payload  # noqa: E402
 
 # 共享依赖（ES client + 索引集 ALL/LIST/DWD/ODS/NORM + ES_HOST/ES_INDEX）
 from api.dependencies import (  # noqa: E402
@@ -49,6 +51,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# 2026-07-29 Task 1:全局异常处理函数 setup 在此处(装上 @app.exception_handler)。
+# 中间件的 add 顺序: Starlette 末位 add = 最外层 = 最先跑。
+# RequestIDMiddleware 必须加在 AuthMiddleware 之后,让 request_id 在鉴权检查之前
+# 就写入 request.state + response.headers["X-Request-ID"]。
+setup_error_handlers(app)
 
 # 2026-07-19 全局鉴权 middleware(刀切)
 # 规则:/api/* 全部要求 admin JWT,仅 /api/auth/login 公开
@@ -120,28 +127,44 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # 取 Bearer token
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
-            return JSONResponse(
-                {"detail": "missing Authorization header"},
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return _unauth_response(request, "missing Authorization header")
         token = auth[7:].strip()
         try:
             # 直接复用 decode_token 的逻辑,但走原始 jwt.decode 不要抛 HTTPException
             from jose import jwt as _jwt
             payload = _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
         except JWTError as e:
-            return JSONResponse(
-                {"detail": f"invalid token: {e}"},
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return _unauth_response(request, f"invalid token: {e}")
         # 把 user 信息挂到 request.state,后续路由可以直接读
         request.state.user = payload
         return await call_next(request)
 
 
+def _unauth_response(request, detail: str) -> JSONResponse:
+    """401 鉴权失败 → 走与全局 exception_handler 一致的统一 JSON 形状
+    (绕过 Starlette 对 BaseHTTPMiddleware 中 raise HTTPException 的包住默认处理,
+     直接复用 _err_payload 构造,避免双套处理逻辑漂移)"""
+    rid = getattr(request.state, "request_id", None) or "req_unknown"
+    body = _err_payload(
+        type_="HTTPError",
+        message=detail,
+        request_id=rid,
+        path=request.url.path,
+        method=request.method,
+        status_code=401,
+    )
+    return JSONResponse(
+        body,
+        status_code=401,
+        headers={"WWW-Authenticate": "Bearer", "X-Request-ID": rid},
+    )
+
+
+# 2026-07-29 Task 1:Auth 加在前面(内层),RequestID 加在最后(最外层)
+# → 执行顺序:RequestID → CORSMiddleware → Auth → handler。
+# Auth 报 401 时,Response 流回栈,RequestID 的"after call_next"代码自动追加 X-Request-ID。
 app.add_middleware(AuthMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 from api.routes.auth import router as auth_router
 app.include_router(auth_router)  # 公开（登录/验证 token）

@@ -1,5 +1,5 @@
 <template>
-  <div class="cockpit">
+  <div class="admin-page">
     <!-- 顶部 HUD 标题栏(P0-2 简化:轮询控制已下沉 TopBar,这里只剩状态展示) -->
     <div class="hud-header">
       <div class="hud-title">
@@ -15,7 +15,7 @@
     </div>
 
     <!-- 加载 / 错误状态 -->
-    <div v-if="loading && !data.all_cities" class="cockpit-loading">
+    <div v-if="loading && !data.all_cities" class="admin-loading">
       <SkeletonCard :lines="6" :hide-footer="true" />
     </div>
     <div v-else-if="!data.all_cities || Object.keys(data.all_cities).length === 0">
@@ -525,7 +525,7 @@ onUnmounted(() => {
             移动端内 .hero-num / h1/h2/h3 / button 兜底 等。 */
 
 /* ── 页面容器 ── */
-.cockpit {
+.admin-page {
   padding: 16px 20px;
 }
 
@@ -578,7 +578,7 @@ onUnmounted(() => {
 }
 
 /* ── 加载 / 错误 ── */
-.cockpit-loading { padding: 60px; }
+.admin-loading { padding: 60px; }
 
 /* ── 4 个仪表 ── */
 .gauge-row {
@@ -976,7 +976,7 @@ onUnmounted(() => {
   .hud-clock { font-size: 13px; }
   .hud-live { font-size: 12px; }
   /* 整页级:紧凑 */
-  .cockpit { padding: 0 !important; }
+  .admin-page { padding: 0 !important; }
   /* 视觉降级:radial 大块/背景简化,避免移动 GPU 占用 */
   .gauge-svg { width: 140px; height: 140px; }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="dist-page">
+  <div class="admin-page">
     <!-- 页面 header -->
     <PageHeader
       variant="flat"
@@ -307,7 +307,7 @@ let observer = null
 
 function observeCells() {
   if (observer) observer.disconnect()
-  const container = document.querySelector('.dist-page')
+  const container = document.querySelector('.admin-page')
   const cells = document.querySelectorAll('.province-chart-cell')
   const root = container || null
   observer = new IntersectionObserver((entries) => {
@@ -395,7 +395,7 @@ onMounted(() => { mountedRef.value = true; loadData() })
             .filter-drawer / table / thead / tr / td / h1 / h2 fallback 等。
    修复: 原 .echart-canvas / .dist-card 移动端规则被误放在 @media 外,现在归位。 */
 
-.dist-page {
+.admin-page {
   display: flex;
   flex-direction: column;
   gap: 16px;

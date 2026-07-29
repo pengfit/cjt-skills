@@ -1,5 +1,5 @@
 <template>
-  <div class="health-page">
+  <div class="admin-page">
 
     <!-- P1-10:统一用 PageHeader flat 变体 + slot=right 放 4 个 StatCard -->
     <PageHeader
@@ -620,7 +620,7 @@ onUnmounted(() => {
          .daily-summary / .summary-sub / .chart-area / .daily-empty-hint / .rule-* / .health-pill* / 
          .rate-pill* / .cell-muted* / .skill-tag* / .legend-dot.inline / @media .rule-grid 单列覆盖。 */
 
-.health-page {
+.admin-page {
   display: flex;
   flex-direction: column;
   gap: 16px;

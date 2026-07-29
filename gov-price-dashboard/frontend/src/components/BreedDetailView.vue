@@ -5,7 +5,7 @@
   - 来源:从 /list / /taxonomy / /spec-rules 任意品种处点击跳转
 -->
 <template>
-  <div class="breed-page">
+  <div class="admin-page">
 
     <!-- 顶部导航条 -->
     <div class="back-bar">
@@ -220,7 +220,7 @@ onMounted(() => {
    - PageHeader 同 4 tab 对齐(margin-top: -16px)
    - 单位卡片 + 同 subgrid 规格表
    ───────────────────────────────────────────── */
-.breed-page {
+.admin-page {
   padding: 16px 28px 64px;
   min-height: 100vh;
   background: linear-gradient(180deg, var(--bg) 0%, var(--surface-2) 100%);
@@ -456,7 +456,7 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .breed-page { padding: 12px 14px; }
+  .admin-page { padding: 12px 14px; }
   .unit-head { flex-wrap: wrap; }
   .unit-specs-count { margin-left: 0; }
 }
