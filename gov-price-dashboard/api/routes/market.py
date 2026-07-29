@@ -2413,7 +2413,10 @@ def market_cities(
 #   - 并发安全: threading.Lock 串行化事务;SQLite WAL + timeout=5
 #   - 不引入 Redis/外部依赖,纯文件持久化,重启 API 计数不丢
 _PV_LOCK = threading.Lock()
-_PV_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "market_stats.db"
+# 2026-07-29 v2: 从 gov-price-dashboard/api/data/ 移到仓库根 data/
+#   与 breed_canonical.db / breed_spec_rules.db / category_v3_rules.db 同居
+#   深度: market.py -> routes/ -> api/ -> gov-price-dashboard/ -> repo root (4 层 parent)
+_PV_DB_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "market_stats.db"
 
 
 def _pv_get_conn() -> sqlite3.Connection:
