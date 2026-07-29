@@ -29,7 +29,16 @@
         :title="item.label"
         class="sidebar-item"
       >
-        <span class="sidebar-item-icon" aria-hidden="true">{{ item.icon }}</span>
+        <!-- 2026-07-29 v3.5:icon 元素改 <i> —
+             EP collapsed 内部对 <i> + <svg> + .el-icon 优先认作 icon,
+             <span> 在不同版本行为不一致(曾踩坑)。结合 :style 内联兜底 -->
+        <i
+          class="sidebar-item-icon el-icon"
+          aria-hidden="true"
+          :style="collapsed
+            ? 'display: inline-flex; visibility: visible; opacity: 1; font-size: 16px;'
+            : ''"
+        >{{ item.icon }}</i>
         <span class="sidebar-item-label">{{ item.label }}</span>
       </el-menu-item>
     </el-menu>
@@ -131,8 +140,16 @@ function onMenuSelect(index) {
   background: rgba(var(--primary-rgb), 0.10) !important;
 }
 .sidebar.sidebar--collapsed :deep(.sidebar-item .sidebar-item-icon) {
-  font-size: 18px !important;
+  /* 2026-07-29 v3.5:折叠态图标终极兜底 —
+     inline :style 已经把 display/visibility 写死,这里 CSS 兜底防止 EP 任何版本
+     .el-menu--collapse 规则把 .el-menu-item__content > * display:none */
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-size: 16px !important;
   margin-right: 0 !important;
+  font-style: normal;            /* <i> 默认 italic 必须盖掉 */
+  vertical-align: middle;
 }
 /* 2026-07-29 v3.1 修复:展开态要有中文 label(此前误删了,只有 icon 一列);
    折叠态再藏 label,只露 icon */
