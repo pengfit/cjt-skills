@@ -300,6 +300,67 @@
       </footer>
     </main>
   </div>
+      <!-- 2026-07-29 GEO A 阶段:AI 搜索引擎(ChatGPT / Claude / 豆包 / Kimi) 抽 Q&A 答案 —
+           <details>/<summary> 屏读友好,每条带 <cite> 政府源链接(权威性信号)。
+           schema.org FAQPage 见 vite.config.js buildJsonLd('market') 的 @graph 二段 -->
+      <section class="m-faq" aria-labelledby="m-faq-heading" itemscope itemtype="https://schema.org/FAQPage">
+        <h2 id="m-faq-heading" class="m-faq-title">常见问题</h2>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question" open>
+          <summary class="m-faq-q" itemprop="name">现在钢筋价格多少钱一吨?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              2026 年 7 月,根据<cite><a href="https://js.shaanxi.gov.cn/" target="_blank" rel="noopener noreferrer">陕西省西安市住建局</a>《2026 年第二季度建设工程造价信息》</cite>,HRB400 螺纹钢 Φ20 西安市场参考价约 <strong>3850 元/吨</strong>;西宁、拉萨等西部城市约 3500-3700;沿海约 4000。同一品种不同城市价差由物流与本地供需决定,可在 cjt-skills <a href="#trend">价格走势图</a> 直接对比。
+            </p>
+          </div>
+        </details>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question">
+          <summary class="m-faq-q" itemprop="name">为什么各地钢筋价格不同?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              三个主要原因:(1) <strong>物流成本</strong> — 西部城市运距长,从钢厂到项目地成本高;(2) <strong>本地供需</strong> — 重点项目密集时需求短时间放大,价格上浮;(3) <strong>钢厂产能分布</strong> — 本地或周边是否有钢厂直接影响出厂价。cjt-skills 跨城归一(GB 50500 国标同义别名映射 + Dify AI 校核)保证对比有意义。
+            </p>
+          </div>
+        </details>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question">
+          <summary class="m-faq-q" itemprop="name">如何查最新西安建材价格?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              三种渠道:① cjt-skills <a href="/market">/market</a>,API 接口 <code>GET /api/market/breed-search?breed=钢筋</code>;② 直接查<cite><a href="https://js.shaanxi.gov.cn/" target="_blank" rel="noopener noreferrer">西安市住建局</a></cite>《建设工程造价信息》月刊;③ cjt-skills API <code>GET /api/market/trend-table</code> 嵌你 BI 系统。所有数据均来自住建局官方期刊。
+            </p>
+          </div>
+        </details>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question">
+          <summary class="m-faq-q" itemprop="name">cjt-skills 怎么把不同住建局材料数据跨城对齐?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              三阶段 ETL:① <strong>ODS</strong> — 抓取各住建局原始期刊;② <strong>DWD</strong> — 字段抽取、类型校验、去重;③ <strong>DWS</strong> — 按 GB 50500 国标同义别名映射 + Dify AI 校核(置信度 ≥0.85 才入档)。每条 DWS 带 <code>confidence</code> 字段,告诉调用方数据可信度。
+            </p>
+          </div>
+        </details>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question">
+          <summary class="m-faq-q" itemprop="name">cjt-skills 数据可信吗?能直接用于工程结算吗?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              <strong>可信度</strong>:数据完全来自各城市住建局官方期刊(住建部规定必须公开),非人工估算,每条数据带 <code>confidence</code> 字段。<strong>能用于工程结算吗</strong>:不能直接当定额 — cjt-skills 是「市场价格参考」,工程结算前请以当地住建局定额管理站为准,这是法规限制。
+            </p>
+          </div>
+        </details>
+
+        <details class="m-faq-item" itemprop="mainEntity" itemscope itemtype="https://schema.org/Question">
+          <summary class="m-faq-q" itemprop="name">怎么接入 cjt-skills 数据?</summary>
+          <div class="m-faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">
+              MIT 开源协议,直接 curl:① <strong>查品种</strong>:<code>GET /api/market/breed-search?q=钢筋</code> ② <strong>拉走势</strong>:<code>GET /api/market/price-trend?city=qingdao&materials=*&periods=12</code> ③ <strong>拉明细</strong>:<code>GET /api/market/trend-table</code>。完整端点见 <a href="https://pengfit.cn/api/market/sources" target="_blank" rel="noopener noreferrer">/api/market/sources</a>。
+            </p>
+          </div>
+        </details>
+      </section>
+
 </template>
 
 <script setup>
@@ -1613,4 +1674,76 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 500;
 }
-</style>
+
+/* ── 2026-07-29 GEO A:m-faq Q&A 段样式(visible Q&A 给 AI 引擎爬,屏读友好) ── */
+.m-faq {
+  max-width: 960px;
+  margin: 40px auto 24px;
+  padding: 0 4px;
+}
+.m-faq-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 14px;
+  letter-spacing: 0.3px;
+}
+.m-faq-item {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.08));
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.m-faq-item:hover { border-color: rgba(37, 99, 235, 0.3); }
+.m-faq-item[open] { box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); }
+.m-faq-q {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  user-select: none;
+  list-style: none;
+  position: relative;
+}
+.m-faq-q::-webkit-details-marker { display: none; }
+.m-faq-q::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--text-3, #94a3b8);
+  transition: transform 0.18s;
+  font-size: 10px;
+}
+.m-faq-item[open] > .m-faq-q::before { transform: rotate(90deg); color: var(--primary, #2563eb); }
+.m-faq-a {
+  padding: 0 16px 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-2, #475569);
+  border-top: 1px dashed var(--border, rgba(15, 23, 42, 0.06));
+  padding-top: 10px;
+}
+.m-faq-a p { margin: 4px 0; }
+.m-faq-a cite {
+  font-style: normal;
+  color: var(--text-3, #64748b);
+  font-size: 12px;
+}
+.m-faq-a cite a {
+  color: var(--primary, #2563eb);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.m-faq-a cite a:hover { text-decoration-style: solid; }
+.m-faq-a code {
+  background: rgba(15, 23, 42, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: ui-monospace, 'SF Mono', monospace;
+}
+.m-faq-a strong { color: var(--text, #0f172a); }</style>

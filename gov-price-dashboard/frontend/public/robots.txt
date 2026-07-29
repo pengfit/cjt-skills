@@ -1,59 +1,56 @@
-# robots.txt — 2026-07-26 SEO 改造
-# 公开页(SEO): /  /home  /market  — 允许收录
-# 鉴权页(/list /cockpit 等): disallow — 不要让爬虫抓无意义的内容,且鉴权页对爬虫体验差
+# cjt-skills / 采价通 — robots.txt
+# 2026-07-29 GEO 改造:放开 AI / 生成式引擎爬虫,挡住管理界面的浪费
 
 User-agent: *
 Allow: /
-Allow: /home
-Allow: /market
-Allow: /home/
-Allow: /market/
-
-# 鉴权页 + 后台路由 — 全部拒绝
-Disallow: /list
-Disallow: /list/
 Disallow: /cockpit
-Disallow: /cockpit/
-Disallow: /category
-Disallow: /category/
-Disallow: /sync
-Disallow: /sync/
-Disallow: /health
-Disallow: /health/
-Disallow: /rules
-Disallow: /rules/
-Disallow: /taxonomy
-Disallow: /taxonomy/
-Disallow: /dist
-Disallow: /dist/
-Disallow: /trend
-Disallow: /trend/
-Disallow: /admin
-Disallow: /admin/
-Disallow: /login
-Disallow: /login/
-
-# API 端点 — 全部拒绝(避免被搜索引擎误收录响应内容)
+Disallow: /list
+Disallow: /spec-rules
 Disallow: /api/
+Disallow: /admin
 
-# Sitemap
-Sitemap: https://pengfit.cn/sitemap.xml
+# === 2026-07-29 GEO:放开 AI bot(让 ChatGPT / Claude / Perplexity / 豆包 / Kimi 等抓 /market 公开数据)===
 
-# 通用 crawler
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
 User-agent: Googlebot
 Allow: /
-Allow: /home
-Allow: /market
-
-User-agent: Baiduspider
-Allow: /
-Allow: /home
-Allow: /market
 
 User-agent: Bingbot
 Allow: /
-Allow: /home
-Allow: /market
 
-User-agent: *
-Disallow: /api/
+Sitemap: https://pengfit.cn/sitemap.xml

@@ -158,25 +158,84 @@ function buildJsonLd(kind, meta) {
     logo: `${SITE_URL}/favicon.svg`,
   }
   if (kind === 'market') {
+    // 2026-07-29 GEO A 阶段:加 FAQPage schema(AI 引擎 rich result 直接读 Q&A 答案)
+    // FAQ 文本同时落在 MarketView.vue 的 m-faq 段里,visible content 与 schema 同步
     return JSON.stringify({
       '@context': 'https://schema.org',
-      '@type': 'Dataset',
-      name: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊',
-      description: `${meta.cities_count || 17} 城住建局官方造价信息 · 跨城归一品类 ${(meta.breeds_count || 9900).toLocaleString()} · 钢筋/水泥/给水管/电缆价格行情`,
-      url: `${SITE_URL}/market`,
-      inLanguage: 'zh-CN',
-      license: 'https://opensource.org/licenses/MIT',
-      isAccessibleForFree: true,
-      keywords: ['工程造价', '材料价格', '钢筋价格', '水泥价格', '给水管价格', '电缆价格', '住建局', '政府数据', '跨城归一'],
-      spatialCoverage: { '@type': 'Place', name: '中华人民共和国' },
-      temporalCoverage: '2024-01-01/..',
-      provider: { '@type': 'Organization', name: 'Pengfit', url: 'https://github.com/pengfit/cjt-skills' },
-      distribution: {
-        '@type': 'DataDownload',
-        encodingFormat: 'application/json',
-        contentUrl: `${SITE_URL}/api/market/overview`,
-        license: 'https://opensource.org/licenses/MIT',
-      },
+      '@graph': [
+        {
+          '@type': 'Dataset',
+          name: 'ChinaJT · 工程造价材料价格数据 · 17 城住建局官方期刊',
+          description: `${meta.cities_count || 17} 城住建局官方造价信息 · 跨城归一品类 ${(meta.breeds_count || 9900).toLocaleString()} · 钢筋/水泥/给水管/电缆价格行情`,
+          url: `${SITE_URL}/market`,
+          inLanguage: 'zh-CN',
+          license: 'https://opensource.org/licenses/MIT',
+          isAccessibleForFree: true,
+          keywords: ['工程造价', '材料价格', '钢筋价格', '水泥价格', '给水管价格', '电缆价格', '住建局', '政府数据', '跨城归一'],
+          spatialCoverage: { '@type': 'Place', name: '中华人民共和国' },
+          temporalCoverage: '2024-01-01/..',
+          provider: { '@type': 'Organization', name: 'Pengfit', url: 'https://github.com/pengfit/cjt-skills' },
+          distribution: {
+            '@type': 'DataDownload',
+            encodingFormat: 'application/json',
+            contentUrl: `${SITE_URL}/api/market/overview`,
+            license: 'https://opensource.org/licenses/MIT',
+          },
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: [
+            {
+              '@type': 'Question',
+              name: '现在钢筋价格多少钱一吨?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: '2026 年 7 月,根据陕西省西安市住建局《2026 年第二季度建设工程造价信息》,HRB400 螺纹钢 Φ20 西安市场参考价约 3850 元/吨。西宁、拉萨等西部城市约 3500-3700 元/吨;沿海城市约 4000。同一品种不同城市的差价由物流与本地供需决定,cjt-skills 跨城数据可对比。',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: '为什么各地钢筋价格不同?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: '三个主要原因:(1) 物流成本 — 西部城市运距长,从钢厂到项目地成本高;(2) 本地供需 — 重点项目密集时需求短时间放大,价格上浮;(3) 钢厂产能分布 — 本地或周边是否有钢厂直接影响出厂价。cjt-skills 跨城归一算法(GB 50500 国标同义别名映射 + Dify AI 校核)保证对比的有意义性。',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: '如何查最新西安建材价格?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: '三种渠道:① 访问 cjt-skills /market 公开页,API 接口 GET /api/market/breed-search?breed=钢筋;② 直接访问 西安市住建局 官网(js.shaanxi.gov.cn)查阅《建设工程造价信息》月刊原文;③ 通过 cjt-skills API(GET /api/market/trend-table)拉趋势数据嵌入你的 BI 系统。所有数据均来自西安市住建局官方期刊。',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'cjt-skills 怎么把不同住建局的材料数据跨城对齐?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: '三阶段 ETL:① ODS — 抓取各住建局原始期刊(每个城市每月 1 期);② DWD — 字段抽取、类型校验、去重;③ DWS — 按 GB 50500 国标同义别名映射 + Dify AI 校核(置信度 ≥0.85 才入档)。每条 DWS 数据带 confidence 字段,告诉调用方数据可信度。',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'cjt-skills 数据可信吗?能直接用于工程结算吗?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: '可信度:数据完全来自各城市住建局官方期刊(住建部规定必须公开),非人工估算,每条数据带 confidence 字段。能用于工程结算吗:不能直接当定额 — cjt-skills 是「市场价格参考」,工程结算前请以当地住建局定额管理站为准,这是法规限制。',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: '怎么接入 cjt-skills 数据?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'MIT 开源协议,直接 curl 即可:① 查品种:GET /api/market/breed-search?q=钢筋;② 拉走势:GET /api/market/price-trend?city=qingdao&materials=*&periods=12;③ 拉明细:GET /api/market/trend-table。完整端点清单见 https://pengfit.cn/api/market/sources。',
+              },
+            },
+          ],
+        },
+      ],
     }, null, 0)
   }
   return JSON.stringify({
