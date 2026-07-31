@@ -613,7 +613,25 @@
       "status": "skipped_image_pdf",
       "period": "2026.1期",
       "publish_date": "2026-02-12"
+    },
+    "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202607/t20260729_3661328.html": {
+      "period": "2026.7月",
+      "city": "陕西",
+      "publish_date": "2026-07-29",
+      "detail_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202607/t20260729_3661328.html",
+      "pdf_url": "https://js.shaanxi.gov.cn/sy/yw/zjglfw/zjxx/202607/P020260729343995263538.pdf",
+      "minio_key": "shaanxi-price/2026.7月_2026年7月材料信息价.pdf",
+      "docs_written": 2026,
+      "pages_parsed": 62,
+      "status": "ok",
+      "error": "",
+      "duration_sec": 0.0,
+      "created_at": "2026-07-30T06:31:52",
+      "period_start": "2026-07-01",
+      "period_end": "2026-07-31",
+      "period_days": 31,
+      "run_id": "sn_run_20260730_063146"
     }
   },
-  "saved_at": "2026-07-24 16:51:23"
+  "saved_at": "2026-07-30 06:31:52"
 }

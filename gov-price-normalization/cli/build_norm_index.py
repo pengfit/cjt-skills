@@ -159,6 +159,37 @@ def _bulk_actions(actions):
     return success, failed
 
 
+def _make_norm_id(normed: dict) -> str:
+    """2026-07-30 P0-fix: NORM dedup _id（防重复重建累积）
+
+    用 NORM 业务字段生成稳定 _id。同内容多次 --since 重建天然 dedupe
+    （ES index op_type 遇同 _id 会覆盖，不 append）。
+
+    字段选取原则：
+      - 业务字段（与 L1-L4 标准化输出耦合）
+      - 不含 _norm.built_at / _dws_id（这些随重建变化）
+      - city/period 标识数据来源
+      - breed/spec/unit/price/tax_price 标识材料行
+      - canonical_period/canonical_unit 标识归一化结果（升级 L4 后会变，自然触发覆盖）
+
+    设计：MD5 32 字符远低于 ES 512 byte _id 上限，兼容 _id 排序 / scroll / 等场景。
+    """
+    import hashlib
+    parts = [
+        str(normed.get("city", "")),
+        str(normed.get("period", "")),
+        str(normed.get("breed", "")),
+        str(normed.get("spec", "")),
+        str(normed.get("unit", "")),
+        str(normed.get("price", "")),
+        str(normed.get("tax_price", "")),
+        str(normed.get("canonical_period", "")),
+        str(normed.get("canonical_unit", "")),
+    ]
+    raw = "|".join(parts)
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+
 def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False, batch_size: int = 500, with_dify: bool = False) -> dict:
     """重建/增量单个城市的 NORM 索引。返回统计。
 
@@ -221,24 +252,35 @@ def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False
                 print(f"[dry-run sample] _id={hit.get('_id')[:20]}... canonical_period={normed.get('canonical_period')}")
             continue
 
+        # 2026-07-30 P0-fix: 显式 _id 实现 NORM dedupe
+        # _id 由 NORM 业务字段 md5 生成（同内容多次重建天然 upsert 覆盖）
         actions.append({
             "_op_type": "index",
             "_index": norm_idx,
+            "_id": _make_norm_id(normed),
             "_source": normed,
         })
 
         if len(actions) >= batch_size:
-            s, f = bulk(es, actions, raise_on_error=False, stats_only=True, request_timeout=120)
+            # 2026-07-30 P0-fix: stats_only=False 拿真实 errors 列表，避免 elasticsearch-py 8.x stats_only 报告失真
+            # bulk() 返回 (success_count, errors_list)，len(errors) 才是真失败数
+            s, errors = bulk(es, actions, raise_on_error=False, stats_only=False, request_timeout=120)
             written += s
-            failed += f
+            failed += len(errors) if isinstance(errors, list) else errors
+            if errors and len(errors) <= 3:
+                for e in errors[:3]:
+                    err_samples.append(f"bulk: {e}")
             actions = []
             if scanned % (batch_size * 5) == 0:
                 print(f"[progress] scanned={scanned} written={written} failed={failed}")
 
     if actions and not dry_run:
-        s, f = bulk(es, actions, raise_on_error=False, stats_only=True, request_timeout=120)
+        s, errors = bulk(es, actions, raise_on_error=False, stats_only=False, request_timeout=120)
         written += s
-        failed += f
+        failed += len(errors) if isinstance(errors, list) else errors
+        if errors and len(errors) <= 3:
+            for e in errors[:3]:
+                err_samples.append(f"bulk-tail: {e}")
 
     # 3. 强制 refresh（方便 dashboard 立刻读到）
     if not dry_run and written > 0:
@@ -351,6 +393,37 @@ def _dify_call_batch(breed_cleans: list, retries: int = 2) -> dict:
     raise RuntimeError(f"Dify batch failed after {retries+1} attempts: {last_err}")
 
 
+def _is_dirty_canonical(bc: str, nb: str, l3: str) -> str:
+    """判断 Dify 返回的 breed_canonical 是否为污染数据
+
+    返回 reason 字符串（空字符串表示干净，可入 breed_canonical）。
+
+    2026-07-31: 治本闭环 — 此前 _upsert_dify_results 用 `nb = r.get("normalized_breed") or bc`
+    兜底，导致 Dify 失败时 breed_clean 原样回写为 normalized_breed（自指污染）。
+    历史污染：breed_canonical.db 12,314 行中 7,031 行自指 + 97 行纯数字，已清理。
+
+    防御规则（任一命中 → 拒绝）：
+      1. breed_clean 是纯数字（97 行历史污染样本）
+      2. normalized_breed 是纯数字
+      3. 自指 (breed_clean == normalized_breed) 且 l3_code 空（Dify 啥新信号都没给，纯回声）
+      4. 自指且 normalized_breed 是空字符串（Dify 完全没返回 normalized_breed 字段）
+    """
+    bc_s = (bc or "").strip()
+    nb_s = (nb or "").strip()
+    l3_s = (l3 or "").strip()
+    if not bc_s:
+        return "empty_breed_clean"
+    if bc_s.isdigit():
+        return "pure_numeric_breed_clean"
+    if nb_s.isdigit():
+        return "pure_numeric_normalized_breed"
+    if not nb_s:
+        return "empty_normalized_breed"
+    if bc_s == nb_s and not l3_s:
+        return "self_ref_no_l3_signal (breed_clean==normalized_breed 且 l3_code 空)"
+    return ""
+
+
 def _upsert_dify_results(results: dict) -> int:
     """把 Dify 结果写入 breed_canonical.db（source='ai_dify'），返回写入条数
 
@@ -358,6 +431,9 @@ def _upsert_dify_results(results: dict) -> int:
 
     2026-07-25: Dify etl-canonicalize-breed 只返回 normalized_breed/confidence/note
     （l3_code 不返回，Dify workflow 只返 normalized_breed/confidence/note）— 允许 l3_code=None
+
+    2026-07-31: 加污染防御（_is_dirty_canonical）— 拒绝纯数字 breed_clean/normalized_breed
+    + 拒绝自指回声 + 拒绝空 normalized_breed。污染条目写 canonical_reject 防回流。
     """
     if not results:
         return 0
@@ -366,14 +442,36 @@ def _upsert_dify_results(results: dict) -> int:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
         rows = []
+        rejects = []
         for bc, r in results.items():
-            nb = r.get("normalized_breed") or bc
+            nb_raw = r.get("normalized_breed")
+            nb = (nb_raw or "").strip() or bc.strip()  # 保留原兜底（外层 _is_dirty_canonical 会拒自指+空 l3）
             l3 = r.get("l3_code") or r.get("l3")  # Dify 不返回 → None
+            l3_s = (l3 or "").strip() if l3 else ""
             conf = float(r.get("confidence", 0.0)) if r.get("confidence") is not None else 0.0
             note = r.get("note", "") or ""
+
+            # 2026-07-31: 污染防御
+            dirty = _is_dirty_canonical(bc, nb, l3_s)
+            if dirty:
+                rejects.append((bc, dirty))
+                continue
             rows.append((bc, nb, l3, conf, "ai_dify", note))
+
+        # 写 canonical_reject（防回流，让后续 ETL 跳过）
+        if rejects:
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            con.executemany(
+                "INSERT OR IGNORE INTO canonical_reject (breed_clean, reason, last_tried_at) VALUES (?, ?, ?)",
+                [(bc, reason, now_str) for bc, reason in rejects],
+            )
+            sample_reason = rejects[0][1][:60]
+            print(f"[dify] 拒绝 {len(rejects)} 条污染 (sample: {sample_reason})")
+
         if not rows:
+            con.commit()
             return 0
+
         cur = con.executemany(
             "INSERT OR REPLACE INTO breed_canonical "
             "(breed_clean, normalized_breed, l3_code, confidence, source, note, created_at, updated_at) "

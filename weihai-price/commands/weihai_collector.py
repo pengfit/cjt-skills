@@ -173,6 +173,17 @@ def parse_detail_page(html: str, base_url: str) -> dict:
 
 def extract_period_from_title(title: str) -> str:
     """从详情页标题提取 period"""
+    # 季度表述（数字年 + 中文季度，如「2026年二季度」）
+    # 2026-07-30 新增：威海 2026 年起主刊标题用「X季度」而非「X-Y月」，
+    # 旧逻辑会漏抓。映射：一季度→1-3月、二季度→4-6月、三季度→7-9月、四季度→10-12月。
+    q_match = re.search(r'(\d{4})年([一二三四])季度', title)
+    if q_match:
+        quarter_month_map = {'一': (1, 3), '二': (4, 6), '三': (7, 9), '四': (10, 12)}
+        q = q_match.group(2)
+        if q in quarter_month_map:
+            year = int(q_match.group(1))
+            m1, m2 = quarter_month_map[q]
+            return f'{year}.{m1}-{m2}月'
     # 数字年
     m = re.search(r'(\d{4})年(\d{1,2})(?:-(\d{1,2}))?月', title)
     if m:

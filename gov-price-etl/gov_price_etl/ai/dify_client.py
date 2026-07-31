@@ -56,7 +56,8 @@ import requests
 
 # ── 默认配置 ────────────────────────────────────────────────────────
 DEFAULT_BASE_URL = "http://localhost"  # Dify Docker 默认端口 80
-DEFAULT_TIMEOUT_S = 600  # 2026-07-28 调：120→600。Dify workflow 处理量大（300+ 行/批），默认 90s 调用 timeout 不够
+DEFAULT_TIMEOUT_S = 300  # 2026-07-30 调：600→300。Gunicorn --timeout=360s,客户端读超时需 < 360s,避免 worker 被 SIGKILL 后客户端还在傻等
+DEFAULT_CONNECT_TIMEOUT_S = 10  # 连接超时（独立设置，避免被读超时拖累）
 
 # 路径：dify/dify.config.local.json（不进 git，存 api_key）
 # 优先级：env (DIFY_CONFIG_PATH) > 本地 (dify/dify.config.local.json) > 全局 (~/.openclaw/dify.json，向后兼容)
@@ -115,6 +116,18 @@ class DifyAPIError(DifyError):
         self.raw = raw or {}
 
 
+class DifyTimeoutError(DifyAPIError):
+    """Dify 调用超时（客户端 TCP/读超时）。
+
+    2026-07-30 提取：Gunicorn --timeout=360s，Dify workflow 单批超时会触发 SIGKILL，
+    但 gevent 异步模式下 client TCP 连接保持 ESTABLISHED → 必须客户端主动 timeout 才能断开。
+    上层（service.py / pipeline/etl.py）应捕获此异常走 fallback（不入缓存，下次 ETL 重试）。
+    """
+    def __init__(self, message: str, phase: str = "read"):
+        super().__init__(message, status_code=None)
+        self.phase = phase  # 'connect' / 'read'
+
+
 # ── 配置对象 ────────────────────────────────────────────────────────
 @dataclass
 class DifyConfig:
@@ -123,7 +136,8 @@ class DifyConfig:
     app_id: str
     api_key: str
     base_url: str = DEFAULT_BASE_URL
-    timeout_s: int = DEFAULT_TIMEOUT_S
+    timeout_s: int = DEFAULT_TIMEOUT_S  # 读超时（< Gunicorn 360s 避免 client 痴等）
+    connect_timeout_s: int = DEFAULT_CONNECT_TIMEOUT_S  # 连接超时
     max_retries: int = 2  # 2026-07-14 调：1→2，给 Dify 端压力多一点缓冲
 
     def headers(self) -> Dict[str, str]:
@@ -251,15 +265,32 @@ class DifyClient:
             try:
                 s = requests.Session()
                 s.trust_env = False
+                # 2026-07-30 P0-fix: 拆分连接/读超时
+                # 读超时 < Gunicorn --timeout(360s)，避免 Gunicorn worker 被 SIGKILL 后 client 痴等
                 r = s.post(
                     url,
                     data=body,
                     headers=self.cfg.headers(),
-                    timeout=self.cfg.timeout_s,
+                    timeout=(self.cfg.connect_timeout_s, self.cfg.timeout_s),
+                )
+            except requests.exceptions.ConnectTimeout as e:
+                # 连接阶段超时（如 Dify nginx 不可达、容器重启中）
+                raise DifyTimeoutError(
+                    f"connect timeout after {self.cfg.connect_timeout_s}s: {e}",
+                    phase="connect",
+                )
+            except requests.exceptions.ReadTimeout as e:
+                # 读阶段超时（Gunicorn worker 卡死 / workflow 超时）
+                # 不重试（Dify 端状态不明，避免雪崩），直接抛出
+                raise DifyTimeoutError(
+                    f"read timeout after {self.cfg.timeout_s}s: {e}",
+                    phase="read",
                 )
             except requests.exceptions.Timeout as e:
-                last_err = DifyAPIError(
-                    f"timeout after {self.cfg.timeout_s}s: {e}",
+                # requests.Timeout 是 ConnectTimeout + ReadTimeout 的父类，兜底
+                raise DifyTimeoutError(
+                    f"timeout: {e}",
+                    phase="unknown",
                 )
             except requests.exceptions.RequestException as e:
                 last_err = DifyAPIError(
