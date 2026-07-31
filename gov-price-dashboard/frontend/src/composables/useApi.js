@@ -1,6 +1,8 @@
 /** axios 拦截器(2026-07-19) — 装在全局 axios 上,所有用 axios 的地方都生效
  *
  * - request:  自动加 Authorization: Bearer <jwt>
+ *             + 2026-07-31: /market 公开页守卫 — 只放行 /api/market/* (XHR 路径,
+ *               window.fetch 钩子拦不到 axios,必须在这里再拦一遍)
  * - response: 401 时清 token + 跳 /login?next=...
  *
  * 注意:必须 import 这个文件才能注册拦截器。main.js 已 import。
@@ -12,8 +14,38 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const TOKEN_KEY = '***'
 const USER_KEY = '***'
 
+// ── /market 公开页守卫 (2026-07-31 新增) ──────────────────
+//   隔离范围: /market 路由下,任何 /api/* 调用必须以 /api/market/ 开头,其他全部 reject
+//   必须在 main.js 的 window.fetch 钩子之外再装一遍 — axios 走 XMLHttpRequest,
+//   window.fetch 钩子拦不到。两处放行白名单必须保持一致(都用 isMarketAllowed)。
+//   公开页白名单收紧到 /api/market/* (2026-07-28 v3 后趋势卡也走 /api/market/{price-trend,trend-table},
+//   /api/norm/* 已无人调用 — 顺手从 main.js 白名单也删掉)
+export function isMarketRoute() {
+  if (typeof window === 'undefined') return false
+  const p = window.location.pathname
+  return p === '/market' || p.startsWith('/market/')
+}
+
+export function isMarketAllowed(url) {
+  if (!url) return false
+  return url.includes('/api/market/')
+}
+
 // ── 拦截器(全局 axios)────────────────────────────────────────
 axios.interceptors.request.use((cfg) => {
+  // 1) /market 公开页守卫 — 拦 axios XHR 调用( window.fetch 钩子管不到这里)
+  if (isMarketRoute()) {
+    const url = cfg.url || ''
+    const isApiCall = url.includes('/api/')
+    if (isApiCall && !isMarketAllowed(url)) {
+      console.warn(
+        `[market-guard] /market 页面拒绝调用 ${url}` +
+        '\n  原因:该接口不属于 /market 范畴,防止数据层污染'
+      )
+      return Promise.reject(new Error(`market-guard blocked (axios): ${url}`))
+    }
+  }
+  // 2) 鉴权头
   const t = getToken()
   if (t && !cfg.headers.Authorization) {
     cfg.headers.Authorization = `Bearer ${t}`
@@ -52,6 +84,18 @@ export const api = axios.create({
 
 // 同步拦截器到 instance(如果别的代码用这个 instance)
 api.interceptors.request.use((cfg) => {
+  // /market 守卫 — 与全局 axios 保持一致
+  if (isMarketRoute()) {
+    const url = cfg.url || ''
+    const isApiCall = url.includes('/api/')
+    if (isApiCall && !isMarketAllowed(url)) {
+      console.warn(
+        `[market-guard] /market 页面拒绝调用 ${url}` +
+        '\n  原因:该接口不属于 /market 范畴,防止数据层污染'
+      )
+      return Promise.reject(new Error(`market-guard blocked (axios instance): ${url}`))
+    }
+  }
   const t = getToken()
   if (t && !cfg.headers.Authorization) cfg.headers.Authorization = `Bearer ${t}`
   return cfg

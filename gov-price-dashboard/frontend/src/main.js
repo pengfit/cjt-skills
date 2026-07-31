@@ -6,7 +6,8 @@ import './styles/layout.css'
 import { registerGovPriceTheme } from './composables/useEchartsTheme'
 import router from './router'
 // 2026-07-19 鉴权：注册全局 axios 拦截器(side-effect import)
-import './composables/useApi.js'
+// 2026-07-31 共享 /market 守卫 helper (isMarketRoute / isMarketAllowed),fetch 钩子与 axios 拦截器共用同一份白名单
+import { isMarketRoute, isMarketAllowed } from './composables/useApi.js'
 
 // 2026-07-26 #SEO: @unhead/vue@3.2.3 注册
 //   跟 v1 不一样 — 没有 app.use(createHead()) 这种入口,要靠 provide + headSymbol 让
@@ -28,16 +29,14 @@ if ('scrollRestoration' in history) {
 //   注意:必须在 Vue 应用创建前安装,才能拦截所有 fetch 调用
 // 2026-07-28 v3: 恢复原状 — /market 双卡片改走新建的 /api/market/{price-trend,trend-table}
 //   不再放行 /api/norm/*, 保持 /api/market/* 单白名单
+// 2026-07-31: window.fetch 钩子 + axios 拦截器 (useApi.js) 共用 isMarketAllowed 白名单
+//   收紧到只 /api/market/* — 趋势卡 v3 已迁 /api/market/{price-trend,trend-table},/api/norm/* 空闲
 const _originalFetch = window.fetch.bind(window)
 window.fetch = function (input, init) {
-  const isMarketRoute =
-    window.location.pathname === '/market' ||
-    window.location.pathname.startsWith('/market/')
-  if (isMarketRoute) {
+  if (isMarketRoute()) {
     const url = typeof input === 'string' ? input : input?.url || ''
     const isApiCall = url.includes('/api/')
-    const isMarketApi = url.includes('/api/market/')
-    if (isApiCall && !isMarketApi) {
+    if (isApiCall && !isMarketAllowed(url)) {
       console.warn(
         `[market-guard] /market 页面拒绝调用 ${url}` +
         '\n  原因:该接口不属于 /market 范畴,防止数据层污染'
