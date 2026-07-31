@@ -770,11 +770,45 @@ def _short_fp(fp: str) -> str:
 # ── 端点 ──────────────────────────────────────────────────
 
 @router.get("/overview")
-def overview():
-    """KPI 概览: 数据规模 / 最新期 / 整体均价变动(跨城归一后口径)"""
+def overview(
+    province: str = Query("", description="省份名(空=全国,与 NORM province 字段同口径,如 山东/四川/新疆)"),
+):
+    """KPI 概览: 数据规模 / 最新期 / 整体均价变动(跨城归一后口径)
+    2026-07-31 新增 province 参数: 只统计当前定位省份下的城市数据,空=全国(旧行为)
+    """
     norm_list = _norm_indices()
     if not norm_list:
         return {"empty": True, "message": "无 norm 数据,请先跑 ETL 归一化"}
+
+    # 2026-07-31 省份过滤:
+    #   province 非空 → 只保留该省份下城市的 norm 索引,统计限定到当前定位范围
+    #   province 为空 → 全部城市(全国总览,旧行为,公开页用户未授权定位时走这条)
+    #   province 有值但 _skill_keys_by_province 返 [] (未收录省份/拼错)→ norm_list 清空,返零值结构
+    province_filter_applied = False
+    if province:
+        keys = _skill_keys_by_province(province)
+        if keys:
+            norm_list = [idx for idx in norm_list
+                         if idx.replace("norm_", "").replace("_price", "") in set(keys)]
+        else:
+            norm_list = []
+        province_filter_applied = True
+
+    # 省份过滤后为空(该省未收录或无 norm 数据) — 返零值结构,前端 KPI 卡能正常渲染
+    if not norm_list:
+        return {
+            "cities_count": 0,
+            "total_records": 0,
+            "breeds_count": 0,
+            "overall_change_pct": 0.0,
+            "latest_publish_date": "",
+            "latest_period_end": "",
+            "prev_period_end": "",
+            "cities_meta": [],
+            "data_source": "norm_*_price",
+            "province": province or None,
+            "empty_province": province or None,
+        }
 
     # 总条数
     total_records = sum(_safe_count(idx) for idx in norm_list)
@@ -861,6 +895,8 @@ def overview():
         "prev_period_end": _ms_to_date(prev_end_global),
         "cities_meta": sorted(cities_meta, key=lambda c: c["label"]),
         "data_source": "norm_*_price",
+        # 2026-07-31: 回传过滤参数,方便前端确认是否应用了省份过滤
+        "province": province or None,
     }
 
 

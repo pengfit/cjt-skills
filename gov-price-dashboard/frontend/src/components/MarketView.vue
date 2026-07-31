@@ -523,21 +523,37 @@ async function recordVisit() {
 }
 
 // ── 数据加载 ──────────────────────────────────────────────────
+// 2026-07-31: overview 接 province 参数 — 只统计当前定位省份下的城市数据
+//   userProvince 为空(未授权定位/失败/选全国) → 后端走全部城市(旧行为)
+//   userProvince 有值 → 后端只返该省城市聚合,响应里 cities_count/records/breeds 全限定到省内
+async function loadOverview() {
+  try {
+    const qs = userProvince.value
+      ? `?province=${encodeURIComponent(userProvince.value)}`
+      : ''
+    const ov = await fetchJson(`/api/market/overview${qs}`)
+    overview.value = ov
+  } catch (e) {
+    console.warn('[market] overview 加载失败', e)
+    loadError.value = '数据加载失败，请稍后重试'
+  }
+}
+
 async function loadAll() {
   loading.value = true
   loadError.value = ''
   try {
     // 公开页并发拉 overview / sources / data-quality(后者用来推 availableProvinces)
+    // 2026-07-31: overview 拆出来 — loadOverview 由 watch(userProvince) 单独驱动,
+    //   loadAll 不再包含 overview,避免省份变化时整套 sources/data-quality 重拉浪费
     const [ov, src, qu] = await Promise.allSettled([
-      fetchJson('/api/market/overview'),
+      loadOverview(),
       fetchJson('/api/market/sources'),
       fetchJson('/api/market/data-quality'),
     ])
-    if (ov.status === 'fulfilled') {
-      overview.value = ov.value
-    } else {
-      console.warn('[market] overview 加载失败', ov.reason)
-      loadError.value = '数据加载失败，请稍后重试'
+    if (ov.status === 'rejected') {
+      // loadOverview 内部已 console.warn + set loadError
+      console.warn('[market] overview rejected:', ov.reason)
     }
     if (src.status === 'fulfilled') {
       sources.value = src.value
@@ -1042,6 +1058,14 @@ onMounted(async () => {
   // 阅读进度 + KPI 数字动画
   window.addEventListener('scroll', _onScrollForProgress, { passive: true })
   _onScrollForProgress()
+  // 2026-07-31: 省份变化时重拉 overview — 覆盖三个触发源:
+  //   1) requestGeoLocation 完成后赋值 userProvince.value (GPS 或缓存命中)
+  //   2) 用户手动改 dropdown (v-model)
+  //   3) 未来其他场景设 userProvince
+  watch(userProvince, async (newVal, oldVal) => {
+    if (newVal === oldVal) return
+    await loadOverview()
+  })
   const stopWatch = watch(
     () => [overview.value?.cities_count, overview.value?.breeds_count, overview.value?.total_records],
     (vals) => {
