@@ -27,7 +27,7 @@ _PKG = _HERE.parent
 if str(_PKG) not in sys.path:
     sys.path.insert(0, str(_PKG))
 
-from gov_price_normalization.layers import units, periods  # noqa: E402
+from gov_price_normalization.layers import units, periods, cross_city  # noqa: E402
 from gov_price_normalization.utils import data_loader  # noqa: E402
 
 
@@ -60,6 +60,33 @@ def cmd_meta(args):
     print(str(data_loader.data_dir()))
 
 
+def cmd_cross_canonicalize(args):
+    """L4 单条查表：breed_clean → canonical 元信息"""
+    hit = cross_city.canonicalize(args.breed_clean, city=args.city)
+    if hit is None:
+        print(json.dumps(
+            {"breed_clean": args.breed_clean, "hit": False, "fallback": args.breed_clean,
+             "source": "raw_fallback"},
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        print(json.dumps({"hit": True, **hit}, ensure_ascii=False, indent=2))
+
+
+def cmd_cross_expand(args):
+    """L4 反向索引：canonical_breed → 全部 breed_clean"""
+    cities = args.cities.split(",") if args.cities else None
+    out = cross_city.expand_to_cities(args.canonical, cities=cities)
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+
+
+def cmd_cross_align_spec(args):
+    """L4 跨城 spec attr 对齐（v0.3 占位透传）"""
+    spec = json.loads(args.spec)
+    out = cross_city.align_spec_across_cities(spec, cities=args.cities.split(",") if args.cities else None)
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+
+
 def main():
     ap = argparse.ArgumentParser(description="单独跑某一层的输出")
     sub = ap.add_subparsers(dest="layer", required=True)
@@ -90,6 +117,22 @@ def main():
     # meta
     m = sub.add_parser("meta", help="看数据表元信息")
     m.set_defaults(func=cmd_meta)
+
+    # cross_city (L4)
+    cc = sub.add_parser("cross-city", help="L4 跨城映射层")
+    ccsub = cc.add_subparsers(dest="action", required=True)
+    c1 = ccsub.add_parser("canonicalize", help="breed_clean → canonical 元信息")
+    c1.add_argument("--breed-clean", required=True)
+    c1.add_argument("--city", default=None, help="可选上下文")
+    c1.set_defaults(func=cmd_cross_canonicalize)
+    c2 = ccsub.add_parser("expand", help="canonical_breed → 全部 breed_clean")
+    c2.add_argument("--canonical", required=True)
+    c2.add_argument("--cities", default=None, help="可选，逗号分隔（如 xian,sichuan）")
+    c2.set_defaults(func=cmd_cross_expand)
+    c3 = ccsub.add_parser("align-spec", help="跨城 spec attr 对齐（v0.3 占位）")
+    c3.add_argument("--spec", required=True, help="JSON 字符串，如 '{\"grade\":\"HPB300\"}'")
+    c3.add_argument("--cities", default=None)
+    c3.set_defaults(func=cmd_cross_align_spec)
 
     args = ap.parse_args()
     args.func(args)

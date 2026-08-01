@@ -16,6 +16,7 @@ from typing import Optional
 from .layers import units as L_units
 from .layers import periods as L_periods
 from .layers import fields as L_fields
+from .layers import cross_city as L_cross
 
 log = logging.getLogger(__name__)
 
@@ -131,13 +132,51 @@ def normalize_doc(doc: dict, city: str, *, l3_code: Optional[str] = None, strict
             log.warning("[pipeline] L2 price normalize failed: doc=%s err=%s", doc.get("_id", "?"), e)
             out["price_norm"] = None
 
-    # ── L4：Phase C 占位 ──────────────────────────────────────────────────
-    norm_status["L4_cross_city"] = "phase_c_pending"
+    # ── L4：跨城映射（v0.3 解锁 Phase C）────────────────────────────────
+    # 查表键：优先 breed_clean（清洗后），退化到 breed（原始）
+    # 命中：拿 canonical 行的 normalized_breed + l3_code + source + confidence
+    # 未命中：野生品种 → normalized_breed = 原始 breed_clean（或 breed）,
+    #         _canonical_source='raw_fallback'（后续 AI 规范化累积覆盖）
+    # 失败降级：DB 异常 → 当 raw_fallback 处理，不阻断整流程
+    try:
+        _breed_key = (doc.get("breed_clean") or doc.get("breed") or "").strip()
+        _hit = L_cross.canonicalize(_breed_key, city=city)
+        if _hit:
+            out["normalized_breed"] = _hit["normalized_breed"]
+            out["_canonical_source"] = _hit["source"]
+            out["_l3_code"] = _hit.get("l3_code")
+            out["_canonical_confidence"] = _hit.get("confidence", 0.0)
+            norm_status["L4_cross_city"] = "ok"
+        elif _breed_key:
+            # 野生品种：raw_fallback
+            out["normalized_breed"] = _breed_key
+            out["_canonical_source"] = "raw_fallback"
+            out["_l3_code"] = None
+            out["_canonical_confidence"] = 0.0
+            norm_status["L4_cross_city"] = "skipped_raw_fallback"
+        else:
+            # 无 breed 信息
+            out["normalized_breed"] = None
+            out["_canonical_source"] = None
+            out["_l3_code"] = None
+            out["_canonical_confidence"] = 0.0
+            norm_status["L4_cross_city"] = "skipped_empty"
+    except Exception as e:
+        # DB 异常已由 canonicalize 内部 try 兜底；这里是 belt-and-suspenders
+        norm_status["L4_cross_city"] = f"error: {e}"
+        if strict:
+            raise
+        log.warning("[pipeline] L4 cross_city failed: doc=%s err=%s", doc.get("_id", "?"), e)
+        _breed_key = (doc.get("breed_clean") or doc.get("breed") or "").strip()
+        out["normalized_breed"] = _breed_key or None
+        out["_canonical_source"] = "raw_fallback"
+        out["_l3_code"] = None
+        out["_canonical_confidence"] = 0.0
 
     out["_norm"]["status"] = norm_status
     out["_norm"]["city"] = city
     out["_norm"]["l3_code"] = l3_code
-    out["_norm"]["version"] = "0.2.0"
+    out["_norm"]["version"] = "0.3.0"
     return out
 
 

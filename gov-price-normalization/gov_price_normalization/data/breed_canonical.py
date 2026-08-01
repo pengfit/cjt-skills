@@ -124,6 +124,88 @@ def get_canonical_batch(breed_cleans: list) -> dict:
         return {bc: _cache.get(bc) for bc in breed_cleans if bc}
 
 
+# 反向索引缓存：normalized_breed → [breed_clean, ...]
+_inverse_cache: Optional[dict] = None
+
+
+def _load_inverse_map() -> dict:
+    """全量加载反向索引：normalized_breed → {breed_clean: row}
+
+    多对一合并：一个 normalized_breed 对应多个 breed_clean（如「热轧带肋钢筋」←
+    「HRB400」「螺纹钢」「带肋钢筋」等跨城/跨期归一）。进程内缓存。
+    """
+    con = _connect_readonly()
+    try:
+        cur = con.execute(
+            "SELECT breed_clean, normalized_breed, l3_code, confidence, source "
+            "FROM breed_canonical"
+        )
+        out: dict = {}
+        for row in cur.fetchall():
+            nb = row["normalized_breed"]
+            out.setdefault(nb, {})[row["breed_clean"]] = {
+                "breed_clean": row["breed_clean"],
+                "normalized_breed": row["normalized_breed"],
+                "l3_code": row["l3_code"],
+                "confidence": float(row["confidence"]) if row["confidence"] is not None else 0.0,
+                "source": row["source"],
+            }
+        return out
+    finally:
+        con.close()
+
+
+def get_breeds_by_canonical(canonical_breed: str) -> dict:
+    """反向索引：canonical_breed → {breed_clean: row}
+
+    用于 L4 cross_city 跨城/跨期同义品种展开。例如：
+        get_breeds_by_canonical("热轧带肋钢筋")
+        → {"HRB400": {...}, "螺纹钢": {...}, "带肋钢筋": {...}}
+
+    Returns:
+        dict（空 dict 表示该 canonical_breed 无任何已知 breed_clean）
+    """
+    if not canonical_breed:
+        return {}
+    global _inverse_cache
+    with _lock:
+        if _inverse_cache is None:
+            _inverse_cache = _load_inverse_map()
+        return dict(_inverse_cache.get(canonical_breed, {}))
+
+
+def search_canonical(q: str, limit: int = 10) -> list:
+    """模糊查：breed_clean OR normalized_breed LIKE %q%
+
+    用于 L4 跨城归一的「casual 名」fallback（如「盘螺」「HRB400」）：
+    直接 canonicalize() 查不到时，退到这里 SQL LIKE 找候选。
+
+    Args:
+        q: 用户搜索词（casual 名 / 部分名）
+        limit: 返回候选数上限
+
+    Returns:
+        list of row dict,按 confidence DESC + breed_clean ASC 排序。
+        空列表表示无候选（调用方走 wildcard 兜底）。
+    """
+    q = (q or "").strip()
+    if not q:
+        return []
+    like = f"%{q}%"
+    con = _connect_readonly()
+    try:
+        cur = con.execute(
+            "SELECT breed_clean, normalized_breed, l3_code, confidence, source "
+            "FROM breed_canonical "
+            "WHERE breed_clean LIKE ? OR normalized_breed LIKE ? "
+            "ORDER BY confidence DESC, breed_clean ASC LIMIT ?",
+            (like, like, int(limit)),
+        )
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        con.close()
+
+
 def get_stats() -> dict:
     """汇总统计：总条数 / distinct / by source / by l3"""
     con = _connect_readonly()
@@ -158,9 +240,15 @@ def get_stats() -> dict:
 
 def clear_cache() -> None:
     """清缓存。DB 内容被外部更新后调一次（重建 NORM 前/后）"""
-    global _cache
+    global _cache, _inverse_cache
     with _lock:
         _cache = None
+        _inverse_cache = None
+
+
+def has_cache() -> bool:
+    """是否已加载缓存（debug 用）"""
+    return _cache is not None
 
 
 def has_cache() -> bool:
@@ -172,6 +260,8 @@ __all__ = [
     "DB_PATH",
     "get_canonical",
     "get_canonical_batch",
+    "get_breeds_by_canonical",
+    "search_canonical",
     "get_stats",
     "clear_cache",
     "has_cache",
