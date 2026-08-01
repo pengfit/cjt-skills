@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.skill_registry import get_all as _registry_get_all
 from api.routes.norm_trend import norm_price_trend as _norm_price_trend_inner  # 2026-07-28: /market 双卡片复用 /trend 的 NORM 取数逻辑
+from api.normalization_bridge import cross_city as L_cross  # 2026-08-01: L4 跨城归一（Roadmap Phase C 解锁）
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
@@ -1511,19 +1512,77 @@ def breed_search(
         if not norm_list:
             return {"results": [], "total_breeds": 0, "matched_docs": 0, "query": q, "province": province, "city": city or ""}
 
+    # ── 2026-08-01: L4 跨城归一接入（v0.3.1 2-step fallback）─────────────
+    # Step 1: 精确查 canonicalize(q)
+    # Step 2: miss → 模糊查 search_canonical(q) 拿候选 → 取 top-1 canonicalize
+    # Step 3: 兜底 wildcard *q* 模糊查,兼容野生品种
+    # 任何一步异常 / miss 都不阻断,降级到下一步
     import re
+    canonical_hit = L_cross.canonicalize(q)
+    resolved_via = "wildcard_fallback"
+    canonical_breed_out = None
+    grouped_breed_cleans = []
+    if canonical_hit:
+        # Step 1: 精确命中
+        canonical_breed = canonical_hit["normalized_breed"]
+        expanded = L_cross.expand_to_cities(canonical_breed)
+        breed_cleans = expanded["breed_cleans"]
+        if breed_cleans:
+            # dual filter: L4 精确 join (breed_clean in [...]) + 兼容 NORM 旧数据 (normalized_breed == canonical)
+            # 不加 normalized_breed 精确的话,NORM 索引里只匹配 26 docs / 425 docs (regression 漏 399)
+            filter_clause = {
+                "bool": {
+                    "should": [
+                        {"terms": {"breed_clean": breed_cleans}},
+                        {"term": {"normalized_breed.keyword": canonical_breed}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }
+            resolved_via = "l4_canonical_exact"
+            canonical_breed_out = canonical_breed
+            grouped_breed_cleans = breed_cleans
+        else:
+            filter_clause = {"term": {"normalized_breed.keyword": canonical_breed}}
+            resolved_via = "l4_canonical_exact_term"
+            canonical_breed_out = canonical_breed
+    else:
+        # Step 2: 模糊查找候选
+        try:
+            candidates = L_cross.search_canonical(q, limit=5)
+        except Exception:
+            candidates = []
+        if candidates:
+            top = candidates[0]
+            top_norm = top["normalized_breed"]
+            expanded = L_cross.expand_to_cities(top_norm)
+            breed_cleans = expanded["breed_cleans"]
+            if breed_cleans:
+                filter_clause = {
+                    "bool": {
+                        "should": [
+                            {"terms": {"breed_clean": breed_cleans}},
+                            {"term": {"normalized_breed.keyword": top_norm}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                }
+                resolved_via = "l4_canonical_fuzzy"
+                canonical_breed_out = top_norm
+                grouped_breed_cleans = breed_cleans
+            else:
+                filter_clause = {"term": {"normalized_breed.keyword": top_norm}}
+                resolved_via = "l4_canonical_fuzzy_term"
+                canonical_breed_out = top_norm
+        else:
+            # Step 3: 兜底 wildcard
+            filter_clause = {"wildcard": {"normalized_breed.keyword": f"*{re.escape(q)}*"}}
+
     body = {
         "size": 0,
         "aggs": {
             "matched_breeds": {
-                "filter": {
-                    "wildcard": {
-                        # ES wildcard query 语法是 *  (regexp query 才是 .*)
-                        # 实测: *PP-R* 返 34 命中, .*PP-R.* 返 0
-                        # 用 *q* + re.escape 防用户输入的正则元字符被当通配符
-                        "normalized_breed.keyword": f"*{re.escape(q)}*"
-                    }
-                },
+                "filter": filter_clause,
                 "aggs": {
                     "breeds": {
                         "terms": {"field": "normalized_breed.keyword", "size": limit},
@@ -1580,6 +1639,10 @@ def breed_search(
             "matched_docs": matched["doc_count"],
             "query": q,
             "province": province or "",
+            # 2026-08-01: L4 接入标记
+            "resolved_via": resolved_via,
+            "canonical_breed": canonical_breed_out,
+            "grouped_breed_cleans": grouped_breed_cleans,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
