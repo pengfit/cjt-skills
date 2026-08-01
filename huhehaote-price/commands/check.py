@@ -74,7 +74,9 @@ def main():
         items = fetch_all_periods(cfg)
         journal_kw = cfg.get('journal_keyword', '')
         if journal_kw:
-            items = [it for it in items if journal_kw in it['title']]
+            # 兼容 str（如 '' / '信息价'）和 list（如 ['信息价', '造价信息']）两种写法
+            keywords = journal_kw if isinstance(journal_kw, list) else [journal_kw]
+            items = [it for it in items if any(kw in it['title'] for kw in keywords)]
         if items:
             items_sorted = sorted(items, key=lambda x: x.get('publish_date', ''), reverse=True)
             site_latest = items_sorted[0].get('publish_date', '')
