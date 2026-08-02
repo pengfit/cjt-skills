@@ -1,6 +1,6 @@
 {
-  "total_records": 430782,
-  "breeds_count": 8317,
+  "total_records": 445803,
+  "breeds_count": 8184,
   "cities_count": 160,
   "latest_period_end": "2026-07-31",
   "github_stars": 0,
@@ -8,9 +8,9 @@
   "latest_period_end_ms": 1785456000000,
   "github_forks": 0,
   "github_description": "采价通",
-  "generated_at": "2026-08-01T01:32:21.694Z",
+  "generated_at": "2026-08-01T10:13:08.934Z",
   "repo_url": "https://github.com/pengfit/cjt-skills",
   "cities_count_label": "160 城",
-  "breeds_count_label": "8,317 跨城归一品类",
-  "total_records_label": "430,782 条材料数据"
+  "breeds_count_label": "8,184 跨城归一品类",
+  "total_records_label": "445,803 条材料数据"
 }

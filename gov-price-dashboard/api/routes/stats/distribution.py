@@ -57,6 +57,8 @@ def province_ranges(
                         "range": {
                             "field": "price",
                             "ranges": [
+                                {"key": "0",         "to": 0.01},            # 2026-08-01: price=0 / 缺失档
+                                {"key": "0-50",      "from": 0.01, "to": 50},
                                 {"key": "50-100",    "from": 50,  "to": 100},
                                 {"key": "100-200",   "from": 100, "to": 200},
                                 {"key": "200-500",   "from": 200, "to": 500},

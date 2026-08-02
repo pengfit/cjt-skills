@@ -12,6 +12,8 @@
 不依赖：其它层、ETL、ES
 """
 from __future__ import annotations
+import re
+import unicodedata
 from typing import Optional
 from ..utils.data_loader import load_json
 from ..utils.errors import UnknownUnitError, DimensionMismatchError
@@ -35,19 +37,16 @@ def parse_unit(unit_str: Optional[str]) -> dict:
     """解析单位字符串。
 
     Args:
-        unit_str: 原始单位字符串（可能含空格或变体，如 "kg "、"M3"、"立方米"）
+        unit_str: 原始单位字符串（含变体、OCR 错误、数字连写等）
 
     Returns:
         dict: {raw, dim, to_base, base, normalized}；未知单位抛 UnknownUnitError
               空字符串 → {raw:'', dim:None, to_base:1.0, base:'', normalized:''}
 
-    Examples:
-        >>> parse_unit("kg")
-        {'raw': 'kg', 'dim': 'mass', 'to_base': 1.0, 'base': 'g', 'normalized': 'kg'}
-        >>> parse_unit("t")
-        {'raw': 't', 'dim': 'mass', 'to_base': 1000000.0, 'base': 'g', 'normalized': 't'}
-        >>> parse_unit("")
-        {'raw': '', 'dim': None, 'to_base': 1.0, 'base': '', 'normalized': ''}
+    兼容增量 (2026-08-01):
+      - PDF OCR 全角 → 半角 (NFKC normalize): ｔ→t, １→1, １０个→10个
+      - 数字+单位连写 → 拆数字: 10个→个, 100套→套, 1.5米→米
+      - 中文变体 alias: 立方米→m³, 公斤→kg 等
     """
     if unit_str is None or unit_str == "":
         return {"raw": "", "dim": None, "to_base": 1.0, "base": "", "normalized": ""}
@@ -63,19 +62,59 @@ def parse_unit(unit_str: Optional[str]) -> dict:
         "千米": "km", "公里": "km",
         "公分": "cm",
         "公厘": "mm",
+        # 2026-08-01: ASCII 上下标变体 (PDF OCR 误识别)
+        "m2": "m²", "m3": "m³",
+        # 2026-08-01: 大小写变体 (柴油类常用 lowercase 'l',但表里是 'L')
+        "l": "L", "L": "L",
+        # 2026-08-01: 复合单位归一
+        "m2/m": "m", "m²/m": "m",  # 面积/长度 = 长度
     }
-    normalized = alias.get(raw, raw)
     table = _units_table()
-    if normalized not in table:
-        raise UnknownUnitError(f"未知单位: {raw!r}", raw=raw, field="unit")
-    info = table[normalized]
-    return {
-        "raw": raw,
-        "dim": info["dim"],
-        "to_base": info["to_base"],
-        "base": info["base"],
-        "normalized": normalized,
-    }
+    # 多级 normalize 候选序列（按优先级）:
+    #   1. raw 本身
+    #   2. NFKC (全角 → 半角): ｔ→t, １→1, １０个→10个
+    #   3. 去内部空格: 千 块 → 千块
+    #   4. 去括号内容: 箱（305米） → 箱
+    #   5. 去元/前缀 (价格漏到 unit): 元/m2 → m2
+    #   6. 数字前缀剥离 (含小数 + 连字符): 10个→个, 100套→套, 10-15杆→杆
+    #   7. 组合: NFKC+空格/NFKC+括号/NFKC+元/NFKC+数字
+    candidates = [raw]
+    seen = {raw}
+    queue = [raw]
+    while queue:
+        s = queue.pop(0)
+        # 1. NFKC
+        nfkc = unicodedata.normalize('NFKC', s)
+        if nfkc not in seen:
+            seen.add(nfkc); candidates.append(nfkc); queue.append(nfkc)
+        # 2. 去内部空格
+        no_space = re.sub(r'\s+', '', s)
+        if no_space != s and no_space not in seen:
+            seen.add(no_space); candidates.append(no_space); queue.append(no_space)
+        # 3. 去括号内容
+        no_paren = re.sub(r'[（(].*?[)）]', '', s).strip()
+        if no_paren and no_paren != s and no_paren not in seen:
+            seen.add(no_paren); candidates.append(no_paren); queue.append(no_paren)
+        # 4. 去元/前缀
+        no_yuan = re.sub(r'^元[/／]?', '', s)
+        if no_yuan != s and no_yuan not in seen:
+            seen.add(no_yuan); candidates.append(no_yuan); queue.append(no_yuan)
+        # 5. 数字前缀剥离 (含小数 + 连字符)
+        no_digits = re.sub(r'^[\d\.\-]+\s*', '', s)
+        if no_digits and no_digits != s and no_digits not in seen:
+            seen.add(no_digits); candidates.append(no_digits); queue.append(no_digits)
+    for c in candidates:
+        normalized = alias.get(c, c)
+        if normalized in table:
+            info = table[normalized]
+            return {
+                "raw": raw,
+                "dim": info["dim"],
+                "to_base": info["to_base"],
+                "base": info["base"],
+                "normalized": normalized,
+            }
+    raise UnknownUnitError(f"未知单位: {raw!r}", raw=raw, field="unit")
 
 
 def convert_value(value: float, from_unit: str, to_unit: str) -> float:

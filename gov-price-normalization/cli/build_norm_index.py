@@ -150,6 +150,18 @@ def _normalize_doc(dws_doc: dict, city: str) -> dict:
     normed["canonical_period"] = normed.get("canonical_period")
     normed["canonical_unit"] = (normed.get("unit_norm") or {}).get("normalized")
     # 注意：l3_code 现在从 breed_canonical 查到了 → L1 attr 净化会走 L3 白名单收紧
+    # 2026-08-01: phantom 守卫 (治本)
+    # 防历史脏数据 / 旧版本 bug 写入缺字段 NORM doc
+    # 现象: phantom 有 breed+_dws_id 但无 price/spec/unit/county/period
+    # 修法: 验证三个核心业务字段同时为空 → return None 跳过
+    has_price = normed.get("price")
+    has_spec = normed.get("spec")
+    has_unit = normed.get("unit")
+    has_period = normed.get("period") or normed.get("period_start")
+    if not has_price and not has_spec and not has_unit and not has_period:
+        log.warning("[phantom guard] skip doc 3 essentials missing: breed=%s _dws_id=%s",
+                    normed.get("breed"), normed.get("_dws_id"))
+        return None
     return normed
 
 
@@ -232,20 +244,39 @@ def build_city(es, city: str, since: Optional[str] = None, dry_run: bool = False
                 err_samples.append(f"normalize: {e}")
             continue
 
+        # 2026-08-01: phantom 守卫返回 None → 跳过
+        if normed is None:
+            skipped += 1
+            continue
+
         # 2026-07-25 (P0-fix): 防止 None/0 价格污染跨城均价
         # 修复 bug:之前 DWS->NORM 允许 price 为 None 或 0 的数据落入 NORM,
         # 污染跨城归一均价、热力图涨跌幅、attr_norm 计算。
         # 2026-07-26 (P1-fix): OR → AND
         # 旧逻辑 OR 过于激进——6 城 DWS 无 tax_price 字段（默认 0）被 100% skip，
         # 但 price 字段值正常。改为双 0 才 skip（AND），单 0 视为「未含税」放行。
+        # 2026-08-01 (P2-fix): 移除硬过滤，改为标记
+        # 道友反馈：「规格为空的数据也应同步解析入库 norm index」
+        # 很多源 PDF 行 spec 为空（描述性材料），价格也留空。
+        # 之前 price=0 AND tax_price=0 会被 skip，导致 82k+ sichuan 文档不入 NORM。
+        # 改为：仍写 NORM，但加 _data_quality="incomplete" 标记，
+        # 让 dashboard 在统计均价/涨跌幅时可主动过滤。业务上能看见这些文档。
         _price_v = normed.get("price")
         _tax_v = normed.get("tax_price")
         if (
             (_price_v is None or not isinstance(_price_v, (int, float)) or _price_v <= 0)
             and (_tax_v is None or not isinstance(_tax_v, (int, float)) or _tax_v <= 0)
         ):
-            skipped += 1
-            continue
+            # 不再 skip，标记 incomplete 后仍写入 NORM
+            normed["_data_quality"] = "incomplete"
+            if scanned <= 5:
+                log.warning("[build_norm_index] incomplete doc (price=0 & tax_price=0): breed=%s spec=%s",
+                            normed.get("breed", "?"), normed.get("spec", "")[:30])
+        else:
+            normed["_data_quality"] = "complete"
+        # ← old code (kept for diff):
+        # skipped += 1
+        # continue
 
         if dry_run:
             if scanned <= 2:

@@ -20,10 +20,20 @@ import json
 import os
 import re
 import sys
+import logging
 
+# 2026-08-01: 治本验证模块 (兼容增量数据)
 from bs4 import BeautifulSoup
 import pdfplumber
 from urllib.parse import urljoin
+
+# 2026-08-01: 治本验证 logger (兼容增量数据)
+log = logging.getLogger(__name__)
+if not log.handlers:
+    h = logging.StreamHandler()
+    h.setFormatter(logging.Formatter('[%(name)s] %(levelname)s %(message)s'))
+    log.addHandler(h)
+log.setLevel(logging.WARNING)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
@@ -440,6 +450,11 @@ def parse_pdf(pdf_path):
                             seq = last_no or seq
                         else:
                             last_no, last_breed = seq, breed
+                        # 2026-08-01: 治本验证 (兼容增量数据)
+                        ok, reason = _validate_parsed_row(breed, unit, raw_price, table_kind='6col-mach')
+                        if not ok:
+                            _log_bad_row(reason, row, n_cols, '6col-mach')
+                            continue
                         out.append({
                             'no': seq,
                             'breed': breed,
@@ -468,6 +483,11 @@ def parse_pdf(pdf_path):
                             seq = last_no or seq
                         else:
                             last_no, last_breed = seq, breed
+                        # 2026-08-01: 治本验证 (兼容增量数据)
+                        ok, reason = _validate_parsed_row(breed, unit, raw_price, table_kind='7col-shrub')
+                        if not ok:
+                            _log_bad_row(reason, row, n_cols, '7col-shrub')
+                            continue
                         out.append({
                             'no': seq,
                             'breed': breed,
@@ -496,6 +516,11 @@ def parse_pdf(pdf_path):
                             seq = last_no or seq
                         else:
                             last_no, last_breed = seq, breed
+                        # 2026-08-01: 治本验证 (兼容增量数据)
+                        ok, reason = _validate_parsed_row(breed, unit, raw_price, table_kind='8col-tree')
+                        if not ok:
+                            _log_bad_row(reason, row, n_cols, '8col-tree')
+                            continue
                         out.append({
                             'no': seq,
                             'breed': breed,
@@ -524,6 +549,11 @@ def parse_pdf(pdf_path):
                             seq = last_no or seq
                         else:
                             last_no, last_breed = seq, breed
+                        # 2026-08-01: 治本验证 (兼容增量数据)
+                        ok, reason = _validate_parsed_row(breed, unit, raw_price, table_kind='9col-palm')
+                        if not ok:
+                            _log_bad_row(reason, row, n_cols, '9col-palm')
+                            continue
                         out.append({
                             'no': seq,
                             'breed': breed,
