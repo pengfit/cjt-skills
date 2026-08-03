@@ -7,19 +7,31 @@ description: "海南工程造价材料信息采集,从 `https://zjt.hainan.gov.c
 
 > 省份:海南 · 进度模式:`period` · 范围(6): 海南, 北部, 南部, 西部, 东部, 中部
 
-## v0.8.4 (2026-08-03) — 5/6 月不使用 OCR 解析
+## v0.8.6 (2026-08-03) — 撤回 v0.8.5，5/6 月回 OCR 路径
 
-道友要求：**海南 5月/6月期刊不调用 OCR 解析（rapidocr）**，直接跳过不入库。
+**v0.8.5 决策错误，撤回**。v0.8.5 让 5/6 月跳过 OCR 走 pdfplumber text，结果只抽到 139 行污染（编制说明/目录页的 price 单字段），而 ES 已有 6月 1154 条真数据（OCR 之前入库的热轧带肋钢筋等真规格真价格）。如果按 v0.8.5 继续 sync，139 行污染会按 `_doc_id` 哈希**覆盖掉 6月 1154 条真数据**。
 
-**改动**（`commands/hainan_collector.py`）：
-- `_process_one()` 在 `_is_image_pdf` 之后新增 period 判定：`month ∈ {5, 6}` → 返回 `(0, "skipped_ocr_disabled")`
-- PDF 仍上传 minio 留底（步骤 3 在前），后续人工或更强 OCR 可补
-- `import re` 已加（period regex 解析）
-- 与 `skipped_image_pdf` 平行：纯扫描型（< 10 字符/页）走 `skipped_image_pdf`，5/6 月图片版式（~387 字符/页）走 `skipped_ocr_disabled`
+**改回**（`commands/parser.py` + `commands/hainan_collector.py`）：
+- `parse_pdf(pdf_path)` 撤掉 period 参数，回 v0.8.3 签名
+- OCR fallback 逻辑恢复：`_is_image_heavy_pdf` 触发 → 无条件走 `_parse_pdf_with_ocr (rapidocr)`
+- collect 调用方回 `rows = _h.parse_pdf(local_pdf)`，不再传 period
+- v0.8.4 的 `skipped_ocr_disabled` 跳过逻辑也保持废弃（v0.8.5 撤了它，本次不恢复）
 
-**触发顺序**：minio 上传 → `_is_image_pdf`（纯扫描）→ period 判定（5/6 月）→ pdfplumber 解析
+**验证**：
+- ES 6月 1154 条真数据保留（未删、未覆盖）
+- 后续 sync 5/6 月仍走 OCR，能持续补/刷真数据
+- 5月 ES 当前 0 条，靠 OCR 补（v0.8.3 OCR 路径已就位）
 
-**与 v0.8.3 OCR fallback 关系**：parser.py 里的 `_parse_pdf_with_ocr` 暂保留，未删除。后续 7月+ 如果又回到图片版式，period 判定不命中（month ∉ {5, 6}），`_is_image_heavy_pdf` 仍会走 OCR。如未来所有图片版式都禁 OCR，可删除整个 OCR 分支。
+**经验教训**：
+- 改 sync 路径前**必须先查 ES 真实状态**（不是只看 dry-run stdout）
+- v0.8.5 是基于"139 行都是污染"假设，忽略了 OCR 已经成功入库的事实
+- 任何覆盖式同步（_doc_id upsert）前先确认旧数据是垃圾，否则会丢真数据
+
+## v0.8.4 (2026-08-03) — 5/6 月不使用 OCR 解析（已废）
+
+**已被 v0.8.5 撤掉**。v0.8.4 加了 `skipped_ocr_disabled` 让 5/6 月跳过入库（不解析），v0.8.5 让 5/6 月改走 pdfplumber text 路径（解析但 0 行），v0.8.6 把这两个都撤了，5/6 月回 OCR 路径。
+
+本节保留作变更历史。
 
 ## 数据流
 

@@ -56,7 +56,6 @@ def _resolve_etl_root():
 import argparse
 import json
 import os
-import re
 import sys
 import tempfile
 import time
@@ -245,17 +244,10 @@ class HainanCollector(SyncRunner):
                 print(f"  [skip] 检测到扫描图片 PDF，需 OCR 才能解析，跳过入库（PDF 已上传 minio 留底）")
                 return 0, "skipped_image_pdf"
 
-            # 4.5 海南 5/6 月期刊走图片版式（v0.8.4, 2026-08-03）
-            #     parser._parse_pdf_with_ocr（rapidocr）对这些期解析效果差，
-            #     道友要求：5/6 月不调用 OCR 解析，直接跳过不入库。
-            #     PDF 已上传 minio 留底（步骤 3），后续人工或更强 OCR 再补。
-            #     注意：必须在 _is_image_pdf 之后判定（纯扫描型 < 10 字符/页优先 skip）。
-            period_m = re.match(r"(\d{4})\.(\d{1,2})月", period)
-            if period_m and int(period_m.group(2)) in (5, 6):
-                print(f"  [skip] 海南 {period} 不使用 OCR 解析，跳过入库（PDF 已上传 minio 留底）")
-                return 0, "skipped_ocr_disabled"
-
-            # 5. pdfplumber 解析
+            # 5. pdfplumber 解析（v0.8.6 撤回 v0.8.5，5/6 月回 OCR 路径）
+            #    之前 v0.8.5 让 5/6 月跳过 OCR 走 pdfplumber text，结果只抽到 139 行
+            #    污染（编制说明/目录页的 price 单字段），与 ES 已有的 6月 1154 条真数据冲突。
+            #    撤回到 v0.8.3 行为：图片版 PDF 走 _parse_pdf_with_ocr (rapidocr)。
             rows = _h.parse_pdf(local_pdf)
             print(f"  parsed: {len(rows)} 行")
 
