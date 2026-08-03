@@ -56,6 +56,7 @@ def _resolve_etl_root():
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -85,20 +86,21 @@ from gov_price_etl.collectors.base import (  # noqa: E402
 )
 
 
-def _is_image_pdf(pdf_path: str, img_threshold: float = 10.0, samples: int = 5) -> bool:
-    """检测 PDF 是否为「表格在图片里」型 PDF（v0.8.2, 2026-07-06）。
+def _is_image_pdf(pdf_path: str, char_threshold: float = 10.0, samples: int = 5) -> bool:
+    """检测 PDF 是否为「纯图片扫描型」（无文字层，pdfplumber 抽不到）。
 
-    判定依据（组合指标，【平均图片数/页】为主）：
-      纯文本 PDF（4 月期）：平均 < 1 图/页
-      文字+图片混合 PDF（5 月期）：平均 ~90 图/页（表格被扫成图片）
-      纯扫描图片 PDF：平均 ~1 图/页 但总页数=图片数（即整页一张图）
+    2026-08-02 改为用【文字密度】作主信号：
+      纯文本 PDF（4 月期）：平均 ~数百字符/页
+      文字+图片混合 PDF（5/6 月期）：平均 ~387 字符/页（公章/水印/扫描底图，每页图很多但文字层完整）
+      纯扫描图片 PDF：平均 < 10 字符/页（整页一张图，文字层空）
 
-    主信号：平均图片数/页 ≥ img_threshold → 表格在图片里，pdfplumber 抽不到。
-      阈值依据：5 月 PDF 90 图/页，4 月 PDF < 1 图/页，阈值 10 能可靠区分。
+    主信号：平均字符/页 < char_threshold → 无文字层，pdfplumber 抽不到，跳过入库（留待 OCR）。
+      阈值依据：原版用图片数（阈值 10）误判 5/6 月（~104 图/页）为图片 PDF，实际能解析。
+      现改用文字密度，能可靠区分“纯扫描 vs 有文字层”。
 
     Returns:
-        True → 表格数据在图片里（应跳过入库，留待 OCR）
-        False → 可正常 pdfplumber 解析
+        True → 纯图片扫描 PDF（应跳过入库，留待 OCR）
+        False → 有文字层，pdfplumber 可正常解析
 
     Exceptions:
         静默吞掉异常返回 False（不阻塞正常 sync）。
@@ -110,9 +112,9 @@ def _is_image_pdf(pdf_path: str, img_threshold: float = 10.0, samples: int = 5) 
         if n == 0:
             return False
         sample_indices = [min(int(n * pct), n - 1) for pct in (0.2, 0.3, 0.5, 0.7, 0.8)]
-        total_imgs = sum(len(doc[i].get_images()) for i in sample_indices)
-        avg_imgs_per_page = total_imgs / len(sample_indices)
-        return avg_imgs_per_page >= img_threshold
+        total_chars = sum(len(doc[i].get_text() or '') for i in sample_indices)
+        avg_chars_per_page = total_chars / len(sample_indices)
+        return avg_chars_per_page < char_threshold
     except Exception:
         return False
 
@@ -242,6 +244,16 @@ class HainanCollector(SyncRunner):
             if _is_image_pdf(local_pdf):
                 print(f"  [skip] 检测到扫描图片 PDF，需 OCR 才能解析，跳过入库（PDF 已上传 minio 留底）")
                 return 0, "skipped_image_pdf"
+
+            # 4.5 海南 5/6 月期刊走图片版式（v0.8.4, 2026-08-03）
+            #     parser._parse_pdf_with_ocr（rapidocr）对这些期解析效果差，
+            #     道友要求：5/6 月不调用 OCR 解析，直接跳过不入库。
+            #     PDF 已上传 minio 留底（步骤 3），后续人工或更强 OCR 再补。
+            #     注意：必须在 _is_image_pdf 之后判定（纯扫描型 < 10 字符/页优先 skip）。
+            period_m = re.match(r"(\d{4})\.(\d{1,2})月", period)
+            if period_m and int(period_m.group(2)) in (5, 6):
+                print(f"  [skip] 海南 {period} 不使用 OCR 解析，跳过入库（PDF 已上传 minio 留底）")
+                return 0, "skipped_ocr_disabled"
 
             # 5. pdfplumber 解析
             rows = _h.parse_pdf(local_pdf)

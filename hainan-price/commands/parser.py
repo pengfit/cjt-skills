@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import logging
 
 # 2026-08-01: 治本验证模块 (兼容增量数据)
@@ -191,6 +192,50 @@ REGIONS = ['北部', '南部', '西部', '东部', '中部']
 RE_SECTION = re.compile(r'^\s*([一二三四五六七八九十]+)\s*[、,]\s*(\S[^.。\n]{1,30})')
 RE_PERIOD = re.compile(r'(\d{4})\s*年\s*(\d{1,2})\s*月')
 
+# 2026-08-03: OCR 章节标题污染过滤（治标过渡）
+# 5/6 月 PDF 是图片版式，rapidocr 经常把章节标题（"三、装配式建筑部品部件"等）
+# 误识别为数据行。下面 4 条规则可显著降低污染率。
+# 注意：rule4 (section_fullnames) 需要长名（>=4 字符）避免"玻璃"等短词误伤真数据。
+RE_SECTION_NUM = re.compile(r'^[一二三四五六七八九十]{1,3}\s*[、,\s]')
+_SECTION_FULL_NAMES = set(SECTION_PATTERNS.values())
+_SECTION_LONG_NAMES = {n for n in _SECTION_FULL_NAMES if len(n) >= 4}
+
+
+def _is_section_pollution(r: dict) -> str:
+    """判定 OCR 行是否为章节标题/页眉污染。返回 None=保留；否则返回原因标签。
+
+    规则（任一触发即视为污染）：
+      R0 页眉：breed/spec 含 "市场参考价"（页眉表标题）
+      R1 无序号：no 字段空（章节标题行 OCR 几乎都不认序号）
+      R2 数字前缀：breed/spec 以 "一、""二、""三、"… 开头
+      R3 精确等于：breed+spec 拼起来 = 章节名（短名如"钢材"/"玻璃"也命中）
+      R4 长名匹配：breed+spec 拼起来属于章节长名子串（>=4 字符，避免"玻璃"误伤）
+    """
+    breed = (r.get('breed') or '').strip()
+    spec = (r.get('spec') or '').strip()
+    no = (r.get('no') or '').strip()
+
+    # R0: 页眉
+    if '市场参考价' in spec or '市场参考价' in breed:
+        return 'R0_header'
+    # R1: 序号缺失（强信号）
+    if not no:
+        return 'R1_no_seq'
+    # R2: 数字前缀
+    if RE_SECTION_NUM.match(breed) or RE_SECTION_NUM.match(spec):
+        return 'R2_section_num'
+    # R3: 精确等于章节名
+    combined = (breed + spec).strip()
+    if combined in _SECTION_FULL_NAMES:
+        return 'R3_section_exact'
+    # R4: 长名子串（保底，避免"装配式建筑"等被拆分两列仍能识别）
+    if combined:
+        for sn in _SECTION_LONG_NAMES:
+            if combined.startswith(sn) or combined == sn:
+                return f'R4_long_name:{sn}'
+    return None
+
+
 
 def _is_price_cell(s):
     """判断是否是数字价格（排除百分号、说明文字等）"""
@@ -266,12 +311,335 @@ def _find_section_for_row(seq, text_lines, section_at_line, default):
     return section_at_line[max(candidates)]
 
 
+def _validate_parsed_row(breed, unit, raw_price, table_kind='5col-main'):
+    """行级数据校验 - 治本验证 (兼容增量数据)
+
+    2026-08-02: 5-col 分支已 inline 防御数字 breed / 数字 unit，本函数主要用于
+    6/7/8/9-col 分支（机具 / 苗木）。当前最小实现：只挡显然坏行（price 不可解析）。
+    返回 (ok, reason)。
+
+    Args:
+        breed: 品种名（str）
+        unit: 单位（str）
+        raw_price: 原始价格字符串（str）
+        table_kind: 表型 '5col-main' / '6col-mach' / '7col-shrub' / '8col-tree' / '9col-palm'
+
+    Returns:
+        (ok: bool, reason: str) - ok=True 表示通过；ok=False 时 reason 是简短原因。
+    """
+    # 通用检查：原始价格必须能解析为正数
+    if raw_price is None or str(raw_price).strip() == '':
+        return False, 'empty_raw_price'
+    if _parse_price(raw_price) is None:
+        return False, f'unparseable_price:{raw_price}'
+    # 5/6/7/8/9-col 都不应把数字写到 unit（除了 6-col-mach 可能允许）
+    if table_kind != '6col-mach' and unit and _is_price_cell(unit):
+        return False, f'unit_is_price:{unit}'
+    # breed 不应为纯数字（行号污染）
+    if breed and breed.isdigit() and len(breed) <= 4:
+        return False, f'breed_is_seq:{breed}'
+    return True, ''
+
+
+def _log_bad_row(reason, row, n_cols, table_kind):
+    """记录被 _validate_parsed_row 拒掉的行（2026-08-02 补）
+
+    原调用 _log_bad_row 但函数未定义，导致 6/7/8/9-col 分支 NameError。
+    当前最小实现：只写入 parser 模块 logger（WARNING），不抛异常。
+    """
+    try:
+        log.warning('bad_row table_kind=%s n_cols=%d reason=%s row=%r',
+                    table_kind, n_cols, reason, row)
+    except Exception:
+        # 最后保险：连 logger 都炸了就静默吞掉，不阻塞解析
+        pass
+
+
+# ─── OCR fallback（v0.8.3, 2026-08-03）────────────────────────────────────
+# 海南 5/6 月期刊改成图片版式（数据行只在图片里、文字层只有表头+说明），
+# pdfplumber extract_tables 找不到任何 5 列表，文字路径失效。
+# 解决：用 rapidocr（PyMuPDF 渲染 + ONNX 中文识别）逐页 OCR + 按 y-band 分行 +
+# 按 x 区间映射到 5 列。text PDF（1~4 月）继续走原路径，零回归。
+
+OCR_X_RANGES = {
+    'no':    (0,    80),    # 序号：左缘窄列，纯 1-3 位数字
+    'breed': (80,   400),   # 品种：中文为主
+    'spec':  (400,  1100),  # 规格：常多行，常带单位词
+    'unit':  (1100, 1350),  # 单位：常 1-3 字符（m/t/m²…），易漏识别
+    'price': (1350, 9999),  # 价格：最右，含小数
+}
+
+
+def _is_image_heavy_pdf(pdf_path: str) -> bool:
+    """检测 PDF 是否是图片版式（数据行不在文字层）。
+
+    双信号判断（任一触发即视为图片 PDF）：
+      1) 平均字符密度 < 600 字符/页（text 版 PDF ~1300 字符/页，图片版 ~390 字符/页）
+      2) 平均图片密度 > 10 张/页（text 版 0 张，图片版 ~90 张）
+    text 版 PDF（4月及更早）任一信号都不会触发；图片版（5月+）必触发至少一个。
+    """
+    try:
+        import fitz
+        doc = fitz.open(pdf_path)
+        try:
+            n = len(doc)
+            if n == 0:
+                return False
+            total_chars = 0
+            total_imgs = 0
+            for i in range(n):
+                page = doc[i]
+                total_chars += len(page.get_text() or '')
+                total_imgs += len(page.get_images(full=True))
+            avg_chars = total_chars / n
+            avg_imgs = total_imgs / n
+            return avg_chars < 600 or avg_imgs > 10
+        finally:
+            doc.close()
+    except Exception:
+        return False
+
+
+def _ocr_render_page(pdf_path: str, page_index: int, scale: float = 2.0) -> str:
+    """用 PyMuPDF 把指定页渲染成 PNG 临时文件,返回路径。"""
+    import fitz  # PyMuPDF
+    doc = fitz.open(pdf_path)
+    try:
+        page = doc[page_index]
+        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
+        fd, path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
+        pix.save(path)
+        return path
+    finally:
+        doc.close()
+
+
+def _ocr_extract_rows(img_path: str) -> list:
+    """rapidocr 识别页面图片 → 按 y-band 分行 → 按 x 区间映射到 5 列 → 产出 rows。
+
+    Returns:
+        [{'no': str, 'breed': str, 'spec': str, 'unit': str, 'price': float}, ...]
+        price 已转为 float；其余字段为字符串（空字符串表示该列 OCR 未识别到）。
+    """
+    from rapidocr_onnxruntime import RapidOCR
+    engine = RapidOCR()
+    result = engine(img_path)
+    if not result or not result[0]:
+        return []
+
+    items = []
+    for item in result[0]:
+        # 兼容不同版本：(box, text, conf) 或 (box, text)
+        if len(item) == 3:
+            box, text, conf = item
+        else:
+            box, text = item[0], item[1]
+            conf = 1.0
+        try:
+            conf = float(conf)
+        except Exception:
+            conf = 1.0
+        if conf < 0.4:
+            continue
+        x_coords = [pt[0] for pt in box]
+        y_coords = [pt[1] for pt in box]
+        items.append({
+            'x_min': min(x_coords),
+            'x_max': max(x_coords),
+            'y_center': (min(y_coords) + max(y_coords)) / 2,
+            'text': str(text).strip(),
+            'conf': conf,
+        })
+    if not items:
+        return []
+
+    # 1. 按 y-band 分行（同 row 中心 y 差 < 15 px）
+    items.sort(key=lambda x: (x['y_center'], x['x_min']))
+    rows = []
+    current = []
+    last_y = -1000
+    for it in items:
+        if it['y_center'] - last_y > 15 and current:
+            rows.append(current)
+            current = []
+        current.append(it)
+        last_y = it['y_center']
+    if current:
+        rows.append(current)
+
+    # 2. 过滤表头/说明行 + 按 x 区间映射到列
+    data_rows = []
+    for row_blocks in rows:
+        all_text = ' '.join(b['text'] for b in row_blocks)
+        # 表头（同时含"材料名称"+"规格型号" 或 "除税价"+"区域"）
+        if ('材料名称' in all_text and '规格型号' in all_text):
+            continue
+        if '除税价' in all_text and len(row_blocks) <= 6:
+            continue
+        # 说明/编制/标准 → 跳过
+        if any(kw in all_text for kw in ['执行标准', '说明：', '注：', '编制说明', '除税价']):
+            continue
+
+        col = {'no': '', 'breed': '', 'spec': '', 'unit': '', 'price': ''}
+        for b in row_blocks:
+            x = (b['x_min'] + b['x_max']) / 2
+            t = b['text']
+            # 价格优先：x > 1350 且为正数
+            if x > 1350:
+                p = _parse_price(t)
+                if p is not None:
+                    col['price'] = t
+                    continue
+            # 序号：x < 80 且为 1-3 位数字
+            if x < 80 and re.match(r'^\d{1,3}$', t):
+                col['no'] = t
+                continue
+            # 按 x 区间分配
+            if x < 400:
+                col['breed'] += (t + ' ')
+            elif x < 1100:
+                col['spec'] += (t + ' ')
+            elif x < 1350:
+                col['unit'] += t
+            else:
+                # 右半边非数字文字 → 归 spec（防漏）
+                col['spec'] += (t + ' ')
+
+        col['breed'] = col['breed'].strip()
+        col['spec'] = col['spec'].strip()
+        col['unit'] = col['unit'].strip()
+
+        price = _parse_price(col['price'])
+        if price is None:
+            continue
+        if not col['breed'] and not col['spec']:
+            continue
+
+        col['price'] = price
+        data_rows.append(col)
+
+    return data_rows
+
+
+def _parse_pdf_with_ocr(pdf_path: str) -> list:
+    """对整个 PDF 走 OCR 路径,逐页渲染+识别,产出 ODS 格式 rows。
+
+    与 text 版 parse_pdf 返回结构完全一致（多带 period 字段）。
+    """
+    import fitz
+
+    out = []
+    doc = fitz.open(pdf_path)
+    try:
+        for pi in range(len(doc)):
+            page = doc[pi]
+            page_text = page.get_text() or ''
+
+            # 跳过目录/说明页
+            if '目 录' in page_text[:50] or '编制说明' in page_text[:100]:
+                continue
+
+            # category / region
+            category = ''
+            region = '全省'
+            if '主要材料市场参考价' in page_text:
+                category = '主要材料'
+                for r in REGIONS:
+                    if f'{r}区域' in page_text:
+                        region = r
+                        break
+            elif '施工机具' in page_text or '机具' in page_text:
+                category = '施工机具与周转材料'
+                region = '全省'
+            elif '苗木' in page_text:
+                category = '园林绿化苗木'
+                region = '全省'
+
+            # period（多数页文字层不携带，从 current_period 缓存）
+            m_p = RE_PERIOD.search(page_text)
+            if m_p:
+                current_period = f'{m_p.group(1)}.{int(m_p.group(2))}月'
+            if 'current_period' not in locals():
+                current_period = ''
+
+            # 章节识别（来自文字层）
+            text_lines = page_text.split('\n')
+            section_at_line = {}
+            for li, line in enumerate(text_lines):
+                m = re.match(r'^\s*([一二三四五六七八九十]+)\s*[、,]\s*(\S.+?)$', line)
+                if m:
+                    sec_name = m.group(2).strip()
+                    sec_name = re.sub(r'\s+', '', sec_name)
+                    matched = None
+                    for key, val in SECTION_PATTERNS.items():
+                        if key.replace(' ', '').replace('、', '').startswith(sec_name[:4]) or sec_name.startswith(val[:4]):
+                            matched = val
+                            break
+                    if not matched and 2 <= len(sec_name) <= 20:
+                        matched = sec_name
+                    if matched:
+                        section_at_line[li] = matched
+
+            # 渲染 + OCR
+            img_path = _ocr_render_page(pdf_path, pi, scale=2.0)
+            try:
+                page_rows = _ocr_extract_rows(img_path)
+            finally:
+                try:
+                    os.unlink(img_path)
+                except Exception:
+                    pass
+
+            # 章节标题污染过滤（治标:图片版 OCR 误识别章节行为数据行）
+            filtered_rows = []
+            for r in page_rows:
+                if _is_section_pollution(r) is None:
+                    filtered_rows.append(r)
+            page_rows = filtered_rows
+
+            current_section = list(section_at_line.values())[-1] if section_at_line else ''
+            for r in page_rows:
+                out.append({
+                    'no': r['no'],
+                    'breed': r['breed'],
+                    'spec': r['spec'],
+                    'unit': r['unit'],
+                    'price': r['price'],
+                    'tax_price': round(r['price'] * (1 + VAT_RATE), 2),
+                    'remark': '',
+                    'region': region,
+                    'section': current_section,
+                    'category': category,
+                    'period': current_period or '',
+                })
+    finally:
+        doc.close()
+
+    # OCR 路径下 period 常空（多数页文字层没周期），用全 PDF 最后一个兜底
+    last_period = ''
+    for r in out:
+        if r['period']:
+            last_period = r['period']
+    if last_period:
+        for r in out:
+            if not r['period']:
+                r['period'] = last_period
+
+    return out
+
+
 def parse_pdf(pdf_path):
     """解析 PDF → 长表 [{...}]
 
     字段：no, breed, spec, unit, price, tax_price, remark,
           region, section, category
     """
+    # 2026-08-03: 图片型 PDF（5/6 月期刊）走 OCR fallback
+    if _is_image_heavy_pdf(pdf_path):
+        log.warning('[parser] image-heavy PDF detected, switching to OCR path: %s', pdf_path)
+        return _parse_pdf_with_ocr(pdf_path)
+
     out = []
     current_period = None
     current_region = None
@@ -405,6 +773,16 @@ def parse_pdf(pdf_path):
                             if seq and breed:
                                 pass  # 调试： print(f'skip 5col: {seq} {breed} {raw_price}')
                             continue
+                        # 2026-08-02 治本修复：PDF 实际列序可能是
+                        #   序号|规格(含材料名)|单位|不含税价|含税价
+                        # （没有独立"材料名称"列），导致 row[1] 实际是材料名前缀（数字/空），
+                        # row[3] 实际是不含税价（数字）。两处都做防御：
+                        # 1) breed 是纯数字 → 清空（不写入行号当品种名，让 L1 从 spec 提）
+                        # 2) unit 是数字 → 清空（不写入价格当单位）
+                        if breed.isdigit():
+                            breed = ''
+                        if _is_price_cell(unit):
+                            unit = ''
                         last_no, last_breed = seq, breed
                         out.append({
                             'no': seq,

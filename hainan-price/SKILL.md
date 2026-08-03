@@ -7,6 +7,20 @@ description: "海南工程造价材料信息采集,从 `https://zjt.hainan.gov.c
 
 > 省份:海南 · 进度模式:`period` · 范围(6): 海南, 北部, 南部, 西部, 东部, 中部
 
+## v0.8.4 (2026-08-03) — 5/6 月不使用 OCR 解析
+
+道友要求：**海南 5月/6月期刊不调用 OCR 解析（rapidocr）**，直接跳过不入库。
+
+**改动**（`commands/hainan_collector.py`）：
+- `_process_one()` 在 `_is_image_pdf` 之后新增 period 判定：`month ∈ {5, 6}` → 返回 `(0, "skipped_ocr_disabled")`
+- PDF 仍上传 minio 留底（步骤 3 在前），后续人工或更强 OCR 可补
+- `import re` 已加（period regex 解析）
+- 与 `skipped_image_pdf` 平行：纯扫描型（< 10 字符/页）走 `skipped_image_pdf`，5/6 月图片版式（~387 字符/页）走 `skipped_ocr_disabled`
+
+**触发顺序**：minio 上传 → `_is_image_pdf`（纯扫描）→ period 判定（5/6 月）→ pdfplumber 解析
+
+**与 v0.8.3 OCR fallback 关系**：parser.py 里的 `_parse_pdf_with_ocr` 暂保留，未删除。后续 7月+ 如果又回到图片版式，period 判定不命中（month ∉ {5, 6}），`_is_image_heavy_pdf` 仍会走 OCR。如未来所有图片版式都禁 OCR，可删除整个 OCR 分支。
+
 ## 数据流
 
 ```
